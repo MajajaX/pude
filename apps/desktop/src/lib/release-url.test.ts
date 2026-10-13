@@ -60,4 +60,11 @@ describe("desktop release stage and update entry", () => {
     expect(webRelease.getReleaseStage("1.0.0", "https://github.com/MajajaX/pude/releases/latest")).toBe("published");
     expect(webRelease.getReleaseStage("1.0.0", webRelease.getPublishedReleaseUrl("javascript:alert(1)"))).toBe("candidate");
   });
+
+  it("builds direct installer links for latest and tagged releases", () => {
+    expect(webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/latest", "pude-macos-arm64.dmg"))
+      .toBe("https://github.com/MajajaX/pude/releases/latest/download/pude-macos-arm64.dmg");
+    expect(webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/tag/v0.1.0", "pude-macos-arm64.dmg"))
+      .toBe("https://github.com/MajajaX/pude/releases/download/v0.1.0/pude-macos-arm64.dmg");
+  });
 });

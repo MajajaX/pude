@@ -2254,10 +2254,31 @@ kbd {
   margin-right: auto;
 }
 
-.cta .btn-primary {
+.cta-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-top: 42px;
+}
+
+.cta .btn-primary,
+.cta .btn-ghost {
   font-size: 16px;
   padding: 16px 36px;
+}
+
+.cta-note a,
+.footer-inner a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cta-note a:hover,
+.footer-inner a:hover {
+  color: var(--text);
 }
 
 .cta-note {

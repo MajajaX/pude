@@ -22,7 +22,7 @@ const en = {
     sub: "pude is a local-first desktop code editor built on Rust and Tauri. Open a folder, write, review Git, run a terminal — while the rest of your machine stays quiet.",
     ctaPrimary: "Get pude",
     ctaSecondary: "How it stays light",
-    note: "Windows 11 x64 · macOS 14+ Apple Silicon. Linux builds are planned.",
+    note: "macOS 14+ Apple Silicon · Windows 11 x64 coming soon · Linux planned.",
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
@@ -204,9 +204,11 @@ const en = {
   },
   cta: {
     title: "Pure code. Pure focus.",
-    sub: "Free and open source under the MIT License. Downloads open here once a verified release is published.",
-    button: "Open release and download",
-    note: "Download targets: Windows 11 x64 and macOS 14+ Apple Silicon arm64. Linux releases are planned.",
+    sub: "Free and open source under the MIT License.",
+    button: "Download for macOS",
+    github: "View on GitHub",
+    allReleases: "All releases and checksums",
+    note: "macOS 14+ on Apple Silicon. Windows 11 x64 is coming soon; Linux is planned.",
     unavailable: "Release downloads are not configured yet.",
     versionLabel: "Version",
     stages: {
@@ -240,7 +242,7 @@ const zhHant: Dict = {
     sub: "pude 是以 Rust 與 Tauri 打造的本地優先桌面程式碼編輯器。打開資料夾、寫程式、檢視 Git、執行終端機——其餘時間，讓你的電腦保持安靜。",
     ctaPrimary: "取得 pude",
     ctaSecondary: "它如何保持輕量",
-    note: "Windows 11 x64 · macOS 14+ Apple Silicon。Linux 版本規劃中。",
+    note: "macOS 14+ Apple Silicon · Windows 11 x64 即將推出 · Linux 規劃中。",
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
@@ -422,9 +424,11 @@ const zhHant: Dict = {
   },
   cta: {
     title: "純粹的程式碼，純粹的專注。",
-    sub: "以 MIT 授權免費開源。正式版本通過驗證並發布後，即可在這裡下載。",
-    button: "前往版本頁下載",
-    note: "下載目標平台：Windows 11 x64 與 macOS 14+ Apple Silicon arm64。Linux 版本規劃中。",
+    sub: "以 MIT 授權免費開源。",
+    button: "下載 macOS 版",
+    github: "在 GitHub 上查看",
+    allReleases: "所有版本與校驗碼",
+    note: "支援 Apple Silicon 的 macOS 14 以上版本。Windows 11 x64 版即將推出，Linux 版規劃中。",
     unavailable: "尚未設定版本下載入口。",
     versionLabel: "版本",
     stages: {

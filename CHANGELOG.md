@@ -4,10 +4,10 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-13
 
-The first public release of pude, a local-first desktop code editor for
-Windows 11 x64 and macOS 14+ on Apple Silicon.
+The first public release of pude, a local-first desktop code editor. This release
+ships for macOS 14+ on Apple Silicon; the Windows 11 x64 build follows.
 
 ### Editor
 

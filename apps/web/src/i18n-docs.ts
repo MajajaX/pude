@@ -140,7 +140,7 @@ const en: DocsDict = {
             t: "table",
             head: ["Platform", "Installer"],
             rows: [
-              ["Windows 11 x64", "`pude-windows-x64-setup.exe`"],
+              ["Windows 11 x64", "Coming soon"],
               ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
               ["Linux", "Planned"],
             ],
@@ -490,7 +490,7 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["平台", "安裝檔"],
             rows: [
-              ["Windows 11 x64", "`pude-windows-x64-setup.exe`"],
+              ["Windows 11 x64", "即將推出"],
               ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
               ["Linux", "規劃中"],
             ],

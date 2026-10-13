@@ -2,7 +2,7 @@ import { t } from "../i18n";
 import { reveal } from "../lib/reveal";
 import { scroll } from "../lib/scroll-progress";
 import packageInfo from "../../package.json";
-import { getPublishedReleaseUrl, getReleaseStage } from "../release-info";
+import { getAssetDownloadUrl, getPublishedReleaseUrl, getReleaseStage, MACOS_INSTALLER, REPOSITORY_URL } from "../release-info";
 import BrandMark from "./BrandMark";
 
 const releaseUrl = getPublishedReleaseUrl(import.meta.env.VITE_RELEASE_URL);
@@ -19,23 +19,28 @@ export default function Footer() {
         <div class="wrap" use:reveal>
           <h2 class="section-title">{t().cta.title}</h2>
           <p class="section-sub">{t().cta.sub}</p>
-          {releaseAvailable && releaseUrl ? (
-            <a class="btn-primary" href={releaseUrl}>
-              {t().cta.button}
-              <span aria-hidden="true">↓</span>
+          <div class="cta-actions">
+            {releaseAvailable && releaseUrl ? (
+              <a class="btn-primary" href={getAssetDownloadUrl(releaseUrl, MACOS_INSTALLER)}>
+                {t().cta.button}
+                <span aria-hidden="true">↓</span>
+              </a>
+            ) : (
+              <button
+                class="btn-primary"
+                type="button"
+                disabled
+                aria-describedby="download-availability"
+                title={t().cta.unavailable}
+              >
+                {t().cta.button}
+                <span aria-hidden="true">↓</span>
+              </button>
+            )}
+            <a class="btn-ghost" href={REPOSITORY_URL}>
+              {t().cta.github}
             </a>
-          ) : (
-            <button
-              class="btn-primary"
-              type="button"
-              disabled
-              aria-describedby="download-availability"
-              title={t().cta.unavailable}
-            >
-              {t().cta.button}
-              <span aria-hidden="true">↓</span>
-            </button>
-          )}
+          </div>
           <p class="cta-note cta-version">
             {t().cta.versionLabel} {packageInfo.version} · {t().cta.stages[releaseStage]}
           </p>
@@ -43,6 +48,11 @@ export default function Footer() {
             {t().cta.note}
             {!releaseAvailable && <> · {t().cta.unavailable}</>}
           </p>
+          {releaseAvailable && releaseUrl && (
+            <p class="cta-note">
+              <a href={releaseUrl}>{t().cta.allReleases}</a>
+            </p>
+          )}
         </div>
       </section>
       <footer class="footer">
@@ -52,6 +62,7 @@ export default function Footer() {
             {t().footer.tagline}
           </span>
           <span>{t().footer.built}</span>
+          <a href={REPOSITORY_URL}>GitHub</a>
         </div>
       </footer>
     </>

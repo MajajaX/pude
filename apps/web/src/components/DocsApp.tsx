@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, Index, onCleanup, onMount } from "solid-js";
 import { locale, localeHref, t, type DocBlock } from "../i18n-docs";
 import packageInfo from "../../package.json";
-import { getPublishedReleaseUrl, getReleaseStage } from "../release-info";
+import { getPublishedReleaseUrl, getReleaseStage, REPOSITORY_URL } from "../release-info";
 import { blockLineNumbers, blockSource } from "../lib/docs-source";
 import { scroll } from "../lib/scroll-progress";
 import BrandMark from "./BrandMark";
@@ -133,6 +133,9 @@ export default function DocsApp() {
         </div>
         <div class="ed-titlebar-right">
           <LanguageToggle page="docs" />
+          <a class="ed-back" href={REPOSITORY_URL}>
+            GitHub
+          </a>
           <a class="ed-back" href={homeHref()}>
             ← <span>{t().docsPage.back}</span>
           </a>

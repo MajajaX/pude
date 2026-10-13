@@ -1,5 +1,6 @@
 import { createSignal, onCleanup, onMount } from "solid-js";
 import { locale, localeHref, t } from "../i18n";
+import { REPOSITORY_URL } from "../release-info";
 import BrandMark from "./BrandMark";
 import LanguageToggle from "./LanguageToggle";
 
@@ -30,6 +31,7 @@ export default function Nav() {
           <a href="#architecture">{t().nav.architecture}</a>
           <a href="#philosophy">{t().nav.philosophy}</a>
           <a href={localeHref("docs", locale())}>{t().nav.docs}</a>
+          <a href={REPOSITORY_URL}>GitHub</a>
         </nav>
         <div class="nav-right">
           <LanguageToggle page="home" />

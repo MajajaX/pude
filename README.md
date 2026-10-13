@@ -55,8 +55,8 @@ Download the installer for your platform from
 
 | Platform | File |
 | --- | --- |
-| Windows 11 x64 | `pude-windows-x64-setup.exe` |
-| macOS 14+ (Apple Silicon) | `pude-macos-arm64.dmg` |
+| macOS 14+ (Apple Silicon) | [`pude-macos-arm64.dmg`](https://github.com/MajajaX/pude/releases/latest/download/pude-macos-arm64.dmg) |
+| Windows 11 x64 | Coming soon |
 
 Each release includes `SHA256SUMS.txt` so you can verify your download. pude never
 updates itself; to update, install the newer version. Linux builds are planned —
