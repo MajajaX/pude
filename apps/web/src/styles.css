@@ -2260,8 +2260,57 @@ kbd {
   justify-content: center;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 42px;
+  margin-top: 24px;
 }
+
+.download-selector {
+  display: inline-flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 32px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.download-selector button {
+  padding: 9px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.download-selector button[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.download-recommendation {
+  max-width: 620px;
+  margin: 16px auto 0;
+  min-height: 3.2em;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.download-links {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-top: 24px;
+  font-size: 13px;
+}
+
+.download-links a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.download-links a:hover { color: var(--text); }
 
 .cta .btn-primary,
 .cta .btn-ghost {

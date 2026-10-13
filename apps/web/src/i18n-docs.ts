@@ -140,14 +140,14 @@ const en: DocsDict = {
             t: "table",
             head: ["Platform", "Installer"],
             rows: [
-              ["Windows 11 x64", "Coming soon"],
+              ["Windows 11 x64", "`pude-windows-x64-setup.exe` (unsigned)"],
               ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
               ["Linux", "Planned"],
             ],
           },
           {
             t: "release-status",
-            available: "A published release is available from the download section on the home page.",
+            available: "The home page recommends an installer for your OS. Confirm Windows 11 x64 or macOS 14+ Apple Silicon when your browser hides version or CPU details; both installers remain available to choose manually.",
             unavailable: "No verified release download is configured yet. Downloads stay disabled until a release is published and verified.",
           },
           { t: "h3", text: "Verify a download" },
@@ -490,14 +490,14 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["平台", "安裝檔"],
             rows: [
-              ["Windows 11 x64", "即將推出"],
+              ["Windows 11 x64", "`pude-windows-x64-setup.exe`（未簽署）"],
               ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
               ["Linux", "規劃中"],
             ],
           },
           {
             t: "release-status",
-            available: "首頁下載區提供已發布版本。",
+            available: "首頁下載區會依作業系統推薦安裝檔。瀏覽器隱藏版本或處理器資訊時，請確認為 Windows 11 x64 或 macOS 14 以上 Apple Silicon；也能手動選擇兩種安裝檔。",
             unavailable: "尚未設定經核實的版本下載入口；正式版本發布並通過驗證前，下載入口會保持停用。",
           },
           { t: "h3", text: "驗證下載檔" },
