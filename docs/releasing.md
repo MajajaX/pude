@@ -81,9 +81,18 @@ Add `--platform macos` or `--platform windows` when only one installer is publis
 
 ## 5. Enable website downloads
 
-The website shows its download button only when it is built with a verified release
-URL:
+The website at https://pude.dev is deployed to Cloudflare Workers from
+[wrangler.jsonc](../wrangler.jsonc). It shows its download button only when it is
+built with a verified release URL. In the Cloudflare dashboard, add this build
+variable to the `pude-web` Worker and redeploy:
+
+```text
+VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/latest
+```
+
+To build and deploy from a local checkout instead:
 
 ```bash
 VITE_RELEASE_URL='https://github.com/MajajaX/pude/releases/latest' npm run web:build
+npx wrangler deploy
 ```

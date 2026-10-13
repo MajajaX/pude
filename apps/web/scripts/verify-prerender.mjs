@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const routes = [
   {
     file: "dist/index.html",
+    canonical: "https://pude.dev/",
     locale: "en",
     title: "Nothing else.",
     anchors: ["top", "showcase", "features", "architecture", "philosophy", "shortcuts", "download"],
@@ -12,6 +13,7 @@ const routes = [
   },
   {
     file: "dist/index.zh-Hant.html",
+    canonical: "https://pude.dev/index.zh-Hant",
     locale: "zh-Hant",
     title: "僅此而已",
     anchors: ["top", "showcase", "features", "architecture", "philosophy", "shortcuts", "download"],
@@ -20,6 +22,7 @@ const routes = [
   },
   {
     file: "dist/docs.html",
+    canonical: "https://pude.dev/docs",
     locale: "en",
     title: "Documentation",
     anchors: ["overview", "releases", "usage", "git", "terminal", "settings", "shortcuts", "plugins", "installation"],
@@ -28,6 +31,7 @@ const routes = [
   },
   {
     file: "dist/docs.zh-Hant.html",
+    canonical: "https://pude.dev/docs.zh-Hant",
     locale: "zh-Hant",
     title: "使用文件",
     anchors: ["overview", "releases", "usage", "git", "terminal", "settings", "shortcuts", "plugins", "installation"],
@@ -47,6 +51,9 @@ for (const route of routes) {
   assert.ok(html.includes(`href="${route.navigation}"`), `${route.file} should link to its localized counterpart page`);
   assert.ok(html.includes("rel=\"stylesheet\""), `${route.file} should include its stylesheet without JavaScript`);
   assert.ok(html.includes("_$HY"), `${route.file} should include the Solid hydration bootstrap`);
+  assert.ok(html.includes(`<link rel="canonical" href="${route.canonical}"`), `${route.file} should declare its canonical URL`);
+  assert.ok(html.includes(`<meta property="og:url" content="${route.canonical}"`), `${route.file} should share its canonical URL`);
+  assert.ok(html.includes(`<meta property="og:image" content="https://pude.dev/og-image.png"`), `${route.file} should include the social preview image`);
 
   for (const anchor of route.anchors) {
     assert.ok(html.includes(`id="${anchor}"`), `${route.file} should include the #${anchor} target`);

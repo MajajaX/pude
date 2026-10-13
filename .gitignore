@@ -20,6 +20,7 @@ __pycache__/
 # Local measurement outputs and agent workspaces.
 /docs/performance/
 .claude/
+.wrangler/
 
 # Local environment files. Keep the checked-in template visible.
 .env

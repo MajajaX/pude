@@ -1,0 +1,12 @@
+// Cloudflare Workers config for the pude.dev website (static assets only).
+// Build with `npm run web:build`, then deploy with `npx wrangler deploy`.
+{
+  "name": "pude-web",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./apps/web/dist",
+    // Serves docs.html at /docs and redirects /docs.html there.
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [{ "pattern": "pude.dev", "custom_domain": true }]
+}
