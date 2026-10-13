@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "datasetVersion": "pude-hot-path-v1",
+  "benchmarkPlan": {
+    "warmupSamples": 3,
+    "rounds": 3,
+    "samplesPerRound": 30,
+    "declaredProfile": "macos-arm64-node26",
+    "timingEnvelope": "pending-fixed-environment-calibration"
+  },
+  "dirtyEdit": {
+    "line": "const value = 0;\n",
+    "lineRepeat": 250000,
+    "expectedDocumentLength": 4250000,
+    "expectedLineCount": 250001,
+    "editNeedle": "0;\n",
+    "replacement": "1;\n"
+  },
+  "enterLineEnding": {
+    "line": "x\n",
+    "lineRepeat": 250000,
+    "finalLine": "x",
+    "markers": "lc",
+    "markerRepeat": 125000,
+    "preferred": "crlf",
+    "enterLineNumber": 125001,
+    "maxRetainedBytesAdded": 16384
+  },
+  "treeIndex": {
+    "directChildCount": 100000,
+    "changedChildIndex": 50000,
+    "lookupsPerSample": 1000,
+    "expectedFullBuilds": 1,
+    "expectedRowsUpdated": 2,
+    "expectedRowsFlattenedOnMetadataUpdate": 0,
+    "expectedDirectChildEntriesVisitedOnMetadataUpdate": 100000,
+    "expectedDirectChildEntriesComparedOnMetadataUpdate": 100000,
+    "expectedPathKeysComputedOnMetadataUpdate": 2
+  },
+  "recoveryCheckpoint": {
+    "documentCount": 12,
+    "documentChars": 65536,
+    "scope": "hot-path-v1-differential-checkpoint",
+    "changedDocumentIndex": 5,
+    "expectedChangedSnapshotPuts": 1,
+    "expectedUnchangedSnapshotPuts": 0,
+    "expectedChangedBaselinePuts": 0,
+    "maxChangedSnapshotPutUtf8Bytes": 66560
+  },
+  "lspBurst": {
+    "requestCounts": [200, 1000],
+    "eventsPerRequest": 2,
+    "eventOrder": ["publishDiagnostics", "response"],
+    "responseIdSequenceStartsAt": 1
+  }
+}

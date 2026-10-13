@@ -1,0 +1,46 @@
+{
+  "name": "pude",
+  "version": "0.1.0",
+  "private": true,
+  "author": "MajajaX",
+  "license": "MIT",
+  "description": "pude — pure code editor monorepo",
+  "homepage": "https://github.com/MajajaX/pude#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MajajaX/pude.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MajajaX/pude/issues"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0",
+    "npm": ">=10.9.0"
+  },
+  "workspaces": [
+    "apps/desktop",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run desktop:dev",
+    "build": "npm run desktop:build",
+    "preview": "npm run desktop:preview",
+    "test": "npm run desktop:test",
+    "tauri": "npm run tauri --workspace @pude/desktop --",
+    "tauri:dev": "npm run tauri:dev --workspace @pude/desktop --",
+    "tauri:build": "npm run tauri:build --workspace @pude/desktop --",
+    "desktop:dev": "npm run dev --workspace @pude/desktop --",
+    "desktop:build": "npm run build --workspace @pude/desktop --",
+    "desktop:preview": "npm run preview --workspace @pude/desktop --",
+    "desktop:test": "npm run test --workspace @pude/desktop --",
+    "release:macos": "bash scripts/release-macos.sh",
+    "release:verify-url": "node scripts/verify-published-release.mjs",
+    "release:tooling:self-test": "node scripts/self-test-release-tooling.mjs",
+    "web:dev": "npm run dev --workspace @pude/web --",
+    "web:build": "npm run build --workspace @pude/web --",
+    "web:preview": "npm run preview --workspace @pude/web --",
+    "release:version:check": "node scripts/release-version.mjs check",
+    "release:version:sync": "node scripts/release-version.mjs sync",
+    "check": "npm run release:version:check && npm run desktop:test && node --test scripts/check-bundle-budget.test.mjs && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run typecheck --workspace @pude/web && npm run web:build"
+  }
+}

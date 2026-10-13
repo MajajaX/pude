@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "readFileResponse": {
+    "path": "/fixture/notes/例文.rs",
+    "content": "café 🧪\nline\n",
+    "encoding": "utf-8-bom",
+    "lineEnding": "lf",
+    "lineEndings": "cl",
+    "bom": true,
+    "modifiedAt": 1700000000123,
+    "size": 20,
+    "fingerprint": "$SOURCE_FINGERPRINT",
+    "identity": null
+  },
+  "readFileSourceText": "\uFEFFcafé 🧪\r\nline\n",
+  "readFileArgs": {
+    "path": "$TEMP_PATH"
+  },
+  "saveFileArgs": {
+    "path": "$TEMP_PATH",
+    "content": "改訂版 🧪\nsecond",
+    "lineEnding": "crlf",
+    "lineEndings": "c",
+    "bom": true,
+    "expectedFingerprint": "$SOURCE_FINGERPRINT"
+  },
+  "saveFileResponse": {
+    "modifiedAt": 1700000000123,
+    "size": 25,
+    "fingerprint": "$SAVED_FINGERPRINT",
+    "identity": "$FILE_IDENTITY"
+  },
+  "statFilesArgs": {
+    "request": {
+      "paths": ["$MISSING_PATH"]
+    }
+  },
+  "statFilesMissingEntry": {
+    "path": "$MISSING_PATH",
+    "exists": false,
+    "modifiedAt": null,
+    "size": null,
+    "identity": null
+  },
+  "pluginWorkspaceLogicalText": "A😀éZ",
+  "pluginWorkspaceFileInfoArgs": {
+    "workspace": "$WORKSPACE",
+    "path": "range-測試.txt"
+  },
+  "pluginWorkspaceFileInfoResponse": {
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION",
+    "sizeBytes": 8
+  },
+  "pluginWorkspaceReadFileRangeArgs": {
+    "workspace": "$WORKSPACE",
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION",
+    "offsetBytes": 0,
+    "maxBytes": 5,
+    "requestId": "ipc-contract-range-1"
+  },
+  "pluginWorkspaceReadFileRangeResponse": {
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION",
+    "offsetBytes": 0,
+    "nextOffsetBytes": 5,
+    "totalBytes": 8,
+    "content": "A😀",
+    "eof": false
+  },
+  "pluginWorkspaceReadFileRangeSecondArgs": {
+    "workspace": "$WORKSPACE",
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION",
+    "offsetBytes": 5,
+    "maxBytes": 131072,
+    "requestId": "ipc-contract-range-2"
+  },
+  "pluginWorkspaceReadFileRangeSecondResponse": {
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION",
+    "offsetBytes": 5,
+    "nextOffsetBytes": 8,
+    "totalBytes": 8,
+    "content": "éZ",
+    "eof": true
+  },
+  "pluginWorkspaceReleaseFileReadArgs": {
+    "workspace": "$WORKSPACE",
+    "path": "range-測試.txt",
+    "revision": "$PLUGIN_REVISION"
+  },
+  "pluginWorkspaceCancelFileReadArgs": {
+    "requestId": "ipc-contract-range-cancel"
+  },
+  "pluginWorkspaceCancelFileReadResponse": true,
+  "pluginWorkspaceCancelledReadError": "workspace.read_cancelled: Plugin workspace file read was cancelled.",
+  "gitOperationArgs": {
+    "workspace": "",
+    "action": "add",
+    "value": null,
+    "originalPath": null,
+    "message": null,
+    "startPoint": null
+  },
+  "gitOperationError": {
+    "kind": "failed",
+    "message": "Open a folder before running Git operations.",
+    "exitCode": null,
+    "stream": null,
+    "limit": null
+  },
+  "gitStatusResponse": {
+    "repositoryRoot": "/workspace/例子",
+    "branch": null,
+    "repositoryState": "detached",
+    "headOid": null,
+    "files": [],
+    "commits": [],
+    "error": null
+  },
+  "pluginManifest": {
+    "id": "org.example.例",
+    "name": "測試外掛",
+    "version": "1.2.3",
+    "apiVersion": "2",
+    "entry": "dist/main.js",
+    "permissions": ["editor.read", "process.spawn:lsp"],
+    "activationEvents": ["onStartupFinished"],
+    "contributes": {
+      "commands": [{ "command": "example.run", "title": "Run 🧪" }]
+    },
+    "lspServers": [
+      {
+        "serverId": "rust-analyzer",
+        "language": "rust",
+        "executable": "/usr/bin/rust-analyzer",
+        "args": ["--stdio", "--label=🧪"]
+      }
+    ],
+    "networkDomains": ["packages.example.test"]
+  },
+  "lspEvent": {
+    "type": "state",
+    "pluginId": "org.example.例",
+    "pluginVersion": "1.2.3",
+    "workspaceRoot": "/workspace/例子",
+    "language": "rust",
+    "serverId": "rust-analyzer",
+    "state": "started",
+    "restartCount": 3,
+    "message": null
+  }
+}

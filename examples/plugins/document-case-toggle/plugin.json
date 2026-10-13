@@ -1,0 +1,24 @@
+{
+  "id": "pude.example.document-case-toggle",
+  "name": "Document Case Toggle",
+  "version": "1.0.0",
+  "apiVersion": "2",
+  "entry": "extension.js",
+  "permissions": [
+    "editor.read",
+    "editor.write",
+    "commands.register",
+    "ui.notification"
+  ],
+  "activationEvents": [
+    "onCommand:pude.example.document-case-toggle.toggleCase"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pude.example.document-case-toggle.toggleCase",
+        "title": "Toggle Document Case"
+      }
+    ]
+  }
+}

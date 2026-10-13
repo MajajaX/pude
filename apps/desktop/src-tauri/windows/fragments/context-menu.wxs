@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <DirectoryRef Id="TARGETDIR">
+      <Component Id="PudeFolderContextMenu" Guid="*">
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\pude" Action="createAndRemoveOnUninstall">
+          <RegistryValue Type="string" Value="Open with pude" KeyPath="yes" />
+          <RegistryValue Type="string" Name="Icon" Value="[INSTALLDIR]pude.exe,0" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\shell\pude\command" Action="createAndRemoveOnUninstall">
+          <RegistryValue Type="string" Value="&quot;[INSTALLDIR]pude.exe&quot; &quot;%1&quot;" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\pude" Action="createAndRemoveOnUninstall">
+          <RegistryValue Type="string" Value="Open with pude" />
+          <RegistryValue Type="string" Name="Icon" Value="[INSTALLDIR]pude.exe,0" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU" Key="Software\Classes\Directory\Background\shell\pude\command" Action="createAndRemoveOnUninstall">
+          <RegistryValue Type="string" Value="&quot;[INSTALLDIR]pude.exe&quot; &quot;%V&quot;" />
+        </RegistryKey>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

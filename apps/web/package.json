@@ -1,0 +1,37 @@
+{
+  "name": "@pude/web",
+  "version": "0.1.0",
+  "private": true,
+  "author": "MajajaX",
+  "license": "MIT",
+  "homepage": "https://github.com/MajajaX/pude#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MajajaX/pude.git",
+    "directory": "apps/web"
+  },
+  "bugs": {
+    "url": "https://github.com/MajajaX/pude/issues"
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0",
+    "npm": ">=10.9.0"
+  },
+  "type": "module",
+  "description": "pude official website — pure code editor",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/verify-prerender.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.1",
+    "typescript": "7.0.2",
+    "vite": "7.3.6",
+    "vite-plugin-solid": "2.11.10"
+  }
+}

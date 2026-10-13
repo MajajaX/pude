@@ -1,0 +1,44 @@
+[package]
+name = "pude"
+version = "0.1.0"
+description = "pude — pure code editor"
+authors = ["MajajaX"]
+license = "MIT"
+edition = "2021"
+homepage = "https://github.com/MajajaX/pude#readme"
+repository = "https://github.com/MajajaX/pude"
+
+# Worker panic isolation still requires the default unwind behavior.
+[profile.release]
+lto = "fat"
+opt-level = "s"
+codegen-units = 1
+strip = "symbols"
+
+[build-dependencies]
+tauri-build = { version = "=2.7.0", features = [] }
+
+[dependencies]
+# Tauri default features are trimmed: no runtime
+# add_capability (dynamic-acl unused) and no Linux x11/dbus support needed yet,
+# so only wry + compression + common-controls-v6 stay on. This shrank
+# pude.exe by ~6.0% (14,901,248 -> 14,010,880 bytes) under fat LTO.
+# Revisit Linux features when a Linux release ships.
+tauri = { version = "=2.12.0", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
+tauri-plugin-single-instance = "=2.5.0"
+cap-std = "=4.0.3"
+libc = "=0.2.189"
+memchr = "=2.8.3"
+notify = "=8.2.0"
+portable-pty = "=0.9.0"
+rfd = "=0.17.2"
+reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+tokio = { version = "=1.53.1", default-features = false, features = ["net", "rt", "time"] }
+uuid = { version = "=1.26.1", features = ["v4"] }
+
+[dev-dependencies]
+# Enable MockRuntime IPC contract checks only for tests.
+tauri = { version = "=2.12.0", default-features = false, features = ["test"] }

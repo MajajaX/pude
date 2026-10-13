@@ -1,0 +1,31 @@
+{
+  "id": "pude.example.reference-lsp",
+  "name": "Reference Language Server",
+  "version": "1.0.0",
+  "apiVersion": "2",
+  "entry": "extension.js",
+  "permissions": [
+    "commands.register",
+    "process.spawn:lsp",
+    "ui.notification"
+  ],
+  "activationEvents": [
+    "onCommand:pude.example.reference-lsp.start"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pude.example.reference-lsp.start",
+        "title": "LSP: Start Reference Server"
+      }
+    ]
+  },
+  "lspServers": [
+    {
+      "serverId": "rust-analyzer",
+      "language": "rust",
+      "executable": "/usr/local/bin/rust-analyzer",
+      "args": ["--stdio"]
+    }
+  ]
+}
