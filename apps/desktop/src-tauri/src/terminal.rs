@@ -2599,7 +2599,16 @@ mod terminal_lifecycle_tests {
 
         let process_tree = TerminalProcessTree::attach(child.as_ref(), Some(&mut gate))
             .expect("Job assignment should release the bootstrap gate");
-        let mut diagnostic_reader = pair.master.try_clone_reader().unwrap();
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let (output_sender, output_receiver) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let mut buffer = [0_u8; 1024];
+            while let Ok(size) = reader.read(&mut buffer) {
+                if size == 0 || output_sender.send(buffer[..size].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
         let writer = pair
             .master
             .take_writer()
@@ -2619,6 +2628,17 @@ mod terminal_lifecycle_tests {
             output_flow: super::TerminalOutputFlow::new(1),
             output_channel: tauri::ipc::Channel::new(|_| Ok(())),
         });
+        // ConPTY asks for the cursor position at startup. Answer only after the query
+        // was sent; a reply that arrives earlier is ignored and the shell never starts.
+        let mut output = Vec::new();
+        let query_deadline = Instant::now() + Duration::from_secs(5);
+        while !output.windows(4).any(|window| window == b"\x1b[6n")
+            && Instant::now() < query_deadline
+        {
+            if let Ok(bytes) = output_receiver.recv_timeout(Duration::from_millis(50)) {
+                output.extend(bytes);
+            }
+        }
         session
             .writer
             .lock()
@@ -2633,8 +2653,9 @@ mod terminal_lifecycle_tests {
         }
         if !pid_path.exists() {
             let _ = stop_terminal_session(&session);
-            let mut output = Vec::new();
-            let _ = diagnostic_reader.read_to_end(&mut output);
+            while let Ok(bytes) = output_receiver.recv_timeout(Duration::from_millis(100)) {
+                output.extend(bytes);
+            }
             panic!(
                 "shell child did not start after Job assignment: {}",
                 String::from_utf8_lossy(&output)
