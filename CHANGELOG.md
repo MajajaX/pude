@@ -4,6 +4,15 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Updates
+
+- In-app updates: pude checks GitHub Releases for a newer signed version shortly after
+  startup (turn it off in Settings) and from Help > About pude. Choosing **Download
+  update** and then **Restart and update** installs it after the normal quit
+  check for unsaved changes. Versions before this one must be updated by hand once.
+
 ## [0.1.0] - 2026-10-13
 
 The first public release of pude, a local-first desktop code editor. This release

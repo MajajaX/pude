@@ -9,9 +9,10 @@ import type { ProjectWorkspaceState } from "./lib/project-workspace";
 import { projectAfterClose, projectTabLabel, reorderProjects } from "./lib/project-tabs";
 import { WindowControls } from "./components/WindowControls";
 import { version as appVersion } from "../package.json";
+import { checkForUpdates, updateStatus } from "./lib/app-update";
 import { defaultSettings } from "./lib/settings";
 import { getStartupFolder } from "./lib/bridge";
-import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStatus, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, openReleasePage, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStatus, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
 import { errorMessage, orderTabsByPinned } from "./lib/core";
 import { emitDiagnostic } from "./lib/diagnostics";
 import { contentFingerprint } from "./lib/fingerprint";
@@ -134,30 +135,7 @@ const LazyTerminalPane = lazy(async () => ({ default: (await import("./component
 // instantly — so it is preloaded during idle time instead of at startup.
 const LazyCommandPalette = lazy(async () => ({ default: (await import("./components/CommandPalette")).CommandPalette }));
 const LazySettingsDialog = lazy(async () => ({ default: (await import("./components/SettingsDialog")).SettingsDialog }));
-// The About dialog computes its release target from lib/release-url;
-// load both together so the release-url helpers stay out of the entry chunk.
-const LazyAboutDialog = lazy(async () => {
-  const [{ AboutDialog }, { getAboutReleaseTarget, getReleaseStage }] = await Promise.all([
-    import("./components/AboutDialog"),
-    import("./lib/release-url"),
-  ]);
-  return {
-    default: (props: { onOpenRelease: (url: string) => Promise<void>; returnFocus: () => HTMLElement | undefined; onClose: () => void }) => {
-      const releaseTarget = getAboutReleaseTarget(appVersion, import.meta.env.VITE_RELEASE_URL);
-      return (
-        <AboutDialog
-          version={appVersion}
-          stage={getReleaseStage(appVersion)}
-          releaseUrl={releaseTarget.url}
-          releaseAction={releaseTarget.action}
-          onOpenRelease={props.onOpenRelease}
-          returnFocus={props.returnFocus}
-          onClose={props.onClose}
-        />
-      );
-    },
-  };
-});
+const LazyAboutDialog = lazy(async () => ({ default: (await import("./components/AboutDialog")).AboutDialog }));
 const LazyConfirmDialog = lazy(async () => ({ default: (await import("./components/ConfirmDialog")).ConfirmDialog }));
 const LazyInputDialog = lazy(async () => ({ default: (await import("./components/InputDialog")).InputDialog }));
 const LazyConflictDialog = lazy(async () => ({ default: (await import("./components/ConflictDialog")).ConflictDialog }));
@@ -819,6 +797,12 @@ export default function App() {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     updateSidebarWidth(settings().sidebarWidth + (event.key === "ArrowRight" ? 16 : -16));
+  };
+
+  const checkForUpdatesAfterStartup = async () => {
+    await checkForUpdates();
+    const status = updateStatus();
+    if (status.phase === "available") notify(`pude ${status.version} is available. Open Help > About pude to update.`);
   };
 
   const notify = (message: string) => {
@@ -1773,6 +1757,9 @@ export default function App() {
     }
     setHydrated(true);
     void forgetMissingRecentProjects();
+    if (isTauri && import.meta.env.PROD && settings().checkForUpdates) {
+      window.setTimeout(() => { if (!disposed) void checkForUpdatesAfterStartup(); }, 5000);
+    }
     markStartupEvent("hydrated");
     if (launchFolder) void openWorkspacePath(launchFolder);
     fileEventHandler = (event) => {
@@ -4721,7 +4708,7 @@ export default function App() {
             <TopbarMenuItem icon="settings" label="Settings" onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
           </TopbarMenu>
           <TopbarMenu label="Help" open={topbarMenu() === "help"} triggerRef={(element) => { helpMenuTrigger = element; }} onToggle={() => setTopbarMenu((current) => current === "help" ? undefined : "help")}>
-            <TopbarMenuItem icon="external" label="About pude" onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
+            <TopbarMenuItem icon="external" label={["available", "downloading", "ready"].includes(updateStatus().phase) ? "About pude · Update available" : "About pude"} onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
           </TopbarMenu>
         </nav>
         <LazyProjectTabs projects={projectTabItems()} activeId={activeProjectId()} busy={!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || projectCloseBusy()}
@@ -4735,7 +4722,7 @@ export default function App() {
       </Show>
       <Show when={aboutOpen()}>
         <LazyAboutDialog
-          onOpenRelease={openReleasePage}
+          version={appVersion}
           returnFocus={() => helpMenuTrigger}
           onClose={() => setAboutOpen(false)}
         />

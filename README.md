@@ -105,9 +105,11 @@ scripts/                   Build and release tooling
 ## Privacy and security
 
 Your files stay where they are. Settings, sessions and recovery data are stored
-locally. pude itself only goes online when you click **Check for releases** in the
-About dialog; Git, terminal commands and plugins you grant network access can reach
-the network on their own.
+locally. pude itself only goes online to look for updates: once shortly after startup
+(turn it off in Settings) and when you click **Check for updates** in the About
+dialog. Updates are downloaded from GitHub Releases, verified against a signature, and
+installed only after you choose **Restart and update**. Git, terminal commands and
+plugins you grant network access can reach the network on their own.
 
 The terminal and plugins run with your user account's permissions, so install only
 plugins you trust. Please report vulnerabilities privately as described in

@@ -185,8 +185,9 @@ for (const asset of assets) {
 }
 
 const requiredAssets = [
-  ...(platform !== "macos" ? ["pude-windows-x64-setup.exe"] : []),
-  ...(platform !== "windows" ? ["pude-macos-arm64.dmg"] : []),
+  ...(platform !== "macos" ? ["pude-windows-x64-setup.exe", "pude-windows-x64-setup.exe.sig"] : []),
+  ...(platform !== "windows" ? ["pude-macos-arm64.dmg", "pude-macos-arm64.app.tar.gz", "pude-macos-arm64.app.tar.gz.sig"] : []),
+  "latest.json",
   "LICENSE",
   "THIRD_PARTY_NOTICES.md",
   "THIRD_PARTY_LICENSES.md",

@@ -268,6 +268,7 @@ export type AppSettings = {
   sidebarWidth: number;
   terminalHeight: number;
   hideDotFiles: boolean;
+  checkForUpdates: boolean;
   watcherExcludes: string[];
 };
 

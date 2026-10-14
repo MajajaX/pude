@@ -26,6 +26,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 mod app_log;
+mod app_update;
 mod blocking;
 mod document_encoding;
 mod filesystem;
@@ -45,7 +46,6 @@ mod plugin_installer;
 mod plugin_security;
 mod plugin_workspace;
 mod python_environment;
-mod release_page;
 mod startup_timeline;
 mod terminal;
 mod watcher;
@@ -936,6 +936,7 @@ fn emit_quit_abort_with_error(
     participants: &[String],
     error: Option<&str>,
 ) {
+    app.state::<app_update::UpdateState>().cancel_install_on_exit();
     let payload = QuitAbortPayload {
         request_id: request_id.to_string(),
         error: error.map(str::to_string),
@@ -4653,10 +4654,12 @@ fn main() {
                 }
             });
         }))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .manage(lsp_manager::LspState::default())
         .manage(WindowCleanupRegistry::default())
         .manage(QuitGateState::default())
+        .manage(app_update::UpdateState::default())
         .setup(|app| {
             startup_timeline::mark_setup_done();
             if let Ok(dir) = app.path().app_log_dir() {
@@ -4704,7 +4707,9 @@ fn main() {
                     terminal::terminal_resize,
                     terminal::terminal_ack_output,
                     reveal_in_file_manager,
-                    release_page::open_release_page,
+                    app_update::check_for_update,
+                    app_update::download_update,
+                    app_update::restart_to_update,
                     plugin_installer::inspect_plugin_dialog,
                     plugin_installer::recover_plugin_updates,
                     plugin_installer::commit_plugin_install,
@@ -4770,6 +4775,7 @@ fn main() {
         }
         tauri::RunEvent::Exit => {
             join_window_cleanups(&app.state::<WindowCleanupRegistry>());
+            app_update::install_on_exit(app);
         }
         tauri::RunEvent::ExitRequested { code, api, .. } => {
             handle_exit_requested(app, code, api);

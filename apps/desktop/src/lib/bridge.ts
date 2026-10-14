@@ -611,9 +611,22 @@ export async function revealInFileManager(path: string): Promise<void> {
   if (isTauri) await invoke("reveal_in_file_manager", { path });
 }
 
-export async function openReleasePage(url: string): Promise<void> {
-  if (!isTauri) throw new Error("Release pages can only be opened from the desktop app.");
-  await invoke("open_release_page", { url });
+export type AvailableUpdate = {
+  version: string;
+  notes?: string | null;
+};
+
+export async function checkForUpdate(): Promise<AvailableUpdate | null> {
+  if (!isTauri) throw new Error("Updates can only be checked from the desktop app.");
+  return invoke<AvailableUpdate | null>("check_for_update");
+}
+
+export async function downloadUpdate(): Promise<void> {
+  await invoke("download_update");
+}
+
+export async function restartToUpdate(): Promise<void> {
+  await invoke("restart_to_update");
 }
 
 export type LspServerDeclaration = import("../types").PluginLspServer;

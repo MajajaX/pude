@@ -6,6 +6,8 @@
 #   App Store Connect API key: APPLE_API_ISSUER, APPLE_API_KEY, APPLE_API_KEY_PATH
 #   Apple ID:                  APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID
 # APPLE_SIGNING_IDENTITY is optional when exactly one Developer ID identity exists.
+# The updater signing key is also required: TAURI_SIGNING_PRIVATE_KEY (key file or contents)
+# and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
 # Values may also be exported from ~/.config/pude/release.env, which is loaded when present.
 set -euo pipefail
 
@@ -48,13 +50,15 @@ else
 fi
 export APPLE_SIGNING_IDENTITY APPLE_TEAM_ID
 
+[[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" && -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]] || fail "set TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD to sign the update package."
+
 cd "$repo_root"
 [[ -z "$(git status --porcelain)" ]] || echo "Warning: the working tree has uncommitted changes." >&2
 
 npm run release:version:check
 rm -rf "$bundle_directory/macos" "$bundle_directory/dmg"
 # CI=true makes the DMG bundler skip Finder AppleScript, which needs a GUI session.
-CI=true npm run tauri:build -- --target "$target" --bundles app,dmg
+CI=true npm run tauri:build -- --target "$target" --bundles app,dmg --config src-tauri/tauri.release.conf.json
 
 dmg_path="$(find "$bundle_directory/dmg" -name '*.dmg' -maxdepth 1)"
 [[ "$(wc -l <<<"$dmg_path" | tr -d ' ')" == "1" ]] || fail "expected exactly one DMG in $bundle_directory/dmg."

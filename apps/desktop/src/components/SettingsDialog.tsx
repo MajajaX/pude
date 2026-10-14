@@ -109,6 +109,15 @@ export function SettingsDialog(props: {
               onChange={(event) => props.onChange({ hideDotFiles: event.currentTarget.checked })}
             />
           </label>
+          <label class="settings-dialog-toggle" for="settings-check-for-updates">
+            <span>Check for updates on startup</span>
+            <input
+              id="settings-check-for-updates"
+              type="checkbox"
+              checked={props.settings.checkForUpdates}
+              onChange={(event) => props.onChange({ checkForUpdates: event.currentTarget.checked })}
+            />
+          </label>
           <div class="settings-dialog-block">
             <label for="settings-watcher-excludes">Watcher excluded paths</label>
             <textarea

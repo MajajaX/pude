@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/release-version.mjs release-check "$GITHUB_REF_NAME"
+      - run: npm run check
+
+  build-macos:
+    needs: verify
+    runs-on: macos-latest
+    env:
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          keychain="$RUNNER_TEMP/pude-release.keychain-db"
+          keychain_password="$(uuidgen)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          echo "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      - run: npm run release:macos
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-macos
+          path: |
+            dist/release-macos/pude-macos-arm64.dmg
+            dist/release-macos/pude-macos-arm64.app.tar.gz
+            dist/release-macos/pude-macos-arm64.app.tar.gz.sig
+          if-no-files-found: error
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/pude-release.keychain-db" || true
+          rm -f "$RUNNER_TEMP/certificate.p12" "$RUNNER_TEMP/AuthKey.p8"
+
+  build-windows:
+    needs: verify
+    runs-on: windows-latest
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run tauri:build -- --bundles nsis --config src-tauri/tauri.release.conf.json
+      - run: node scripts/collect-release-bundle.mjs windows dist/release-windows --bundle-root apps/desktop/src-tauri/target
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: |
+            dist/release-windows/pude-windows-x64-setup.exe
+            dist/release-windows/pude-windows-x64-setup.exe.sig
+          if-no-files-found: error
+
+  publish:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Extract release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { capture = 1; next }
+            /^## \[/ { capture = 0 }
+            capture
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || { echo "CHANGELOG.md has no section for $version" >&2; exit 1; }
+
+      - name: Assemble release files
+        run: |
+          cp LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md release/
+          node scripts/write-update-manifest.mjs release "$GITHUB_REF_NAME" release-notes.md
+          cd release
+          node ../scripts/write-checksums.mjs create SHA256SUMS.txt \
+            pude-windows-x64-setup.exe pude-macos-arm64.dmg \
+            LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
+
+      - name: Publish GitHub Release
+        run: |
+          prerelease_flag=""
+          [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease_flag="--prerelease"
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "pude $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag $prerelease_flag
+
+      - name: Verify published release
+        run: npm run release:verify-url -- "https://github.com/MajajaX/pude/releases/tag/$GITHUB_REF_NAME"

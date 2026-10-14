@@ -1,38 +1,15 @@
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
-import { errorMessage } from "../lib/core";
+import { checkForUpdates, downloadAvailableUpdate, restartAndUpdate, updateStatus } from "../lib/app-update";
 
 export function AboutDialog(props: {
   version: string;
-  stage: string;
-  releaseUrl?: string;
-  releaseAction?: "check" | "download";
-  onOpenRelease: (url: string) => Promise<void>;
   returnFocus?: () => HTMLElement | undefined;
   onClose: () => void;
 }) {
   let dialog: HTMLElement | undefined;
   let closeButton: HTMLButtonElement | undefined;
   let modalFocus: ModalFocusController | undefined;
-  const [openingRelease, setOpeningRelease] = createSignal(false);
-  const [releaseError, setReleaseError] = createSignal("");
-
-  const openRelease = async () => {
-    if (!props.releaseUrl || openingRelease()) return;
-    setOpeningRelease(true);
-    setReleaseError("");
-    try {
-      await props.onOpenRelease(props.releaseUrl);
-    } catch (error) {
-      setReleaseError(errorMessage(
-        error,
-        props.releaseAction === "check" ? "Could not check for releases." : "Could not open the release page.",
-      ));
-    } finally {
-      setOpeningRelease(false);
-    }
-  };
-
   const handleKeyDown = (event: KeyboardEvent) => {
     if (!modalFocus?.isTopmost()) return;
     if (event.key === "Escape") {
@@ -76,26 +53,40 @@ export function AboutDialog(props: {
           </button>
         </div>
         <div class="input-dialog-body">
-          <p><strong>Version {props.version}</strong> · {props.stage}</p>
-          <p id="about-update-status">
-            {props.releaseAction === "check"
-              ? "Updates are manual. Select Check for releases to look for a public release now; the app does not check automatically."
-              : props.releaseUrl
-                ? "Updates are manual. Open the configured release to download the current installer."
-              : "Manual downloads are not available yet. No published release is configured."}
+          <p><strong>Version {props.version}</strong></p>
+          <p id="about-update-status" role="status">
+            <Switch fallback="Check GitHub for a newer version of pude.">
+              <Match when={updateStatus().phase === "checking"}>Checking for updates…</Match>
+              <Match when={updateStatus().phase === "up-to-date"}>pude is up to date.</Match>
+              <Match when={updateStatus().phase === "available"}>pude {updateStatus().version} is available.</Match>
+              <Match when={updateStatus().phase === "downloading"}>Downloading pude {updateStatus().version}…</Match>
+              <Match when={updateStatus().phase === "ready"}>pude {updateStatus().version} is ready. pude asks about unsaved changes before it restarts.</Match>
+            </Switch>
           </p>
-          {props.releaseUrl ? (
-            <button class="secondary-button" type="button" onClick={() => void openRelease()} aria-busy={openingRelease()}>
-              {openingRelease()
-                ? props.releaseAction === "check" ? "Checking for releases…" : "Opening release…"
-                : props.releaseAction === "check" ? "Check for releases" : "View release and download"}
-            </button>
-          ) : (
-            <button class="secondary-button" type="button" disabled aria-describedby="about-update-status">
-              Releases unavailable
-            </button>
-          )}
-          {releaseError() && <p class="about-release-error" role="alert">{releaseError()}</p>}
+          <Show when={updateStatus().notes}>
+            <pre class="about-release-notes">{updateStatus().notes}</pre>
+          </Show>
+          <Switch>
+            <Match when={updateStatus().phase === "available"}>
+              <button class="secondary-button" type="button" onClick={() => void downloadAvailableUpdate()}>Download update</button>
+            </Match>
+            <Match when={updateStatus().phase === "ready"}>
+              <button class="secondary-button" type="button" onClick={() => void restartAndUpdate()}>Restart and update</button>
+            </Match>
+            <Match when={true}>
+              <button
+                class="secondary-button"
+                type="button"
+                disabled={updateStatus().phase === "checking" || updateStatus().phase === "downloading"}
+                onClick={() => void checkForUpdates()}
+              >
+                Check for updates
+              </button>
+            </Match>
+          </Switch>
+          <Show when={updateStatus().error}>
+            <p class="about-release-error" role="alert">{updateStatus().error}</p>
+          </Show>
         </div>
         <div class="modal-footer">
           <button type="button" class="secondary-button" onClick={props.onClose}>Done</button>

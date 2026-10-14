@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readdir } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -20,7 +20,18 @@ const isWithin = (parent, candidate) => {
 if (isWithin(bundleRoot, outputRoot) || isWithin(outputRoot, bundleRoot)) {
   throw new Error("output directory and Cargo target directory must be separate trees");
 }
-const matches = [];
+const bundleFiles = {
+  windows: [
+    { directory: /(?:^|\/)release\/bundle\/nsis\//, extension: ".exe", outputName: "pude-windows-x64-setup.exe" },
+    { directory: /(?:^|\/)release\/bundle\/nsis\//, extension: ".exe.sig", outputName: "pude-windows-x64-setup.exe.sig" },
+  ],
+  macos: [
+    { directory: /(?:^|\/)release\/bundle\/dmg\//, extension: ".dmg", outputName: "pude-macos-arm64.dmg" },
+    { directory: /(?:^|\/)release\/bundle\/macos\//, extension: ".app.tar.gz", outputName: "pude-macos-arm64.app.tar.gz" },
+    { directory: /(?:^|\/)release\/bundle\/macos\//, extension: ".app.tar.gz.sig", outputName: "pude-macos-arm64.app.tar.gz.sig" },
+  ],
+}[platform];
+const matches = bundleFiles.map(() => []);
 
 async function walk(directory) {
   let entries;
@@ -38,22 +49,24 @@ async function walk(directory) {
     }
     if (!entry.isFile()) continue;
     const relativePath = relative(bundleRoot, path).split(sep).join("/");
-    const requiredDirectory = platform === "windows" ? /(?:^|\/)release\/bundle\/nsis\// : /(?:^|\/)release\/bundle\/dmg\//;
-    const extension = platform === "windows" ? ".exe" : ".dmg";
-    if (requiredDirectory.test(relativePath) && path.toLowerCase().endsWith(extension)) matches.push(path);
+    bundleFiles.forEach(({ directory, extension }, index) => {
+      if (directory.test(relativePath) && path.toLowerCase().endsWith(extension)) matches[index].push(path);
+    });
   }
 }
 
 await walk(bundleRoot);
-if (matches.length !== 1) {
-  throw new Error(`expected exactly one ${platform} release bundle, found ${matches.length}`);
-}
+bundleFiles.forEach(({ outputName }, index) => {
+  if (matches[index].length !== 1) {
+    throw new Error(`expected exactly one ${outputName} source, found ${matches[index].length}`);
+  }
+});
 
 await mkdir(outputRoot, { recursive: true });
-const outputName = platform === "windows" ? "pude-windows-x64-setup.exe" : "pude-macos-arm64.dmg";
-const outputPath = join(outputRoot, outputName);
-await copyFile(matches[0], outputPath);
+for (const [index, { outputName }] of bundleFiles.entries()) {
+  await copyFile(matches[index][0], join(outputRoot, outputName));
+}
 for (const legalFile of ["LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
   await copyFile(resolve(root, legalFile), join(outputRoot, legalFile));
 }
-console.log(`Collected ${relative(root, matches[0])}, LICENSE, THIRD_PARTY_NOTICES.md, and THIRD_PARTY_LICENSES.md into ${outputRoot}.`);
+console.log(`Collected ${bundleFiles.map(({ outputName }) => outputName).join(", ")}, LICENSE, THIRD_PARTY_NOTICES.md, and THIRD_PARTY_LICENSES.md into ${outputRoot}.`);

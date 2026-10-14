@@ -1,7 +1,50 @@
 # Releasing pude
 
-This guide is for maintainers. Releases are built locally; the repository has no
-release workflow yet.
+This guide is for maintainers. Pushing a `v*` tag runs
+[.github/workflows/release.yml](../.github/workflows/release.yml), which builds both
+installers on GitHub-hosted runners and publishes the GitHub Release. Sections 3 and
+4 describe the same steps by hand, for when the workflow cannot be used.
+
+## Release with GitHub Actions
+
+Add these repository secrets once (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `APPLE_CERTIFICATE` | The `Developer ID Application` certificate exported as `.p12`, base64 encoded: `base64 -i certificate.p12 \| pbcopy` |
+| `APPLE_CERTIFICATE_PASSWORD` | The password chosen when exporting the `.p12` |
+| `APPLE_API_ISSUER` | App Store Connect API issuer ID |
+| `APPLE_API_KEY` | App Store Connect API key ID |
+| `APPLE_API_KEY_CONTENT` | The full text of the `AuthKey_<ID>.p8` file |
+| `TAURI_SIGNING_PRIVATE_KEY` | The full text of the updater signing key (see [Updater signing key](#updater-signing-key)) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The password of the updater signing key |
+
+Then, after step 1 and step 2 below (version sync, changelog, tag), push the tag:
+
+```bash
+git push origin main v0.1.0
+```
+
+The workflow checks the tag and runs `npm run check`, builds the signed and
+notarized macOS DMG and the Windows installer in parallel, writes `latest.json` and
+`SHA256SUMS.txt`, publishes the release with the changelog section as notes, and
+verifies it. Continue with step 5 when it finishes.
+
+## Updater signing key
+
+Installed copies of pude check `releases/latest/download/latest.json` on startup and
+install updates only when the package signature matches the public key in
+`tauri.conf.json` (`plugins.updater.pubkey`). The private key signs every release:
+
+- Locally it lives in `~/.config/pude/updater.key`, loaded through
+  `~/.config/pude/release.env` (`TAURI_SIGNING_PRIVATE_KEY` and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
+- Upload it to GitHub with `gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.config/pude/updater.key`.
+- Back it up outside the repository. If it is lost, installed copies cannot verify a
+  new key and users must install a new build by hand. Never commit it.
+
+Update packages are produced only with `--config src-tauri/tauri.release.conf.json`,
+which turns on `createUpdaterArtifacts`; ordinary `tauri:build` runs do not need the key.
 
 ## 1. Prepare the version
 
@@ -46,14 +89,18 @@ See the header of [scripts/release-macos.sh](../scripts/release-macos.sh).
 npm run release:macos
 ```
 
-The DMG, legal files and `SHA256SUMS-macos.txt` are written to `dist/release-macos/`.
+The DMG, the update package (`.app.tar.gz` and `.sig`), legal files and
+`SHA256SUMS-macos.txt` are written to `dist/release-macos/`. The updater signing key
+variables must be set as well.
 
 ### Windows 11 x64
 
-On a Windows machine, build the NSIS installer and collect it with the legal files:
+On a Windows machine with `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` set, build the NSIS installer (which is also the
+update package) and collect it with its signature and the legal files:
 
 ```powershell
-npm run tauri:build -- --bundles nsis
+npm run tauri:build -- --bundles nsis --config src-tauri/tauri.release.conf.json
 node scripts/collect-release-bundle.mjs windows dist/release-windows --bundle-root apps/desktop/src-tauri/target
 ```
 
@@ -62,16 +109,21 @@ Signing is optional for Windows. A signed installer can be checked with
 
 ## 4. Publish
 
-Create one `SHA256SUMS.txt` covering both installers and the three legal files:
+Put both platforms' files and the three legal files in one directory, write the
+update manifest from the changelog notes, and create one `SHA256SUMS.txt` covering
+both installers and the legal files:
 
 ```bash
-node scripts/write-checksums.mjs create SHA256SUMS.txt \
+node scripts/write-update-manifest.mjs release-files v0.1.0 release-notes.md
+cd release-files
+node ../scripts/write-checksums.mjs create SHA256SUMS.txt \
   pude-windows-x64-setup.exe pude-macos-arm64.dmg \
   LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
 ```
 
-Upload these six files to a GitHub Release for the tag and publish it (not as a
-draft or prerelease). Then verify it:
+Upload these ten files to a GitHub Release for the tag and publish it (not as a
+draft or prerelease): both installers, `pude-macos-arm64.app.tar.gz`, the two `.sig`
+files, `latest.json`, `SHA256SUMS.txt` and the three legal files. Then verify it:
 
 ```bash
 npm run release:verify-url -- 'https://github.com/MajajaX/pude/releases/latest'

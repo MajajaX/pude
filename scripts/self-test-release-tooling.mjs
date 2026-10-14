@@ -173,11 +173,12 @@ async function testCollector() {
   const nsisDirectory = join(bundleRoot, "x86_64-pc-windows-msvc", "release", "bundle", "nsis");
   await mkdir(nsisDirectory, { recursive: true });
   await writeFile(join(nsisDirectory, "pude_1.0.0_x64-setup.exe"), "fake NSIS package");
+  await writeFile(join(nsisDirectory, "pude_1.0.0_x64-setup.exe.sig"), "fake NSIS signature");
 
   const collector = join(root, "scripts/collect-release-bundle.mjs");
   const safeResult = run(process.execPath, [collector, "windows", outputDirectory, "--bundle-root", bundleRoot]);
   expectSuccess(safeResult, "isolated collector sibling-prefix fixture");
-  for (const name of ["pude-windows-x64-setup.exe", "LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
+  for (const name of ["pude-windows-x64-setup.exe", "pude-windows-x64-setup.exe.sig", "LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
     assert.ok((await stat(join(outputDirectory, name))).size > 0, `collector did not output ${name}`);
   }
   for (const invalidOutput of [bundleRoot, join(bundleRoot, "nested-output"), temporaryDirectory]) {
@@ -194,10 +195,42 @@ async function testCollector() {
   return "Collector reads only an explicit temp Cargo target, copies all three legal sidecars, accepts sibling-prefix output, and rejects equal/nested/ancestor paths.";
 }
 
+async function testUpdateManifest() {
+  const releaseDirectory = join(temporaryDirectory, "update-manifest");
+  assertTemporaryPath(releaseDirectory);
+  await mkdir(releaseDirectory, { recursive: true });
+  const notesFile = join(releaseDirectory, "notes.md");
+  await writeFile(notesFile, "- Added things\n");
+  const writer = join(root, "scripts/write-update-manifest.mjs");
+
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "manifest without signatures", "no update package signatures");
+  await writeFile(join(releaseDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
+  await writeFile(join(releaseDirectory, "pude-windows-x64-setup.exe.sig"), "windows signature\n");
+  expectSuccess(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "update manifest");
+  const manifest = JSON.parse(await readFile(join(releaseDirectory, "latest.json"), "utf8"));
+  assert.equal(manifest.version, "1.2.3");
+  assert.equal(manifest.notes, "- Added things");
+  assert.deepEqual(manifest.platforms["darwin-aarch64"], {
+    signature: "mac signature",
+    url: "https://github.com/MajajaX/pude/releases/download/v1.2.3/pude-macos-arm64.app.tar.gz",
+  });
+  assert.deepEqual(manifest.platforms["windows-x86_64"], {
+    signature: "windows signature",
+    url: "https://github.com/MajajaX/pude/releases/download/v1.2.3/pude-windows-x64-setup.exe",
+  });
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "overwriting an existing manifest", "EEXIST");
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "1.2.3", notesFile]), "tag without v prefix", "usage");
+  return "Update manifest lists each platform's package URL and signature, covers partial releases, and refuses empty input or overwrites.";
+}
+
 function validRelease(tag) {
   const assets = [
     "pude-windows-x64-setup.exe",
+    "pude-windows-x64-setup.exe.sig",
     "pude-macos-arm64.dmg",
+    "pude-macos-arm64.app.tar.gz",
+    "pude-macos-arm64.app.tar.gz.sig",
+    "latest.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "THIRD_PARTY_LICENSES.md",
@@ -253,7 +286,7 @@ process.stdout.write(readFileSync(response, "utf8"));
   expectSuccess(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/tag/v1.0.0"], { env }), "tag release URL verification");
 
   const windowsOnly = validRelease("v1.0.0");
-  windowsOnly.assets = windowsOnly.assets.filter((asset) => asset.name !== "pude-macos-arm64.dmg");
+  windowsOnly.assets = windowsOnly.assets.filter((asset) => !asset.name.startsWith("pude-macos-arm64"));
   await writeFile(responseFile, JSON.stringify(windowsOnly));
   expectSuccess(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest", "--platform", "windows"], { env }), "Windows-only release URL verification");
   expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "cross-platform release still requires macOS", "pude-macos-arm64.dmg");
@@ -404,6 +437,7 @@ try {
   reports.push(await testRunner());
   reports.push(await testChecksums());
   reports.push(await testCollector());
+  reports.push(await testUpdateManifest());
   reports.push(await testPublishedReleaseVerifier());
   reports.push(await testNoticeGate());
   reports.push(await testVersionTool());
