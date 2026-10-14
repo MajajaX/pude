@@ -42,6 +42,8 @@ mod lsp_manager;
 #[cfg(target_os = "macos")]
 mod macos_quit;
 mod platform_trash;
+#[cfg(unix)]
+mod process_group;
 mod plugin_installer;
 mod plugin_security;
 mod plugin_workspace;

@@ -1614,7 +1614,7 @@ fn terminate_unix_process_group(process_group: u32) -> Result<(), String> {
     let result = unsafe { kill(-(process_group as i32), SIGKILL) };
     if result != 0 {
         let error = io::Error::last_os_error();
-        if error.raw_os_error() == Some(libc::ESRCH) {
+        if super::process_group::is_group_gone(&error) {
             return Ok(());
         }
         return Err(format!("Unable to signal Git process group. {error}"));
@@ -1629,7 +1629,7 @@ fn wait_for_unix_process_group(process_group: u32, deadline: Instant) -> Result<
         let result = unsafe { kill(-(process_group as i32), 0) };
         if result != 0 {
             let error = io::Error::last_os_error();
-            if error.raw_os_error() == Some(libc::ESRCH) {
+            if super::process_group::is_group_gone(&error) {
                 return Ok(());
             }
             return Err(format!(
@@ -2695,6 +2695,7 @@ mod tests {
         }
         match mode.as_str() {
             "sleep" => thread::sleep(Duration::from_millis(180)),
+            "long-sleep" => thread::sleep(Duration::from_millis(1500)),
             "timeout" => loop {
                 thread::sleep(Duration::from_millis(20));
             },
@@ -4007,7 +4008,8 @@ mod tests {
         let coordinator = GitCoordinator::new();
         let request_a = coordinator.begin_request(&root, Some("window-a"));
         let request_b = coordinator.begin_request(&root, Some("window-b"));
-        let spec = fixture_spec_with_counter(&root, "sleep", &counter);
+        // The fixture outlasts the short waits below even when the host is slow.
+        let spec = fixture_spec_with_counter(&root, "long-sleep", &counter);
         let first = GitReadRequest::new(&root, GitReadKind::Status, spec.clone());
         let second = GitReadRequest::new(&root, GitReadKind::Status, spec);
         let first_coordinator = coordinator.clone();
