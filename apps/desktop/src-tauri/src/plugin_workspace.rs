@@ -2736,7 +2736,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(first.content, "orig");
-        fs::write(&path, b"replacement bytes").unwrap();
+        // A different length keeps the revision distinct even when the filesystem
+        // timestamp has not ticked between the two writes.
+        fs::write(&path, b"replacement bytes with a different length").unwrap();
 
         let error = plugin_workspace_read_range_sync(
             &root.to_string_lossy(),
