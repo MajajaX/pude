@@ -299,12 +299,329 @@ pub(super) fn move_path_to_trash(target: &Path) -> io::Result<()> {
     }
 }
 
-#[cfg(not(any(windows, target_os = "macos")))]
+#[cfg(target_os = "linux")]
+pub(super) fn move_path_to_trash(target: &Path) -> io::Result<()> {
+    use std::ffi::{c_char, c_int, c_void, CStr, CString};
+    use std::os::unix::ffi::OsStrExt;
+
+    #[repr(C)]
+    struct GError {
+        domain: u32,
+        code: c_int,
+        message: *mut c_char,
+    }
+
+    // GIO is already a native dependency of the Linux GTK/WebKit runtime. Its trash
+    // operation writes freedesktop recovery metadata and refuses unsupported mounts.
+    #[link(name = "gio-2.0")]
+    unsafe extern "C" {
+        fn g_file_new_for_path(path: *const c_char) -> *mut c_void;
+        fn g_file_trash(
+            file: *mut c_void,
+            cancellable: *mut c_void,
+            error: *mut *mut GError,
+        ) -> c_int;
+    }
+    #[link(name = "gobject-2.0")]
+    unsafe extern "C" {
+        fn g_object_unref(object: *mut c_void);
+    }
+    #[link(name = "glib-2.0")]
+    unsafe extern "C" {
+        fn g_error_free(error: *mut GError);
+    }
+
+    let path = CString::new(target.as_os_str().as_bytes()).map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "The file path contains a null byte.",
+        )
+    })?;
+
+    // SAFETY: GIO takes a NUL-terminated native filename, returns an owned GFile,
+    // and initializes the null error pointer on failure. Both owned objects are
+    // released after the synchronous call, after copying any error message.
+    unsafe {
+        let file = g_file_new_for_path(path.as_ptr());
+        if file.is_null() {
+            return Err(io::Error::other("Linux could not create a file reference."));
+        }
+        let mut error = std::ptr::null_mut();
+        let moved = g_file_trash(file, std::ptr::null_mut(), &mut error);
+        g_object_unref(file);
+
+        let message = if error.is_null() {
+            "Linux could not move the item to the system trash.".to_string()
+        } else {
+            let message = if (*error).message.is_null() {
+                "Linux did not provide an error description.".to_string()
+            } else {
+                CStr::from_ptr((*error).message)
+                    .to_string_lossy()
+                    .into_owned()
+            };
+            g_error_free(error);
+            message
+        };
+
+        if moved == 0 {
+            // Never replace a failed trash operation with permanent deletion.
+            Err(io::Error::other(message))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 pub(super) fn move_path_to_trash(_target: &Path) -> io::Result<()> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
         "Moving items to the system trash is unsupported on this platform.",
     ))
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod linux_trash_tests {
+    use super::move_path_to_trash;
+    use std::ffi::OsString;
+    use std::fs;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+    use std::os::unix::fs::symlink;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use uuid::Uuid;
+
+    struct TrashFixture(PathBuf);
+
+    impl Drop for TrashFixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn in_isolated_trash(test_name: &str, check: impl FnOnce(&Path)) {
+        const FIXTURE_ENV: &str = "PUDE_LINUX_TRASH_TEST_ROOT";
+        if let Some(root) = std::env::var_os(FIXTURE_ENV) {
+            let root = PathBuf::from(root);
+            assert_eq!(std::env::var_os("HOME").unwrap(), root.join("home"));
+            assert_eq!(
+                std::env::var_os("XDG_DATA_HOME").unwrap(),
+                root.join("data")
+            );
+            check(&root);
+            return;
+        }
+
+        let root = std::env::temp_dir().join(format!("pude-linux-trash-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let fixture = TrashFixture(root.canonicalize().unwrap());
+        for directory in ["home", "data", "cache", "config", "run", "work"] {
+            fs::create_dir(fixture.0.join(directory)).unwrap();
+        }
+        // GLib caches these paths. Give each test a fresh process instead of
+        // mutating process-wide environment variables while tests run in parallel.
+        let output = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                &format!("platform_trash::linux_trash_tests::{test_name}"),
+                "--nocapture",
+            ])
+            .env(FIXTURE_ENV, &fixture.0)
+            .env("HOME", fixture.0.join("home"))
+            .env("XDG_DATA_HOME", fixture.0.join("data"))
+            .env("XDG_CACHE_HOME", fixture.0.join("cache"))
+            .env("XDG_CONFIG_HOME", fixture.0.join("config"))
+            .env("XDG_RUNTIME_DIR", fixture.0.join("run"))
+            .env("GIO_USE_VFS", "local")
+            .env_remove("DBUS_SESSION_BUS_ADDRESS")
+            .output()
+            .expect("isolated Linux trash test process should start");
+        assert!(
+            output.status.success(),
+            "isolated Linux trash test failed:\n{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn trash_entries(root: &Path) -> Vec<(PathBuf, PathBuf)> {
+        let trash = root.join("data/Trash");
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(trash.join("info")).unwrap() {
+            let info_path = entry.unwrap().path();
+            let info = fs::read_to_string(&info_path).unwrap();
+            assert_eq!(info.lines().next(), Some("[Trash Info]"));
+            let encoded = info
+                .lines()
+                .find_map(|line| line.strip_prefix("Path="))
+                .expect("trash metadata must record the original path");
+            let date = info
+                .lines()
+                .find_map(|line| line.strip_prefix("DeletionDate="))
+                .expect("trash metadata must record the deletion date");
+            assert_eq!(date.len(), 19);
+            for (index, byte) in date.bytes().enumerate() {
+                match index {
+                    4 | 7 => assert_eq!(byte, b'-'),
+                    10 => assert_eq!(byte, b'T'),
+                    13 | 16 => assert_eq!(byte, b':'),
+                    _ => assert!(byte.is_ascii_digit()),
+                }
+            }
+
+            let mut original = Vec::new();
+            let mut bytes = encoded.as_bytes().iter().copied();
+            while let Some(byte) = bytes.next() {
+                if byte == b'%' {
+                    let hex = [bytes.next().unwrap(), bytes.next().unwrap()];
+                    original
+                        .push(u8::from_str_radix(std::str::from_utf8(&hex).unwrap(), 16).unwrap());
+                } else {
+                    original.push(byte);
+                }
+            }
+            let original = PathBuf::from(OsString::from_vec(original));
+            assert!(original.starts_with(root.join("work")));
+            assert_eq!(info_path.extension().unwrap(), "trashinfo");
+            let trashed = trash.join("files").join(info_path.file_stem().unwrap());
+            assert!(fs::symlink_metadata(&trashed).is_ok());
+            entries.push((original, trashed));
+        }
+        assert_eq!(
+            entries.len(),
+            fs::read_dir(trash.join("files")).unwrap().count(),
+            "each trashed item must have recovery metadata"
+        );
+        entries
+    }
+
+    #[test]
+    fn gio_trash_preserves_files_directories_and_recovery_metadata() {
+        in_isolated_trash(
+            "gio_trash_preserves_files_directories_and_recovery_metadata",
+            |root| {
+                let file = root.join("work/測試 # %\nfile.txt");
+                let directory = root.join("work/folder");
+                fs::write(&file, b"restorable file bytes").unwrap();
+                fs::create_dir(&directory).unwrap();
+                fs::write(directory.join("nested.txt"), b"restorable nested bytes").unwrap();
+
+                move_path_to_trash(&file).unwrap();
+                move_path_to_trash(&directory).unwrap();
+                assert!(!file.exists());
+                assert!(!directory.exists());
+                let entries = trash_entries(root);
+                assert_eq!(entries.len(), 2);
+                for (original, trashed) in entries {
+                    fs::rename(trashed, original).unwrap();
+                }
+                assert_eq!(fs::read(file).unwrap(), b"restorable file bytes");
+                assert_eq!(
+                    fs::read(directory.join("nested.txt")).unwrap(),
+                    b"restorable nested bytes"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn gio_trash_preserves_items_with_colliding_names() {
+        in_isolated_trash("gio_trash_preserves_items_with_colliding_names", |root| {
+            for name in ["first", "second"] {
+                let directory = root.join("work").join(name);
+                fs::create_dir(&directory).unwrap();
+                let file = directory.join("same.txt");
+                fs::write(&file, name.as_bytes()).unwrap();
+                move_path_to_trash(&file).unwrap();
+                assert!(!file.exists());
+            }
+            let entries = trash_entries(root);
+            assert_eq!(entries.len(), 2);
+            assert_ne!(entries[0].1, entries[1].1);
+            for (original, trashed) in entries {
+                let expected = original.parent().unwrap().file_name().unwrap().as_bytes();
+                assert_eq!(fs::read(&trashed).unwrap(), expected);
+                fs::rename(trashed, &original).unwrap();
+                assert_eq!(fs::read(&original).unwrap(), expected);
+            }
+        });
+    }
+
+    #[test]
+    fn gio_trash_moves_symlinks_without_following_them() {
+        in_isolated_trash("gio_trash_moves_symlinks_without_following_them", |root| {
+            let target = root.join("work/target.txt");
+            fs::write(&target, b"keep target").unwrap();
+            let link = root.join("work/link.txt");
+            let dangling = root.join("work/dangling.txt");
+            symlink(&target, &link).unwrap();
+            symlink("missing-target", &dangling).unwrap();
+
+            move_path_to_trash(&link).unwrap();
+            move_path_to_trash(&dangling).unwrap();
+            assert!(fs::symlink_metadata(&link).is_err());
+            assert!(fs::symlink_metadata(&dangling).is_err());
+            assert_eq!(fs::read(&target).unwrap(), b"keep target");
+            let entries = trash_entries(root);
+            assert_eq!(entries.len(), 2);
+            for (original, trashed) in entries {
+                assert!(fs::symlink_metadata(&trashed).unwrap().is_symlink());
+                fs::rename(trashed, original).unwrap();
+            }
+            assert_eq!(fs::read_link(link).unwrap(), target);
+            assert_eq!(
+                fs::read_link(dangling).unwrap(),
+                Path::new("missing-target")
+            );
+        });
+    }
+
+    #[test]
+    fn gio_trash_preserves_non_utf8_filenames() {
+        in_isolated_trash("gio_trash_preserves_non_utf8_filenames", |root| {
+            let file = root
+                .join("work")
+                .join(OsString::from_vec(b"file-\xff.txt".to_vec()));
+            fs::write(&file, b"non-UTF-8 name").unwrap();
+            move_path_to_trash(&file).unwrap();
+            assert!(fs::symlink_metadata(&file).is_err());
+            let entries = trash_entries(root);
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].0, file);
+            fs::rename(&entries[0].1, &entries[0].0).unwrap();
+            assert_eq!(fs::read(&file).unwrap(), b"non-UTF-8 name");
+        });
+    }
+
+    #[test]
+    fn gio_trash_failure_preserves_source() {
+        in_isolated_trash("gio_trash_failure_preserves_source", |root| {
+            fs::write(root.join("data/Trash"), b"not a trash directory").unwrap();
+            let file = root.join("work/keep.txt");
+            let directory = root.join("work/keep-folder");
+            fs::write(&file, b"keep file").unwrap();
+            fs::create_dir(&directory).unwrap();
+            fs::write(directory.join("nested.txt"), b"keep nested").unwrap();
+
+            assert!(move_path_to_trash(&file).is_err());
+            assert!(move_path_to_trash(&directory).is_err());
+            assert_eq!(fs::read(&file).unwrap(), b"keep file");
+            assert_eq!(
+                fs::read(directory.join("nested.txt")).unwrap(),
+                b"keep nested"
+            );
+        });
+    }
+
+    #[test]
+    fn gio_trash_rejects_null_bytes() {
+        let path = PathBuf::from(OsString::from_vec(b"/invalid\0name".to_vec()));
+        assert_eq!(
+            move_path_to_trash(&path).unwrap_err().kind(),
+            std::io::ErrorKind::InvalidInput
+        );
+    }
 }
 
 #[cfg(all(test, target_os = "macos"))]

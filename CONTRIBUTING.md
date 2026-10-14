@@ -44,6 +44,14 @@ Release targets are Windows 11 x64 and macOS 14+ arm64. Linux source checks do n
 imply a Linux release commitment; Linux releases are planned, and mobile is outside
 scope.
 
+Linux terminal cleanup requires kernel 5.1 or newer, permitted `pidfd_send_signal`,
+and a mounted, listable `/proc` with readable processes in the terminal's session.
+It stops the shell and its job-control groups without signaling reused numeric PIDs;
+deliberately daemonized processes that leave the session are outside this guarantee.
+Linux native regression tests also require `python3` for a threaded-process fixture.
+Linux file deletion uses GIO's recoverable system trash and reports an error when
+trashing is unsupported; it never falls back to permanent deletion.
+
 ## Set up a checkout
 
 Clone the repository, enter it, and install the exact dependency tree from the
