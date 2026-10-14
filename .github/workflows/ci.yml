@@ -42,4 +42,10 @@ jobs:
       - run: npm ci
       # Tauri embeds the built frontend at compile time.
       - run: npm run desktop:build
-      - run: cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+      # Runs each test in its own process so process-group tests cannot disturb each other.
+      - run: node scripts/run-rust-tests.mjs
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-test-diagnostics-${{ matrix.os }}
+          path: rust-test-diagnostics.log
