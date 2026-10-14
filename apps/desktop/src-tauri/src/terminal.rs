@@ -1540,6 +1540,13 @@ mod terminal_pty_tests {
             uuid::Uuid::new_v4()
         ));
         fs::create_dir(&workspace).unwrap();
+        // temp_dir() can be an 8.3 short path while PowerShell prints the long one,
+        // so match the unique folder name instead of the whole path.
+        let workspace_name = workspace
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_lowercase();
         let pty_system = native_pty_system();
         let pair = pty_system
             .openpty(PtySize {
@@ -1629,7 +1636,7 @@ mod terminal_pty_tests {
                 .any(|window| window == b"PUDE_TERMINAL_SMOKE_OK")
                 && String::from_utf8_lossy(&output)
                     .to_lowercase()
-                    .contains(&workspace.to_string_lossy().to_lowercase())
+                    .contains(&workspace_name)
             {
                 break;
             }
@@ -1648,7 +1655,7 @@ mod terminal_pty_tests {
         assert!(
             String::from_utf8_lossy(&output)
                 .to_lowercase()
-                .contains(&workspace.to_string_lossy().to_lowercase()),
+                .contains(&workspace_name),
             "PowerShell did not start in the selected workspace: {}",
             String::from_utf8_lossy(&output)
         );
