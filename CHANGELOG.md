@@ -6,6 +6,11 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The Explorer now shows dot files by default. Turn **Hide dot files in Explorer** on in
+  Settings to hide them again.
+
 ### Updates
 
 - In-app updates: pude checks GitHub Releases for a newer signed version shortly after

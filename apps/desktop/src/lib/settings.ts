@@ -8,7 +8,7 @@ export const defaultSettings = {
   wordWrap: false,
   sidebarWidth: 276,
   terminalHeight: 238,
-  hideDotFiles: true,
+  hideDotFiles: false,
   checkForUpdates: true,
   watcherExcludes: [],
 } satisfies AppSettings;
