@@ -11,6 +11,11 @@ All notable changes to `pude` are recorded here. The format follows
 - The Explorer now shows dot files by default. Turn **Hide dot files in Explorer** on in
   Settings to hide them again.
 
+### Fixed
+
+- On macOS, stopping a Git command or a terminal no longer reports a cleanup failure
+  when all of its processes had already exited.
+
 ### Updates
 
 - In-app updates: pude checks GitHub Releases for a newer signed version shortly after

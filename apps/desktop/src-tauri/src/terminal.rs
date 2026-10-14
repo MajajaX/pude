@@ -3064,7 +3064,7 @@ impl TerminalProcessTree {
                 return Ok(());
             }
             let error = io::Error::last_os_error();
-            if error.raw_os_error() == Some(libc::ESRCH) {
+            if super::process_group::is_group_gone(&error) {
                 Ok(())
             } else {
                 Err(format!(
@@ -3110,7 +3110,7 @@ impl TerminalProcessTree {
                 let result = unsafe { libc::kill(-(self.process_group as i32), 0) };
                 if result != 0 {
                     let error = io::Error::last_os_error();
-                    if error.raw_os_error() == Some(libc::ESRCH) {
+                    if super::process_group::is_group_gone(&error) {
                         return Ok(());
                     }
                     return Err(format!("Unable to inspect terminal process group. {error}"));
