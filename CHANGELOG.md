@@ -4,7 +4,14 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1] - 2026-10-14
+
+The first release with in-app updates. It adds the Windows 11 x64 installer that
+0.1.0 did not include.
+
+### Added
+
+- Windows 11 x64 installer (`pude-windows-x64-setup.exe`, unsigned).
 
 ### Changed
 
