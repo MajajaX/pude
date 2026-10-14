@@ -1,0 +1,11 @@
+* @MajajaX
+
+# Signing, updates and release packaging: changes here affect every installed copy.
+/.github/ @MajajaX
+/scripts/ @MajajaX
+/docs/releasing.md @MajajaX
+/apps/desktop/src-tauri/tauri*.json @MajajaX
+/apps/desktop/src-tauri/capabilities/ @MajajaX
+/apps/desktop/src-tauri/src/app_update.rs @MajajaX
+/SECURITY.md @MajajaX
+/GOVERNANCE.md @MajajaX

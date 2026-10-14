@@ -24,7 +24,8 @@ You need:
 - The platform prerequisites listed in the
   [Tauri documentation](https://v2.tauri.app/start/prerequisites/).
 
-The repository has no CI workflow yet, so run checks locally before pushing changes.
+Pull requests run CI on macOS, Windows and Linux, but run the checks locally before
+pushing changes.
 The following operating systems describe the development
 verification baseline and do not promise support for every OS release, distribution,
 or CPU architecture.
@@ -109,6 +110,9 @@ Follow the surrounding code rather than introducing a new framework or abstracti
   issues and pull requests must be free of secrets and private source.
 
 ## Issues and pull requests
+
+Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). How
+decisions are made and who can merge is described in [GOVERNANCE.md](GOVERNANCE.md).
 
 Use the issue templates for reproducible bugs and feature requests. A useful bug
 report includes the app version or commit, OS and architecture, whether it occurred
