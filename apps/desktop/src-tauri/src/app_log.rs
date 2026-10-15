@@ -66,7 +66,7 @@ fn default_log_dir() -> Option<PathBuf> {
     {
         let base = std::env::var_os("XDG_DATA_HOME").map_or_else(
             || std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share")),
-            Some,
+            |base| Some(PathBuf::from(base)),
         );
         base.map(|base| base.join("pude").join("logs"))
     }
