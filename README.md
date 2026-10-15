@@ -46,7 +46,7 @@ indexing. Features load only when you use them.
   [examples](examples/plugins).
 
 pude deliberately leaves out project-wide indexing, a debugger, AI services, a plugin
-marketplace and automatic updates.
+marketplace and silent automatic updates.
 
 ## Install
 
@@ -59,8 +59,9 @@ Download the installer for your platform from
 | Windows 11 x64 | [`pude-windows-x64-setup.exe`](https://github.com/MajajaX/pude/releases/latest/download/pude-windows-x64-setup.exe) (unsigned) |
 
 Each release includes `SHA256SUMS.txt` so you can verify your download. pude never
-updates itself; to update, install the newer version. Linux builds are planned —
-until then you can [build from source](#build-from-source).
+installs an update by itself; to update, use **Download update** and **Restart and
+update** in the About dialog, or install the newer version manually.
+Linux builds are planned — until then you can [build from source](#build-from-source).
 
 The [website download section](https://pude.dev/#download) recommends an installer
 using the OS, version and CPU details your browser provides. If those details are

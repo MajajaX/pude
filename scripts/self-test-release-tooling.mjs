@@ -220,7 +220,17 @@ async function testUpdateManifest() {
   });
   expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "overwriting an existing manifest", "EEXIST");
   expectFailure(run(process.execPath, [writer, releaseDirectory, "1.2.3", notesFile]), "tag without v prefix", "usage");
-  return "Update manifest lists each platform's package URL and signature, covers partial releases, and refuses empty input or overwrites.";
+  for (const invalidTag of ["v1.2.3garbage", "v01.2.3", "v1.2", "v1.2.3-01"]) {
+    expectFailure(run(process.execPath, [writer, releaseDirectory, invalidTag, notesFile]), `malformed tag ${invalidTag}`, "usage");
+  }
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3-rc.1", notesFile]), "prerelease tag", "stable releases only");
+  const buildDirectory = join(temporaryDirectory, "update-manifest-build");
+  assertTemporaryPath(buildDirectory);
+  await mkdir(buildDirectory, { recursive: true });
+  await writeFile(join(buildDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
+  expectSuccess(run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile]), "stable tag with build metadata");
+  assert.equal(JSON.parse(await readFile(join(buildDirectory, "latest.json"), "utf8")).version, "1.2.3+build.4");
+  return "Update manifest lists each platform's package URL and signature, covers partial releases, accepts only complete stable versions, and refuses empty input or overwrites.";
 }
 
 function validRelease(tag) {
@@ -375,6 +385,7 @@ async function testVersionTool() {
   }
   for (const path of [
     "scripts/release-version.mjs",
+    "scripts/semver.mjs",
     "scripts/verify-release-notices.mjs",
     "package.json",
     "package-lock.json",
@@ -415,6 +426,7 @@ async function testVersionTool() {
   expectSuccess(run(process.execPath, [versionTool, "check", "1.2.3-rc.1+build.4"]), "synced version check");
   expectSuccess(run(process.execPath, [versionTool, "sync", "1.2.3-rc.1+build.4"]), "idempotent version sync");
   expectFailure(run(process.execPath, [versionTool, "sync", "1.2.3-01"]), "invalid numeric prerelease identifier", "semantic version");
+  expectFailure(run(process.execPath, [versionTool, "release-check", "v1.2.3-rc.1+build.4"]), "prerelease release check", "stable versions only");
   expectSuccess(run(process.execPath, [versionTool, "sync", "1.0.0"]), "stable version sync");
 
   expectSuccess(run("git", ["init", "-q"], { cwd: fixture }), "fixture git init");

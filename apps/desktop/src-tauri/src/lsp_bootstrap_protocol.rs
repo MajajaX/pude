@@ -169,7 +169,9 @@ pub fn run_if_requested() -> bool {
         let _ = CloseHandle(event);
     }
     if wait != WAIT_OBJECT_0 {
-        crate::app_log::log_error(&format!("LSP bootstrap startup gate timed out or failed ({wait})."));
+        crate::app_log::log_error(&format!(
+            "LSP bootstrap startup gate timed out or failed ({wait})."
+        ));
         return true;
     }
 

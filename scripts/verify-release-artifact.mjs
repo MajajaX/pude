@@ -33,12 +33,15 @@ if (platform === "windows") {
   const expectedThumbprint = process.env.WINDOWS_CERTIFICATE_THUMBPRINT?.replaceAll(" ", "").toUpperCase();
   if (!expectedThumbprint) throw new Error("WINDOWS_CERTIFICATE_THUMBPRINT is required");
   if (basename(artifact) !== "pude-windows-x64-setup.exe") throw new Error("unexpected Windows installer filename");
+  const { version } = JSON.parse(await readFile(fileURLToPath(new URL("../apps/desktop/src-tauri/tauri.conf.json", import.meta.url)), "utf8"));
+  const expectedVersion = new RegExp(`^${version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\.0)?(?:\\+.*)?$`);
   const signature = run("pwsh", [
     "-NoProfile",
     "-File",
     fileURLToPath(new URL("./verify-windows-signature.ps1", import.meta.url)),
     artifact,
     expectedThumbprint,
+    version,
     resolve(artifact, "..", "LICENSE"),
     resolve(artifact, "..", "THIRD_PARTY_NOTICES.md"),
     resolve(artifact, "..", "THIRD_PARTY_LICENSES.md"),
@@ -48,11 +51,11 @@ if (platform === "windows") {
   if (
     result.Status !== "Valid" ||
     result.Thumbprint?.replaceAll(" ", "").toUpperCase() !== expectedThumbprint ||
-    !["1.0.0", "1.0.0.0"].includes(result.ProductVersion) ||
+    !expectedVersion.test(result.ProductVersion) ||
     result.Machine !== "x64" ||
     result.AppStatus !== "Valid" ||
     result.AppThumbprint?.replaceAll(" ", "").toUpperCase() !== expectedThumbprint ||
-    !["1.0.0", "1.0.0.0"].includes(result.AppProductVersion)
+    !expectedVersion.test(result.AppProductVersion)
   ) {
     throw new Error("the NSIS installer is not validly signed by the imported release certificate");
   }

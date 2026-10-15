@@ -175,22 +175,6 @@ impl RepositoryRootCache {
         }
         Ok(())
     }
-
-    pub fn invalidate_all(&self, runtime: &GitCoordinator) -> Result<(), GitErrorInfo> {
-        let cached = {
-            let mut entries = self.entries.lock().map_err(|_| {
-                error(
-                    GitErrorKind::Internal,
-                    "Unable to lock Git repository cache.",
-                )
-            })?;
-            std::mem::take(&mut *entries)
-        };
-        for repository in cached.into_values() {
-            runtime.invalidate(repository.root, GitDirtyScope::ALL);
-        }
-        Ok(())
-    }
 }
 
 struct DiscoveredRepository {
@@ -199,23 +183,20 @@ struct DiscoveredRepository {
     common_dir: PathBuf,
 }
 
-fn discover_repository(
+// One path per command: a path may legally contain newlines on Unix, so
+// several paths cannot be told apart in a newline-separated reply.
+fn rev_parse_path(
     workspace: &Path,
     runtime: &GitCoordinator,
     request: &RequestHandle,
-) -> Result<DiscoveredRepository, GitErrorInfo> {
+    option: &str,
+) -> Result<PathBuf, GitErrorInfo> {
     let mut spec = GitCommandSpec::read(
         workspace,
-        [
-            "rev-parse",
-            "--path-format=absolute",
-            "--show-toplevel",
-            "--absolute-git-dir",
-            "--git-common-dir",
-        ]
-        .into_iter()
-        .map(OsString::from)
-        .collect(),
+        ["rev-parse", "--path-format=absolute", option]
+            .into_iter()
+            .map(OsString::from)
+            .collect(),
     );
     // Discovery must observe the current `.git` structure even when a prior
     // rev-parse command is still in the Git read cache.
@@ -227,21 +208,26 @@ fn discover_repository(
         .map_err(|error| error.info())?
         .into_success()
         .map_err(|error| error.info())?;
-    let fields: Vec<&[u8]> = output
-        .stdout
-        .split(|byte| *byte == b'\n')
-        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
-        .filter(|line| !line.is_empty())
-        .collect();
-    if fields.len() < 3 {
+    let path = output.stdout.strip_suffix(b"\n").unwrap_or(&output.stdout);
+    #[cfg(windows)]
+    let path = path.strip_suffix(b"\r").unwrap_or(path);
+    if path.is_empty() {
         return Err(error(
             GitErrorKind::NotRepository,
             "Git did not return the worktree and administrative directory paths.",
         ));
     }
-    let root = canonical_or_original(&path_from_bytes(fields[0]));
-    let git_dir = canonical_or_original(&path_from_bytes(fields[1]));
-    let common_dir = canonical_or_original(&path_from_bytes(fields[2]));
+    Ok(canonical_or_original(&path_from_bytes(path)))
+}
+
+fn discover_repository(
+    workspace: &Path,
+    runtime: &GitCoordinator,
+    request: &RequestHandle,
+) -> Result<DiscoveredRepository, GitErrorInfo> {
+    let root = rev_parse_path(workspace, runtime, request, "--show-toplevel")?;
+    let git_dir = rev_parse_path(workspace, runtime, request, "--absolute-git-dir")?;
+    let common_dir = rev_parse_path(workspace, runtime, request, "--git-common-dir")?;
     if filesystem_repository_root(workspace).as_deref() != Some(root.as_path()) {
         return Err(error(
             GitErrorKind::Failed,
@@ -507,6 +493,22 @@ mod tests {
             workspace.canonicalize().expect("canonical nested root")
         );
         assert_ne!(first.identity, second.identity);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn repository_paths_containing_newlines_are_resolved_intact() {
+        let fixture = GitFixture::new();
+        let workspace = fixture.path.join("line\nbreak");
+        fs::create_dir(&workspace).expect("workspace with a newline in its name");
+        initialize_repository(&workspace);
+        let runtime = GitCoordinator::new();
+        let resolved = RepositoryRootCache::default()
+            .resolve(&workspace, &runtime, &request_for(&workspace, &runtime))
+            .expect("repository discovery");
+        let canonical = workspace.canonicalize().expect("canonical workspace");
+        assert_eq!(resolved.root, canonical);
+        assert_eq!(resolved.identity.git_dir, canonical.join(".git"));
     }
 
     #[test]

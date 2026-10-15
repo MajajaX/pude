@@ -1,5 +1,6 @@
-import { For, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
+import { assignMarkdownHeadingIds } from "../lib/markdown-heading-ids";
 
 type TableAlignment = "left" | "center" | "right" | undefined;
 
@@ -98,21 +99,37 @@ export function MarkdownPreview(props: {
 
   onCleanup(() => { generation += 1; });
 
+  const headingIds = createMemo(() => {
+    const headings = parsed().blocks.filter((block) => block.kind === "heading");
+    const ids = assignMarkdownHeadingIds(headings.map((heading) => heading.tokens.map((token) => token.text).join("")));
+    return new Map<MarkdownBlock, string>(headings.map((heading, index) => [heading, ids[index]]));
+  });
+
+  const scrollToAnchor = (event: MouseEvent) => {
+    const link = event.target instanceof Element ? event.target.closest("a") : null;
+    const href = link?.getAttribute("href");
+    if (!href?.startsWith("#")) return;
+    event.preventDefault();
+    const id = decodeURIComponent(href.slice(1));
+    const target = event.currentTarget instanceof Element ? event.currentTarget.querySelector(`[id="${CSS.escape(id)}"]`) : null;
+    target?.scrollIntoView({ block: "start" });
+  };
+
   return (
-    <article class="markdown-preview" aria-label="Markdown preview">
+    <article class="markdown-preview" aria-label="Markdown preview" on:click={scrollToAnchor}>
       <Show when={parsed().documentKey === props.documentKey && parsed().truncated}>
         <aside class="markdown-preview-notice" role="status" style={{ "max-width": "840px", "margin": "0 auto 20px", "padding": "8px 10px", "color": "var(--muted)", "font-size": "12px", "border": "1px solid var(--border)", "border-radius": "4px", "background": "var(--panel-raised)" }}>
           Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.
         </aside>
       </Show>
-      <For each={parsed().documentKey === props.documentKey ? parsed().blocks : []}>{(block) => <MarkdownBlockView block={block} />}</For>
+      <For each={parsed().documentKey === props.documentKey ? parsed().blocks : []}>{(block) => <MarkdownBlockView block={block} headingId={headingIds().get(block)} />}</For>
     </article>
   );
 }
 
-function MarkdownBlockView(props: { block: MarkdownBlock }): JSX.Element {
+function MarkdownBlockView(props: { block: MarkdownBlock; headingId?: string }): JSX.Element {
   const block = props.block;
-  if (block.kind === "heading") return <Heading level={block.level} tokens={block.tokens} />;
+  if (block.kind === "heading") return <Heading level={block.level} tokens={block.tokens} id={props.headingId} />;
   if (block.kind === "paragraph") return <p><InlineContent tokens={block.tokens} /></p>;
   if (block.kind === "quote") return <blockquote><InlineContent tokens={block.tokens} /></blockquote>;
   if (block.kind === "rule") return <hr />;
@@ -132,20 +149,22 @@ function MarkdownBlockView(props: { block: MarkdownBlock }): JSX.Element {
   return <ul><For each={block.items}>{(_, index) => <li><InlineContent tokens={block.itemTokens[index()]} /></li>}</For></ul>;
 }
 
-function Heading(props: { level: number; tokens: InlineToken[] }): JSX.Element {
-  if (props.level === 1) return <h1><InlineContent tokens={props.tokens} /></h1>;
-  if (props.level === 2) return <h2><InlineContent tokens={props.tokens} /></h2>;
-  if (props.level === 3) return <h3><InlineContent tokens={props.tokens} /></h3>;
-  if (props.level === 4) return <h4><InlineContent tokens={props.tokens} /></h4>;
-  if (props.level === 5) return <h5><InlineContent tokens={props.tokens} /></h5>;
-  return <h6><InlineContent tokens={props.tokens} /></h6>;
+function Heading(props: { level: number; tokens: InlineToken[]; id?: string }): JSX.Element {
+  if (props.level === 1) return <h1 id={props.id}><InlineContent tokens={props.tokens} /></h1>;
+  if (props.level === 2) return <h2 id={props.id}><InlineContent tokens={props.tokens} /></h2>;
+  if (props.level === 3) return <h3 id={props.id}><InlineContent tokens={props.tokens} /></h3>;
+  if (props.level === 4) return <h4 id={props.id}><InlineContent tokens={props.tokens} /></h4>;
+  if (props.level === 5) return <h5 id={props.id}><InlineContent tokens={props.tokens} /></h5>;
+  return <h6 id={props.id}><InlineContent tokens={props.tokens} /></h6>;
 }
 
 function InlineContent(props: { tokens: InlineToken[] }): JSX.Element {
   return (
     <>
       <For each={props.tokens}>{(token) => {
-        if (token.kind === "link") return <a href={token.href} target="_blank" rel="noreferrer">{token.text}</a>;
+        if (token.kind === "link") return token.href?.startsWith("#")
+          ? <a href={token.href}>{token.text}</a>
+          : <a href={token.href} target="_blank" rel="noreferrer">{token.text}</a>;
         if (token.kind === "strong") return <strong>{token.text}</strong>;
         if (token.kind === "emphasis") return <em>{token.text}</em>;
         if (token.kind === "code") return <code>{token.text}</code>;

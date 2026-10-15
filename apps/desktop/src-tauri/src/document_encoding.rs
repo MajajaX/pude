@@ -140,11 +140,9 @@ fn count_output_crlf_markers(source: &str, input_breaks: usize, fallback: char) 
 }
 
 fn append_mapped_lf_ascii(input: &[u8], markers: &[u8], fallback: char, output: &mut Vec<u8>) {
-    let mut marker_index = 0;
     let mut cursor = 0;
-    for boundary in memchr::memchr_iter(b'\n', input) {
+    for (marker_index, boundary) in memchr::memchr_iter(b'\n', input).enumerate() {
         let marker = markers.get(marker_index).copied().unwrap_or(fallback as u8);
-        marker_index += 1;
         if marker == b'c' || (marker != b'l' && fallback == 'c') {
             // Keep ordinary LF boundaries inside the copied span. Dense maps
             // often have few CRLF markers, so emitting only at those markers

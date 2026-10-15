@@ -623,7 +623,7 @@ pub async fn plugin_network_request(
             let mut authorizations = authorization_store()
                 .lock()
                 .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
-            take_authorization(&mut *authorizations, &authorization_token, Instant::now())?
+            take_authorization(&mut authorizations, &authorization_token, Instant::now())?
         };
         if canonical_workspace(&workspace)? != grant.workspace {
             return Err(
@@ -1041,8 +1041,8 @@ mod tests {
                 .is_ok());
         }
         assert!(bytes.check_file(Path::new("over-total.js"), 1).is_err());
-        assert!(MAX_PLUGIN_INSTALLED_BYTES > MAX_PLUGIN_TOTAL_BYTES);
-        assert!(MAX_INSTALLED_PLUGINS > 0);
+        const _: () = assert!(MAX_PLUGIN_INSTALLED_BYTES > MAX_PLUGIN_TOTAL_BYTES);
+        const _: () = assert!(MAX_INSTALLED_PLUGINS > 0);
         assert_eq!(MAX_PLUGIN_DEPTH, 16);
         assert_eq!(MAX_NETWORK_REQUEST_BODY_BYTES, 256 * 1024);
     }

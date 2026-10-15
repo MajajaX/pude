@@ -78,7 +78,7 @@ static PLUGIN_FILE_READ_CANCELLATIONS: OnceLock<Mutex<PluginFileReadCancellation
 
 #[cfg(test)]
 thread_local! {
-    static PLUGIN_SNAPSHOT_BUILD_COUNT: Cell<usize> = Cell::new(0);
+    static PLUGIN_SNAPSHOT_BUILD_COUNT: Cell<usize> = const { Cell::new(0) };
 }
 
 #[derive(Default)]
@@ -480,7 +480,9 @@ fn plugin_path_revision(
         use cap_std::fs::OpenOptionsExt;
         const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
         let mut options = OpenOptions::new();
-        options.read(true).custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+        options
+            .read(true)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
         let file = parent.open_with(name, &options).map_err(|error| {
             format!("Unable to inspect plugin workspace file identity. {error}")
         })?;

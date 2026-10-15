@@ -120,7 +120,7 @@ const en: DocsDict = {
             items: [
               "Project-wide indexing, a debugger or a build system",
               "AI services, cloud sync and accounts",
-              "A plugin marketplace, automatic updates and bundled language servers",
+              "A plugin marketplace, silent automatic updates and bundled language servers",
             ],
           },
           { t: "h3", text: "Reading these docs" },
@@ -156,12 +156,12 @@ const en: DocsDict = {
             text: "Each release ships `SHA256SUMS.txt`, covering both installers and the license files. Compare the checksum before you install:",
           },
           { t: "code", lang: "bash", code: checksumCommands },
-          { t: "h3", text: "Manual updates" },
+          { t: "h3", text: "Updates" },
           {
             t: "p",
-            text: "pude never updates itself and never checks for updates at startup. To update, close pude, download the newer installer and run it. In stable builds, the About dialog can look up the latest release — only when you click it.",
+            text: "pude looks for a newer version on GitHub Releases about five seconds after startup, and again when you click Check for updates in the About dialog. Turn the startup check off with Check for updates on startup in Settings. pude never downloads or installs an update by itself: you choose Download update, then Restart and update. You can also close pude, download the newer installer and run it.",
           },
-          { t: "note", text: "Prerelease builds keep the About release check disabled." },
+          { t: "note", text: "Releases are published as stable versions only." },
         ],
       },
       {
@@ -470,7 +470,7 @@ const zhHant: DocsDict = {
             items: [
               "全專案索引、除錯器或建置系統",
               "AI 服務、雲端同步與帳號",
-              "外掛市集、自動更新與內附語言伺服器",
+              "外掛市集、靜默自動更新與內附語言伺服器",
             ],
           },
           { t: "h3", text: "如何閱讀本文件" },
@@ -506,12 +506,12 @@ const zhHant: DocsDict = {
             text: "每個版本都附有 `SHA256SUMS.txt`，涵蓋兩個安裝檔與授權文件。安裝前請先比對雜湊值：",
           },
           { t: "code", lang: "bash", code: checksumCommands },
-          { t: "h3", text: "手動更新" },
+          { t: "h3", text: "更新" },
           {
             t: "p",
-            text: "pude 不會自動更新，啟動時也不會連線檢查。更新時請關閉 pude，下載較新的安裝檔並執行。穩定版的「關於」視窗可以查詢最新版本——只在你點擊時才會連線。",
+            text: "pude 會在啟動後約五秒，以及你在「關於」視窗按下「Check for updates」時，到 GitHub Releases 查詢新版本。可在設定中關閉「Check for updates on startup」。pude 不會自行下載或安裝更新：你需要先選擇「Download update」，再選擇「Restart and update」；也可以關閉 pude，下載較新的安裝檔並執行。",
           },
-          { t: "note", text: "預發行版本會停用「關於」視窗的版本查詢。" },
+          { t: "note", text: "發布的版本一律為穩定版。" },
         ],
       },
       {

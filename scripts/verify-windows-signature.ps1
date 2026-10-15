@@ -4,6 +4,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$ExpectedThumbprint,
   [Parameter(Mandatory = $true)]
+  [string]$ExpectedVersion,
+  [Parameter(Mandatory = $true)]
   [string]$LicensePath,
   [Parameter(Mandatory = $true)]
   [string]$NoticePath,
@@ -23,6 +25,7 @@ $LicensePath = (Resolve-Path -LiteralPath $LicensePath).Path
 $NoticePath = (Resolve-Path -LiteralPath $NoticePath).Path
 $LicenseAppendixPath = (Resolve-Path -LiteralPath $LicenseAppendixPath).Path
 $ExpectedThumbprint = $ExpectedThumbprint.Replace(" ", "").ToUpperInvariant()
+$expectedVersionPattern = "^$([regex]::Escape($ExpectedVersion))(?:\.0)?(?:\+.*)?$"
 
 function Assert-PeImage([string]$Path) {
   $stream = [System.IO.File]::OpenRead($Path)
@@ -171,7 +174,7 @@ if ($installerSignature.Status -ne "Valid" -or $installerSignature.SignerCertifi
   throw "NSIS installer is not validly signed by the expected certificate."
 }
 $installerVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($InstallerPath).ProductVersion
-if ($installerVersion -notmatch '^1\.0\.0(?:\.0)?(?:\+.*)?$') {
+if ($installerVersion -notmatch $expectedVersionPattern) {
   throw "NSIS installer has unexpected internal product version '$installerVersion'."
 }
 $null = Assert-PeImage $InstallerPath
@@ -211,7 +214,7 @@ foreach ($location in $registryLocations) {
   $appPath = Join-Path $installRoot "pude.exe"
   if (-not (Test-Path -LiteralPath $appPath -PathType Leaf)) { throw "The NSIS installer did not install pude.exe at its destination." }
   $appVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($appPath).ProductVersion
-  if ($appVersion -notmatch '^1\.0\.0(?:\.0)?(?:\+.*)?$') { throw "Installed app has unexpected product version '$appVersion'." }
+  if ($appVersion -notmatch $expectedVersionPattern) { throw "Installed app has unexpected product version '$appVersion'." }
   $appMachine = Assert-PeImage $appPath
   if ($appMachine -ne 0x8664) { throw ("Installed app is not x64 (PE machine: 0x{0:x4})." -f $appMachine) }
   $appSignature = Get-AuthenticodeSignature -LiteralPath $appPath

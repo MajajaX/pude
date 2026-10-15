@@ -1,10 +1,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { parseSemver } from "./semver.mjs";
 
 const [releaseDirectoryArgument, tag, notesFileArgument] = process.argv.slice(2);
-if (!releaseDirectoryArgument || !/^v\d+\.\d+\.\d+/.test(tag ?? "") || !notesFileArgument) {
+const version = tag?.startsWith("v") ? parseSemver(tag.slice(1)) : undefined;
+if (!releaseDirectoryArgument || !version || !notesFileArgument) {
   throw new Error("usage: write-update-manifest.mjs <release-directory> <vX.Y.Z> <notes-file>");
 }
+if (version.prerelease) throw new Error(`${tag} is a prerelease; update manifests are written for stable releases only`);
 
 const releaseDirectory = resolve(releaseDirectoryArgument);
 const downloadBase = `https://github.com/MajajaX/pude/releases/download/${encodeURIComponent(tag)}`;

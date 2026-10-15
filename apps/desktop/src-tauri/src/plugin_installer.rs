@@ -141,10 +141,10 @@ fn recover_plugins_from_root(
         });
     }
     let mut pending_cleanup_ids = Vec::new();
-    if cleanup_abandoned_plugin_staging(&root)? {
+    if cleanup_abandoned_plugin_staging(root)? {
         pending_cleanup_ids.push(STAGING_CLEANUP_ID.to_string());
     }
-    let ids = startup_recovery_ids(&root, ids)?;
+    let ids = startup_recovery_ids(root, ids)?;
     let mut unique_ids = std::collections::HashSet::new();
     let mut plugins = Vec::new();
     for id in ids {
@@ -152,11 +152,11 @@ fn recover_plugins_from_root(
         if !unique_ids.insert(id.clone()) {
             continue;
         }
-        if has_removal_tombstone(&root, &id)? {
+        if has_removal_tombstone(root, &id)? {
             pending_cleanup_ids.push(id);
             continue;
         }
-        match recover_one_plugin(&root, &id) {
+        match recover_one_plugin(root, &id) {
             Ok(Some(plugin)) => plugins.push(plugin),
             Ok(None) => {}
             Err(error) => {
@@ -304,10 +304,10 @@ fn commit_staged_plugin(
     root: &Path,
     transaction_id: Uuid,
 ) -> Result<InstalledPluginResult, String> {
-    let staging = staging_path(&root, &transaction_id.to_string());
+    let staging = staging_path(root, &transaction_id.to_string());
     let staged = fs::canonicalize(&staging)
         .map_err(|error| format!("Unable to access staged plugin. {error}"))?;
-    let canonical_root = fs::canonicalize(&root)
+    let canonical_root = fs::canonicalize(root)
         .map_err(|error| format!("Unable to access plugin storage. {error}"))?;
     if staged.parent() != Some(canonical_root.as_path()) || !staged.is_dir() {
         return Err("Staged plugin is outside plugin storage.".to_string());
@@ -318,16 +318,16 @@ fn commit_staged_plugin(
     validate_plugin_tree(&staged)?;
     let entry = safe_plugin_relative_path(&manifest.entry)?;
     verify_entry(&staged, &entry)?;
-    validate_plugin_storage(&root, &manifest.id)?;
+    validate_plugin_storage(root, &manifest.id)?;
 
-    let destination = plugin_path(&root, &manifest.id);
+    let destination = plugin_path(root, &manifest.id);
     if !destination.exists() && has_removal_tombstone(root, &manifest.id)? {
         return Err(
             "Plugin cleanup is still pending for this id. Retry cleanup before installing it again."
                 .to_string(),
         );
     }
-    let backup = new_rollback_path(&root, &manifest.id);
+    let backup = new_rollback_path(root, &manifest.id);
     let had_previous_install = match fs::symlink_metadata(&destination) {
         Ok(metadata) => {
             if metadata.file_type().is_symlink() || !metadata.is_dir() {
@@ -360,7 +360,7 @@ fn commit_staged_plugin(
         }
         return Err(message);
     }
-    let cleanup_pending = prune_older_rollback_versions(&root, &manifest.id).is_err();
+    let cleanup_pending = prune_older_rollback_versions(root, &manifest.id).is_err();
 
     Ok(InstalledPluginResult {
         path: destination.to_string_lossy().to_string(),

@@ -110,6 +110,7 @@ pub(crate) fn cancel_directory_listing(request_id: String) -> Result<bool, Strin
     cancel_directory_listing_sync(&request_id)
 }
 
+#[cfg(test)]
 fn list_directory_sync(path: String) -> Result<DirectoryListingResult, String> {
     list_directory_sync_with_cancellation(path, None)
 }
@@ -1118,7 +1119,7 @@ pub(super) fn save_file_sync(
         );
     }
     save_file_atomically(&file_path, &serialized, Some(&locked_snapshot))
-        .map_err(|error| format_atomic_save_error(error))?;
+        .map_err(format_atomic_save_error)?;
     let (saved_bytes, saved_metadata, saved_identity) =
         read_file_with_metadata(&file_path, MAX_FILE_READ_BYTES)
             .map_err(|error| format_limited_read_error("read saved file", error))?;
@@ -1217,7 +1218,7 @@ pub(super) fn save_file_as_sync(
         );
     }
     save_file_atomically(&file_path, &serialized, current_snapshot.as_ref())
-        .map_err(|error| format_atomic_save_error(error))?;
+        .map_err(format_atomic_save_error)?;
     let (saved_bytes, saved_metadata, saved_identity) =
         read_file_with_metadata(&file_path, MAX_FILE_READ_BYTES)
             .map_err(|error| format_limited_read_error("read saved file", error))?;

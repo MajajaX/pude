@@ -20,7 +20,9 @@ fn assert_fixture(actual: &Value, expected: &Value) -> Result<(), String> {
     if actual == expected {
         Ok(())
     } else {
-        Err(format!("wire fixture mismatch\nactual: {actual}\nexpected: {expected}"))
+        Err(format!(
+            "wire fixture mismatch\nactual: {actual}\nexpected: {expected}"
+        ))
     }
 }
 
@@ -168,7 +170,11 @@ fn runtime_generic_command_probe<R: tauri::Runtime>(window: tauri::WebviewWindow
     window.label().to_string()
 }
 
-fn invoke(webview: &tauri::WebviewWindow<tauri::test::MockRuntime>, command: &str, args: Value) -> Result<Value, Value> {
+fn invoke(
+    webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+    command: &str,
+    args: Value,
+) -> Result<Value, Value> {
     let url = if cfg!(any(windows, target_os = "android")) {
         "http://tauri.localhost"
     } else {
@@ -216,8 +222,7 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let read_path_wire = wire_path(&read_path);
     let mut read_args = fixture["readFileArgs"].clone();
     read_args["path"] = json!(read_path_wire);
-    let read = invoke(&webview, "read_file", read_args)
-        .expect("read_file command should resolve");
+    let read = invoke(&webview, "read_file", read_args).expect("read_file command should resolve");
     assert_eq!(read["path"], read_path_wire);
     assert_eq!(read["content"], "café 🧪\nline\n");
     assert_eq!(read["encoding"], "utf-8-bom");
@@ -225,7 +230,10 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     assert_eq!(read["lineEndings"], "cl");
     assert_eq!(read["bom"], true);
     assert_eq!(read["size"], source_text.len());
-    assert_eq!(read["fingerprint"], content_fingerprint(source_text.as_bytes()));
+    assert_eq!(
+        read["fingerprint"],
+        content_fingerprint(source_text.as_bytes())
+    );
     assert!(read["identity"].is_string());
     assert!(read["modifiedAt"].as_u64().unwrap() <= 9_007_199_254_740_991);
     let mut expected_read = fixture["readFileResponse"].clone();
@@ -260,7 +268,10 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let expected_saved_bytes = "\u{feff}改訂版 🧪\r\nsecond".as_bytes();
     assert_eq!(fs::read(&save_path).unwrap(), expected_saved_bytes);
     assert_eq!(saved["size"], expected_saved_bytes.len());
-    assert_eq!(saved["fingerprint"], content_fingerprint(expected_saved_bytes));
+    assert_eq!(
+        saved["fingerprint"],
+        content_fingerprint(expected_saved_bytes)
+    );
     assert!(saved["identity"].is_string());
     assert!(saved["modifiedAt"].as_u64().unwrap() <= 9_007_199_254_740_991);
     let mut expected_saved = fixture["saveFileResponse"].clone();
@@ -278,14 +289,19 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let missing_path_wire = wire_path(&missing_path);
     let mut stat_args = fixture["statFilesArgs"].clone();
     stat_args["request"]["paths"][0] = json!(missing_path_wire);
-    let stat = invoke(&webview, "stat_files", stat_args).expect("stat_files command should resolve");
+    let stat =
+        invoke(&webview, "stat_files", stat_args).expect("stat_files command should resolve");
     let mut expected_missing = fixture["statFilesMissingEntry"].clone();
     expected_missing["path"] = json!(missing_path_wire);
     assert_fixture(&stat["entries"][0], &expected_missing).unwrap();
     assert_eq!(stat["entries"].as_array().unwrap().len(), 1);
 
-    let git_error = invoke(&webview, "git_operation", fixture["gitOperationArgs"].clone())
-        .expect_err("production git_operation should return its empty-workspace error");
+    let git_error = invoke(
+        &webview,
+        "git_operation",
+        fixture["gitOperationArgs"].clone(),
+    )
+    .expect_err("production git_operation should return its empty-workspace error");
     assert_fixture(&git_error, &fixture["gitOperationError"]).unwrap();
     assert_eq!(
         invoke(&webview, "runtime_generic_command_probe", json!({})).unwrap(),
@@ -302,7 +318,9 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     file_info_args["workspace"] = json!(plugin_workspace_wire);
     let file_info = invoke(&webview, "plugin_workspace_file_info", file_info_args)
         .expect("production plugin file info command should resolve");
-    let revision = file_info["revision"].as_str().expect("plugin revision should be a string");
+    let revision = file_info["revision"]
+        .as_str()
+        .expect("plugin revision should be a string");
     let mut expected_info = fixture["pluginWorkspaceFileInfoResponse"].clone();
     expected_info["revision"] = json!(revision);
     assert_fixture(&file_info, &expected_info).unwrap();
@@ -310,8 +328,12 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let mut first_range_args = fixture["pluginWorkspaceReadFileRangeArgs"].clone();
     first_range_args["workspace"] = json!(plugin_workspace_wire);
     first_range_args["revision"] = json!(revision);
-    let first_range = invoke(&webview, "plugin_workspace_read_file_range", first_range_args)
-        .expect("production plugin range command should resolve at the first UTF-8 boundary");
+    let first_range = invoke(
+        &webview,
+        "plugin_workspace_read_file_range",
+        first_range_args,
+    )
+    .expect("production plugin range command should resolve at the first UTF-8 boundary");
     let mut expected_first_range = fixture["pluginWorkspaceReadFileRangeResponse"].clone();
     expected_first_range["revision"] = json!(revision);
     assert_fixture(&first_range, &expected_first_range).unwrap();
@@ -326,8 +348,12 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let mut second_range_args = fixture["pluginWorkspaceReadFileRangeSecondArgs"].clone();
     second_range_args["workspace"] = json!(plugin_workspace_wire);
     second_range_args["revision"] = json!(revision);
-    let second_range = invoke(&webview, "plugin_workspace_read_file_range", second_range_args)
-        .expect("production plugin range command should resolve at the next UTF-8 boundary");
+    let second_range = invoke(
+        &webview,
+        "plugin_workspace_read_file_range",
+        second_range_args,
+    )
+    .expect("production plugin range command should resolve at the next UTF-8 boundary");
     let mut expected_second_range = fixture["pluginWorkspaceReadFileRangeSecondResponse"].clone();
     expected_second_range["revision"] = json!(revision);
     assert_fixture(&second_range, &expected_second_range).unwrap();
@@ -342,10 +368,18 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let mut cancelled_range_args = fixture["pluginWorkspaceReadFileRangeArgs"].clone();
     cancelled_range_args["workspace"] = json!(plugin_workspace_wire);
     cancelled_range_args["revision"] = json!(revision);
-    cancelled_range_args["requestId"] = fixture["pluginWorkspaceCancelFileReadArgs"]["requestId"].clone();
-    let cancelled_range = invoke(&webview, "plugin_workspace_read_file_range", cancelled_range_args)
-        .expect_err("pre-start cancellation should reject the real range command");
-    assert_eq!(cancelled_range, fixture["pluginWorkspaceCancelledReadError"]);
+    cancelled_range_args["requestId"] =
+        fixture["pluginWorkspaceCancelFileReadArgs"]["requestId"].clone();
+    let cancelled_range = invoke(
+        &webview,
+        "plugin_workspace_read_file_range",
+        cancelled_range_args,
+    )
+    .expect_err("pre-start cancellation should reject the real range command");
+    assert_eq!(
+        cancelled_range,
+        fixture["pluginWorkspaceCancelledReadError"]
+    );
 }
 
 #[test]

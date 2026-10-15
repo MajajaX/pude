@@ -21,8 +21,11 @@ const HISTORY_MAX_CURSOR_STATE_BYTES: usize = 8 * 1024 * 1024;
 const HISTORY_MAX_SEEN_OIDS: usize = 100_000;
 const HISTORY_CURSOR_TTL: Duration = Duration::from_secs(15 * 60);
 
+// Git rejects NUL bytes in commit messages, so NUL can frame fields and commits
+// (`-z`) without colliding with any message content.
 const HISTORY_FORMAT: &str =
-    "--pretty=format:%x1e%H%x1f%P%x1f%h%x1f%an%x1f%ad%x1f%aI%x1f%s%x1f%D%x1f%b";
+    "--pretty=format:%H%x00%P%x00%h%x00%an%x00%ad%x00%aI%x00%s%x00%D%x00%b";
+const HISTORY_FIELDS_PER_COMMIT: usize = 9;
 const REF_FORMAT: &str =
     "--format=%(refname)%00%(objectname)%00%(objecttype)%00%(*objectname)%00%(*objecttype)%00%(HEAD)";
 
@@ -663,6 +666,7 @@ fn history_revisions(state: &HistoryCursor) -> Vec<&str> {
 fn history_args(revisions: &[&str], limit: usize, skip: Option<usize>) -> Vec<OsString> {
     let mut args = vec![
         OsString::from("log"),
+        OsString::from("-z"),
         OsString::from("--topo-order"),
         OsString::from("--max-count"),
         OsString::from(limit.max(1).to_string()),
@@ -717,33 +721,33 @@ fn short_ref_name(reference: &str) -> String {
 }
 
 fn parse_git_commits(bytes: &[u8]) -> Vec<GitCommit> {
-    String::from_utf8_lossy(bytes)
-        .split('\u{1e}')
-        .filter_map(|record| {
-            let fields: Vec<&str> = record.trim_matches('\n').splitn(9, '\u{1f}').collect();
-            if fields.len() < 9 {
-                return None;
-            }
-            Some(GitCommit {
-                hash: fields[0].to_string(),
-                parents: fields[1]
-                    .split_whitespace()
-                    .filter(|parent| !parent.is_empty())
-                    .map(str::to_string)
-                    .collect(),
-                short_hash: fields[2].to_string(),
-                author: fields[3].to_string(),
-                date: fields[4].to_string(),
-                authored_at: fields[5].to_string(),
-                subject: fields[6].to_string(),
-                body: fields[8].trim().to_string(),
-                refs: fields[7]
-                    .split(", ")
-                    .filter(|reference| !reference.is_empty())
-                    .map(str::to_string)
-                    .collect(),
-                files: Vec::new(),
-            })
+    let fields: Vec<String> = bytes
+        .split(|byte| *byte == 0)
+        .map(|field| String::from_utf8_lossy(field).into_owned())
+        .collect();
+    fields
+        .as_chunks::<HISTORY_FIELDS_PER_COMMIT>()
+        .0
+        .iter()
+        .map(|fields| GitCommit {
+            hash: fields[0].to_string(),
+            parents: fields[1]
+                .split_whitespace()
+                .filter(|parent| !parent.is_empty())
+                .map(str::to_string)
+                .collect(),
+            short_hash: fields[2].to_string(),
+            author: fields[3].to_string(),
+            date: fields[4].to_string(),
+            authored_at: fields[5].to_string(),
+            subject: fields[6].to_string(),
+            body: fields[8].trim().to_string(),
+            refs: fields[7]
+                .split(", ")
+                .filter(|reference| !reference.is_empty())
+                .map(str::to_string)
+                .collect(),
+            files: Vec::new(),
         })
         .collect()
 }
@@ -1020,6 +1024,23 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.path);
         }
+    }
+
+    #[test]
+    fn commit_messages_containing_old_record_separators_still_parse() {
+        let fixture = GitFixture::new();
+        let hash = fixture.commit("subject\u{1e}with\u{1f}controls", "first\n");
+        let second = fixture.commit("second", "second\n");
+
+        let page = fixture.load(None, 10);
+
+        let hashes: Vec<&str> = page
+            .commits
+            .iter()
+            .map(|commit| commit.hash.as_str())
+            .collect();
+        assert_eq!(hashes, [second.as_str(), hash.as_str()]);
+        assert_eq!(page.commits[1].subject, "subject\u{1e}with\u{1f}controls");
     }
 
     #[test]

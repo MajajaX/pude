@@ -326,7 +326,10 @@ function TreeRow(props: {
     if (limit) labels.push(limit.message);
     return labels.join("; ");
   };
-  const retryScan = () => props.onRetry?.(entry()) ?? props.onToggle(entry());
+  const retryScan = () => {
+    if (props.onRetry) props.onRetry(entry());
+    else props.onToggle(entry());
+  };
 
   return (
     <div

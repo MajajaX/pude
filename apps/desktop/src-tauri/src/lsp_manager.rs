@@ -102,7 +102,11 @@ pub struct LspCancelRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum LspEvent {
     State {
         plugin_id: String,
@@ -356,7 +360,7 @@ impl SupervisorWakeup {
     }
 
     fn wait_if_unchanged_for(&self, observed_generation: u64, timeout: Duration) -> bool {
-        let mut generation = self
+        let generation = self
             .generation
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -417,7 +421,7 @@ impl LspManager {
                 .collect::<Vec<_>>();
             let stale_sessions = stale_keys
                 .into_iter()
-                .filter_map(|key| state.sessions.remove(&key))
+                .filter_map(|key| state.sessions.remove(&key).map(|session| (key, session)))
                 .collect::<Vec<_>>();
             // An approval change must also cancel in-flight starts,
             // otherwise a late completion would revive a session whose
@@ -439,7 +443,7 @@ impl LspManager {
             (stale_sessions, stale_starting)
         };
         cancel_starting(stale_starting);
-        stop_sessions(stale_sessions)
+        self.stop_sessions_retaining_failures(stale_sessions)
     }
 
     pub fn revoke(
@@ -472,7 +476,7 @@ impl LspManager {
                 .collect::<Vec<_>>();
             let sessions = session_keys
                 .into_iter()
-                .filter_map(|key| state.sessions.remove(&key))
+                .filter_map(|key| state.sessions.remove(&key).map(|session| (key, session)))
                 .collect::<Vec<_>>();
             let starting_keys = state
                 .starting
@@ -487,7 +491,7 @@ impl LspManager {
             (sessions, starting)
         };
         cancel_starting(starting);
-        stop_sessions(sessions)
+        self.stop_sessions_retaining_failures(sessions)
     }
 
     /// Starts an approved LSP server. Validation and a generation-tagged
@@ -720,9 +724,27 @@ impl LspManager {
             entry.cancel.cancel();
         }
         if let Some(session) = session {
-            stop_session(session)?;
+            self.stop_sessions_retaining_failures(vec![(key, session)])?;
         }
         Ok(())
+    }
+
+    /// Stops sessions already removed from the manager. A session whose
+    /// cleanup fails goes back so a later stop can find it and retry.
+    fn stop_sessions_retaining_failures(
+        &self,
+        sessions: Vec<(SessionKey, SessionHandle)>,
+    ) -> Result<(), String> {
+        let mut first_error = None;
+        for (key, session) in sessions {
+            if let Err(error) = stop_session(session.clone()) {
+                if let Ok(mut state) = self.inner.lock() {
+                    state.sessions.entry(key).or_insert(session);
+                }
+                first_error.get_or_insert(error);
+            }
+        }
+        first_error.map_or(Ok(()), Err)
     }
 
     pub fn stop_workspace_for_window(
@@ -752,7 +774,7 @@ impl LspManager {
                 };
                 if should_stop {
                     if let Some(session) = state.sessions.remove(&key) {
-                        to_stop.push(session);
+                        to_stop.push((key, session));
                     }
                 }
             }
@@ -779,7 +801,7 @@ impl LspManager {
             (to_stop, to_cancel)
         };
         cancel_starting(starting);
-        stop_sessions(sessions)
+        self.stop_sessions_retaining_failures(sessions)
     }
 
     pub fn stop_plugin(&self, plugin_id: &str) -> Result<(), String> {
@@ -797,7 +819,7 @@ impl LspManager {
                 .collect::<Vec<_>>();
             let sessions = keys
                 .into_iter()
-                .filter_map(|key| state.sessions.remove(&key))
+                .filter_map(|key| state.sessions.remove(&key).map(|session| (key, session)))
                 .collect::<Vec<_>>();
             let starting_keys = state
                 .starting
@@ -812,7 +834,7 @@ impl LspManager {
             (sessions, starting)
         };
         cancel_starting(starting);
-        stop_sessions(sessions)
+        self.stop_sessions_retaining_failures(sessions)
     }
 
     /// SB-01: removes the sessions and in-flight starts owned solely by this
@@ -1392,6 +1414,7 @@ fn validate_executable(_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(all(test, unix))]
 fn spawn_child(
     approved: &ApprovedServer,
     #[allow(unused_variables)] launcher: Option<&Path>,
@@ -2663,6 +2686,7 @@ fn remove_finished_session(inner: &Weak<Mutex<ManagerState>>, key: &SessionKey, 
     }
 }
 
+#[cfg(test)]
 fn stop_sessions(sessions: Vec<SessionHandle>) -> Result<(), String> {
     let mut first_error = None;
     for session in sessions {
@@ -4993,5 +5017,76 @@ mod tests {
             }
         }
         panic!("timed out waiting for LSP response");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_stop_keeps_the_session_so_a_retry_can_finish_cleanup() {
+        use super::{ApprovalKey, ApprovedServer, SessionHandle, SupervisorWakeup};
+        use std::sync::atomic::{AtomicBool, AtomicI32};
+        use std::sync::Mutex;
+
+        let workspace = std::fs::canonicalize(std::env::temp_dir()).unwrap();
+        let key = SessionKey {
+            owner_window: "main".to_string(),
+            workspace_root: workspace.clone(),
+            language: "rust".to_string(),
+        };
+        let (control, receiver) = mpsc::sync_channel(1);
+        drop(receiver);
+        let stop_lock = Arc::new(Mutex::new(()));
+        let session = SessionHandle {
+            id: NEXT_SESSION_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            approved: ApprovedServer {
+                key: ApprovalKey {
+                    plugin_id: "pude.reference-lsp".to_string(),
+                    plugin_version: "1.0.0".to_string(),
+                    workspace_root: workspace.clone(),
+                    server_id: "fixture".to_string(),
+                    language: "rust".to_string(),
+                },
+                executable: workspace.join("unused-server"),
+                args: Vec::new(),
+            },
+            owners: HashSet::from(["main".to_string()]),
+            control,
+            wakeup: Arc::new(SupervisorWakeup::default()),
+            stop_lock: Arc::clone(&stop_lock),
+            stopping: Arc::new(AtomicBool::new(false)),
+            stop_requested: Arc::new(AtomicBool::new(false)),
+            cleanup_worker_active: Arc::new(AtomicBool::new(false)),
+            // No such process group: the fallback cleanup succeeds without signaling anything real.
+            process_group: Arc::new(AtomicI32::new(i32::MAX)),
+        };
+        let manager = LspManager::default();
+        manager
+            .inner
+            .lock()
+            .unwrap()
+            .sessions
+            .insert(key.clone(), session);
+
+        let held_lock = stop_lock.lock().unwrap();
+        let first = manager.stop(
+            "pude.reference-lsp",
+            "1.0.0",
+            workspace.to_str().unwrap(),
+            "rust",
+            "main",
+        );
+        assert!(first.unwrap_err().contains("already in progress"));
+        assert!(manager.inner.lock().unwrap().sessions.contains_key(&key));
+
+        drop(held_lock);
+        manager
+            .stop(
+                "pude.reference-lsp",
+                "1.0.0",
+                workspace.to_str().unwrap(),
+                "rust",
+                "main",
+            )
+            .unwrap();
+        assert!(!manager.inner.lock().unwrap().sessions.contains_key(&key));
     }
 }

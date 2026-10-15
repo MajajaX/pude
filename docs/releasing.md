@@ -19,13 +19,17 @@ Add these repository secrets once (Settings → Secrets and variables → Action
 | `TAURI_SIGNING_PRIVATE_KEY` | The full text of the updater signing key (see [Updater signing key](#updater-signing-key)) |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The password of the updater signing key |
 
-Then, after step 1 and step 2 below (version sync, changelog, tag), push the tag:
+Releases are stable-only: the workflow rejects a tag or workspace version with a prerelease
+suffix (such as `-rc.1`) before building anything. After step 1 and step 2 below (version
+sync, changelog, tag), push the tag:
 
 ```bash
 git push origin main v0.1.0
 ```
 
-The workflow checks the tag and runs `npm run check`, builds the signed and
+The workflow checks the tag, runs the same jobs as CI (`npm run check`, the release
+tooling self-test, the browser smoke test, Rust formatting, lints and tests on all three
+platforms), builds the signed and
 notarized macOS DMG and the Windows installer in parallel, writes `latest.json` and
 `SHA256SUMS.txt`, publishes the release with the changelog section as notes, and
 verifies it. Continue with step 5 when it finishes.
@@ -106,6 +110,9 @@ node scripts/collect-release-bundle.mjs windows dist/release-windows --bundle-ro
 
 Signing is optional for Windows. A signed installer can be checked with
 `node scripts/verify-release-artifact.mjs windows dist/release-windows/pude-windows-x64-setup.exe`.
+The check installs the app, so it only runs on an ephemeral GitHub Actions Windows runner
+(`GITHUB_ACTIONS` and `RUNNER_TEMP` set) with `WINDOWS_CERTIFICATE_THUMBPRINT` set to the
+signing certificate's thumbprint. It expects the version in `tauri.conf.json`.
 
 ## 4. Publish
 

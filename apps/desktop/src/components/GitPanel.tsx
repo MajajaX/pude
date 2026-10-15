@@ -43,14 +43,14 @@ const actionLabels: Record<GitActionRequest["action"], string> = {
   "delete-branch": "Delete branch",
 };
 
-export function GitPanel(props: {
+export type GitPanelProps = {
   status: GitStatusResult;
   branches: GitBranch[];
   historyLoading: boolean;
   historyIncomplete?: string;
-  historyHasMore?: boolean;
-  historyLoadingMore?: boolean;
-  onLoadMoreHistory?: () => void;
+  historyHasMore: boolean;
+  historyLoadingMore: boolean;
+  onLoadMoreHistory: () => void;
   onLoadHistory: () => void;
   onRefreshHistory?: () => void;
   onOpenHistory?: () => void;
@@ -60,7 +60,9 @@ export function GitPanel(props: {
   onLoadCommitFiles: (commit: GitCommit) => Promise<GitCommitFile[]>;
   onAction: (request: GitActionRequest) => Promise<void>;
   onCreateWorktree: (branchName: string, path: string, startPoint?: string) => Promise<void>;
-}) {
+};
+
+export function GitPanel(props: GitPanelProps) {
   const [view, setView] = createSignal<"status" | "graph">(props.historyOnly ? "graph" : "status");
   const [actionsOpen, setActionsOpen] = createSignal(false);
   const [actionFeedback, setActionFeedback] = createSignal("");
