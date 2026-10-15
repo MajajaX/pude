@@ -1,4 +1,4 @@
-# cargo-deny policy for apps/desktop/src-tauri, run by .github/workflows/security.yml.
+# cargo-deny policy for this crate, run by .github/workflows/security.yml.
 
 [graph]
 all-features = true

@@ -8,7 +8,7 @@ on:
     paths:
       - apps/desktop/src-tauri/Cargo.lock
       - package-lock.json
-      - deny.toml
+      - apps/desktop/src-tauri/deny.toml
       - .github/workflows/security.yml
 
 permissions:
@@ -25,8 +25,8 @@ jobs:
           persist-credentials: false
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
+          # cargo-deny reads deny.toml next to this manifest.
           manifest-path: apps/desktop/src-tauri/Cargo.toml
-          command-arguments: --config deny.toml
 
   npm-audit:
     name: npm advisories

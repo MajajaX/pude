@@ -10,7 +10,9 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev",
+    // CI serves the production build from `npm run check`, which avoids the dev
+    // server's first-load dependency optimization reloading the page mid-test.
+    command: process.env.CI ? "npm run preview -- --port 5173 --strictPort" : "npm run dev",
     url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
   },

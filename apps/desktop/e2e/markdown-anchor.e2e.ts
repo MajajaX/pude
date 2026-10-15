@@ -2,8 +2,13 @@ import { expect, test } from "@playwright/test";
 
 test("a Markdown preview anchor scrolls to its heading without opening a new page", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder" }).first().click();
-  await page.getByText("README.md").first().click();
+  const readme = page.getByText("README.md").first();
+  // A click that lands before the app finishes restoring its session is undone by that restore.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Open folder" }).first().click();
+    await expect(readme).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+  await readme.click();
 
   await page.locator(".cm-content").click();
   await page.keyboard.press("ControlOrMeta+a");
