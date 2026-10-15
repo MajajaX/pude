@@ -1639,7 +1639,7 @@ section {
   transform: scale(calc(1.08 - var(--l) * 0.08));
 }
 
-.tour-stack img:first-child {
+.tour-stack picture:first-child img {
   clip-path: none;
   transform: none;
 }
@@ -1826,6 +1826,8 @@ section {
 
   .bento-card:nth-child(n) {
     grid-column: span 1;
+    --dx: 0px;
+    --rot: 0deg;
   }
 
   .bento-card:nth-child(1),
@@ -1841,7 +1843,6 @@ section {
 
   .bento-card:nth-child(n) {
     grid-column: span 1;
-    --dx: 0px;
   }
 }
 
@@ -1977,6 +1978,14 @@ section {
 @media (max-width: 860px) {
   .arch-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .arch-layer {
+    transform: translate3d(0, calc((1 - var(--c)) * 24px), 0);
+  }
+
+  .arch-layer code {
+    overflow-wrap: anywhere;
   }
 }
 

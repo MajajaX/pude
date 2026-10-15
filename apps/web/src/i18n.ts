@@ -1,6 +1,7 @@
-import { locale, localeHref, setLocale, switchLocaleFromLink, type Locale } from "./i18n-runtime";
+import { locale, type Locale } from "./i18n-runtime";
+import { HOME_COPY } from "./site";
 
-export { locale, localeHref, setLocale, switchLocaleFromLink };
+export { locale, localeHref } from "./i18n-runtime";
 export type { Locale } from "./i18n-runtime";
 
 export type FilmChapter = "open" | "edit" | "save" | "git" | "terminal" | "markdown";
@@ -16,10 +17,7 @@ const en = {
     download: "Download",
   },
   hero: {
-    eyebrow: "pure code editor · open source",
-    titleA: "Code.",
-    titleB: "Nothing else.",
-    sub: "pude is a local-first desktop code editor built on Rust and Tauri. Open a folder, write, review Git, run a terminal — while the rest of your machine stays quiet.",
+    ...HOME_COPY.en,
     ctaPrimary: "Get pude",
     ctaSecondary: "How it stays light",
     note: "Windows 11 x64 · macOS 14+ Apple Silicon · Linux planned.",
@@ -50,11 +48,11 @@ const en = {
   },
   manifesto: {
     eyebrow: "Why pude",
-    text: "Most editors grow into platforms. pude stays an editor. It reads the folder you open, loads what you look at, starts a terminal when you ask — and goes quiet the moment you stop typing.",
+    text: "AI can quickly write a lot of code, but you still want to see what changed (even if it's just a glance). pude makes that step quicker: open a folder, review the diff, maybe show off your craft with a few edits by hand, then head back and tell your agent to commit!",
   },
   showcase: {
     eyebrow: "The tour",
-    title: "Five screens. One calm workflow.",
+    title: "Take a look. Make an edit.",
     sub: "Captured from the current build. Keep scrolling to move through them.",
     steps: [
       {
@@ -98,7 +96,7 @@ const en = {
       {
         k: "02",
         title: "Local-first",
-        desc: "No account, no cloud sync. Files stay at their local paths; the network is used only by Git remotes, your terminal or plugins you approve.",
+        desc: "Files stay at their local paths, without an account or cloud sync. Update checks are optional; Git, terminals and approved plugins can also use the network.",
         meta: "~/projects/pude-demo",
       },
       {
@@ -165,8 +163,8 @@ const en = {
   },
   philosophy: {
     eyebrow: "Philosophy",
-    title: "Not an IDE — on purpose.",
-    sub: "pude draws a hard line around its core so it stays fast, quiet and maintainable for years.",
+    title: "Keep the human part light.",
+    sub: "Read the code, review the change, make your edit. A small core leaves room for the tools already doing the heavy work.",
     wontTitle: "Left out of the core",
     wont: [
       "Indexing your whole repository",
@@ -203,7 +201,7 @@ const en = {
     ],
   },
   cta: {
-    title: "Pure code. Pure focus.",
+    title: "A lighter way to take a look.",
     sub: "Free and open source under the MIT License.",
     button: "Choose an installer",
     buttons: { windows: "Download for Windows x64", macos: "Download for macOS Apple Silicon" },
@@ -253,10 +251,7 @@ const zhHant: Dict = {
     download: "下載",
   },
   hero: {
-    eyebrow: "pure code editor · 開放原始碼",
-    titleA: "寫程式，",
-    titleB: "僅此而已。",
-    sub: "pude 是以 Rust 與 Tauri 打造的本地優先桌面程式碼編輯器。打開資料夾、寫程式、檢視 Git、執行終端機——其餘時間，讓你的電腦保持安靜。",
+    ...HOME_COPY["zh-Hant"],
     ctaPrimary: "取得 pude",
     ctaSecondary: "它如何保持輕量",
     note: "Windows 11 x64 · macOS 14+ Apple Silicon · Linux 規劃中。",
@@ -287,11 +282,11 @@ const zhHant: Dict = {
   },
   manifesto: {
     eyebrow: "為什麼是 pude",
-    text: "多數編輯器最後都長成了平台，pude 選擇只當一個編輯器。它只讀你打開的資料夾，只載入你正在看的內容，在你需要時才啟動終端機——當你停下手，它也跟著安靜下來。",
+    text: "AI 可以快速寫下大段程式碼，但你仍想看看它改了什麼(或許只是瞄一眼)。pude 讓這步更快：打開資料夾、檢視差異、也許還能展示手藝親手修幾行，然後回去告訴 Agent 可以提交了！",
   },
   showcase: {
     eyebrow: "功能導覽",
-    title: "五個畫面，一條安靜的工作流程。",
+    title: "看一眼，改幾行。",
     sub: "畫面擷取自目前的版本。繼續往下捲動，逐一瀏覽。",
     steps: [
       {
@@ -335,7 +330,7 @@ const zhHant: Dict = {
       {
         k: "02",
         title: "本地優先",
-        desc: "不需要帳號，也沒有雲端同步。檔案留在原本的路徑；只有 Git 遠端、終端機與你核准的外掛會連網。",
+        desc: "檔案留在原本的路徑，不需要帳號或雲端同步。更新檢查可以關閉；Git、終端機與核准的外掛也能連網。",
         meta: "~/projects/pude-demo",
       },
       {
@@ -402,8 +397,8 @@ const zhHant: Dict = {
   },
   philosophy: {
     eyebrow: "設計理念",
-    title: "不是 IDE——這是刻意的。",
-    sub: "pude 為核心劃下明確界線，讓它在未來多年依然快速、安靜、易於維護。",
+    title: "把人的這一步，做得更輕。",
+    sub: "讀程式碼、看變更、親手修改。維持精簡的核心，把資源留給正在處理繁重工作的工具。",
     wontTitle: "核心刻意不做",
     wont: [
       "索引你的整個儲存庫",
@@ -440,7 +435,7 @@ const zhHant: Dict = {
     ],
   },
   cta: {
-    title: "純粹的程式碼，純粹的專注。",
+    title: "下次想看一眼，就打開 pude。",
     sub: "以 MIT 授權免費開源。",
     button: "選擇安裝檔",
     buttons: { windows: "下載 Windows x64 版", macos: "下載 macOS Apple Silicon 版" },

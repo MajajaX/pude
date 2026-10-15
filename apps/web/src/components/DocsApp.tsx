@@ -35,7 +35,7 @@ export default function DocsApp() {
       .blocks.map((block, index) => ({ block, index }))
       .filter(({ block }) => block.t === "h3");
   const anchorFor = (sectionId: string, index: number) => `${sectionId}-${index}`;
-  const downloadHref = () => (locale() === "zh-Hant" ? "./index.zh-Hant.html#download" : "./#download");
+  const downloadHref = () => `${localeHref("home", locale())}#download`;
   const homeHref = () => localeHref("home", locale());
 
   let frame: number | undefined;

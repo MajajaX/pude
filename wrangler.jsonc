@@ -5,7 +5,7 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./apps/web/dist",
-    // Serves docs.html at /docs and redirects /docs.html there.
+    // Serves /zh/ from zh/index.html and /zh/docs from zh/docs.html.
     "html_handling": "auto-trailing-slash"
   },
   "routes": [{ "pattern": "pude.dev", "custom_domain": true }]
