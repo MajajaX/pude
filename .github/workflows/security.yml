@@ -1,0 +1,43 @@
+name: Security
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - apps/desktop/src-tauri/Cargo.lock
+      - package-lock.json
+      - deny.toml
+      - .github/workflows/security.yml
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-deny:
+    name: Rust advisories, licenses and sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: apps/desktop/src-tauri/Cargo.toml
+          command-arguments: --config deny.toml
+
+  npm-audit:
+    name: npm advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # Shipped dependencies only; build and test tooling never reaches users.
+      - run: npm audit --omit=dev --audit-level=high

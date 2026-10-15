@@ -20,7 +20,8 @@ You need:
   for repository operations.
 - Node.js from one of the repository's supported engine lines (`22.12+`, `24+`, or
   `26+`) and npm `10.9+`. Node.js 24.x is the recommended development baseline.
-- Rust stable through `rustup`, including Cargo. The native app uses Tauri 2.
+- Rust through `rustup`, which installs the version pinned in `rust-toolchain.toml`
+  (with Clippy and rustfmt) on first use. The native app uses Tauri 2.
 - The platform prerequisites listed in the
   [Tauri documentation](https://v2.tauri.app/start/prerequisites/).
 
@@ -85,6 +86,8 @@ Run these from the repository root:
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. |
 | `cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml` | Run the Rust test suite without changing `Cargo.lock`. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
+| `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
+| `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo. |
 
 For a normal code change, run at least `npm run check` and the Rust test command.
 Run `npm run tauri:dev` for changes that touch the native bridge, filesystem
