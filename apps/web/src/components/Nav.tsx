@@ -29,6 +29,7 @@ export default function Nav() {
           <a href="#showcase">{t().nav.showcase}</a>
           <a href="#features">{t().nav.features}</a>
           <a href="#architecture">{t().nav.architecture}</a>
+          <a href="#compare">{t().nav.compare}</a>
           <a href="#philosophy">{t().nav.philosophy}</a>
           <a href={localeHref("docs", locale())}>{t().nav.docs}</a>
           <a href={REPOSITORY_URL}>GitHub</a>
