@@ -1363,6 +1363,7 @@ mod terminal_unix_output_tests {
     use super::{
         read_terminal_output, stop_terminal_session, terminal_write_sync, TerminalOutputFlow,
         TerminalProcessTree, TerminalSession, TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES,
+        TERMINAL_READ_BUFFER_BYTES,
     };
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     use std::collections::HashMap;
@@ -1453,7 +1454,10 @@ mod terminal_unix_output_tests {
         }
 
         let stalled_bytes = output_flow.in_flight_bytes();
-        assert!(stalled_bytes <= TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES + 4096);
+        assert!(
+            stalled_bytes < TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES + TERMINAL_READ_BUFFER_BYTES,
+            "backpressure must stop within one PTY read of the credit limit: {stalled_bytes} bytes"
+        );
         thread::sleep(Duration::from_millis(150));
         assert_eq!(output_flow.in_flight_bytes(), stalled_bytes);
         assert!(
