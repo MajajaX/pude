@@ -1,8 +1,59 @@
+import { readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
-import { createServer, defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { createServer, defineConfig, type Plugin, type PreviewServer, type ViteDevServer } from "vite";
 import solid from "vite-plugin-solid";
+import { renderSeoHead, renderSitemap, SITE_ROUTES } from "./seo.ts";
 
 const webRoot = fileURLToPath(new URL(".", import.meta.url));
+
+function siteRedirects(): Plugin {
+  function installRedirects(server: ViteDevServer | PreviewServer) {
+    const redirects = readFileSync(new URL("./public/_redirects", import.meta.url), "utf8")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .map((line) => line.split(/\s+/));
+
+    server.middlewares.use((request, response, next) => {
+      const url = new URL(request.url ?? "/", "http://localhost");
+      const redirect = redirects.find(([source]) => source === url.pathname);
+      if (!redirect) return next();
+      const [, destination, status] = redirect;
+      response.writeHead(Number(status), { Location: `${destination}${url.search}` });
+      response.end();
+    });
+  }
+
+  return {
+    name: "pude-site-redirects",
+    configureServer: installRedirects,
+    configurePreviewServer: installRedirects,
+  };
+}
+
+function siteMetadata(): Plugin {
+  return {
+    name: "pude-site-metadata",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        const route = SITE_ROUTES.find(({ key }) => html.includes(`data-prerender="${key}"`));
+        if (!route || !html.includes("<!-- seo -->")) throw new Error("A web page is missing its SEO route or head marker.");
+        return html.replace("<!-- seo -->", renderSeoHead(route.page, route.locale));
+      },
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "sitemap.xml", source: renderSitemap() });
+    },
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.url?.split("?")[0] !== "/sitemap.xml") return next();
+        response.setHeader("Content-Type", "application/xml; charset=utf-8");
+        response.end(renderSitemap());
+      });
+    },
+  };
+}
 
 function prerenderStaticRoutes(): Plugin {
   const pages = new Map<string, string>();
@@ -33,10 +84,8 @@ function prerenderStaticRoutes(): Plugin {
           hydrationScript(): string;
         };
         hydrationScript = renderer.hydrationScript();
-        for (const locale of ["en", "zh-Hant"] as const) {
-          for (const page of ["home", "docs"] as const) {
-            pages.set(`${page}-${locale}`, renderer.prerenderPage(page, locale));
-          }
+        for (const { key, page, locale } of SITE_ROUTES) {
+          pages.set(key, renderer.prerenderPage(page, locale));
         }
       } catch (error) {
         await ssrServer.close();
@@ -64,7 +113,8 @@ function prerenderStaticRoutes(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [prerenderStaticRoutes(), solid({ solid: { hydratable: true } })],
+  appType: "mpa",
+  plugins: [siteRedirects(), siteMetadata(), prerenderStaticRoutes(), solid({ solid: { hydratable: true } })],
   server: {
     port: 5174,
     strictPort: true,
@@ -72,12 +122,7 @@ export default defineConfig({
   build: {
     target: "es2022",
     rollupOptions: {
-      input: {
-        main: fileURLToPath(new URL("./index.html", import.meta.url)),
-        docs: fileURLToPath(new URL("./docs.html", import.meta.url)),
-        mainZhHant: fileURLToPath(new URL("./index.zh-Hant.html", import.meta.url)),
-        docsZhHant: fileURLToPath(new URL("./docs.zh-Hant.html", import.meta.url)),
-      },
+      input: Object.fromEntries(SITE_ROUTES.map(({ key, file }) => [key, fileURLToPath(new URL(file, import.meta.url))])),
     },
   },
 });

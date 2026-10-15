@@ -781,4 +781,4 @@ export function t(): DocsDict {
   return dictionaries[locale()];
 }
 
-export { locale, localeHref, setLocale, switchLocaleFromLink } from "./i18n-runtime";
+export { locale, localeHref } from "./i18n-runtime";

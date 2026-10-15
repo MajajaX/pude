@@ -148,3 +148,10 @@ To build and deploy from a local checkout instead:
 VITE_RELEASE_URL='https://github.com/MajajaX/pude/releases/latest' npm run web:build
 npx wrangler deploy
 ```
+
+The English pages use `/` and `/docs`; Traditional Chinese uses `/zh/` and
+`/zh/docs`. The website build generates canonical URLs, language alternates and
+the sitemap from `apps/web/src/site.ts`. Keep `apps/web/public/_redirects` when
+deploying: it permanently redirects the old `index.zh-Hant` and `docs.zh-Hant`
+URLs, including their `.html` variants, to the new pages. Vite development and
+preview servers use the same redirect rules.

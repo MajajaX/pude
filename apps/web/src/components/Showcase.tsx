@@ -46,15 +46,18 @@ export default function Showcase() {
             <figure class="shot-frame tour-stack">
               <For each={t().showcase.steps}>
                 {(step, i) => (
-                  <img
-                    src={`/shots/${step.k}.webp`}
-                    alt=""
-                    width="1708"
-                    height="979"
-                    style={{ "--i": i() }}
-                    loading={i() === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                  />
+                  <picture>
+                    <source media="(max-width: 920px)" srcset="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1708' height='979'/%3E" />
+                    <img
+                      src={`/shots/${step.k}.webp`}
+                      alt=""
+                      width="1708"
+                      height="979"
+                      style={{ "--i": i() }}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </picture>
                 )}
               </For>
             </figure>
