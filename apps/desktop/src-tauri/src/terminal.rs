@@ -2917,6 +2917,169 @@ fn terminal_pty_read_error_is_eof(error: &io::Error) -> bool {
     }
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalExitDetails {
+    exit_code: Option<u32>,
+    signal: Option<String>,
+    reason: &'static str,
+}
+
+fn terminal_exit_details(status: Option<&portable_pty::ExitStatus>) -> TerminalExitDetails {
+    let exit_code = status.map(|status| status.exit_code());
+    let signal = status.and_then(|status| status.signal()).map(str::to_owned);
+    #[cfg(unix)]
+    let interrupted_signal = signal.as_ref().is_some_and(|signal| unsafe {
+        let name = libc::strsignal(libc::SIGINT);
+        !name.is_null() && std::ffi::CStr::from_ptr(name).to_string_lossy() == signal.as_str()
+    });
+    #[cfg(not(unix))]
+    let interrupted_signal = false;
+    let reason = if interrupted_signal || matches!(exit_code, Some(130 | 0xc000013a)) {
+        "interrupted"
+    } else if status.is_some_and(|status| status.success()) {
+        "normal"
+    } else {
+        "error"
+    };
+    TerminalExitDetails {
+        exit_code,
+        signal,
+        reason,
+    }
+}
+
+#[cfg(test)]
+mod interrupt_tests {
+    use super::*;
+
+    #[test]
+    fn exit_details_distinguish_interrupts_normal_exits_and_errors() {
+        for (code, reason) in [
+            (0, "normal"),
+            (1, "error"),
+            (130, "interrupted"),
+            (0xc000013a, "interrupted"),
+        ] {
+            let status = portable_pty::ExitStatus::with_exit_code(code);
+            let details = terminal_exit_details(Some(&status));
+            assert_eq!(details.reason, reason);
+            assert_eq!(details.exit_code, Some(code));
+        }
+        assert_eq!(terminal_exit_details(None).reason, "error");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_pty_ctrl_c_returns_to_an_interactive_shell() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.arg("-i");
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let mut writer = pair.master.take_writer().unwrap();
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            let mut buffer = [0; 4096];
+            while let Ok(count) = reader.read(&mut buffer) {
+                if count == 0
+                    || sender
+                        .send(String::from_utf8_lossy(&buffer[..count]).into_owned())
+                        .is_err()
+                {
+                    break;
+                }
+            }
+        });
+        let until = |marker: &str| {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut output = String::new();
+            while !output.contains(marker) {
+                output.push_str(
+                    &receiver
+                        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                        .expect("PTY should produce the expected marker"),
+                );
+            }
+            output
+        };
+        writer
+            .write_all(b"stty -echo; printf '\\nPUDE_READY\\n'\r")
+            .unwrap();
+        writer.flush().unwrap();
+        until("\r\nPUDE_READY\r\n");
+        writer.write_all(b"sleep 30\r").unwrap();
+        writer.flush().unwrap();
+        let shell_pid = child.process_id().unwrap() as libc::pid_t;
+        let descriptor = pair.master.as_raw_fd().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while unsafe { libc::tcgetpgrp(descriptor) } == shell_pid {
+            assert!(
+                Instant::now() < deadline,
+                "sleep should own the foreground process group"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        writer.write_all(b"\x03").unwrap();
+        writer.flush().unwrap();
+        while unsafe { libc::tcgetpgrp(descriptor) } != shell_pid {
+            assert!(
+                Instant::now() < deadline,
+                "Ctrl+C should return control to the shell"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "interrupting sleep must leave the shell alive"
+        );
+        writer
+            .write_all(b"printf '\\nPUDE_INPUT_WORKS\\n'\r")
+            .unwrap();
+        writer.flush().unwrap();
+        until("\r\nPUDE_INPUT_WORKS\r\n");
+        writer.write_all(b"exit 0\r").unwrap();
+        writer.flush().unwrap();
+        let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "normal");
+        drop(writer);
+        drop(pair.master);
+        worker.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_pty_shell_interrupt_has_structured_exit_details() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.args(["-c", "kill -INT $$"]);
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
+        assert!(terminal_exit_details(Some(&status)).signal.is_some());
+    }
+}
+
 fn finish_terminal_session(app: &AppHandle, session_id: &str) {
     let session = app
         .state::<AppState>()
@@ -2925,9 +3088,18 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
         .ok()
         .and_then(|mut terminals| terminals.remove(session_id));
     let Some(session) = session else { return };
+    let natural_status = session.child.lock().ok().and_then(|mut child| {
+        child.as_mut().and_then(|child| {
+            wait_for_terminal_child(child.as_mut(), TERMINAL_READER_JOIN_TIMEOUT)
+                .ok()
+                .flatten()
+        })
+    });
+    let mut details = terminal_exit_details(natural_status.as_ref());
     let status = match stop_terminal_session(&session) {
         Ok(status) => status,
         Err(error) => {
+            details.reason = "error";
             crate::app_log::log_error(&format!(
                 "Unable to clean up terminal {session_id}: {error}"
             ));
@@ -2941,7 +3113,8 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
     let _ = app.emit_to(
         &session.owner_window,
         "terminal-exit",
-        serde_json::json!({ "sessionId": session_id, "status": status }),
+        serde_json::json!({ "sessionId": session_id, "status": status,
+            "exitCode": details.exit_code, "signal": details.signal, "reason": details.reason }),
     );
 }
 

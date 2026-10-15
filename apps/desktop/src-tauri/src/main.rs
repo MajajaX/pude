@@ -1815,6 +1815,107 @@ fn open_new_window(app: AppHandle, workspace: Option<String>) -> Result<(), Stri
 }
 
 #[tauri::command]
+async fn get_git_ignored_paths<R: tauri::Runtime>(
+    workspace: String,
+    paths: Vec<String>,
+    window: tauri::WebviewWindow<R>,
+    state: State<'_, AppState>,
+    quit_gate: State<'_, QuitGateState>,
+) -> Result<Vec<String>, GitErrorInfo> {
+    let admission = quit_gate
+        .admit_resource_operation(window.label())
+        .map_err(|error| git_error_info(GitErrorKind::Cancelled, error))?;
+    if paths.len() > 256
+        || paths.iter().map(String::len).sum::<usize>() > git_runtime::MAX_STDIN_BYTES / 2
+    {
+        return Err(git_error_info(
+            GitErrorKind::Capacity,
+            "Too many paths for an ignore query.",
+        ));
+    }
+    let roots = Arc::clone(&state.git_repository_roots);
+    let runtime = state.git_runtime.clone();
+    let request = runtime.begin_request(decode_wire_path(&workspace), Some(window.label()));
+    let resource = git_resource_key_async(workspace.clone(), roots.clone()).await;
+    run_git_blocking("Unable to check Git ignored paths", resource, move || {
+        let _admission = admission;
+        let repository = match cached_git_repository_root(&workspace, &roots, &runtime, &request) {
+            Ok(root) => root,
+            Err(error) if error.kind == GitErrorKind::NotRepository => return Ok(Vec::new()),
+            Err(error) => return Err(error),
+        };
+        git_ignored_paths_sync(&repository, &paths, &runtime, &request)
+    })
+    .await
+}
+
+fn git_ignored_paths_sync(
+    repository: &Path,
+    paths: &[String],
+    runtime: &GitCoordinator,
+    request: &RequestHandle,
+) -> Result<Vec<String>, GitErrorInfo> {
+    let mut input = Vec::new();
+    for path in paths {
+        let decoded = decode_wire_path(path);
+        if !decoded.is_absolute()
+            || !decoded.starts_with(repository)
+            || decoded
+                .components()
+                .any(|part| part == std::path::Component::ParentDir)
+        {
+            continue;
+        }
+        #[cfg(unix)]
+        let bytes = decoded.as_os_str().as_bytes().to_vec();
+        #[cfg(not(unix))]
+        let bytes = decoded.to_string_lossy().as_bytes().to_vec();
+        if bytes.contains(&0) {
+            continue;
+        }
+        input.extend_from_slice(&bytes);
+        input.push(0);
+    }
+    if input.is_empty() {
+        return Ok(Vec::new());
+    }
+    if input.len() > git_runtime::MAX_STDIN_BYTES {
+        return Err(git_error_info(
+            GitErrorKind::Capacity,
+            "Ignore query exceeds the input limit.",
+        ));
+    }
+    ensure_request_active(request)?;
+    let mut spec = GitCommandSpec::read(
+        repository.to_path_buf(),
+        vec!["check-ignore".into(), "--stdin".into(), "-z".into()],
+    );
+    spec.stdin = Some(input.into());
+    let output = runtime
+        .read_shared_for(
+            GitReadRequest::new(repository, GitReadKind::Status, spec),
+            request,
+        )
+        .map_err(|error| error.info())?;
+    if output.exit_code == Some(1) {
+        return Ok(Vec::new());
+    }
+    let output = output.into_success().map_err(|error| error.info())?;
+    output
+        .stdout
+        .split(|byte| *byte == 0)
+        .filter(|path| !path.is_empty())
+        .map(|path| {
+            #[cfg(unix)]
+            let path = PathBuf::from(OsString::from_vec(path.to_vec()));
+            #[cfg(not(unix))]
+            let path = PathBuf::from(String::from_utf8_lossy(path).into_owned());
+            checked_wire_path(&path).map_err(|error| git_error_info(GitErrorKind::Failed, error))
+        })
+        .collect()
+}
+
+#[tauri::command]
 async fn git_status(
     workspace: String,
     window: tauri::WebviewWindow,
@@ -2511,6 +2612,94 @@ mod git_worktree_start_point_tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.base);
         }
+    }
+
+    #[test]
+    fn git_ignored_paths_follow_rules_tracking_and_cache_invalidation() {
+        let repository = TempRepo::new();
+        fs::create_dir(repository.path().join("src")).unwrap();
+        fs::create_dir(repository.path().join("node_modules")).unwrap();
+        fs::write(
+            repository.path().join(".gitignore"),
+            "*.log\n!keep.log\ntracked.txt\nnode_modules/\n",
+        )
+        .unwrap();
+        fs::write(repository.path().join("src/.gitignore"), "nested.txt\n").unwrap();
+        fs::write(repository.path().join(".git/info/exclude"), "private.txt\n").unwrap();
+        let names = [
+            "tracked.txt",
+            "cache.log",
+            "keep.log",
+            "繁體 中文.log",
+            "src/nested.txt",
+            "node_modules",
+            "private.txt",
+            "untracked.txt",
+        ];
+        let mut paths: Vec<String> = names
+            .iter()
+            .map(|name| {
+                let path = repository.path().join(name);
+                if !path.is_dir() {
+                    fs::write(&path, "fixture").unwrap();
+                }
+                wire_path(&path)
+            })
+            .collect();
+        #[cfg(unix)]
+        for name in [OsString::from("line\nbreak.log")] {
+            let path = repository.path().join(name);
+            fs::write(&path, "fixture").unwrap();
+            paths.push(wire_path(&path));
+        }
+        let global_excludes = repository.base.join("global-ignore");
+        fs::write(&global_excludes, "global.txt\n").unwrap();
+        repository.git(&[
+            "config",
+            "core.excludesFile",
+            global_excludes.to_str().unwrap(),
+        ]);
+        let global_path = repository.path().join("global.txt");
+        fs::write(&global_path, "fixture").unwrap();
+        paths.push(wire_path(&global_path));
+        let runtime = GitCoordinator::new();
+        let request = runtime.begin_request(repository.path(), None);
+        let ignored =
+            git_ignored_paths_sync(repository.path(), &paths, &runtime, &request).unwrap();
+        for index in [1, 3, 4, 5, 6] {
+            assert!(ignored.contains(&paths[index]), "missing {}", paths[index]);
+        }
+        for index in [0, 2, 7] {
+            assert!(
+                !ignored.contains(&paths[index]),
+                "unexpected {}",
+                paths[index]
+            );
+        }
+        for path in &paths[8..] {
+            assert!(ignored.contains(path), "missing {path}");
+        }
+        // Different stdin must not reuse the preceding query's cached result.
+        assert!(
+            git_ignored_paths_sync(repository.path(), &paths[7..8], &runtime, &request)
+                .unwrap()
+                .is_empty()
+        );
+        fs::write(repository.path().join(".gitignore"), "").unwrap();
+        runtime.invalidate(repository.path(), GitDirtyScope::WORKTREE);
+        assert!(
+            !git_ignored_paths_sync(repository.path(), &paths, &runtime, &request)
+                .unwrap()
+                .contains(&paths[1])
+        );
+        assert!(git_ignored_paths_sync(
+            repository.path(),
+            &[wire_path(&repository.base.join("outside.log"))],
+            &runtime,
+            &request
+        )
+        .unwrap()
+        .is_empty());
     }
 
     #[test]
@@ -4693,6 +4882,7 @@ fn main() {
                     filesystem::rename_path,
                     filesystem::delete_path,
                     git_status,
+                    get_git_ignored_paths,
                     git_branches,
                     git_commits,
                     cancel_workspace,

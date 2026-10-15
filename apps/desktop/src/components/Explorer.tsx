@@ -3,6 +3,7 @@ import { Icon, LanguageIcon, languageIconForPath } from "./Icons";
 import type { DirectoryEntry, GitFileStatus } from "../types";
 import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type IndexedVisibleTreeRow } from "../lib/tree-virtualization";
 import { joinWirePath, pathComparisonKey, runtimePathOptions } from "../lib/path-identity";
+import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored";
 import { isImeComposing } from "../lib/keyboard-input";
 import "../styles/explorer-virtualization.css";
 
@@ -15,25 +16,28 @@ type ExplorerProps = {
   repositoryRoot?: string;
   gitFiles: GitFileStatus[];
   hideDotFiles: boolean;
-  onToggle: (entry: DirectoryEntry) => void;
+  ignoredPaths?: ReadonlySet<string>;
+  ignoredExpanded?: boolean;
+  onToggleIgnored?: () => void;
+  onToggle: (entry: ExplorerEntry) => void;
   onRetry?: (entry: DirectoryEntry) => void;
-  onOpen: (entry: DirectoryEntry) => void;
+  onOpen: (entry: ExplorerEntry) => void;
   onContextMenu: (entry: DirectoryEntry, x: number, y: number) => void;
 };
 
 type StableTreeRow = {
   key: string;
-  readonly entry: DirectoryEntry;
+  readonly entry: ExplorerEntry;
   readonly depth: number;
   readonly isRoot: boolean;
   readonly siblingIndex: number;
   readonly siblingCount: number;
   readonly index: number;
-  update: (row: IndexedVisibleTreeRow<DirectoryEntry>) => void;
+  update: (row: IndexedVisibleTreeRow<ExplorerEntry>) => void;
 };
 
 type StableTreeRowState = {
-  entry: DirectoryEntry;
+  entry: ExplorerEntry;
   depth: number;
   isRoot: boolean;
   siblingIndex: number;
@@ -41,7 +45,7 @@ type StableTreeRowState = {
   index: number;
 };
 
-function createStableTreeRow(row: IndexedVisibleTreeRow<DirectoryEntry>): StableTreeRow {
+function createStableTreeRow(row: IndexedVisibleTreeRow<ExplorerEntry>): StableTreeRow {
   const [state, setState] = createSignal<StableTreeRowState>(toStableTreeRowState(row));
   return {
     key: row.pathKey,
@@ -55,7 +59,7 @@ function createStableTreeRow(row: IndexedVisibleTreeRow<DirectoryEntry>): Stable
   };
 }
 
-function toStableTreeRowState(row: IndexedVisibleTreeRow<DirectoryEntry>): StableTreeRowState {
+function toStableTreeRowState(row: IndexedVisibleTreeRow<ExplorerEntry>): StableTreeRowState {
   return {
     entry: row.entry,
     depth: row.depth,
@@ -76,8 +80,10 @@ export function Explorer(props: ExplorerProps) {
   const [focusedKey, setFocusedKey] = createSignal<string>();
   const pathOptions = runtimePathOptions();
   const pathKey = (path: string) => pathComparisonKey(path, pathOptions);
-  const treeModel = new VisibleTreeModel<DirectoryEntry>(pathOptions);
-  treeModel.update(props.root, props.hideDotFiles);
+  const isIgnored = (path: string) => props.ignoredPaths?.has(pathKey(path)) ?? false;
+  const displayRoot = createMemo(() => groupIgnoredEntries(props.root, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles));
+  const treeModel = new VisibleTreeModel<ExplorerEntry>(pathOptions);
+  treeModel.update(displayRoot(), props.hideDotFiles);
   const stableRowCache = new Map<string, StableTreeRow>();
 
   for (const row of treeModel.lastChange.changedRows) stableRowCache.set(row.pathKey, createStableTreeRow(row));
@@ -152,6 +158,17 @@ export function Explorer(props: ExplorerProps) {
     setScrollTop(scrollHost.scrollTop);
   };
 
+  const toggleEntry = (entry: ExplorerEntry) => {
+    if (entry.gitIgnoredGroup) {
+      setFocusedKey(pathKey(entry.path));
+      props.onToggleIgnored?.();
+    } else props.onToggle(entry);
+  };
+  const openEntry = (entry: ExplorerEntry) => {
+    if (entry.gitIgnoredGroup) toggleEntry(entry);
+    else props.onOpen(entry);
+  };
+
   const handleTreeKeyDown = (event: KeyboardEvent) => {
     if (isImeComposing(event) || event.ctrlKey || event.metaKey || event.altKey) return;
     if (!(event.target instanceof HTMLElement) || event.target.getAttribute("role") !== "treeitem") return;
@@ -167,9 +184,9 @@ export function Explorer(props: ExplorerProps) {
       ensureIndexVisible(action.index);
       queueMicrotask(() => document.getElementById(rowId(action.index))?.focus({ preventScroll: true }));
     } else if (action.kind === "toggle" && !currentRows[index].entry.recentProject) {
-      props.onToggle(currentRows[index].entry);
+      toggleEntry(currentRows[index].entry);
     } else {
-      props.onOpen(currentRows[index].entry);
+      openEntry(currentRows[index].entry);
     }
   };
 
@@ -190,7 +207,7 @@ export function Explorer(props: ExplorerProps) {
   onCleanup(() => stableRowCache.clear());
 
   createEffect(() => {
-    const root = props.root;
+    const root = displayRoot();
     const hideDotFiles = props.hideDotFiles;
     if (!treeModel.update(root, hideDotFiles)) return;
     const change = treeModel.lastChange;
@@ -201,6 +218,13 @@ export function Explorer(props: ExplorerProps) {
       const stable = stableRowCache.get(row.pathKey);
       if (stable) stable.update(row);
       else stableRowCache.set(row.pathKey, createStableTreeRow(row));
+    }
+    const focused = focusedKey();
+    const hadTreeFocus = typeof document !== "undefined" && treeHost?.contains(document.activeElement);
+    if (focused && treeModel.indexOfKey(focused) < 0) {
+      const group = treeModel.rows.find((row) => row.entry.gitIgnoredGroup);
+      setFocusedKey(group?.pathKey ?? treeModel.rows[0]?.pathKey);
+      if (hadTreeFocus) queueMicrotask(() => document.getElementById(rowId(focusedIndex()))?.focus({ preventScroll: true }));
     }
     setTreeVersion(change.version);
   });
@@ -234,9 +258,10 @@ export function Explorer(props: ExplorerProps) {
             setFocusedKey(key);
             ensureIndexVisible(treeModel.indexOfKey(key));
           }}
-          onToggle={props.onToggle}
+          ignored={isIgnored(row.entry.path)}
+          onToggle={toggleEntry}
           onRetry={props.onRetry}
-          onOpen={props.onOpen}
+          onOpen={openEntry}
           onContextMenu={props.onContextMenu}
         />
       )}</For>
@@ -254,14 +279,15 @@ function TreeRow(props: {
   activeKey?: string;
   statusForKey: (key: string) => GitFileStatus | undefined;
   hasRepository: boolean;
+  ignored: boolean;
   onFocus: (key: string) => void;
-  onToggle: (entry: DirectoryEntry) => void;
+  onToggle: (entry: ExplorerEntry) => void;
   onRetry?: (entry: DirectoryEntry) => void;
-  onOpen: (entry: DirectoryEntry) => void;
+  onOpen: (entry: ExplorerEntry) => void;
   onContextMenu: ExplorerProps["onContextMenu"];
 }) {
   const entry = () => props.row.entry;
-  const status = createMemo(() => entry().kind === "file" ? props.statusForKey(props.row.key) : undefined);
+  const status = createMemo(() => !props.ignored && entry().kind === "file" ? props.statusForKey(props.row.key) : undefined);
   const isUntracked = () => status()?.indexStatus === "?" || status()?.worktreeStatus === "?";
   const statusText = createMemo(() => {
     const current = status();
@@ -311,6 +337,8 @@ function TreeRow(props: {
         "tree-row-active": props.activeKey === props.row.key,
         "tree-row-root": props.row.isRoot,
         "tree-row-tracked": entry().kind === "file" && props.hasRepository && !isUntracked(),
+        "tree-row-ignored": props.ignored,
+        "tree-row-ignored-group": Boolean(entry().gitIgnoredGroup),
         "tree-row-directory": entry().kind === "directory",
       }}
       style={{ position: "absolute", top: `${props.row.index * TREE_ROW_HEIGHT}px`, left: "0", right: "0", "padding-left": `${10 + props.row.depth * 16}px` }}
@@ -326,7 +354,7 @@ function TreeRow(props: {
       onDblClick={() => props.onOpen(entry())}
       onContextMenu={(event) => {
         event.preventDefault();
-        if (!entry().recentProject) props.onContextMenu(entry(), event.clientX, event.clientY);
+        if (!entry().recentProject && !entry().gitIgnoredGroup) props.onContextMenu(entry(), event.clientX, event.clientY);
       }}
     >
       <button

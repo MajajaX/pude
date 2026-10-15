@@ -1,7 +1,7 @@
 import { Terminal } from "@xterm/headless";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Terminal as BrowserTerminal } from "@xterm/xterm";
-import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS } from "./terminal-vt";
+import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt } from "./terminal-vt";
 
 const terminals: Terminal[] = [];
 
@@ -26,6 +26,26 @@ afterEach(() => {
 });
 
 describe("xterm VT terminal", () => {
+  it("preserves normal output and scrollback when recovering a shell", async () => {
+    const terminal = createTerminal({ cols: 80, rows: 5 });
+    await write(terminal, Array.from({ length: 12 }, (_, index) => `history-${index}\r\n`).join(""));
+    await restoreTerminalAfterInterrupt(terminal);
+    const lines = Array.from({ length: terminal.buffer.normal.length }, (_, index) => terminal.buffer.normal.getLine(index)?.translateToString(true)).join("\n");
+    for (let index = 0; index < 12; index += 1) expect(lines).toContain(`history-${index}`);
+    expect(lines).toContain("Restarting shell after Ctrl+C");
+    expect(terminal.buffer.active.type).toBe("normal");
+  });
+
+  it("leaves an interrupted full-screen application and restores the saved normal cursor", async () => {
+    const terminal = createTerminal({ cols: 80 });
+    await write(terminal, "previous command\r\nnormal output\r\n\u001b[?1049happlication screen");
+    expect(terminal.buffer.active.type).toBe("alternate");
+    await restoreTerminalAfterInterrupt(terminal);
+    expect(terminal.buffer.active.type).toBe("normal");
+    expect(terminal.buffer.normal.getLine(0)?.translateToString(true)).toBe("previous command");
+    expect(terminal.buffer.normal.getLine(1)?.translateToString(true)).toBe("normal output");
+  });
+
   it("parses ANSI colors and cursor movement", async () => {
     const terminal = createTerminal();
     await write(terminal, "\u001b[31mred\u001b[0m\u001b[1;2HX");

@@ -12,7 +12,8 @@ import { version as appVersion } from "../package.json";
 import { checkForUpdates, updateStatus } from "./lib/app-update";
 import { defaultSettings } from "./lib/settings";
 import { getStartupFolder } from "./lib/bridge";
-import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStatus, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import { loadedExplorerPaths } from "./lib/explorer-ignored";
 import { errorMessage, orderTabsByPinned } from "./lib/core";
 import { emitDiagnostic } from "./lib/diagnostics";
 import { contentFingerprint } from "./lib/fingerprint";
@@ -337,7 +338,9 @@ export default function App() {
   const [hydrated, setHydrated] = createSignal(false);
   const [tabMenu, setTabMenu] = createSignal<{ id: string; x: number; y: number }>();
   const [fileMenu, setFileMenu] = createSignal<FileContextMenu>();
-  const [markdownPreviewPath, setMarkdownPreviewPath] = createSignal<string>();
+  const [markdownPreviewEnabled, setMarkdownPreviewEnabled] = createSignal(false);
+  const [gitIgnoredExpanded, setGitIgnoredExpanded] = createSignal(false);
+  const [gitIgnoredPaths, setGitIgnoredPaths] = createSignal<ReadonlySet<string>>(new Set());
   const [draggedTabId, setDraggedTabId] = createSignal<string>();
   const [inputDialog, setInputDialog] = createSignal<InputDialogState>();
   const [confirmationDialog, setConfirmationDialog] = createSignal<ConfirmationDialogState>();
@@ -658,7 +661,7 @@ export default function App() {
     id: activeProjectId()!, workspace: workspace(), root: root(), tabIds: [...tabOrder()], activeTabId: activeTabId(),
     viewMode: viewMode(), historyTabOpen: historyTabOpen(), diffReturnToHistory: diffReturnToHistory(), diff: diff(),
     git: git(), gitBranches: gitBranches(), sidebarView: sidebarView(), search: { ...search(), action: null },
-    searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewPath: markdownPreviewPath(), lastClosedTab: lastClosedTab(),
+    searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewEnabled: markdownPreviewEnabled(), gitIgnoredExpanded: gitIgnoredExpanded(), lastClosedTab: lastClosedTab(),
     terminalOpen: terminalOpen(), terminalInitialized: terminalInitialized(), restoreMetadata, restoreIntent, conflicts: externalConflicts(),
   });
   const currentProjects = () => projects().map((project) => project.id === activeProjectId() ? captureProject() : project);
@@ -757,7 +760,38 @@ export default function App() {
     const id = activeTabId();
     return id ? tabById[id] : undefined;
   });
-  const isMarkdownPreview = () => activeTab()?.language === "Markdown" && !activeTab()?.largeFile && markdownPreviewPath() === activeTab()?.path;
+  const loadedPaths = createMemo(() => loadedExplorerPaths(root()), undefined, {
+    equals: (left, right) => left.length === right.length && left.every((path, index) => path === right[index]),
+  });
+  createEffect(() => {
+    const currentWorkspace = workspace();
+    const repositoryRoot = git().repositoryRoot;
+    const paths = loadedPaths();
+    let cancelled = false;
+    const generation = workspaceGeneration;
+    const isCurrent = () => !cancelled && !disposed && generation === workspaceGeneration && currentWorkspace === workspace();
+    const timer = window.setTimeout(() => {
+      if (!currentWorkspace || !repositoryRoot || !paths.length) {
+        if (isCurrent()) setGitIgnoredPaths(new Set<string>());
+        return;
+      }
+      void (async () => {
+        const ignored = new Set<string>();
+        for (let index = 0; index < paths.length; index += 256) {
+          if (!isCurrent()) return;
+          const batch = paths.slice(index, index + 256);
+          const result = await workspaceIo.run(() => getGitIgnoredPaths(currentWorkspace, batch), {
+            signal: workspaceIoAbort.signal, isCurrent,
+          });
+          for (const path of result) ignored.add(pathKey(path));
+        }
+        if (isCurrent()) setGitIgnoredPaths(ignored);
+      })().catch((error) => { if (isCurrent()) emitDiagnostic("explorer.ignore", error); });
+    }, 75);
+    onCleanup(() => { cancelled = true; window.clearTimeout(timer); });
+  });
+
+  const isMarkdownPreview = () => activeTab()?.language === "Markdown" && !activeTab()?.largeFile && markdownPreviewEnabled();
   const shortcutModifier = () => isMacPlatform() ? "Cmd" : "Ctrl";
 
   const startWindowDrag = (event: MouseEvent) => {
@@ -2011,7 +2045,9 @@ export default function App() {
       setReplaceOpen(project.replaceOpen);
       setSearchActionTargetTabId(undefined);
       setGoToLine(undefined);
-      setMarkdownPreviewPath(project.markdownPreviewPath);
+      setMarkdownPreviewEnabled(project.markdownPreviewEnabled ?? false);
+      setGitIgnoredExpanded(project.gitIgnoredExpanded ?? false);
+      setGitIgnoredPaths(new Set<string>());
       setLastClosedTab(project.lastClosedTab);
       setTerminalOpen(project.terminalOpen);
       setTerminalInitialized(project.terminalInitialized);
@@ -3131,7 +3167,6 @@ export default function App() {
     if (existingTab) {
       setActiveTab(existingTab.id);
       markSessionDirty();
-      setMarkdownPreviewPath(undefined);
       setViewMode("editor");
       return;
     }
@@ -3143,19 +3178,16 @@ export default function App() {
       if (isImagePath(targetPath)) {
         if (!await pathExists(targetPath)) throw new Error(`The image file no longer exists: ${currentDiff.path}.`);
         if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
-        setMarkdownPreviewPath(undefined);
         openImageFile(targetPath);
         return;
       }
 
       const file = await readFileForEditor(targetPath);
       if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
-      setMarkdownPreviewPath(undefined);
       openReadFile(file);
     } catch (error) {
       if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
       if (activeTab()) {
-        setMarkdownPreviewPath(undefined);
         setViewMode("editor");
         notify(`${errorMessage(error, `Unable to open ${currentDiff.path}.`)} Showing the current editor instead.`);
       } else {
@@ -4744,7 +4776,7 @@ export default function App() {
                }>
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label="Loading workspace files" />}>
-                     <LazyExplorer root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
+                     <LazyExplorer ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
                    </Suspense>
                  </div>
                </Show>
@@ -4793,7 +4825,7 @@ export default function App() {
             <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}><LazyMarkdownPreview documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`} revision={activeTab()!.revision} length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length} readRange={(from, to) => { const tab = activeTab(); return tab ? documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to) : ""; }} /></Show>
             <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}><LazyImagePreview path={activeTab()?.path ?? ""} workspace={imageWorkspaceRoot(activeTab()?.path ?? "")} /></Show>
             <Show when={!activeTab() && viewMode() === "editor"}><EmptyEditor onOpenFolder={() => void loadWorkspace()} /></Show>
-            <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? "Markdown preview is disabled in large file mode" : undefined} onClick={() => setMarkdownPreviewPath(isMarkdownPreview() ? undefined : activeTab()?.path)} aria-label={isMarkdownPreview() ? "Show Markdown source" : "Show Markdown preview"} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? "Source" : "Preview"}</span></button></Show>
+            <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? "Markdown preview is disabled in large file mode" : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? "Show Markdown source" : "Show Markdown preview"} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? "Source" : "Preview"}</span></button></Show>
             </div>
             <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(`Created worktree ${result.branch}; opened ${result.path} in a new window.`))} /></div></Show>
           </div>

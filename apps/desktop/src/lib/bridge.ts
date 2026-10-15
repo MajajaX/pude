@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { TerminalExitPayload } from "./terminal-interrupt";
 import { contentFingerprint } from "./fingerprint";
 import { lineEndingMapForContent, normalizeLineEndingMap } from "./file-metadata";
 // The browser-demo dataset is only used when !isTauri; loading it
@@ -238,6 +239,10 @@ export async function deletePath(path: string): Promise<void> {
   for (const filePath of Object.keys(demoFiles)) {
     if (filePath === path || filePath.startsWith(`${path}/`)) delete demoFiles[filePath];
   }
+}
+
+export async function getGitIgnoredPaths(workspace: string, paths: string[]): Promise<string[]> {
+  return isTauri ? invoke<string[]>("get_git_ignored_paths", { workspace, paths }) : [];
 }
 
 export async function getGitStatus(workspace: string): Promise<GitStatusResult> {
@@ -601,10 +606,10 @@ export async function ackTerminalOutput(sessionId: string, generation: number, u
   if (isTauri) await invoke("terminal_ack_output", { sessionId, generation, upToSeq, bytes });
 }
 
-export async function listenForTerminalExit(handler: (payload: { sessionId: string; status?: string | null }) => void): Promise<UnlistenFn> {
+export async function listenForTerminalExit(handler: (payload: TerminalExitPayload) => void): Promise<UnlistenFn> {
   if (!isTauri) return () => undefined;
   const { listen } = await import("@tauri-apps/api/event");
-  return listen<{ sessionId: string; status?: string | null }>("terminal-exit", (event) => handler(event.payload));
+  return listen<TerminalExitPayload>("terminal-exit", (event) => handler(event.payload));
 }
 
 export async function revealInFileManager(path: string): Promise<void> {

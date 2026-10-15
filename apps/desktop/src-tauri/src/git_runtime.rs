@@ -4,7 +4,7 @@ use std::error::Error;
 use std::ffi::OsString;
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -25,6 +25,7 @@ pub const DEFAULT_READ_TIMEOUT: Duration = Duration::from_secs(15);
 pub const DEFAULT_MUTATION_TIMEOUT: Duration = Duration::from_secs(120);
 pub const DEFAULT_STDOUT_LIMIT: usize = 16 * 1024 * 1024;
 pub const DEFAULT_STDERR_LIMIT: usize = 512 * 1024;
+pub const MAX_STDIN_BYTES: usize = 1024 * 1024;
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
 const FLIGHT_WAIT_INTERVAL: Duration = Duration::from_millis(20);
 const SPOOL_CREATE_ATTEMPTS: usize = 32;
@@ -218,6 +219,7 @@ pub struct GitCommandSpec {
     pub program: OsString,
     pub cwd: PathBuf,
     pub args: Vec<OsString>,
+    pub stdin: Option<Arc<[u8]>>,
     pub no_optional_locks: bool,
     pub timeout: Duration,
     pub stdout_limit: usize,
@@ -231,6 +233,7 @@ impl GitCommandSpec {
             program: OsString::from("git"),
             cwd: cwd.into(),
             args,
+            stdin: None,
             no_optional_locks: false,
             timeout: DEFAULT_MUTATION_TIMEOUT,
             stdout_limit: DEFAULT_STDOUT_LIMIT,
@@ -877,7 +880,11 @@ impl GitCoordinator {
         if state.revisions.for_kind(key.kind) == revision {
             if let Ok(output) = &result {
                 if output.success {
-                    let accounted_bytes = output.stdout.len().saturating_add(output.stderr.len());
+                    let accounted_bytes = output
+                        .stdout
+                        .len()
+                        .saturating_add(output.stderr.len())
+                        .saturating_add(key.stdin.as_ref().map_or(0, |input| input.len()));
                     if accounted_bytes <= MAX_CACHE_BYTES_PER_REPOSITORY
                         && MAX_CACHE_ENTRIES_PER_REPOSITORY > 0
                     {
@@ -1024,6 +1031,7 @@ struct QueryKey {
     program: OsString,
     cwd: PathBuf,
     args: Vec<OsString>,
+    stdin: Option<Arc<[u8]>>,
     no_optional_locks: bool,
     timeout: Duration,
     stdout_limit: usize,
@@ -1038,6 +1046,7 @@ impl QueryKey {
             program: request.spec.program.clone(),
             cwd: canonical_key(&request.spec.cwd),
             args: request.spec.args.clone(),
+            stdin: request.spec.stdin.clone(),
             no_optional_locks: request.spec.no_optional_locks,
             timeout: request.spec.timeout,
             stdout_limit: request.spec.stdout_limit,
@@ -1707,6 +1716,28 @@ fn build_git_command(spec: &GitCommandSpec) -> Command {
     command
 }
 
+fn prepare_git_stdin(
+    command: &mut Command,
+    spec: &GitCommandSpec,
+) -> Result<Option<OutputSpool>, GitRuntimeError> {
+    let Some(input) = &spec.stdin else {
+        return Ok(None);
+    };
+    if input.len() > MAX_STDIN_BYTES {
+        return Err(GitRuntimeError::output_limit("stdin", MAX_STDIN_BYTES));
+    }
+    // File-backed stdin avoids a pipe writer blocking on Git's output.
+    let (spool, mut writer) = OutputSpool::create("stdin")?;
+    writer
+        .write_all(input)
+        .map_err(|error| GitRuntimeError::io("write Git stdin", error))?;
+    drop(writer);
+    command.stdin(
+        File::open(&spool.path).map_err(|error| GitRuntimeError::io("open Git stdin", error))?,
+    );
+    Ok(Some(spool))
+}
+
 fn execute_process_spooled(
     spec: GitCommandSpec,
     token: &CancellationToken,
@@ -1721,6 +1752,7 @@ fn execute_process_spooled(
         Err(error) => return Err(error),
     };
     let mut command = build_git_command(&spec);
+    let _stdin_spool = prepare_git_stdin(&mut command, &spec)?;
     let mut child = command
         .stdout(Stdio::from(stdout_file))
         .stderr(Stdio::from(stderr_file))
@@ -1732,6 +1764,7 @@ fn execute_process_spooled(
                 GitRuntimeError::io("start Git command", error)
             }
         })?;
+    drop(command);
     #[cfg(unix)]
     let process_tree = ProcessTreeGuard::attach(&child);
     #[cfg(windows)]
@@ -1982,6 +2015,7 @@ impl WindowsOverflowSignal {
 }
 
 struct PipedCommand {
+    _stdin_spool: Option<OutputSpool>,
     child: Option<Child>,
     process_tree: ProcessTreeGuard,
     stdout_collector: Arc<Mutex<CollectorState>>,
@@ -2027,6 +2061,7 @@ fn spawn_piped_command(spec: &GitCommandSpec) -> Result<PipedCommand, GitRuntime
     let overflow_event = create_overflow_event()?;
 
     let mut command = build_git_command(spec);
+    let stdin_spool = prepare_git_stdin(&mut command, spec)?;
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = command.spawn().map_err(|error| {
         if error.kind() == io::ErrorKind::NotFound {
@@ -2108,6 +2143,7 @@ fn spawn_piped_command(spec: &GitCommandSpec) -> Result<PipedCommand, GitRuntime
     }
 
     Ok(PipedCommand {
+        _stdin_spool: stdin_spool,
         child: Some(child),
         process_tree,
         stdout_collector,
@@ -2822,6 +2858,46 @@ mod tests {
         spec.args.shrink_to_fit();
         env::set_var("PUDE_GIT_RUNTIME_FIXTURE", mode);
         spec
+    }
+
+    #[test]
+    fn bounded_stdin_works_with_both_process_transports() {
+        let root = std::env::temp_dir().join(format!("pude-stdin-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let spec = GitCommandSpec::read(&root, vec!["hash-object".into(), "--stdin".into()]);
+        let mut first = spec.clone();
+        first.stdin = Some(Arc::from(&b"first input\n"[..]));
+        let mut second = spec.clone();
+        second.stdin = Some(Arc::from(&b"second input\n"[..]));
+        let token = CancellationToken::new();
+        let piped = execute_process_piped(first.clone(), &token).unwrap();
+        let spooled = execute_process_spooled(first.clone(), &token).unwrap();
+        assert!(piped.success && spooled.success);
+        assert_eq!(piped.stdout, spooled.stdout);
+        assert_ne!(
+            piped.stdout,
+            execute_process_piped(second.clone(), &token)
+                .unwrap()
+                .stdout
+        );
+        let first_key = QueryKey::from_request(
+            &root,
+            &GitReadRequest::new(&root, GitReadKind::Status, first),
+        );
+        let second_key = QueryKey::from_request(
+            &root,
+            &GitReadRequest::new(&root, GitReadKind::Status, second),
+        );
+        assert_ne!(first_key, second_key);
+        let mut oversized = spec;
+        oversized.stdin = Some(vec![0; MAX_STDIN_BYTES + 1].into());
+        for run in [execute_process_piped, execute_process_spooled] {
+            assert_eq!(
+                run(oversized.clone(), &token).unwrap_err().kind(),
+                GitErrorKind::OutputLimit
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     fn fixture_spec_with_counter(root: &Path, mode: &str, counter: &Path) -> GitCommandSpec {

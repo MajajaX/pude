@@ -25,7 +25,8 @@ export type ProjectWorkspaceState = {
   search: SearchRequest;
   searchOpen: boolean;
   replaceOpen: boolean;
-  markdownPreviewPath?: string;
+  markdownPreviewEnabled?: boolean;
+  gitIgnoredExpanded?: boolean;
   lastClosedTab?: EditorTab;
   terminalOpen: boolean;
   terminalInitialized: boolean;
