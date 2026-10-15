@@ -2,7 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { TerminalExitPayload } from "./terminal-interrupt";
 import { contentFingerprint } from "./fingerprint";
-import { lineEndingMapForContent, normalizeLineEndingMap } from "./file-metadata";
+import { lineEndingMapForContent, normalizeLineEndingMap, serializeDocumentBytes } from "./file-metadata";
 // The browser-demo dataset is only used when !isTauri; loading it
 // through a dynamic import keeps it (and its file contents) out of the
 // desktop entry chunk.
@@ -149,7 +149,7 @@ export async function saveFile(path: string, content: string, lineEnding: LineEn
     existing.lineEndings = normalizeLineEndingMap(content, lineEndings ?? existing.lineEndings ?? lineEndingMapForContent(content, lineEnding), lineEnding);
     existing.bom = bom;
     existing.encoding = bom ? "utf-8-bom" : "utf-8";
-    existing.size = content.length;
+    existing.size = serializeDocumentBytes(content, existing.lineEndings, bom).byteLength;
     existing.modifiedAt = Date.now();
     const entry = findDemoEntry(demoTree, path);
     if (entry) {

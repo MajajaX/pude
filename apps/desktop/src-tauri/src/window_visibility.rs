@@ -30,12 +30,18 @@ pub struct WindowVisibilityRegistry {
 
 impl WindowVisibilityRegistry {
     pub fn get(&self, label: &str) -> Arc<WindowVisibility> {
-        let mut windows = self.windows.lock().unwrap_or_else(|error| error.into_inner());
+        let mut windows = self
+            .windows
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         Arc::clone(windows.entry(label.to_string()).or_default())
     }
 
     pub fn remove(&self, label: &str) {
-        let mut windows = self.windows.lock().unwrap_or_else(|error| error.into_inner());
+        let mut windows = self
+            .windows
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         if let Some(window) = windows.remove(label) {
             window.retired.store(true, Ordering::Release);
         }
@@ -66,9 +72,14 @@ mod tests {
         barrier.wait();
         let first = receiver.recv_timeout(Duration::from_secs(1)).unwrap();
         for _ in 1..8 {
-            assert!(Arc::ptr_eq(&first, &receiver.recv_timeout(Duration::from_secs(1)).unwrap()));
+            assert!(Arc::ptr_eq(
+                &first,
+                &receiver.recv_timeout(Duration::from_secs(1)).unwrap()
+            ));
         }
-        for worker in workers { worker.join().unwrap(); }
+        for worker in workers {
+            worker.join().unwrap();
+        }
         assert!(first.install_timer());
         assert!(!first.install_timer());
     }
@@ -78,7 +89,10 @@ mod tests {
         let guard = WindowVisibility::default();
         assert_eq!(guard.reveal(|| Err("show failed")), Err("show failed"));
         assert_eq!(guard.reveal(|| Ok::<_, &str>(())), Ok(true));
-        assert_eq!(guard.reveal(|| panic!("already visible")), Ok::<_, &str>(false));
+        assert_eq!(
+            guard.reveal(|| panic!("already visible")),
+            Ok::<_, &str>(false)
+        );
     }
 
     #[test]
@@ -86,7 +100,10 @@ mod tests {
         let registry = WindowVisibilityRegistry::default();
         let guard = registry.get("main");
         registry.remove("main");
-        assert_eq!(guard.reveal(|| panic!("destroyed window")), Ok::<_, &str>(false));
+        assert_eq!(
+            guard.reveal(|| panic!("destroyed window")),
+            Ok::<_, &str>(false)
+        );
         assert!(!Arc::ptr_eq(&guard, &registry.get("main")));
     }
 }

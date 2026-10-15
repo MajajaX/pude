@@ -42,5 +42,8 @@
     "release:version:check": "node scripts/release-version.mjs check",
     "release:version:sync": "node scripts/release-version.mjs sync",
     "check": "npm run release:version:check && npm run desktop:test && node --test scripts/check-bundle-budget.test.mjs && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run test --workspace @pude/web && npm run typecheck --workspace @pude/web && npm run web:build"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
   }
 }

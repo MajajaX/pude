@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A week lets the ecosystem catch a compromised or broken release first.
+    cooldown:
+      default-days: 7
     labels: [dependencies]
     groups:
       tauri:
@@ -15,6 +18,9 @@ updates:
     directory: /apps/desktop/src-tauri
     schedule:
       interval: weekly
+    # A week lets the ecosystem catch a compromised or broken release first.
+    cooldown:
+      default-days: 7
     labels: [dependencies]
     groups:
       tauri:
@@ -26,4 +32,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A week lets the ecosystem catch a compromised or broken release first.
+    cooldown:
+      default-days: 7
     labels: [dependencies]
+    groups:
+      actions:
+        patterns: ["*"]

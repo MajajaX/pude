@@ -2,11 +2,12 @@ import { For, Show, createEffect, createMemo, createSignal, createUniqueId, onCl
 import { Portal } from "solid-js/web";
 import { Icon } from "./Icons";
 import { buildGitGraph } from "../lib/git-graph";
+import { reconcileGitHistoryBranchFilter, type GitHistoryBranchFilter } from "../lib/git-history-filter";
 import { GIT_HISTORY_ROW_HEIGHT, gitHistoryRenderWindow } from "../lib/git-history-virtualization";
 import type { GitBranch, GitCommit, GitCommitFile } from "../types";
 import "../styles/git-history.css";
 
-type BranchFilter = "all" | "current-head" | `branch:${"local" | "remote"}:${string}`;
+type BranchFilter = GitHistoryBranchFilter;
 type HistoryBranch = { value: BranchFilter; name: string; kind: "local" | "remote"; tipHash?: string; current: boolean };
 type CommitTooltip = { commit: GitCommit; left: number; top: number; width: number; maxHeight: number };
 
@@ -28,9 +29,9 @@ type GitHistoryProps = {
   onCreateBranch: (commit?: GitCommit) => void;
   onRefresh: () => void;
   onOpenHistory?: () => void;
-  historyHasMore?: boolean;
-  historyLoadingMore?: boolean;
-  onLoadMoreHistory?: () => void;
+  historyHasMore: boolean;
+  historyLoadingMore: boolean;
+  onLoadMoreHistory: () => void;
 };
 
 const commitRowHeight = 44;
@@ -47,6 +48,7 @@ export function GitHistory(props: GitHistoryProps) {
   const rowElements = new Map<string, HTMLButtonElement>();
   const tooltipId = createUniqueId();
   const overlayRoot = document.querySelector<HTMLElement>(".app-shell") ?? document.body;
+  let previousRepositoryRoot = props.repositoryRoot;
   let searchInput: HTMLInputElement | undefined;
   const [tableElement, setTableElement] = createSignal<HTMLDivElement>();
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
@@ -65,6 +67,11 @@ export function GitHistory(props: GitHistoryProps) {
   });
   const currentBranchName = () => props.currentBranch ?? props.branches.find((branch) => branch.current)?.name ?? "";
   const branchOptions = createMemo(() => historyBranchOptions(props.commits, props.branches, currentBranchName()));
+  const availableBranchFilters = createMemo(() => {
+    const options = branchOptions().map((branch) => ({ value: branch.value }));
+    if (props.repositoryState === "detached") options.push({ value: "current-head" as BranchFilter });
+    return options;
+  });
   const commitsReachableFrom = (startHash?: string) => {
     if (!startHash) return [];
     const reachable = new Set<string>();
@@ -141,6 +148,17 @@ export function GitHistory(props: GitHistoryProps) {
   createEffect(() => {
     search();
     setSearchCursorHash(undefined);
+  });
+  createEffect(() => {
+    const reconciliation = reconcileGitHistoryBranchFilter({
+      selected: branchFilter(),
+      previousRepositoryRoot,
+      repositoryRoot: props.repositoryRoot,
+      loading: props.loading,
+      options: availableBranchFilters(),
+    });
+    previousRepositoryRoot = reconciliation.repositoryRoot;
+    if (reconciliation.selected !== branchFilter()) setBranchFilter(reconciliation.selected);
   });
   createEffect(() => {
     const hash = selectedHash();
@@ -429,7 +447,7 @@ export function GitHistory(props: GitHistoryProps) {
               </button>
             </div>;
           }}</For>
-          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory?.(); }}>{props.historyLoadingMore ? "Loading older commits…" : "Load older commits"}</button></div></Show>
+          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory(); }}>{props.historyLoadingMore ? "Loading older commits…" : "Load older commits"}</button></div></Show>
           </div>
           </div>
         </div>

@@ -1,4 +1,6 @@
 #![cfg_attr(all(not(debug_assertions), not(test)), windows_subsystem = "windows")]
+// Tauri commands take one parameter per injected argument, and the wire types are inherently nested.
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 
 use notify::{RecursiveMode, Watcher};
 use rfd::FileDialog;
@@ -42,11 +44,11 @@ mod lsp_manager;
 #[cfg(target_os = "macos")]
 mod macos_quit;
 mod platform_trash;
-#[cfg(unix)]
-mod process_group;
 mod plugin_installer;
 mod plugin_security;
 mod plugin_workspace;
+#[cfg(unix)]
+mod process_group;
 mod python_environment;
 mod startup_timeline;
 mod terminal;
@@ -54,12 +56,14 @@ mod watcher;
 mod window_visibility;
 
 use blocking::BlockingClass;
-use document_encoding::{decode_text_bytes, preferred_line_ending, serialize_save_content, MAX_FILE_READ_BYTES};
-use git_diff::{
-    INITIAL_DIFF_CONTEXT_LINES, MAX_DIFF_CONTEXT_LINES, next_context_lines, read_git_commit_diff,
-    read_git_diff,
+use document_encoding::{
+    decode_text_bytes, preferred_line_ending, serialize_save_content, MAX_FILE_READ_BYTES,
 };
-use git_history::{GitCommit, GitCommitFile, GitHistoryPage, load_git_commits_page};
+use git_diff::{
+    next_context_lines, read_git_commit_diff, read_git_diff, INITIAL_DIFF_CONTEXT_LINES,
+    MAX_DIFF_CONTEXT_LINES,
+};
+use git_history::{load_git_commits_page, GitCommit, GitCommitFile, GitHistoryPage};
 use git_repository::{RepositoryRootCache, ResolvedGitRepository};
 use git_runtime::{
     GitCommandOutput, GitCommandSpec, GitCoordinator, GitDirtyScope, GitErrorInfo, GitErrorKind,
@@ -246,7 +250,9 @@ impl QuitDecision {
             "save" => Ok(Self::Save),
             "discard" => Ok(Self::Discard),
             "preserve" => Ok(Self::Preserve),
-            _ => Err("Quit decision must be 'save', 'discard', 'preserve', or 'cancel'.".to_string()),
+            _ => {
+                Err("Quit decision must be 'save', 'discard', 'preserve', or 'cancel'.".to_string())
+            }
         }
     }
 
@@ -938,7 +944,8 @@ fn emit_quit_abort_with_error(
     participants: &[String],
     error: Option<&str>,
 ) {
-    app.state::<app_update::UpdateState>().cancel_install_on_exit();
+    app.state::<app_update::UpdateState>()
+        .cancel_install_on_exit();
     let payload = QuitAbortPayload {
         request_id: request_id.to_string(),
         error: error.map(str::to_string),
@@ -1095,7 +1102,7 @@ fn begin_quit_request(app: &AppHandle, quit_gate: &QuitGateState) {
             listeners_ready,
         } => {
             if listeners_ready {
-                if let Err(error) = emit_quit_prepare(app, &quit_gate, &request_id, &participants) {
+                if let Err(error) = emit_quit_prepare(app, quit_gate, &request_id, &participants) {
                     eprintln!("{error}");
                 }
             } else {
@@ -1341,11 +1348,7 @@ fn cleanup_quit_participants(
     // It is no longer in the live participant set, but its native resources
     // must still be drained before app-wide quit may proceed.
     let mut cleanup_labels = participants.iter().cloned().collect::<BTreeSet<_>>();
-    cleanup_labels.extend(
-        app.state::<QuitGateState>()
-            .failed_cleanup_windows()
-            .into_iter(),
-    );
+    cleanup_labels.extend(app.state::<QuitGateState>().failed_cleanup_windows());
 
     let (sender, receiver) = std::sync::mpsc::channel();
     let mut workers = Vec::with_capacity(cleanup_labels.len());
@@ -1440,18 +1443,13 @@ fn destroy_quit_participants(app: &AppHandle, participants: &[String]) -> Result
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum GitRepositoryState {
     Normal,
     Detached,
     Unborn,
+    #[default]
     Unknown,
-}
-
-impl Default for GitRepositoryState {
-    fn default() -> Self {
-        Self::Unknown
-    }
 }
 
 impl GitRepositoryState {
@@ -1487,7 +1485,7 @@ fn wire_path(path: &Path) -> String {
             }
         }
         encode_wire_component(&mut encoded, &bytes[component_start..]);
-        return encoded;
+        encoded
     }
 
     #[cfg(not(unix))]
@@ -1523,7 +1521,7 @@ fn decode_wire_path(value: &str) -> PathBuf {
             }
             decode_wire_component(&mut decoded, component);
         }
-        return OsString::from_vec(decoded).into();
+        OsString::from_vec(decoded).into()
     }
 
     #[cfg(not(unix))]
@@ -1597,7 +1595,7 @@ fn hex_value(value: u8) -> Option<u8> {
 fn path_from_bytes(bytes: &[u8]) -> PathBuf {
     #[cfg(unix)]
     {
-        return OsString::from_vec(bytes.to_vec()).into();
+        OsString::from_vec(bytes.to_vec()).into()
     }
 
     #[cfg(not(unix))]
@@ -2247,8 +2245,7 @@ async fn git_operation<R: tauri::Runtime>(
     let admission = _admission;
     run_git_blocking("Unable to run Git operation", resource, move || {
         let _admission = admission;
-        let repository =
-            cached_git_repository(&workspace, &repository_roots, &runtime, &request)?;
+        let repository = cached_git_repository(&workspace, &repository_roots, &runtime, &request)?;
         let repository_root = repository.root.clone();
         let mut args = args;
         if action == "commit-all" {
@@ -2501,8 +2498,7 @@ async fn create_git_worktree(
     let admission = _admission;
     let destination = run_git_blocking("Unable to create Git worktree", resource, move || {
         let _admission = admission;
-        let repository =
-            cached_git_repository(&workspace, &repository_roots, &runtime, &request)?;
+        let repository = cached_git_repository(&workspace, &repository_roots, &runtime, &request)?;
         let repository_root = repository.root.clone();
         validate_worktree_branch(&branch_name, &repository_root, &runtime, &request)?;
         let start_point =
@@ -2647,7 +2643,8 @@ mod git_worktree_start_point_tests {
             })
             .collect();
         #[cfg(unix)]
-        for name in [OsString::from("line\nbreak.log")] {
+        {
+            let name = OsString::from("line\nbreak.log");
             let path = repository.path().join(name);
             fs::write(&path, "fixture").unwrap();
             paths.push(wire_path(&path));
@@ -3107,14 +3104,18 @@ fn watch_workspace_sync(
     ensure_request_active(&request).map_err(|error| error.message.clone())?;
     let has_workspace = workspace.is_dir();
     let repository = has_workspace
-        .then(|| repository_roots.resolve(&workspace, &runtime, &request).ok())
+        .then(|| {
+            repository_roots
+                .resolve(&workspace, &runtime, &request)
+                .ok()
+        })
         .flatten();
-    let metadata = repository.as_ref().map_or_else(GitMetadataRoots::default, |repository| {
-        GitMetadataRoots {
+    let metadata = repository
+        .as_ref()
+        .map_or_else(GitMetadataRoots::default, |repository| GitMetadataRoots {
             git_dir: Some(repository.identity.git_dir.clone()),
             common_dir: Some(repository.identity.common_dir.clone()),
-        }
-    });
+        });
     let repository_root = repository
         .map(|repository| repository.root)
         .filter(|root| root.is_dir())
@@ -4207,7 +4208,7 @@ impl WindowCleanupPlan {
             && self
                 .lsp
                 .as_ref()
-                .map_or(true, lsp_manager::WindowSessions::is_empty)
+                .is_none_or(lsp_manager::WindowSessions::is_empty)
     }
 }
 

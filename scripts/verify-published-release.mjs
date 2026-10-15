@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { parseSemver } from "./semver.mjs";
 
 const [releaseUrl, ...options] = process.argv.slice(2);
 const platform = options.length === 0 ? "all" : options.length === 2 && options[0] === "--platform" ? options[1] : undefined;
@@ -9,39 +10,6 @@ if (!["all", "windows", "macos"].includes(platform)) {
 if (!releaseUrl) {
   console.error("usage: verify-published-release.mjs <https://github.com/MajajaX/pude/releases/latest|.../tag/vX.Y.Z[-pre][+build]>");
   process.exit(2);
-}
-
-function parseSemver(version) {
-  let versionWithoutBuild = version;
-  const buildSeparator = version.indexOf("+");
-  if (buildSeparator >= 0) {
-    if (version.indexOf("+", buildSeparator + 1) >= 0) return undefined;
-    const build = version.slice(buildSeparator + 1);
-    if (!isValidIdentifierList(build, false)) return undefined;
-    versionWithoutBuild = version.slice(0, buildSeparator);
-  }
-
-  let coreAndPrerelease = versionWithoutBuild;
-  let prerelease = false;
-  const prereleaseSeparator = versionWithoutBuild.indexOf("-");
-  if (prereleaseSeparator >= 0) {
-    const identifiers = versionWithoutBuild.slice(prereleaseSeparator + 1);
-    if (!isValidIdentifierList(identifiers, true)) return undefined;
-    coreAndPrerelease = versionWithoutBuild.slice(0, prereleaseSeparator);
-    prerelease = true;
-  }
-
-  const core = coreAndPrerelease.split(".");
-  if (core.length !== 3 || !core.every((part) => /^(?:0|[1-9]\d*)$/.test(part))) return undefined;
-  return { prerelease };
-}
-
-function isValidIdentifierList(value, prerelease) {
-  if (!value) return false;
-  return value.split(".").every((identifier) => {
-    if (!/^[0-9A-Za-z-]+$/.test(identifier)) return false;
-    return !prerelease || !/^\d+$/.test(identifier) || identifier === "0" || !identifier.startsWith("0");
-  });
 }
 
 function isValidTag(tag) {

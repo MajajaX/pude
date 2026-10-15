@@ -5,11 +5,8 @@ use std::io;
 /// macOS reports EPERM instead of ESRCH while every member has exited but has not
 /// been reaped yet, so both mean the group is gone.
 pub fn is_group_gone(error: &io::Error) -> bool {
-    match error.raw_os_error() {
-        Some(libc::ESRCH) => true,
-        Some(libc::EPERM) => cfg!(target_os = "macos"),
-        _ => false,
-    }
+    let code = error.raw_os_error();
+    code == Some(libc::ESRCH) || (cfg!(target_os = "macos") && code == Some(libc::EPERM))
 }
 
 /// A Linux PTY session includes the shell's group and separate job-control

@@ -1,5 +1,6 @@
 import { locale, type Locale } from "./i18n-runtime";
 import { HOME_COPY } from "./site";
+import { BENCHMARK, formatSeconds, type SizeKey } from "./benchmark";
 
 export { locale, localeHref } from "./i18n-runtime";
 export type { Locale } from "./i18n-runtime";
@@ -12,6 +13,7 @@ const en = {
     showcase: "Tour",
     features: "Features",
     architecture: "Architecture",
+    compare: "Compare",
     philosophy: "Philosophy",
     docs: "Docs",
     download: "Download",
@@ -157,6 +159,45 @@ const en = {
       { title: "Cancelable", desc: "Switching workspaces cancels stale work. Old results never overwrite new state." },
     ],
   },
+  compare: {
+    eyebrow: "pude vs VS Code",
+    title: "Light, measured.",
+    sub: "pude next to Visual Studio Code on the same Mac, opening the same folder.",
+    highlights: {
+      installerMacos: "smaller download",
+      sizeOnDisk: "smaller on disk",
+      memory: "less memory",
+      launch: "faster to ready",
+    },
+    versus: "vs",
+    sizes: {
+      title: "Size and memory",
+      unit: "Each dot is 5 MB, rounded up.",
+      labels: {
+        installerMacos: "Installer download · macOS",
+        installerWindows: "Installer download · Windows x64",
+        sizeOnDisk: "Size on disk",
+        memory: "Memory with a folder open",
+      } as Record<SizeKey, string>,
+    },
+    launch: {
+      title: "Launch timeline",
+      unit: `Median of ${BENCHMARK.runs} launches, in seconds.`,
+      starting: "Starting",
+      drawing: "Window shown, still drawing",
+      ready: "Ready",
+      tip: (window: number, ready: number) => `Window ${formatSeconds(window)} · ready ${formatSeconds(ready)}`,
+    },
+    table: {
+      summary: "Show the numbers",
+      metric: "Measurement",
+      difference: "Difference",
+      windowShown: "First window on screen",
+      ready: "Launch until ready",
+      times: (ratio: string) => `${ratio}×`,
+    },
+    method: `pude ${BENCHMARK.pudeVersion} and Visual Studio Code ${BENCHMARK.vscodeVersion}, measured on ${BENCHMARK.date} on ${BENCHMARK.machine}. Both open the pude repository; VS Code uses a fresh profile with no extensions added. Installer sizes are the official downloads. Launch time runs until the window stops changing and memory is the physical footprint of the app and all its helper processes 15 seconds after launch, each the median of ${BENCHMARK.runs} runs. Reproduce it with scripts/benchmark/compare-vscode.mjs.`,
+  },
   languages: {
     eyebrow: "Syntax",
     title: "Highlighting for the languages you use, parsed on your machine.",
@@ -246,6 +287,7 @@ const zhHant: Dict = {
     showcase: "功能導覽",
     features: "核心特色",
     architecture: "架構",
+    compare: "比較",
     philosophy: "設計理念",
     docs: "文件",
     download: "下載",
@@ -390,6 +432,45 @@ const zhHant: Dict = {
       { title: "有界", desc: "佇列、輸出緩衝與快取都有上限，吵雜的程序拖不垮編輯器。" },
       { title: "可取消", desc: "切換工作區會取消過時的工作，舊結果不會覆蓋新狀態。" },
     ],
+  },
+  compare: {
+    eyebrow: "pude vs VS Code",
+    title: "輕，有數據為證。",
+    sub: "在同一台 Mac 上開啟同一個資料夾，與 Visual Studio Code 並排比較。",
+    highlights: {
+      installerMacos: "下載檔更小",
+      sizeOnDisk: "安裝後空間更小",
+      memory: "記憶體用量更少",
+      launch: "更快可以開始用",
+    },
+    versus: "對比",
+    sizes: {
+      title: "檔案大小與記憶體",
+      unit: "每個點代表 5 MB，無條件進位。",
+      labels: {
+        installerMacos: "安裝檔下載 · macOS",
+        installerWindows: "安裝檔下載 · Windows x64",
+        sizeOnDisk: "安裝後佔用空間",
+        memory: "開啟資料夾後的記憶體",
+      },
+    },
+    launch: {
+      title: "啟動時間軸",
+      unit: `${BENCHMARK.runs} 次啟動的中位數，單位為秒。`,
+      starting: "啟動中",
+      drawing: "視窗已出現，仍在繪製",
+      ready: "可以使用",
+      tip: (window, ready) => `視窗 ${formatSeconds(window)} · 可用 ${formatSeconds(ready)}`,
+    },
+    table: {
+      summary: "查看數據表",
+      metric: "項目",
+      difference: "差距",
+      windowShown: "第一個視窗出現",
+      ready: "從啟動到可用",
+      times: (ratio) => `${ratio} 倍`,
+    },
+    method: `pude ${BENCHMARK.pudeVersion} 與 Visual Studio Code ${BENCHMARK.vscodeVersion}，${BENCHMARK.date} 於 ${BENCHMARK.machine} 實測。兩者都開啟 pude 原始碼資料夾；VS Code 使用全新設定檔、未額外安裝擴充套件。安裝檔大小取自官方下載。啟動時間計算到視窗畫面不再變化為止；記憶體為啟動 15 秒後，程式與所有輔助程序的實體記憶體佔用（physical footprint）總和。兩者皆取 ${BENCHMARK.runs} 次的中位數。可用 scripts/benchmark/compare-vscode.mjs 重現。`,
   },
   languages: {
     eyebrow: "語法突顯",

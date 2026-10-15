@@ -65,7 +65,10 @@ fn default_log_dir() -> Option<PathBuf> {
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let base = std::env::var_os("XDG_DATA_HOME").map_or_else(
-            || std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local").join("share")),
+            || {
+                std::env::var_os("HOME")
+                    .map(|home| PathBuf::from(home).join(".local").join("share"))
+            },
             |base| Some(PathBuf::from(base)),
         );
         base.map(|base| base.join("pude").join("logs"))
@@ -181,25 +184,23 @@ fn safe_diagnostic_label(value: &str) -> bool {
     {
         return false;
     }
-    !value
-        .split(|character| matches!(character, '.' | '_' | '-'))
-        .any(|segment| {
-            [
-                "token",
-                "secret",
-                "password",
-                "private",
-                "credential",
-                "bearer",
-                "sentinel",
-                "body",
-                "document",
-                "content",
-                "key",
-            ]
-            .iter()
-            .any(|sensitive| segment.eq_ignore_ascii_case(sensitive))
-        })
+    !value.split(['.', '_', '-']).any(|segment| {
+        [
+            "token",
+            "secret",
+            "password",
+            "private",
+            "credential",
+            "bearer",
+            "sentinel",
+            "body",
+            "document",
+            "content",
+            "key",
+        ]
+        .iter()
+        .any(|sensitive| segment.eq_ignore_ascii_case(sensitive))
+    })
 }
 
 fn allow_frontend_diagnostic() -> bool {
@@ -227,6 +228,7 @@ fn write_frontend_diagnostic_to(dir: &Path, message: &str) {
     write_line_to(dir, "ERROR", &format!("frontend diagnostic: {message}"));
 }
 
+#[cfg(test)]
 fn write_frontend_diagnostic_to_if_safe(dir: &Path, message: &str, source: Option<&str>) -> bool {
     if source.is_some() || !is_safe_frontend_diagnostic(message) {
         return false;
@@ -700,12 +702,18 @@ mod tests {
             )
             .unwrap();
         }
-        fs::write(dir.join(LOG_FILE_NAME), vec![b'x'; (MAX_LOG_BYTES + 1) as usize]).unwrap();
+        fs::write(
+            dir.join(LOG_FILE_NAME),
+            vec![b'x'; (MAX_LOG_BYTES + 1) as usize],
+        )
+        .unwrap();
         write_line_to(&dir, "INFO", "rotation with existing archives");
         // .2 -> .3, .1 -> .2, active -> .1; old .3 is dropped. The fresh line
         // lands in the new active file; the rotated .1 is the old oversized
         // content.
-        assert!(!dir.join(format!("{LOG_FILE_NAME}.{}", MAX_ARCHIVED_FILES + 1)).exists());
+        assert!(!dir
+            .join(format!("{LOG_FILE_NAME}.{}", MAX_ARCHIVED_FILES + 1))
+            .exists());
         let active = read_log(&dir);
         assert!(active.contains("rotation with existing archives"));
         let first = fs::read_to_string(dir.join(format!("{LOG_FILE_NAME}.1"))).unwrap();

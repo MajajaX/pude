@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseSemver } from "./semver.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -21,31 +22,7 @@ function fail(message) {
 }
 
 function validVersion(version) {
-  if (typeof version !== "string") return false;
-  let versionWithoutBuild = version;
-  const buildSeparator = version.indexOf("+");
-  if (buildSeparator >= 0) {
-    if (version.indexOf("+", buildSeparator + 1) >= 0 || !validIdentifiers(version.slice(buildSeparator + 1), false)) return false;
-    versionWithoutBuild = version.slice(0, buildSeparator);
-  }
-
-  let core = versionWithoutBuild;
-  const prereleaseSeparator = versionWithoutBuild.indexOf("-");
-  if (prereleaseSeparator >= 0) {
-    if (!validIdentifiers(versionWithoutBuild.slice(prereleaseSeparator + 1), true)) return false;
-    core = versionWithoutBuild.slice(0, prereleaseSeparator);
-  }
-
-  const numbers = core.split(".");
-  return numbers.length === 3 && numbers.every((number) => /^(?:0|[1-9]\d*)$/.test(number));
-}
-
-function validIdentifiers(value, prerelease) {
-  if (!value) return false;
-  return value.split(".").every((identifier) => {
-    if (!/^[0-9A-Za-z-]+$/.test(identifier)) return false;
-    return !prerelease || !/^\d+$/.test(identifier) || identifier === "0" || !identifier.startsWith("0");
-  });
+  return parseSemver(version) !== undefined;
 }
 
 async function readJson(path) {
@@ -193,6 +170,7 @@ async function check(expectedVersion) {
 }
 
 function releaseCheck(tag, version) {
+  if (parseSemver(version)?.prerelease) throw new Error(`${version} is a prerelease; releases are published as stable versions only`);
   if (tag !== `v${version}`) throw new Error(`the release tag must be v${version} to match the workspace version`);
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   const tagCommit = execFileSync("git", ["rev-parse", `refs/tags/${tag}^{commit}`], {

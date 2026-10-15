@@ -85,7 +85,7 @@ impl GitRuntimeError {
     }
 
     fn with_detail(mut self, detail: impl fmt::Display) -> Self {
-        self.info.message.push_str(" ");
+        self.info.message.push(' ');
         self.info.message.push_str(&detail.to_string());
         self
     }
@@ -645,9 +645,8 @@ impl GitCoordinator {
         let stale_keys: Vec<QueryKey> = state
             .cache
             .iter()
-            .filter_map(|(key, entry)| {
-                (entry.revision != state.revisions.for_kind(key.kind)).then(|| key.clone())
-            })
+            .filter(|&(key, entry)| entry.revision != state.revisions.for_kind(key.kind))
+            .map(|(key, _entry)| key.clone())
             .collect();
         let mut released_bytes = 0usize;
         for key in stale_keys {
@@ -680,19 +679,6 @@ impl GitCoordinator {
         token: &CancellationToken,
     ) -> Result<GitCommandOutput, GitRuntimeError> {
         self.read_shared_internal(request, token, None)
-    }
-
-    /// Read or join a shared Git query while respecting a request-wide
-    /// deadline. A non-final subscriber can leave an in-flight query without
-    /// interrupting other callers; the final subscriber cancels and waits for
-    /// bounded process cleanup.
-    pub fn read_shared_until(
-        &self,
-        request: GitReadRequest,
-        token: &CancellationToken,
-        deadline: Instant,
-    ) -> Result<GitCommandOutput, GitRuntimeError> {
-        self.read_shared_internal(request, token, Some(deadline))
     }
 
     fn read_shared_internal(
@@ -850,15 +836,14 @@ impl GitCoordinator {
                 })
                 .min_by_key(|(_, state)| state.last_used.load(Ordering::Relaxed))
                 .map(|(key, _)| key.clone());
-            if let Some(evict_key) = evict_key {
+            {
+                let evict_key = evict_key?;
                 if let Some(evicted) = repositories.remove(&evict_key) {
                     let released = lock_unpoison(&evicted.state).cache_bytes;
                     if released > 0 {
                         self.inner.cache_bytes.fetch_sub(released, Ordering::AcqRel);
                     }
                 }
-            } else {
-                return None;
             }
         }
         let state = Arc::new(RepositoryState::default());
@@ -1114,6 +1099,7 @@ impl QueryFlight {
         Ok(())
     }
 
+    #[cfg(test)]
     fn wait(&self, token: &CancellationToken) -> Result<GitCommandOutput, GitRuntimeError> {
         self.wait_until(token, None)
     }
@@ -1747,10 +1733,7 @@ fn execute_process_spooled(
     }
 
     let (stdout_spool, stdout_file) = OutputSpool::create("stdout")?;
-    let (stderr_spool, stderr_file) = match OutputSpool::create("stderr") {
-        Ok(value) => value,
-        Err(error) => return Err(error),
-    };
+    let (stderr_spool, stderr_file) = OutputSpool::create("stderr")?;
     let mut command = build_git_command(&spec);
     let _stdin_spool = prepare_git_stdin(&mut command, &spec)?;
     let mut child = command
@@ -2056,6 +2039,7 @@ fn create_overflow_event() -> Result<WindowsEventHandle, GitRuntimeError> {
     }
 }
 
+#[allow(clippy::vec_init_then_push)]
 fn spawn_piped_command(spec: &GitCommandSpec) -> Result<PipedCommand, GitRuntimeError> {
     #[cfg(windows)]
     let overflow_event = create_overflow_event()?;
@@ -2717,6 +2701,7 @@ mod tests {
 
     #[test]
     #[ignore]
+    #[allow(clippy::zombie_processes)]
     fn fixture_process() {
         let Ok(mode) = env::var("PUDE_GIT_RUNTIME_FIXTURE") else {
             return;
@@ -3168,7 +3153,7 @@ mod tests {
         }
         #[cfg(unix)]
         {
-            return probe_process(pid as i32).unwrap_or(true);
+            probe_process(pid as i32).unwrap_or(true)
         }
         #[cfg(not(any(windows, unix)))]
         {

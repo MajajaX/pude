@@ -55,8 +55,7 @@ fn pool_worker_count() -> usize {
     thread::available_parallelism()
         .map(|count| count.get())
         .unwrap_or(1)
-        .min(4)
-        .max(1)
+        .clamp(1, 4)
 }
 
 struct WorkQueue {
@@ -847,7 +846,7 @@ mod tests {
         }
 
         wait_times.sort_unstable();
-        let p95_index = (wait_times.len() * 95 + 99) / 100 - 1;
+        let p95_index = (wait_times.len() * 95).div_ceil(100) - 1;
         let p95 = wait_times[p95_index];
         let maximum = *wait_times.last().unwrap();
         assert!(

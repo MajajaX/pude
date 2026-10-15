@@ -31,6 +31,15 @@ describe("web release stage and download links", () => {
     expect(webRelease.getReleaseStage("1.0.0", webRelease.getPublishedReleaseUrl("javascript:alert(1)"))).toBe("candidate");
   });
 
+  it("only accepts a tagged release URL that matches the shown version", () => {
+    const tagUrl = "https://github.com/MajajaX/pude/releases/tag/v0.1.2";
+    expect(webRelease.getReleaseUrlForVersion(tagUrl, "0.1.2")).toBe(tagUrl);
+    expect(webRelease.getReleaseUrlForVersion(tagUrl, "0.1.3")).toBeUndefined();
+    expect(webRelease.getReleaseUrlForVersion("https://github.com/MajajaX/pude/releases/latest", "0.1.2"))
+      .toBe("https://github.com/MajajaX/pude/releases/latest");
+    expect(webRelease.getReleaseUrlForVersion("javascript:alert(1)", "0.1.2")).toBeUndefined();
+  });
+
   it("builds direct installer links for latest and tagged releases", () => {
     expect(webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/latest", "pude-macos-arm64.dmg"))
       .toBe("https://github.com/MajajaX/pude/releases/latest/download/pude-macos-arm64.dmg");

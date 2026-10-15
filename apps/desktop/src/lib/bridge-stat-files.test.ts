@@ -15,3 +15,14 @@ it("sends one native stat request with the Rust request envelope for 100 files",
   expect(await statFiles(paths)).toEqual(entries);
   expect(invoke).toHaveBeenCalledExactlyOnceWith("stat_files", { request: { paths } });
 });
+
+it("stores the serialized UTF-8 byte size when saving a demo file", async () => {
+  const { saveFile } = await import("./bridge");
+  const { demoFiles } = await import("./demo");
+  const path = "pude-demo/package.json";
+  const { lineEndingMapForContent } = await import("./file-metadata");
+  const content = "中😀\n";
+  const result = await saveFile(path, content, "crlf", lineEndingMapForContent(content, "crlf"), true);
+  expect(result.size).toBe(3 + 3 + 4 + 2);
+  expect(demoFiles[path].size).toBe(result.size);
+});

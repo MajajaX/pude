@@ -242,10 +242,7 @@ fn terminal_output_emit_loop(
             Ok(chunk) => batcher.push(&chunk),
             Err(_) => return,
         }
-        loop {
-            let Some(remaining) = batcher.remaining_window(Instant::now()) else {
-                break;
-            };
+        while let Some(remaining) = batcher.remaining_window(Instant::now()) {
             match receiver.recv_timeout(remaining) {
                 Ok(chunk) => batcher.push(&chunk),
                 Err(RecvTimeoutError::Timeout) => break,
@@ -1913,7 +1910,7 @@ mod terminal_unix_process_tree_tests {
             .expect("PTY should open");
         let mut command = CommandBuilder::new("/bin/sh");
         command.args(["-c", command_text]);
-        command.env("PUDE_TERMINAL_CHILD_PID", &pid_path);
+        command.env("PUDE_TERMINAL_CHILD_PID", pid_path);
         let child = pair
             .slave
             .spawn_command(command)
@@ -2055,9 +2052,8 @@ mod terminal_unix_process_tree_tests {
         );
         let child_pid = wait_for_child_pid(&pid_path);
         let natural_timeout = Instant::now() + Duration::from_secs(4);
-        assert_eq!(
+        assert!(
             process_is_alive(child_pid).expect("child should be inspectable while shell owns it"),
-            true,
             "shell child {child_pid} must be alive before the parent shell exits"
         );
         fs::write(&shell_exit_path, b"exit").expect("shell exit signal should be written");
@@ -3230,10 +3226,8 @@ fn read_terminal_chunks(
             }
             Ok(size) => {
                 let data = decode_terminal_bytes(&mut pending_utf8, &buffer[..size]);
-                if !data.is_empty() {
-                    if !emit(data) {
-                        break;
-                    }
+                if !data.is_empty() && !emit(data) {
+                    break;
                 }
             }
         }

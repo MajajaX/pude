@@ -4,6 +4,7 @@ import Manifesto from "./components/Manifesto";
 import Showcase from "./components/Showcase";
 import Features from "./components/Features";
 import Architecture from "./components/Architecture";
+import Compare from "./components/Compare";
 import Languages from "./components/Languages";
 import Philosophy from "./components/Philosophy";
 import Shortcuts from "./components/Shortcuts";
@@ -20,6 +21,7 @@ export default function App() {
         <Showcase />
         <Features />
         <Architecture />
+        <Compare />
         <Languages />
         <Philosophy />
         <Shortcuts />

@@ -75,7 +75,10 @@ pub fn write_perf_log() {
         return;
     }
     for milestone in collect() {
-        crate::app_log::perf_log(&format!("startup {} @ {} ms", milestone.name, milestone.at_ms));
+        crate::app_log::perf_log(&format!(
+            "startup {} @ {} ms",
+            milestone.name, milestone.at_ms
+        ));
     }
 }
 

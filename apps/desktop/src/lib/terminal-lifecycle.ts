@@ -17,12 +17,15 @@ export class TerminalLifecycle {
       if (generation !== this.generation) return undefined;
 
       const sessionId = await this.backend.start(workspace);
+      // Keep ownership of every session until its cleanup succeeds. This is
+      // also needed for a stale start: if the first cleanup attempt fails,
+      // the next queued lifecycle operation must be able to retry it.
+      this.activeSessionId = sessionId;
       if (generation !== this.generation) {
-        await this.backend.stop(sessionId);
+        await this.stopActiveSession();
         return undefined;
       }
 
-      this.activeSessionId = sessionId;
       return sessionId;
     });
     this.queue = operation.then(() => undefined, () => undefined);
@@ -43,7 +46,7 @@ export class TerminalLifecycle {
   private async stopActiveSession(): Promise<void> {
     const sessionId = this.activeSessionId;
     if (!sessionId) return;
-    this.activeSessionId = undefined;
     await this.backend.stop(sessionId);
+    if (this.activeSessionId === sessionId) this.activeSessionId = undefined;
   }
 }

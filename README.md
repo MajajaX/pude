@@ -29,6 +29,28 @@ pude opens a folder and gets out of your way. It starts fast, stays light and ke
 everything on your machine: no account, no cloud sync, no telemetry and no background
 indexing. Features load only when you use them.
 
+## pude vs VS Code
+
+Measured side by side with Visual Studio Code on the same Mac, opening the same folder.
+
+| | pude 0.1.2 | VS Code 1.140.0 | |
+| --- | ---: | ---: | --- |
+| Installer download · macOS Apple Silicon | 5.1 MB | 317.9 MB | 62× smaller |
+| Installer download · Windows x64 | 3.9 MB | 244.4 MB | 63× smaller |
+| Size on disk (macOS) | 10.5 MB | 911.6 MB | 87× smaller |
+| Launch until ready | 0.60 s | 1.11 s | 1.8× faster |
+| Memory with a folder open | 103 MB | 1,074 MB | 10× less |
+| Processes with a folder open | 6 | 12 | |
+
+Measured on 2026-10-15 on an Apple M5 Max with 64 GB of memory and macOS 27.0.1.
+Both editors open this repository; VS Code uses a fresh profile with no extensions
+added. Installer sizes are the official downloads. Launch time runs from launch until
+the window stops changing, and memory is the physical footprint of the app and all
+of its helper processes 15 seconds after launch, each the median of 7 runs. Quit
+pude, then reproduce the launch and memory numbers on your Mac with
+`node scripts/benchmark/compare-vscode.mjs` (the terminal needs the Screen Recording
+permission).
+
 ## Features
 
 - **Project tabs** — open several folders in one window. Each project keeps its own
@@ -46,7 +68,7 @@ indexing. Features load only when you use them.
   [examples](examples/plugins).
 
 pude deliberately leaves out project-wide indexing, a debugger, AI services, a plugin
-marketplace and automatic updates.
+marketplace and silent automatic updates.
 
 ## Install
 
@@ -59,8 +81,9 @@ Download the installer for your platform from
 | Windows 11 x64 | [`pude-windows-x64-setup.exe`](https://github.com/MajajaX/pude/releases/latest/download/pude-windows-x64-setup.exe) (unsigned) |
 
 Each release includes `SHA256SUMS.txt` so you can verify your download. pude never
-updates itself; to update, install the newer version. Linux builds are planned —
-until then you can [build from source](#build-from-source).
+installs an update by itself; to update, use **Download update** and **Restart and
+update** in the About dialog, or install the newer version manually.
+Linux builds are planned — until then you can [build from source](#build-from-source).
 
 The [website download section](https://pude.dev/#download) recommends an installer
 using the OS, version and CPU details your browser provides. If those details are

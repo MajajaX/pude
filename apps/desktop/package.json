@@ -27,7 +27,8 @@
     "check:bundle": "node ../../scripts/check-bundle-budget.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",
