@@ -4201,52 +4201,40 @@ mod tests {
         let process_group_cleanup_a = ProcessGroupCleanup(process_group_a);
         let process_group_cleanup_b = ProcessGroupCleanup(process_group_b);
 
-        assert_eq!(
-            unsafe { libc::kill(-process_group_a, libc::SIGSTOP) },
-            0,
-            "window A fixture should pause so its cleanup remains active while B closes"
-        );
-        assert_eq!(
-            unsafe { libc::kill(-process_group_b, libc::SIGSTOP) },
-            0,
-            "window B fixture should pause so cleanup exercises real process groups"
-        );
-
+        let (stop_sender, stop_receiver) = mpsc::sync_channel(1);
+        let (original_control, wakeup) = {
+            let mut state = manager.inner.lock().unwrap();
+            let session = state
+                .sessions
+                .values_mut()
+                .find(|session| session.owners.contains("window-a"))
+                .expect("window A session should be registered");
+            let original = std::mem::replace(&mut session.control, stop_sender);
+            (original, Arc::clone(&session.wakeup))
+        };
         let manager_a = manager.clone();
         let (cleanup_sender_a, cleanup_receiver_a) = mpsc::channel();
         let cleanup_thread_a = std::thread::spawn(move || {
             let _ = cleanup_sender_a.send(manager_a.cleanup_window("window-a"));
         });
-        let active_deadline = Instant::now() + Duration::from_secs(2);
-        loop {
-            let cleanup_active = manager
-                .inner
-                .lock()
-                .unwrap()
-                .sessions
-                .values()
-                .any(|session| {
-                    session.owners.contains("window-a")
-                        && session.stopping.load(std::sync::atomic::Ordering::Acquire)
-                        && session
-                            .cleanup_worker_active
-                            .load(std::sync::atomic::Ordering::Acquire)
-                });
-            if cleanup_active {
-                break;
-            }
-            assert!(
-                Instant::now() < active_deadline,
-                "window A cleanup did not enter its bounded process-group teardown"
-            );
-            std::thread::sleep(Duration::from_millis(5));
-        }
+        let stop_message = stop_receiver
+            .recv_timeout(Duration::from_secs(2))
+            .expect("window A cleanup should wait for its supervisor acknowledgement");
+        assert!(matches!(&stop_message, super::ControlMessage::Stop(_)));
 
         let manager_b = manager.clone();
         let (cleanup_sender_b, cleanup_receiver_b) = mpsc::channel();
         let cleanup_thread_b = std::thread::spawn(move || {
             let _ = cleanup_sender_b.send(manager_b.cleanup_window("window-b"));
         });
+        let result_b = cleanup_receiver_b.recv_timeout(Duration::from_secs(8));
+        original_control
+            .send(stop_message)
+            .expect("window A supervisor should receive its delayed stop");
+        wakeup.notify();
+        result_b
+            .expect("window B cleanup should finish while window A is still waiting")
+            .expect("window B cleanup should ignore window A's independent cleanup state");
         cleanup_receiver_a
             .recv_timeout(Duration::from_secs(8))
             .expect("window A cleanup should finish within its bounded deadline")
@@ -4262,10 +4250,6 @@ mod tests {
             .expect("window A process group should remain empty after cleanup returns");
         std::mem::forget(process_group_cleanup_a);
 
-        cleanup_receiver_b
-            .recv_timeout(Duration::from_secs(8))
-            .expect("window B cleanup should finish within its bounded deadline")
-            .expect("window B cleanup should ignore window A's independent cleanup state");
         let group_b_status = unsafe { libc::kill(-process_group_b, 0) };
         let group_b_error = std::io::Error::last_os_error().raw_os_error();
         assert_eq!(
