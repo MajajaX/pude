@@ -2941,12 +2941,12 @@ mod terminal_lifecycle_tests {
                 pixel_height: 0,
             })
             .expect("ConPTY should open");
-        let mut command = CommandBuilder::new("powershell.exe");
+        let mut command = CommandBuilder::new(env!("PUDE_TERMINAL_BOOTSTRAP_EXE"));
+        command.arg(gate.name());
+        command.arg("powershell.exe");
+        command.arg(std::env::temp_dir());
         command.args(["-NoLogo", "-NoProfile", "-Command"]);
-        command.arg(format!(
-            "$gate=[Threading.EventWaitHandle]::OpenExisting('{}'); if(!$gate.WaitOne(15000)){{exit 2}}; $child=Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 30' -PassThru -NoNewWindow; [IO.File]::WriteAllText($env:PUDE_TERMINAL_CHILD_PID,[string]$child.Id); Start-Sleep -Seconds 30",
-            gate.name()
-        ));
+        command.arg("[IO.File]::WriteAllText($env:PUDE_TERMINAL_CHILD_PID,[string]$PID); Start-Sleep -Seconds 30");
         command.env("PUDE_TERMINAL_CHILD_PID", &pid_path);
         let child = pair
             .slave
@@ -2990,28 +2990,24 @@ mod terminal_lifecycle_tests {
             output_flow: super::TerminalOutputFlow::new(1),
             output_channel: tauri::ipc::Channel::new(|_| Ok(())),
         });
-        // ConPTY asks for the cursor position at startup. Answer only after the query
-        // was sent; a reply that arrives earlier is ignored and the shell never starts.
         let mut output = Vec::new();
-        let query_deadline = Instant::now() + Duration::from_secs(5);
-        while !output.windows(4).any(|window| window == b"\x1b[6n")
-            && Instant::now() < query_deadline
-        {
+        let mut pending = Vec::new();
+        let child_started = Instant::now();
+        while !pid_path.exists() && child_started.elapsed() < Duration::from_secs(10) {
             if let Ok(bytes) = output_receiver.recv_timeout(Duration::from_millis(50)) {
+                pending.extend_from_slice(&bytes);
                 output.extend(bytes);
             }
-        }
-        session
-            .writer
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .write_all(b"\x1b[1;1R")
-            .unwrap();
-        let child_started = Instant::now();
-        while !pid_path.exists() && child_started.elapsed() < Duration::from_secs(5) {
-            thread::sleep(Duration::from_millis(20));
+            while let Some(query) = pending.windows(4).position(|window| window == b"\x1b[6n") {
+                let mut writer = session.writer.lock().unwrap();
+                let writer = writer.as_mut().unwrap();
+                writer.write_all(b"\x1b[1;1R").unwrap();
+                writer.flush().unwrap();
+                pending.drain(..query + 4);
+            }
+            if pending.len() > 3 {
+                pending.drain(..pending.len() - 3);
+            }
         }
         if !pid_path.exists() {
             let _ = stop_terminal_session(&session);
