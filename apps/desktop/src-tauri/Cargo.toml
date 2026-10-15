@@ -16,7 +16,7 @@ codegen-units = 1
 strip = "symbols"
 
 [build-dependencies]
-tauri-build = { version = "=2.7.0", features = [] }
+tauri-build = { version = "=2.7.2", features = [] }
 
 [dependencies]
 # Tauri default features are trimmed: no runtime
@@ -25,10 +25,10 @@ tauri-build = { version = "=2.7.0", features = [] }
 # pude.exe by ~6.0% (14,901,248 -> 14,010,880 bytes) under fat LTO.
 # Revisit Linux features when a Linux release ships.
 tauri = { version = "=2.12.0", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
-tauri-plugin-single-instance = "=2.5.0"
+tauri-plugin-single-instance = "=2.5.3"
 tauri-plugin-updater = "=2.13.3"
 cap-std = "=4.0.3"
-libc = "=0.2.189"
+libc = "=0.2.190"
 memchr = "=2.8.3"
 notify = "=8.2.0"
 portable-pty = "=0.9.0"
@@ -36,9 +36,9 @@ rfd = "=0.17.2"
 reqwest = { version = "=0.13.5", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = "=1.0.151"
-tokio = { version = "=1.53.1", default-features = false, features = ["net", "rt", "time"] }
-uuid = { version = "=1.26.1", features = ["v4"] }
+serde_json = "=1.0.152"
+tokio = { version = "=1.53.2", default-features = false, features = ["net", "rt", "time"] }
+uuid = { version = "=1.28.0", features = ["v4"] }
 
 [dev-dependencies]
 # Enable MockRuntime IPC contract checks only for tests.
