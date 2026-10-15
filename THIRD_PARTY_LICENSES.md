@@ -13,6 +13,8 @@ This file contains the license and notice texts for the locked desktop app runti
 
 - 2026-09-29 ST-07 incremental verification: tauri-plugin-single-instance@2.5.0 and tracing-attributes@0.1.31 archives match Cargo.lock; their complete named license files are included below. Current normal runtime closure counts are macOS arm64 269 and Windows x64 273 crates (excluding pude); previously verified extra license rows remain for historical dependency versions.
 
+- 2026-10-15 v0.1.2 verification: added exact-archive inventory for 30 previously unlisted locked runtime package versions. Every added npm archive matches its lockfile SRI and every added Cargo archive matches Cargo.lock SHA-256; named license files (or exact-commit upstream license files when omitted from an archive) and newly included full texts are hashed below. Existing verified historical rows remain. Current npm runtime inventory: 48 locked package versions. Current normal Cargo closures (excluding pude): 282 macOS arm64 crates and 283 Windows x64 crates.
+
 ## Locked runtime package inventory
 
 | Target | Package and version | Role | Archive license metadata | Exact source archive and lock digest | Original source file(s) and SHA-256 |
@@ -388,6 +390,37 @@ This file contains the license and notice texts for the locked desktop app runti
 | macOS arm64, Windows x64 | **w3c-keyname@2.2.8** | app runtime | MIT | [archive](https://registry.npmjs.org/w3c-keyname/-/w3c-keyname-2.2.8.tgz); npm SRI sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ== | LICENSE → text [869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884](#869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884); SHA-256 869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884 |
 | Windows x64, macOS arm64 | **tauri-plugin-single-instance@2.5.0** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-plugin-single-instance/tauri-plugin-single-instance-2.5.0.crate); Cargo.lock SHA-256 8bed24ed0f31939002fad4568e04ba87ba717cd22f85318b867fc427ab88e11b | LICENSE.spdx → text [eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef](#eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef); SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef<br>LICENSE_APACHE-2.0 → text [0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9](#0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9); SHA-256 0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9<br>LICENSE_MIT → text [b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d](#b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d); SHA-256 b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d |
 | Windows x64, macOS arm64 | **tracing-attributes@0.1.31** | app runtime | MIT | [archive](https://static.crates.io/crates/tracing-attributes/tracing-attributes-0.1.31.crate); Cargo.lock SHA-256 7490cfa5ec963746568740651ac6781f701c9c5ea257c58e057f3ba8cf69e8da | LICENSE → text [898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1](#898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1); SHA-256 898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1 |
+
+| macOS arm64, Windows x64 | **@codemirror/commands@6.11.1** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/commands/-/commands-6.11.1.tgz); npm SRI sha512-O/4hG3SC1YwcmQ0d2UVNDs+AsaNWd1iHVxbTeEBuqH+6bExAiPK3iS/BvpY6rZGURALv4ZD3sIgcCmRvw3ehBg== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@codemirror/language@6.13.1** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/language/-/language-6.13.1.tgz); npm SRI sha512-zfvU2r3TyylQLMj/te+5CnQ0rSqZi8B1oTCBbQkagcLW4Xc6imab6qN+pEJhsuNOLaJqiRyBXp9UhWA1DhVvDw== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@codemirror/legacy-modes@6.5.5** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/legacy-modes/-/legacy-modes-6.5.5.tgz); npm SRI sha512-9ltT214oMb3Y1w5eAZMSigzrjzZnMI2Wa3Feq73rU/i4C56MkwrpfswfQYOr28C5pXr6dWwspNTMyeHXlzWMxg== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@codemirror/state@6.7.6** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/state/-/state-6.7.6.tgz); npm SRI sha512-kAz+AncRtKuIknedxT1bq4XwXv4UowhbkHU1myPrtVb/jZtImWuV5BXzv5vK6i3kYACsdiZiQKFQQ5Mq7elW8w== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@codemirror/streamparser@6.0.0** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/streamparser/-/streamparser-6.0.0.tgz); npm SRI sha512-JTFPF6xrfjt0mnfGPgzcLiMwYmvIyNaoizp8BYzv8FE8KrT6GBGDZ190rtt+O7Wke3gG/MFHyiY9YGNeimof4w== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@codemirror/view@6.43.14** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/view/-/view-6.43.14.tgz); npm SRI sha512-hC45YnmJNR1rz42OF57BLoQNFMV12/13drnvibDsR2quNDmldcb4WvYVV81hFQg56i9lcqQMEDqilhX2QDcGQQ== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@tauri-apps/api@2.12.4** | app runtime | Apache-2.0 OR MIT | [archive](https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.4.tgz); npm SRI sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg== | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d<br>LICENSE.spdx → text [5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008](#5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008); SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008 |
+| macOS arm64 | **core-foundation@0.9.4** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/core-foundation/core-foundation-0.9.4.crate); Cargo.lock SHA-256 91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3](#62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3); SHA-256 62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3 |
+| macOS arm64 | **filetime@0.2.29** | app runtime | MIT/Apache-2.0 | [archive](https://static.crates.io/crates/filetime/filetime-0.2.29.crate); Cargo.lock SHA-256 5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397](#378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397); SHA-256 378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397 |
+| macOS arm64, Windows x64 | **libc@0.2.190** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/libc/libc-0.2.190.crate); Cargo.lock SHA-256 ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78 | LICENSE-APACHE → text [62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a); SHA-256 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a<br>LICENSE-MIT → text [123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e](#123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e); SHA-256 123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e |
+| macOS arm64, Windows x64 | **minisign-verify@0.3.0** | app runtime | MIT | [archive](https://static.crates.io/crates/minisign-verify/minisign-verify-0.3.0.crate); Cargo.lock SHA-256 871285dc19d8d0ebe0eef3d0e99a205f2a71363b122632cbbfa4a6c370a960ce | LICENSE → text [42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9](#42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9); SHA-256 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9 |
+| macOS arm64 | **objc2-osa-kit@0.3.2** | app runtime | Zlib OR Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/objc2-osa-kit/objc2-osa-kit-0.3.2.crate); Cargo.lock SHA-256 f112d1746737b0da274ef79a23aac283376f335f4095a083a267a082f21db0c0 | [LICENSE.md](https://raw.githubusercontent.com/madsmtm/objc2/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md) → text [7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54](#7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54); SHA-256 7f976f7e9cb2d87df7230606feb932c3f21ac0e664045a775b600046ff850c54 |
+| macOS arm64 | **osakit@0.3.1** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/osakit/osakit-0.3.1.crate); Cargo.lock SHA-256 732c71caeaa72c065bb69d7ea08717bd3f4863a4f451402fc9513e29dbd5261b | LICENSE-APACHE → text [62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a); SHA-256 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a<br>LICENSE-MIT → text [5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471](#5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471); SHA-256 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471 |
+| macOS arm64, Windows x64 | **serde_json@1.0.154** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/serde_json/serde_json-1.0.154.crate); Cargo.lock SHA-256 e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6 | LICENSE-APACHE → text [62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a](#62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a); SHA-256 62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a<br>LICENSE-MIT → text [23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3](#23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3); SHA-256 23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3 |
+| macOS arm64, Windows x64 | **seroval@1.6.9** | app runtime | MIT | [archive](https://registry.npmjs.org/seroval/-/seroval-1.6.9.tgz); npm SRI sha512-UeEzHwAK+yl0YLbsvROV1t5yMYEwZZ0CfKYxDvUgS2fO9Vxdf8djqVIB+OuVpuawRNPqw68LE1Du/GMsW2ZPqA== | LICENSE → text [2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4](#2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4); SHA-256 2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4 |
+| macOS arm64, Windows x64 | **seroval-plugins@1.6.9** | app runtime | MIT | [archive](https://registry.npmjs.org/seroval-plugins/-/seroval-plugins-1.6.9.tgz); npm SRI sha512-kiDK/Tb8IWZ61WEU8pA2PDmAuw37gKph9Y77OZlD56mg0Y2g0Bg7gZ1HeHhs5d40w+nRoUq/wj08V26ilbez9g== | LICENSE → text [2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4](#2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4); SHA-256 2bd8a2c61751fc47dcd214f864b6fcdbcb518995fbf497c81a06c3bfe8d1d9d4 |
+| macOS arm64, Windows x64 | **solid-js@1.9.17** | app runtime | MIT | [archive](https://registry.npmjs.org/solid-js/-/solid-js-1.9.17.tgz); npm SRI sha512-4GAmLOWPfNV8H9Jfn2LSFTpNEG6jiOKPiwd5lnLGQtehHaX6l3TOLzJqQ7mqwB/3k1Yy3zyumFVopmc/tm34ow== | LICENSE → text [59a76ed2f4a3ebe8d20a58869ef9c09420f796aa179420c8fb916f5557defc9b](#59a76ed2f4a3ebe8d20a58869ef9c09420f796aa179420c8fb916f5557defc9b); SHA-256 59a76ed2f4a3ebe8d20a58869ef9c09420f796aa179420c8fb916f5557defc9b |
+| macOS arm64, Windows x64 | **swift-rs@1.0.9** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/swift-rs/swift-rs-1.0.9.crate); Cargo.lock SHA-256 cefd87076fd385308ee4aff597256c902f1fbb4d031de1558efc12f8ffefadd9 | LICENSE-APACHE → text [908a661cf763bddfa04f2739bea561be62a246f03ad53fcb2272d3ddbd1d943f](#908a661cf763bddfa04f2739bea561be62a246f03ad53fcb2272d3ddbd1d943f); SHA-256 908a661cf763bddfa04f2739bea561be62a246f03ad53fcb2272d3ddbd1d943f<br>LICENSE-MIT → text [f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb](#f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb); SHA-256 f3c3e9f4febe81ff14ccc233c344e6e60051290d1c1e5a2c670d63cc3608a5bb |
+| macOS arm64 | **system-configuration@0.7.0** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/system-configuration/system-configuration-0.7.0.crate); Cargo.lock SHA-256 a13f3d0daba03132c0aa9767f98351b3488edc2c100cda2d2ec2b04f3d8d3c8b | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824](#000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824); SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824 |
+| macOS arm64 | **system-configuration-sys@0.6.0** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/system-configuration-sys/system-configuration-sys-0.6.0.crate); Cargo.lock SHA-256 8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824](#000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824); SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824 |
+| macOS arm64 | **tar@0.4.46** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/tar/tar-0.4.46.crate); Cargo.lock SHA-256 3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077](#8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077); SHA-256 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077 |
+| macOS arm64, Windows x64 | **tauri-plugin-single-instance@2.5.4** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-plugin-single-instance/tauri-plugin-single-instance-2.5.4.crate); Cargo.lock SHA-256 561cd99484561bc39c954768e7b41a66cebbe1ac3d9d081c34361f740c489e2c | LICENSE.spdx → text [eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef](#eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef); SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef<br>LICENSE_APACHE-2.0 → text [0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9](#0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9); SHA-256 0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9<br>LICENSE_MIT → text [b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d](#b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d); SHA-256 b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d |
+| macOS arm64, Windows x64 | **tauri-plugin-updater@2.13.3** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-plugin-updater/tauri-plugin-updater-2.13.3.crate); Cargo.lock SHA-256 855a336eb389d2c1502244fd48fa2d8cb487a430f691bbaed025195f99a04489 | LICENSE.spdx → text [eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef](#eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef); SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef<br>LICENSE_APACHE-2.0 → text [0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9](#0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9); SHA-256 0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9<br>LICENSE_MIT → text [89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607](#89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607); SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607 |
+| macOS arm64, Windows x64 | **tauri-utils@2.10.2** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-utils/tauri-utils-2.10.2.crate); Cargo.lock SHA-256 362ab21cd4cc713f2a02b1a9b5688198b1541cfb6907c4281e9190e0f0ef4aa3 | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
+| macOS arm64, Windows x64 | **tempfile@3.27.0** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/tempfile/tempfile-3.27.0.crate); Cargo.lock SHA-256 32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36](#8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36); SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36 |
+| macOS arm64, Windows x64 | **tokio@1.53.3** | app runtime | MIT | [archive](https://static.crates.io/crates/tokio/tokio-1.53.3.crate); Cargo.lock SHA-256 ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e | LICENSE → text [253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552](#253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552); SHA-256 253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552 |
+| macOS arm64, Windows x64 | **uuid@1.28.0** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/uuid/uuid-1.28.0.crate); Cargo.lock SHA-256 7cc1186384beb7dd8eedea376413fd654937285ea6c9cfbb928dc3043ea4b606 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d](#436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d); SHA-256 436bc5a105d8e57dcd8778730f3754f7bf39c14d2f530e4cde4bd2d17a83ec3d |
+| Windows x64 | **windows-registry@0.6.1** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/windows-registry/windows-registry-0.6.1.crate); Cargo.lock SHA-256 02752bf7fbdcce7f2a27a742f798510f3e5ad88dbe84871e5168e2120c3d5720 | license-apache-2.0 → text [c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b](#c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b); SHA-256 c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b<br>license-mit → text [c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383](#c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383); SHA-256 c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383 |
+| macOS arm64 | **xattr@1.6.1** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/xattr/xattr-1.6.1.crate); Cargo.lock SHA-256 32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36](#8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36); SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36 |
+| Windows x64 | **zip@4.6.1** | app runtime | MIT | [archive](https://static.crates.io/crates/zip/zip-4.6.1.crate); Cargo.lock SHA-256 caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1 | LICENSE → text [04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6](#04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6); SHA-256 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6 |
 
 ## Exact source supplements for archive omissions
 
@@ -17270,6 +17303,270 @@ and that may have implications for licensing, see below for details.
 [Zlib]: https://zlib.net/zlib_license.html
 [Apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
 
+
+### 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824 — source-byte SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824; LF-normalized fenced-body SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824
+
+```text
+Copyright (c) 2024 Mullvad VPN AB
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6 — source-byte SHA-256 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6; LF-normalized fenced-body SHA-256 13f16f8435b4242f494f038d761bd99c5af70395aa39274bd287d22c4d35c3b7
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2014 Mathijs van de Nes
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Some files in the "tests/data" subdirectory of this repository are under other
+licences; see files named LICENSE.*.txt for details.
+```
+
+### 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9 — source-byte SHA-256 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9; LF-normalized fenced-body SHA-256 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9
+
+```text
+Copyright (c) 2019-2025 Frank Denis
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+--
+
+Code in the src/crypto folder is derived from the rust-crypto project:
+https://github.com/DaGenix/rust-crypto
+
+Original ISC license follows:
+
+Copyright (c) 2006-2009 Graydon Hoare
+Copyright (c) 2009-2013 Mozilla Foundation
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008 — source-byte SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008; LF-normalized fenced-body SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008
+
+```text
+SPDXVersion: SPDX-2.1
+DataLicense: CC0-1.0
+PackageName: tauri
+DataFormat: SPDXRef-1
+PackageSupplier: Organization: The Tauri Programme in the Commons Conservancy
+PackageHomePage: https://tauri.app
+PackageLicenseDeclared: Apache-2.0
+PackageLicenseDeclared: MIT
+PackageCopyrightText: 2019-2025, The Tauri Programme in the Commons Conservancy
+PackageSummary: <text>Tauri is a rust project that enables developers to make secure
+and small desktop applications using a web frontend.
+                </text>
+PackageComment: <text>The package includes the following libraries; see
+Relationship information.
+                </text>
+Created: 2019-05-20T09:00:00Z
+PackageDownloadLocation: git://github.com/tauri-apps/tauri
+PackageDownloadLocation: git+https://github.com/tauri-apps/tauri.git
+PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
+Creator: Person: Daniel Thompson-Yvetot
+```
+
+### 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471 — source-byte SHA-256 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471; LF-normalized fenced-body SHA-256 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471
+
+```text
+Copyright (c) 2024 Marat Dulin
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607 — source-byte SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607; LF-normalized fenced-body SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d
+
+```text
+MIT License
+
+Copyright (c) 2017 - Present Tauri Apps Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36 — source-byte SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36; LF-normalized fenced-body SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36
+
+```text
+Copyright (c) 2015 Steven Allen
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077 — source-byte SHA-256 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077; LF-normalized fenced-body SHA-256 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077
+
+```text
+Copyright (c) The tar-rs Project Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
 
 ## Apple SDKs
 

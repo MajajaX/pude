@@ -1,6 +1,6 @@
 {
   "name": "@pude/web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "author": "MajajaX",
   "license": "MIT",
@@ -18,7 +18,7 @@
     "npm": ">=10.9.0"
   },
   "type": "module",
-  "description": "pude official website \u2014 pure code editor",
+  "description": "pude official website — pure code editor",
   "scripts": {
     "dev": "vite",
     "test": "node --test scripts/download-platform.test.mjs",

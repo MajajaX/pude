@@ -4,6 +4,32 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-15
+
+### Changed
+
+- Git-ignored files and folders have gray names in Explorer. Ignored items at the
+  project root are collected in a collapsed **Git ignored** group and remain
+  available for normal file operations when expanded.
+- Explorer context menus use clearer text colors in both themes.
+- Markdown files share the project's source or preview mode, including when
+  switching through other file types or returning from a Git diff.
+- Updated CodeMirror, SolidJS, Tauri tooling and Rust dependencies. Both the desktop
+  app and website now build with Vite 8.3.4.
+
+### Fixed
+
+- Ctrl+C returns the terminal to an editable shell. If the shell itself exits
+  because of the interrupt, it restarts automatically in the same tab while
+  preserving prior output and scrollback. An explicit `exit` still ends the session.
+- Linux terminal cleanup now includes background job-control groups and processes
+  with live worker threads, and reports writes attempted after the shell exits.
+- Linux source builds use the native recoverable trash service for deleted files.
+
+### Development
+
+- Added Ubuntu native Rust checks alongside macOS and Windows CI.
+
 ## [0.1.1] - 2026-10-14
 
 The first release with in-app updates. It adds the Windows 11 x64 installer that

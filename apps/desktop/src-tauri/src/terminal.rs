@@ -906,6 +906,12 @@ fn ensure_terminal_accepts_input(terminal: &TerminalSession) -> Result<(), Strin
 }
 
 fn terminal_child_has_exited(child: &mut (dyn Child + Send)) -> io::Result<bool> {
+    terminal_child_exit_status(child).map(|status| status.is_some())
+}
+
+fn terminal_child_exit_status(
+    child: &mut (dyn Child + Send),
+) -> io::Result<Option<portable_pty::ExitStatus>> {
     #[cfg(target_os = "linux")]
     {
         // Reaping frees the SID anchor used to safely find job-control groups.
@@ -924,7 +930,24 @@ fn terminal_child_has_exited(child: &mut (dyn Child + Send)) -> io::Result<bool>
                 )
             };
             if result == 0 {
-                return Ok(unsafe { status.si_pid() } != 0);
+                if unsafe { status.si_pid() } == 0 {
+                    return Ok(None);
+                }
+                let code = unsafe { status.si_status() };
+                let exit = if status.si_code == libc::CLD_EXITED {
+                    portable_pty::ExitStatus::with_exit_code(code as u32)
+                } else {
+                    let name = unsafe { libc::strsignal(code) };
+                    let signal = if name.is_null() {
+                        format!("Signal {code}")
+                    } else {
+                        unsafe { std::ffi::CStr::from_ptr(name) }
+                            .to_string_lossy()
+                            .into_owned()
+                    };
+                    portable_pty::ExitStatus::with_signal(&signal)
+                };
+                return Ok(Some(exit));
             }
             let error = io::Error::last_os_error();
             if error.kind() != io::ErrorKind::Interrupted {
@@ -933,7 +956,7 @@ fn terminal_child_has_exited(child: &mut (dyn Child + Send)) -> io::Result<bool>
         }
     }
     #[cfg(not(target_os = "linux"))]
-    child.try_wait().map(|status| status.is_some())
+    child.try_wait()
 }
 
 #[cfg(windows)]
@@ -3292,6 +3315,46 @@ fn terminal_exit_details(status: Option<&portable_pty::ExitStatus>) -> TerminalE
 mod interrupt_tests {
     use super::*;
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn interrupt_status_keeps_the_linux_session_anchor_unreaped() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.args(["-c", "kill -INT $$"]);
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = terminal_child_exit_status(child.as_mut()).unwrap() {
+                break status;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
+        let mut info = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
+        assert_eq!(
+            unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    child.process_id().unwrap(),
+                    &mut info,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            },
+            0
+        );
+        assert_eq!(unsafe { info.si_pid() } as u32, child.process_id().unwrap());
+        child.wait().unwrap();
+    }
+
     #[test]
     fn exit_details_distinguish_interrupts_normal_exits_and_errors() {
         for (code, reason) in [
@@ -3429,9 +3492,16 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
     let Some(session) = session else { return };
     let natural_status = session.child.lock().ok().and_then(|mut child| {
         child.as_mut().and_then(|child| {
-            wait_for_terminal_child(child.as_mut(), TERMINAL_READER_JOIN_TIMEOUT)
-                .ok()
-                .flatten()
+            let deadline = Instant::now() + TERMINAL_READER_JOIN_TIMEOUT;
+            loop {
+                match terminal_child_exit_status(child.as_mut()) {
+                    Ok(None) if Instant::now() < deadline => {
+                        thread::sleep(Duration::from_millis(10))
+                    }
+                    Ok(status) => break status,
+                    Err(_) => break None,
+                }
+            }
         })
     });
     let mut details = terminal_exit_details(natural_status.as_ref());
