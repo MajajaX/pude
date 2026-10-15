@@ -72,7 +72,7 @@ void pude.commands.register(commandId, async () => {
   await pude.ui.notify("Document case toggled.");
 });`;
 
-const cloneCommands = "git clone <repository-url>\ncd pude\nnpm ci";
+const cloneCommands = "git clone https://github.com/MajajaX/pude.git\ncd pude\nnpm ci";
 const checkCommands = "npm run check\ncargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml";
 
 const en: DocsDict = {
@@ -97,17 +97,17 @@ const en: DocsDict = {
           { t: "h2", text: "Overview" },
           {
             t: "p",
-            text: "pude is a local-first desktop code editor. It opens a local folder, edits text, shows Git, starts terminals on demand and loads local plugins — and keeps everything else out of the core.",
+            text: "pude is a local-first desktop code editor. It opens local folders as project tabs, edits text, shows Git, starts terminals on demand and loads local plugins — and keeps everything else out of the core.",
           },
           {
             t: "note",
-            text: "These docs describe pude 0.1, the first public release.",
+            text: "These docs describe the pude 0.1 releases.",
           },
           { t: "h3", text: "What 0.1 includes" },
           {
             t: "list",
             items: [
-              "Local workspaces, a lazy Explorer and multiple windows",
+              "Project tabs for several folders in one window, multiple windows and a lazy Explorer",
               "Multi-tab editing, syntax highlighting, find and replace, Markdown preview",
               "Git status, commit graph, diffs and common actions through your system Git",
               "Multiple on-demand terminals backed by real PTYs",
@@ -141,7 +141,7 @@ const en: DocsDict = {
             head: ["Platform", "Installer"],
             rows: [
               ["Windows 11 x64", "`pude-windows-x64-setup.exe` (unsigned)"],
-              ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
+              ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg` (signed and notarized)"],
               ["Linux", "Planned"],
             ],
           },
@@ -159,9 +159,9 @@ const en: DocsDict = {
           { t: "h3", text: "Updates" },
           {
             t: "p",
-            text: "pude looks for a newer version on GitHub Releases about five seconds after startup, and again when you click Check for updates in the About dialog. Turn the startup check off with Check for updates on startup in Settings. pude never downloads or installs an update by itself: you choose Download update, then Restart and update. You can also close pude, download the newer installer and run it.",
+            text: "pude looks for a newer version on GitHub Releases about five seconds after startup, and again when you click `Check for updates` in `Help › About pude`. Turn the startup check off with `Check for updates on startup` in Settings. pude never downloads or installs an update by itself: you choose `Download update`, then `Restart and update`. The download is verified against its signature, and pude asks about unsaved changes before it restarts. You can also close pude, download the newer installer and run it.",
           },
-          { t: "note", text: "Releases are published as stable versions only." },
+          { t: "note", text: "Releases are published as stable versions only. Versions before 0.1.1 have no in-app updates; install a newer version by hand once." },
         ],
       },
       {
@@ -170,17 +170,26 @@ const en: DocsDict = {
         nav: "Using pude",
         blocks: [
           { t: "h2", text: "Using pude" },
-          { t: "h3", text: "Open a workspace" },
+          { t: "h3", text: "Open a project" },
           {
             t: "p",
-            text: "Choose `Open folder` (`⌘K ⌘O`, or `Ctrl+K Ctrl+O` on Windows) and pick a local directory. Only the top level is read; folders load as you expand them. A fresh start shows your recent projects, and every new window keeps its own workspace, tabs and terminals.",
+            text: "Choose `File › Open folder` (`⌘K ⌘O`, or `Ctrl+K Ctrl+O` on Windows) and pick a local directory. It opens as a project tab in the header; opening a folder that is already open switches to its tab. Only the top level is read, and folders load as you expand them. An empty tab lists your recent projects.",
+          },
+          {
+            t: "list",
+            items: [
+              "Each project tab keeps its own files, unsaved edits, undo history, search, Git view and terminals while it is in the background. Drag project tabs to reorder them; they reopen in that order.",
+              "`+` in the header adds an empty project tab. `File › New window` opens a separate window with its own projects.",
+              "On Windows, right-click a folder and choose `Open with pude`.",
+            ],
           },
           { t: "h3", text: "Explorer" },
           {
             t: "list",
             items: [
               "Create, rename and delete files and folders. Deleting moves items to the Recycle Bin or Trash — never a permanent delete.",
-              "Right-click for `Copy Path`, `Copy Relative Path` and revealing the item in your file manager.",
+              "Right-click for `Copy Path`, `Copy Relative Path` and `Reveal in Finder` (`Open in File Explorer` on Windows).",
+              "Dot files are shown. Git-ignored items have gray names, and ignored items at the project root are collected in a collapsed `Git ignored` group.",
               "Long folders stay fast: only visible rows are rendered.",
             ],
           },
@@ -188,11 +197,11 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Tabs support drag to reorder, pinning, middle-click close, Close Others, Close to the Right and reopening a closed tab.",
-              "Find and replace with case, regex and whole-word options; `⌘G` jumps to a line.",
+              "File tabs support drag to reorder and middle-click close. Right-click a tab for `Pin`, `Save As…`, `Close others` and `Close to right`; the arrow at the end of the tab bar reopens a closed tab.",
+              "Find and replace with match case (`Aa`), regex (`.*`) and whole-word options; `⌘G` jumps to a line.",
               "Multiple cursors, undo and redo, and indentation come from CodeMirror 6.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor to set the font size between 11 and 24.",
-              "Markdown opens as source; switch to a rendered preview with `Source / Preview` in the status bar.",
+              "Markdown opens as source. The `Source / Preview` button in the lower-right corner of the editor switches to a rendered preview, and every Markdown file in the project follows that choice.",
             ],
           },
           { t: "h3", text: "Files pude opens" },
@@ -207,7 +216,7 @@ const en: DocsDict = {
           { t: "h3", text: "Saving safely" },
           {
             t: "p",
-            text: "Saves are queued per file and replace it atomically. Every line keeps its original LF or CRLF ending. If a file changes on disk while you have unsaved edits, pude offers `Compare`, `Reload` or `Keep Editor Version` — it never overwrites either side silently.",
+            text: "Saves are queued per file and replace it atomically. Every line keeps its original LF or CRLF ending. If a file changes on disk while you have unsaved edits, pude offers `Compare`, `Reload from disk`, `Save As…` or `Keep editor version` — it never overwrites either side silently.",
           },
           {
             t: "p",
@@ -230,14 +239,14 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Switch the sidebar to `GIT` for the branch plus staged, unstaged, untracked, renamed and conflicted files.",
-              "The commit graph handles detached HEAD, unborn branches and multiple refs, and loads older history on demand.",
-              "Open any change as a side-by-side or stacked diff.",
+              "The commit graph handles detached HEAD, unborn branches and multiple refs, and loads older history on demand. Open the full history as an editor tab, filter it by branch, and select a commit to see its changed files.",
+              "Open any change as a `Side by side` or `Stacked` diff.",
             ],
           },
           { t: "h3", text: "Actions" },
           {
             t: "p",
-            text: "Stage and unstage, commit, push and pull, create, switch or safely delete branches, stash and pop. When a command fails, the full Git output opens in a dialog instead of a toast that disappears.",
+            text: "Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. When a command fails, the full Git output opens in a dialog instead of a toast that disappears.",
           },
           {
             t: "note",
@@ -258,8 +267,9 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Hiding the panel keeps sessions running. Closing a tab, switching workspace or closing the window stops that tab's process tree.",
-              "Windows uses `ComSpec`, falling back to `powershell.exe`. macOS and Linux use `SHELL`, falling back to `/bin/sh`.",
+              "Every project has its own terminals. Hiding the panel or switching to another project keeps them running; closing a terminal tab, the project or the window stops that terminal's process tree.",
+              "Windows uses `ComSpec`, falling back to `powershell.exe`. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
+              "`Ctrl+C` returns you to the prompt. If the shell itself exits from the interrupt, it restarts in the same tab and keeps the earlier output; typing `exit` still ends the session.",
               "If the workspace has a Python virtual environment in `.venv`, `venv` or `env`, new terminals activate it.",
               "Scrollback keeps 5,000 lines. ANSI colors, the alternate screen, mouse tracking, CJK text and IME input work as expected.",
             ],
@@ -280,21 +290,24 @@ const en: DocsDict = {
             t: "table",
             head: ["Setting", "What it does"],
             rows: [
-              ["Font size", "Editor text size. `⌘` + scroll changes it too."],
-              ["Tab size", "Width used for tabs and indentation."],
+              ["Font size", "Editor text size from 11 to 24. `⌘` + scroll changes it too."],
+              ["Tab size", "Width used for tabs and indentation, from 1 to 8."],
               ["Word wrap", "Wraps long lines inside the editor."],
-              ["Hide dot files", "Hides names starting with `.` in the Explorer."],
+              ["Hide dot files in Explorer", "Hides names starting with `.` in the Explorer. Off by default."],
+              ["Check for updates on startup", "Looks for a newer release shortly after startup. On by default."],
               ["Watcher excluded paths", "Paths the file watcher ignores, such as build output."],
             ],
           },
+          { t: "p", text: "Open Settings from `View › Settings`. The sun and moon button at the right of the header switches between the dark and light themes." },
           { t: "h3", text: "Where your data lives" },
           {
             t: "list",
             items: [
               "Workspace files stay at their own paths. pude never copies them elsewhere.",
-              "Settings and session metadata are kept in local WebView storage.",
+              "Settings, recent projects and session metadata are kept in local WebView storage.",
               "Recovery checkpoints use IndexedDB with a local fallback. Clearing app storage can remove them.",
               "Installed plugins are copied into the app data directory.",
+              "Error diagnostics go to a small rolling log in the app's log directory, with common credentials redacted. Nothing is sent anywhere.",
             ],
           },
         ],
@@ -447,17 +460,17 @@ const zhHant: DocsDict = {
           { t: "h2", text: "總覽" },
           {
             t: "p",
-            text: "pude 是本地優先的桌面程式碼編輯器。它開啟本機資料夾、編輯文字、呈現 Git、按需啟動終端機並載入本機外掛——其餘的一律不放進核心。",
+            text: "pude 是本地優先的桌面程式碼編輯器。它把本機資料夾開成專案分頁、編輯文字、呈現 Git、按需啟動終端機並載入本機外掛——其餘的一律不放進核心。",
           },
           {
             t: "note",
-            text: "本文件描述 pude 0.1，也就是第一個公開版本。",
+            text: "本文件描述 pude 0.1 系列版本。",
           },
           { t: "h3", text: "0.1 包含什麼" },
           {
             t: "list",
             items: [
-              "本機工作區、按需載入的檔案總管與多視窗",
+              "在同一個視窗以專案分頁開啟多個資料夾、多視窗，以及按需載入的檔案總管",
               "多分頁編輯、語法突顯、尋找與取代、Markdown 預覽",
               "透過系統 Git 呈現狀態、提交圖譜、差異與常用操作",
               "以真實 PTY 運作、按需啟動的多個終端機",
@@ -491,7 +504,7 @@ const zhHant: DocsDict = {
             head: ["平台", "安裝檔"],
             rows: [
               ["Windows 11 x64", "`pude-windows-x64-setup.exe`（未簽署）"],
-              ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`"],
+              ["macOS 14+ Apple Silicon", "`pude-macos-arm64.dmg`（已簽署並公證）"],
               ["Linux", "規劃中"],
             ],
           },
@@ -509,9 +522,9 @@ const zhHant: DocsDict = {
           { t: "h3", text: "更新" },
           {
             t: "p",
-            text: "pude 會在啟動後約五秒，以及你在「關於」視窗按下「Check for updates」時，到 GitHub Releases 查詢新版本。可在設定中關閉「Check for updates on startup」。pude 不會自行下載或安裝更新：你需要先選擇「Download update」，再選擇「Restart and update」；也可以關閉 pude，下載較新的安裝檔並執行。",
+            text: "pude 會在啟動後約五秒，以及你在 `Help › About pude` 按下 `Check for updates` 時，到 GitHub Releases 查詢新版本。可在設定中關閉 `Check for updates on startup`。pude 不會自行下載或安裝更新：你需要先選擇 `Download update`，再選擇 `Restart and update`。下載的更新會先驗證簽章，重新啟動前也會詢問如何處理未儲存的變更。你也可以關閉 pude，下載較新的安裝檔並執行。",
           },
-          { t: "note", text: "發布的版本一律為穩定版。" },
+          { t: "note", text: "發布的版本一律為穩定版。0.1.1 之前的版本沒有內建更新，需要手動安裝一次新版本。" },
         ],
       },
       {
@@ -520,17 +533,26 @@ const zhHant: DocsDict = {
         nav: "使用教學",
         blocks: [
           { t: "h2", text: "使用教學" },
-          { t: "h3", text: "開啟工作區" },
+          { t: "h3", text: "開啟專案" },
           {
             t: "p",
-            text: "選擇 `Open folder`（`⌘K ⌘O`，Windows 為 `Ctrl+K Ctrl+O`）並挑選本機資料夾。pude 只讀取最上層，展開時才載入子資料夾。全新啟動會顯示最近的專案；每個新視窗都有自己的工作區、分頁與終端機。",
+            text: "選擇 `File › Open folder`（`⌘K ⌘O`，Windows 為 `Ctrl+K Ctrl+O`）並挑選本機資料夾，它會在標題列開成一個專案分頁；開啟已經開著的資料夾則會切換到該分頁。pude 只讀取最上層，展開時才載入子資料夾。空白分頁會列出最近的專案。",
+          },
+          {
+            t: "list",
+            items: [
+              "每個專案分頁在背景時都保留自己的檔案、未儲存的修改、復原紀錄、搜尋、Git 檢視與終端機。專案分頁可以拖曳排序，下次會依相同順序開啟。",
+              "標題列的 `+` 會新增空白專案分頁；`File › New window` 會開啟另一個擁有自己專案的視窗。",
+              "在 Windows 上，可以對資料夾按右鍵選擇 `Open with pude`。",
+            ],
           },
           { t: "h3", text: "檔案總管" },
           {
             t: "list",
             items: [
               "建立、重新命名與刪除檔案和資料夾。刪除會移到資源回收筒或垃圾桶，絕不永久刪除。",
-              "右鍵選單提供 `Copy Path`、`Copy Relative Path`，以及在系統檔案管理器中顯示。",
+              "右鍵選單提供 `Copy Path`、`Copy Relative Path` 與 `Reveal in Finder`（Windows 為 `Open in File Explorer`）。",
+              "會顯示以 `.` 開頭的檔案。被 Git 忽略的項目以灰色顯示，專案根目錄下被忽略的項目會收進預設收合的 `Git ignored` 群組。",
               "很長的資料夾也保持流暢：只渲染看得到的列。",
             ],
           },
@@ -538,11 +560,11 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "分頁支援拖曳排序、釘選、中鍵關閉、關閉其他、關閉右側，以及重新開啟剛關閉的分頁。",
-              "尋找與取代支援大小寫、正規表示式與全字比對；`⌘G` 跳至指定行。",
+              "檔案分頁支援拖曳排序與中鍵關閉。在分頁上按右鍵可使用 `Pin`、`Save As…`、`Close others` 與 `Close to right`；分頁列最右側的箭頭可重新開啟剛關閉的分頁。",
+              "尋找與取代支援區分大小寫（`Aa`）、正規表示式（`.*`）與全字比對；`⌘G` 跳至指定行。",
               "多游標、復原與重做、縮排由 CodeMirror 6 提供。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，可將字體大小調整為 11 到 24。",
-              "Markdown 預設顯示原始碼；用狀態列的 `Source / Preview` 切換為渲染預覽。",
+              "Markdown 預設顯示原始碼；編輯器右下角的 `Source / Preview` 按鈕可切換為渲染預覽，同一個專案裡的 Markdown 檔都會沿用這個選擇。",
             ],
           },
           { t: "h3", text: "可開啟的檔案" },
@@ -557,7 +579,7 @@ const zhHant: DocsDict = {
           { t: "h3", text: "安全地儲存" },
           {
             t: "p",
-            text: "每個檔案的儲存會依序排隊，並以原子化方式取代原檔。每一行都保留原本的 LF 或 CRLF。若檔案在你尚未儲存時被外部修改，pude 會提供 `Compare`、`Reload` 或 `Keep Editor Version`——絕不默默覆寫任何一方。",
+            text: "每個檔案的儲存會依序排隊，並以原子化方式取代原檔。每一行都保留原本的 LF 或 CRLF。若檔案在你尚未儲存時被外部修改，pude 會提供 `Compare`、`Reload from disk`、`Save As…` 或 `Keep editor version`——絕不默默覆寫任何一方。",
           },
           {
             t: "p",
@@ -580,14 +602,14 @@ const zhHant: DocsDict = {
             t: "list",
             items: [
               "把側邊欄切到 `GIT`，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。",
-              "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs，並按需載入更早的歷史。",
-              "任何變更都能以並排或堆疊方式檢視差異。",
+              "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs，並按需載入更早的歷史。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看變更的檔案。",
+              "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。",
             ],
           },
           { t: "h3", text: "操作" },
           {
             t: "p",
-            text: "暫存與取消暫存、提交、推送與拉取、建立／切換／安全刪除分支、stash 與 pop。指令失敗時，完整的 Git 輸出會顯示在對話框中，而不是一閃即逝的提示。",
+            text: "暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令失敗時，完整的 Git 輸出會顯示在對話框中，而不是一閃即逝的提示。",
           },
           {
             t: "note",
@@ -608,8 +630,9 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "隱藏面板時工作階段仍會執行。關閉分頁、切換工作區或關閉視窗，會停止該分頁的程序樹。",
-              "Windows 使用 `ComSpec`，未設定時改用 `powershell.exe`；macOS 與 Linux 使用 `SHELL`，未設定時改用 `/bin/sh`。",
+              "每個專案都有自己的終端機。隱藏面板或切換到其他專案時仍會繼續執行；關閉終端機分頁、關閉專案或關閉視窗，才會停止該終端機的程序樹。",
+              "Windows 使用 `ComSpec`，未設定時改用 `powershell.exe`；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
+              "按 `Ctrl+C` 會回到提示字元。如果 shell 本身因中斷而結束，會在同一個分頁自動重新啟動並保留先前的輸出；輸入 `exit` 仍會結束工作階段。",
               "若工作區的 `.venv`、`venv` 或 `env` 中有 Python 虛擬環境，新終端機會自動啟用它。",
               "scrollback 保留 5,000 行，支援 ANSI 色彩、alternate screen、滑鼠追蹤、中日韓文字與輸入法。",
             ],
@@ -630,21 +653,24 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["設定", "作用"],
             rows: [
-              ["Font size", "編輯器字體大小，也可以用 `⌘` + 滾輪調整。"],
-              ["Tab size", "Tab 與縮排的寬度。"],
+              ["Font size", "編輯器字體大小，範圍 11 到 24，也可以用 `⌘` + 滾輪調整。"],
+              ["Tab size", "Tab 與縮排的寬度，範圍 1 到 8。"],
               ["Word wrap", "在編輯器內自動換行。"],
-              ["Hide dot files", "在檔案總管中隱藏以 `.` 開頭的名稱。"],
+              ["Hide dot files in Explorer", "在檔案總管中隱藏以 `.` 開頭的名稱，預設關閉。"],
+              ["Check for updates on startup", "啟動後不久檢查是否有新版本，預設開啟。"],
               ["Watcher excluded paths", "檔案監看要忽略的路徑，例如建置輸出。"],
             ],
           },
+          { t: "p", text: "從 `View › Settings` 開啟設定。標題列右側的太陽／月亮按鈕可切換深色與淺色主題。" },
           { t: "h3", text: "資料存放位置" },
           {
             t: "list",
             items: [
               "工作區檔案留在原本的路徑，pude 不會複製到其他地方。",
-              "設定與工作階段資訊存放在本機 WebView 儲存空間。",
+              "設定、最近的專案與工作階段資訊存放在本機 WebView 儲存空間。",
               "復原檢查點使用 IndexedDB，並有本機備援；清除應用程式儲存空間可能會移除它們。",
               "已安裝的外掛會複製到應用程式資料目錄。",
+              "錯誤診斷會寫入應用程式日誌目錄中的小型輪替日誌，常見的憑證格式會被遮蔽，不會傳送到任何地方。",
             ],
           },
         ],
