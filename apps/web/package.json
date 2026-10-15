@@ -18,7 +18,7 @@
     "npm": ">=10.9.0"
   },
   "type": "module",
-  "description": "pude official website — pure code editor",
+  "description": "pude official website \u2014 pure code editor",
   "scripts": {
     "dev": "vite",
     "test": "node --test scripts/download-platform.test.mjs",
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@types/node": "26.6.5",
     "typescript": "7.0.2",
-    "vite": "7.3.6",
+    "vite": "8.3.4",
     "vite-plugin-solid": "2.11.14"
   }
 }
