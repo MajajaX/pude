@@ -422,8 +422,10 @@ impl TerminalOutputFlow {
 }
 
 struct TerminalProcessTree {
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "linux")))]
     process_group: u32,
+    #[cfg(target_os = "linux")]
+    linux_session: super::process_group::LinuxTerminalSession,
     #[cfg(windows)]
     job: isize,
     #[cfg(windows)]
@@ -534,6 +536,9 @@ fn terminal_start_sync(
     command.env("COLORTERM", "truecolor");
     let python_environment =
         python_environment::activate_project_environment(&mut command, &working_directory);
+    #[cfg(target_os = "linux")]
+    super::process_group::LinuxTerminalSession::check_supported()
+        .map_err(|error| format!("Unable to prepare terminal process cleanup. {error}"))?;
     let mut child = pair
         .slave
         .spawn_command(command)
@@ -578,36 +583,9 @@ fn terminal_start_sync(
     };
     drop(pair.slave);
     let master = pair.master;
-    let mut reader = match master.try_clone_reader() {
-        Ok(reader) => reader,
-        Err(error) => {
-            drop(master);
-            let message = format!("Unable to read terminal. {error}");
-            return Err(
-                match terminate_terminal_process_tree(child.as_mut(), &process_tree) {
-                    Ok(_) => message,
-                    Err(cleanup) => format!("{message}; cleanup failed: {cleanup}"),
-                },
-            );
-        }
-    };
-    let writer = match master.take_writer() {
-        Ok(writer) => writer,
-        Err(error) => {
-            drop(reader);
-            drop(master);
-            let message = format!("Unable to write terminal. {error}");
-            return Err(
-                match terminate_terminal_process_tree(child.as_mut(), &process_tree) {
-                    Ok(_) => message,
-                    Err(cleanup) => format!("{message}; cleanup failed: {cleanup}"),
-                },
-            );
-        }
-    };
     let terminal = Arc::new(TerminalSession {
         master: Mutex::new(Some(master)),
-        writer: Mutex::new(Some(writer)),
+        writer: Mutex::new(None),
         child: Mutex::new(Some(child)),
         process_tree: Mutex::new(Some(process_tree)),
         #[cfg(windows)]
@@ -621,6 +599,50 @@ fn terminal_start_sync(
         output_flow: TerminalOutputFlow::new(next_terminal_generation()),
         output_channel: events,
     });
+    let reader = terminal
+        .master
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .expect("new terminal master")
+        .try_clone_reader();
+    let mut reader = match reader {
+        Ok(reader) => reader,
+        Err(error) => {
+            return Err(cleanup_failed_terminal_start(
+                &id,
+                &terminals,
+                &terminal,
+                &lifecycle,
+                format!("Unable to read terminal. {error}"),
+            ));
+        }
+    };
+    let writer = terminal
+        .master
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .expect("new terminal master")
+        .take_writer();
+    match writer {
+        Ok(writer) => {
+            *terminal
+                .writer
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(writer)
+        }
+        Err(error) => {
+            drop(reader);
+            return Err(cleanup_failed_terminal_start(
+                &id,
+                &terminals,
+                &terminal,
+                &lifecycle,
+                format!("Unable to write terminal. {error}"),
+            ));
+        }
+    }
     let session_id = id.clone();
     let reader_finished = Arc::clone(&terminal.reader_finished);
     let reader_terminal = Arc::clone(&terminal);
@@ -842,6 +864,7 @@ fn terminal_write_sync(
         .cloned()
         .ok_or_else(|| "Terminal session not found.".to_string())?;
     drop(terminals);
+    ensure_terminal_accepts_input(&terminal)?;
     let mut writer = terminal
         .writer
         .lock()
@@ -849,6 +872,7 @@ fn terminal_write_sync(
     let writer = writer
         .as_mut()
         .ok_or_else(|| "Terminal session is stopping.".to_string())?;
+    ensure_terminal_accepts_input(&terminal)?;
     #[cfg(windows)]
     let _writer_activity = TerminalWriterActivity::begin(&terminal.writer_thread_id);
     writer
@@ -856,7 +880,83 @@ fn terminal_write_sync(
         .map_err(|error| format!("Unable to write terminal input. {error}"))?;
     writer
         .flush()
-        .map_err(|error| format!("Unable to flush terminal input. {error}"))
+        .map_err(|error| format!("Unable to flush terminal input. {error}"))?;
+    // Linux may accept master writes after the slave has closed. Report the
+    // process state too, including exit racing a successful write/flush.
+    ensure_terminal_accepts_input(&terminal)
+}
+
+fn ensure_terminal_accepts_input(terminal: &TerminalSession) -> Result<(), String> {
+    if terminal.stop_requested.load(Ordering::Acquire) {
+        return Err("Unable to write terminal input. Terminal session is stopping.".to_string());
+    }
+    let mut child = terminal
+        .child
+        .lock()
+        .map_err(|_| "Unable to lock terminal process.".to_string())?;
+    let Some(child) = child.as_mut() else {
+        return Err("Unable to write terminal input. Terminal process has exited.".to_string());
+    };
+    if terminal_child_has_exited(child.as_mut())
+        .map_err(|error| format!("Unable to inspect terminal process before writing. {error}"))?
+    {
+        return Err("Unable to write terminal input. Terminal process has exited.".to_string());
+    }
+    Ok(())
+}
+
+fn terminal_child_has_exited(child: &mut (dyn Child + Send)) -> io::Result<bool> {
+    terminal_child_exit_status(child).map(|status| status.is_some())
+}
+
+fn terminal_child_exit_status(
+    child: &mut (dyn Child + Send),
+) -> io::Result<Option<portable_pty::ExitStatus>> {
+    #[cfg(target_os = "linux")]
+    {
+        // Reaping frees the SID anchor used to safely find job-control groups.
+        // Only the cleanup path may consume this child's exit status on Linux.
+        let pid = child.process_id().ok_or_else(|| {
+            io::Error::other("The PTY backend did not expose its child process ID.")
+        })?;
+        loop {
+            let mut status = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
+            let result = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    pid,
+                    &mut status,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            };
+            if result == 0 {
+                if unsafe { status.si_pid() } == 0 {
+                    return Ok(None);
+                }
+                let code = unsafe { status.si_status() };
+                let exit = if status.si_code == libc::CLD_EXITED {
+                    portable_pty::ExitStatus::with_exit_code(code as u32)
+                } else {
+                    let name = unsafe { libc::strsignal(code) };
+                    let signal = if name.is_null() {
+                        format!("Signal {code}")
+                    } else {
+                        unsafe { std::ffi::CStr::from_ptr(name) }
+                            .to_string_lossy()
+                            .into_owned()
+                    };
+                    portable_pty::ExitStatus::with_signal(&signal)
+                };
+                return Ok(Some(exit));
+            }
+            let error = io::Error::last_os_error();
+            if error.kind() != io::ErrorKind::Interrupted {
+                return Err(error);
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    child.try_wait()
 }
 
 #[cfg(windows)]
@@ -1263,6 +1363,7 @@ mod terminal_unix_output_tests {
     use super::{
         read_terminal_output, stop_terminal_session, terminal_write_sync, TerminalOutputFlow,
         TerminalProcessTree, TerminalSession, TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES,
+        TERMINAL_READ_BUFFER_BYTES,
     };
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     use std::collections::HashMap;
@@ -1353,7 +1454,10 @@ mod terminal_unix_output_tests {
         }
 
         let stalled_bytes = output_flow.in_flight_bytes();
-        assert!(stalled_bytes <= TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES + 4096);
+        assert!(
+            stalled_bytes < TERMINAL_OUTPUT_CREDIT_LIMIT_BYTES + TERMINAL_READ_BUFFER_BYTES,
+            "backpressure must stop within one PTY read of the credit limit: {stalled_bytes} bytes"
+        );
         thread::sleep(Duration::from_millis(150));
         assert_eq!(output_flow.in_flight_bytes(), stalled_bytes);
         assert!(
@@ -1479,15 +1583,16 @@ mod terminal_unix_output_tests {
 
         let exited_deadline = Instant::now() + Duration::from_secs(2);
         loop {
-            let exited = session
-                .child
-                .lock()
-                .unwrap()
-                .as_mut()
-                .expect("shell should remain tracked until cleanup")
-                .try_wait()
-                .expect("shell status should be readable")
-                .is_some();
+            let exited = super::terminal_child_has_exited(
+                session
+                    .child
+                    .lock()
+                    .unwrap()
+                    .as_mut()
+                    .expect("shell should remain tracked until cleanup")
+                    .as_mut(),
+            )
+            .expect("shell status should be readable without reaping");
             if exited {
                 break;
             }
@@ -1504,7 +1609,7 @@ mod terminal_unix_output_tests {
             Arc::clone(&session),
         )])));
         let error = terminal_write_sync(session_id, b"late input\n".to_vec(), terminals)
-            .expect_err("writing to the closed PTY slave should fail");
+            .expect_err("input after the shell exits should fail even if the PTY accepts it");
         assert!(
             error.contains("Unable to write terminal input")
                 || error.contains("Unable to flush terminal input"),
@@ -1958,15 +2063,16 @@ mod terminal_unix_process_tree_tests {
         fs::write(&shell_exit_path, b"exit").expect("shell exit signal should be written");
         let shell_started = Instant::now();
         loop {
-            let exited = session
-                .child
-                .lock()
-                .unwrap()
-                .as_mut()
-                .expect("shell child should be tracked")
-                .try_wait()
-                .expect("shell status should be readable")
-                .is_some();
+            let exited = super::terminal_child_has_exited(
+                session
+                    .child
+                    .lock()
+                    .unwrap()
+                    .as_mut()
+                    .expect("shell child should be tracked")
+                    .as_mut(),
+            )
+            .expect("shell status should be readable without reaping");
             if exited {
                 break;
             }
@@ -2174,6 +2280,141 @@ mod terminal_unix_process_tree_tests {
         let _ = fs::remove_dir_all(root);
     }
 
+    #[cfg(target_os = "linux")]
+    fn spawn_interactive_job_session(pid_path: &Path, owner: &str) -> Arc<TerminalSession> {
+        use std::io::{Read, Write};
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/bash");
+        command.args(["--noprofile", "--norc", "-il"]);
+        command.env("PUDE_TERMINAL_CHILD_PID", pid_path);
+        let child = pair.slave.spawn_command(command).unwrap();
+        let process_tree = TerminalProcessTree::attach(child.as_ref()).unwrap();
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let writer = pair.master.take_writer().unwrap();
+        drop(pair.slave);
+        let session = Arc::new(TerminalSession {
+            master: Mutex::new(Some(pair.master)),
+            writer: Mutex::new(Some(writer)),
+            child: Mutex::new(Some(child)),
+            process_tree: Mutex::new(Some(process_tree)),
+            reader_thread: Mutex::new(None),
+            process_watcher: Mutex::new(None),
+            stop_lock: Mutex::new(()),
+            stop_requested: AtomicBool::new(false),
+            reader_finished: Arc::new(AtomicBool::new(false)),
+            owner_window: owner.to_string(),
+            output_flow: super::TerminalOutputFlow::new(1),
+            output_channel: tauri::ipc::Channel::new(|_| Ok(())),
+        });
+        let finished = Arc::clone(&session.reader_finished);
+        *session.reader_thread.lock().unwrap() = Some(thread::spawn(move || {
+            let _completion = super::TerminalReaderCompletion(finished);
+            let mut output = Vec::new();
+            reader
+                .read_to_end(&mut output)
+                .expect("PTY reader should drain and exit");
+        }));
+        session
+            .writer
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .write_all(
+                b"trap '' HUP; sleep 300 & printf '%s\\n' \"$!\" > \"$PUDE_TERMINAL_CHILD_PID\"\n",
+            )
+            .unwrap();
+        session
+    }
+
+    #[cfg(target_os = "linux")]
+    fn check_interactive_job_cleanup(window_close: bool) {
+        let root = std::env::temp_dir().join(format!(
+            "pude-terminal-job-control-{}",
+            uuid::Uuid::new_v4()
+        ));
+        fs::create_dir(&root).unwrap();
+        let owner = "interactive-close";
+        let session = spawn_interactive_job_session(&root.join("owned-pid"), owner);
+        let other = spawn_interactive_job_session(&root.join("other-pid"), "other-window");
+        struct Cleanup(Arc<TerminalSession>);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = stop_terminal_session(&self.0);
+            }
+        }
+        let _session_cleanup = Cleanup(Arc::clone(&session));
+        let _other_cleanup = Cleanup(Arc::clone(&other));
+        let job_pid = wait_for_child_pid(&root.join("owned-pid"));
+        let other_job = wait_for_child_pid(&root.join("other-pid"));
+        let shell_pid = session_process_group(&session);
+        let job_group = process_group_for(job_pid).unwrap();
+        let _job_cleanup = TestProcessGroup(job_group);
+        let _other_job_cleanup = TestProcessGroup(process_group_for(other_job).unwrap());
+        assert_ne!(
+            job_group, shell_pid,
+            "interactive job control must use a different PGID"
+        );
+        assert_eq!(
+            unsafe { libc::getsid(job_pid) },
+            shell_pid,
+            "job must belong to the owned SID"
+        );
+        let started = Instant::now();
+        if window_close {
+            let state = AppState::default();
+            state.terminals.lock().unwrap().extend([
+                ("owned-session".to_string(), Arc::clone(&session)),
+                ("other-session".to_string(), Arc::clone(&other)),
+            ]);
+            cleanup_window_resources(&state, owner).expect("interactive window cleanup");
+            let terminals = state.terminals.lock().unwrap();
+            assert!(!terminals.contains_key("owned-session"));
+            assert!(terminals.contains_key("other-session"));
+        } else {
+            stop_terminal_session(&session).expect("interactive terminal cleanup");
+        }
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert_process_tree_exited(job_pid, job_group);
+        assert!(session.child.lock().unwrap().is_none());
+        assert!(
+            session.reader_thread.lock().unwrap().is_none(),
+            "reader must finish without timeout"
+        );
+        assert!(session
+            .reader_finished
+            .load(std::sync::atomic::Ordering::Acquire));
+        assert!(
+            process_is_alive(other_job).unwrap(),
+            "another terminal's job must survive"
+        );
+        assert!(!super::terminal_child_has_exited(
+            other.child.lock().unwrap().as_mut().unwrap().as_mut()
+        )
+        .unwrap());
+        stop_terminal_session(&other).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn terminal_close_terminates_interactive_job_control_groups_only_in_its_session() {
+        check_interactive_job_cleanup(false);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn window_close_terminates_interactive_job_control_groups_only_in_its_session() {
+        check_interactive_job_cleanup(true);
+    }
+
     #[test]
     fn window_terminal_batch_attempts_every_session_and_retains_failures() {
         let _test_lock = TERMINAL_TREE_TEST_LOCK
@@ -2251,6 +2492,131 @@ mod terminal_unix_process_tree_tests {
             .expect("writer holder should exit after release");
         stop_terminal_session(&blocked).expect("retained session should clean up on retry");
         let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+mod terminal_write_lifecycle_tests {
+    use super::{
+        stop_terminal_session, terminal_child_has_exited, terminal_write_sync,
+        test_terminal_session, TerminalSession,
+    };
+    use std::collections::HashMap;
+    use std::io::{self, Write};
+    use std::process::{Command, Stdio};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex, Weak};
+    use std::time::{Duration, Instant};
+
+    fn running_session() -> Arc<TerminalSession> {
+        #[cfg(unix)]
+        let mut command = {
+            let mut command = Command::new("/bin/sh");
+            command.args(["-c", "read -r line"]);
+            command
+        };
+        #[cfg(windows)]
+        let mut command = {
+            let mut command = Command::new("cmd.exe");
+            command.args(["/D", "/Q", "/C", "set /p line="]);
+            command
+        };
+        let child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let session = test_terminal_session("write-lifecycle");
+        *session.child.lock().unwrap() = Some(Box::new(child));
+        session
+    }
+
+    fn exit_process(session: &TerminalSession) {
+        let mut child = session.child.lock().unwrap();
+        let child = child.as_mut().unwrap();
+        // EOF lets the real shell exit without portable-pty's Unix kill helper,
+        // which also reaps children while waiting for SIGHUP to take effect.
+        drop(
+            child
+                .as_mut()
+                .as_any_mut()
+                .downcast_mut::<std::process::Child>()
+                .unwrap()
+                .stdin
+                .take(),
+        );
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !terminal_child_has_exited(child.as_mut()).unwrap() {
+            assert!(Instant::now() < deadline, "child should exit promptly");
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn write_input(session: &Arc<TerminalSession>) -> Result<(), String> {
+        terminal_write_sync(
+            "test".to_string(),
+            b"input".to_vec(),
+            Arc::new(Mutex::new(HashMap::from([(
+                "test".to_string(),
+                Arc::clone(session),
+            )]))),
+        )
+    }
+
+    struct AcceptingWriter(Arc<AtomicUsize>);
+    impl Write for AcceptingWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0.fetch_add(bytes.len(), Ordering::SeqCst);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn post_exit_input_is_rejected_before_an_accepting_writer_is_called() {
+        let session = running_session();
+        let bytes = Arc::new(AtomicUsize::new(0));
+        *session.writer.lock().unwrap() = Some(Box::new(AcceptingWriter(Arc::clone(&bytes))));
+        exit_process(&session);
+        let result = write_input(&session);
+        stop_terminal_session(&session).unwrap();
+        assert!(result.unwrap_err().contains("Terminal process has exited"));
+        assert_eq!(bytes.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn input_racing_process_exit_is_rejected_even_when_write_and_flush_succeed() {
+        struct ExitOnFlush(Weak<TerminalSession>);
+        impl Write for ExitOnFlush {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                exit_process(&self.0.upgrade().unwrap());
+                Ok(())
+            }
+        }
+        let session = running_session();
+        *session.writer.lock().unwrap() = Some(Box::new(ExitOnFlush(Arc::downgrade(&session))));
+        let result = write_input(&session);
+        stop_terminal_session(&session).unwrap();
+        assert!(result.unwrap_err().contains("Terminal process has exited"));
+    }
+
+    #[test]
+    fn live_input_succeeds_and_stopping_input_is_rejected() {
+        let session = running_session();
+        let bytes = Arc::new(AtomicUsize::new(0));
+        *session.writer.lock().unwrap() = Some(Box::new(AcceptingWriter(Arc::clone(&bytes))));
+        write_input(&session).unwrap();
+        session.stop_requested.store(true, Ordering::Release);
+        let result = write_input(&session);
+        stop_terminal_session(&session).unwrap();
+        assert!(result.unwrap_err().contains("Terminal session is stopping"));
+        assert_eq!(bytes.load(Ordering::SeqCst), 5);
     }
 }
 
@@ -2579,12 +2945,12 @@ mod terminal_lifecycle_tests {
                 pixel_height: 0,
             })
             .expect("ConPTY should open");
-        let mut command = CommandBuilder::new("powershell.exe");
+        let mut command = CommandBuilder::new(env!("PUDE_TERMINAL_BOOTSTRAP_EXE"));
+        command.arg(gate.name());
+        command.arg("powershell.exe");
+        command.arg(std::env::temp_dir());
         command.args(["-NoLogo", "-NoProfile", "-Command"]);
-        command.arg(format!(
-            "$gate=[Threading.EventWaitHandle]::OpenExisting('{}'); if(!$gate.WaitOne(15000)){{exit 2}}; $child=Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 30' -PassThru -NoNewWindow; [IO.File]::WriteAllText($env:PUDE_TERMINAL_CHILD_PID,[string]$child.Id); Start-Sleep -Seconds 30",
-            gate.name()
-        ));
+        command.arg("[IO.File]::WriteAllText($env:PUDE_TERMINAL_CHILD_PID,[string]$PID); Start-Sleep -Seconds 30");
         command.env("PUDE_TERMINAL_CHILD_PID", &pid_path);
         let child = pair
             .slave
@@ -2628,28 +2994,24 @@ mod terminal_lifecycle_tests {
             output_flow: super::TerminalOutputFlow::new(1),
             output_channel: tauri::ipc::Channel::new(|_| Ok(())),
         });
-        // ConPTY asks for the cursor position at startup. Answer only after the query
-        // was sent; a reply that arrives earlier is ignored and the shell never starts.
         let mut output = Vec::new();
-        let query_deadline = Instant::now() + Duration::from_secs(5);
-        while !output.windows(4).any(|window| window == b"\x1b[6n")
-            && Instant::now() < query_deadline
-        {
+        let mut pending = Vec::new();
+        let child_started = Instant::now();
+        while !pid_path.exists() && child_started.elapsed() < Duration::from_secs(10) {
             if let Ok(bytes) = output_receiver.recv_timeout(Duration::from_millis(50)) {
+                pending.extend_from_slice(&bytes);
                 output.extend(bytes);
             }
-        }
-        session
-            .writer
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .write_all(b"\x1b[1;1R")
-            .unwrap();
-        let child_started = Instant::now();
-        while !pid_path.exists() && child_started.elapsed() < Duration::from_secs(5) {
-            thread::sleep(Duration::from_millis(20));
+            while let Some(query) = pending.windows(4).position(|window| window == b"\x1b[6n") {
+                let mut writer = session.writer.lock().unwrap();
+                let writer = writer.as_mut().unwrap();
+                writer.write_all(b"\x1b[1;1R").unwrap();
+                writer.flush().unwrap();
+                pending.drain(..query + 4);
+            }
+            if pending.len() > 3 {
+                pending.drain(..pending.len() - 3);
+            }
         }
         if !pid_path.exists() {
             let _ = stop_terminal_session(&session);
@@ -2917,6 +3279,209 @@ fn terminal_pty_read_error_is_eof(error: &io::Error) -> bool {
     }
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TerminalExitDetails {
+    exit_code: Option<u32>,
+    signal: Option<String>,
+    reason: &'static str,
+}
+
+fn terminal_exit_details(status: Option<&portable_pty::ExitStatus>) -> TerminalExitDetails {
+    let exit_code = status.map(|status| status.exit_code());
+    let signal = status.and_then(|status| status.signal()).map(str::to_owned);
+    #[cfg(unix)]
+    let interrupted_signal = signal.as_ref().is_some_and(|signal| unsafe {
+        let name = libc::strsignal(libc::SIGINT);
+        !name.is_null() && std::ffi::CStr::from_ptr(name).to_string_lossy() == signal.as_str()
+    });
+    #[cfg(not(unix))]
+    let interrupted_signal = false;
+    let reason = if interrupted_signal || matches!(exit_code, Some(130 | 0xc000013a)) {
+        "interrupted"
+    } else if status.is_some_and(|status| status.success()) {
+        "normal"
+    } else {
+        "error"
+    };
+    TerminalExitDetails {
+        exit_code,
+        signal,
+        reason,
+    }
+}
+
+#[cfg(test)]
+mod interrupt_tests {
+    use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn interrupt_status_keeps_the_linux_session_anchor_unreaped() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.args(["-c", "kill -INT $$"]);
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let status = loop {
+            if let Some(status) = terminal_child_exit_status(child.as_mut()).unwrap() {
+                break status;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(10));
+        };
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
+        let mut info = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
+        assert_eq!(
+            unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    child.process_id().unwrap(),
+                    &mut info,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            },
+            0
+        );
+        assert_eq!(unsafe { info.si_pid() } as u32, child.process_id().unwrap());
+        child.wait().unwrap();
+    }
+
+    #[test]
+    fn exit_details_distinguish_interrupts_normal_exits_and_errors() {
+        for (code, reason) in [
+            (0, "normal"),
+            (1, "error"),
+            (130, "interrupted"),
+            (0xc000013a, "interrupted"),
+        ] {
+            let status = portable_pty::ExitStatus::with_exit_code(code);
+            let details = terminal_exit_details(Some(&status));
+            assert_eq!(details.reason, reason);
+            assert_eq!(details.exit_code, Some(code));
+        }
+        assert_eq!(terminal_exit_details(None).reason, "error");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_pty_ctrl_c_returns_to_an_interactive_shell() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.arg("-i");
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let mut writer = pair.master.take_writer().unwrap();
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let worker = thread::spawn(move || {
+            let mut buffer = [0; 4096];
+            while let Ok(count) = reader.read(&mut buffer) {
+                if count == 0
+                    || sender
+                        .send(String::from_utf8_lossy(&buffer[..count]).into_owned())
+                        .is_err()
+                {
+                    break;
+                }
+            }
+        });
+        let until = |marker: &str| {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut output = String::new();
+            while !output.contains(marker) {
+                output.push_str(
+                    &receiver
+                        .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                        .expect("PTY should produce the expected marker"),
+                );
+            }
+            output
+        };
+        writer
+            .write_all(b"stty -echo; printf '\\nPUDE_READY\\n'\r")
+            .unwrap();
+        writer.flush().unwrap();
+        until("\r\nPUDE_READY\r\n");
+        writer.write_all(b"sleep 30\r").unwrap();
+        writer.flush().unwrap();
+        let shell_pid = child.process_id().unwrap() as libc::pid_t;
+        let descriptor = pair.master.as_raw_fd().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while unsafe { libc::tcgetpgrp(descriptor) } == shell_pid {
+            assert!(
+                Instant::now() < deadline,
+                "sleep should own the foreground process group"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        writer.write_all(b"\x03").unwrap();
+        writer.flush().unwrap();
+        while unsafe { libc::tcgetpgrp(descriptor) } != shell_pid {
+            assert!(
+                Instant::now() < deadline,
+                "Ctrl+C should return control to the shell"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "interrupting sleep must leave the shell alive"
+        );
+        writer
+            .write_all(b"printf '\\nPUDE_INPUT_WORKS\\n'\r")
+            .unwrap();
+        writer.flush().unwrap();
+        until("\r\nPUDE_INPUT_WORKS\r\n");
+        writer.write_all(b"exit 0\r").unwrap();
+        writer.flush().unwrap();
+        let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "normal");
+        drop(writer);
+        drop(pair.master);
+        worker.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn real_pty_shell_interrupt_has_structured_exit_details() {
+        let pair = native_pty_system()
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .unwrap();
+        let mut command = CommandBuilder::new("/bin/sh");
+        command.args(["-c", "kill -INT $$"]);
+        let mut child = pair.slave.spawn_command(command).unwrap();
+        drop(pair.slave);
+        let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
+            .unwrap()
+            .unwrap();
+        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
+        assert!(terminal_exit_details(Some(&status)).signal.is_some());
+    }
+}
+
 fn finish_terminal_session(app: &AppHandle, session_id: &str) {
     let session = app
         .state::<AppState>()
@@ -2925,9 +3490,25 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
         .ok()
         .and_then(|mut terminals| terminals.remove(session_id));
     let Some(session) = session else { return };
+    let natural_status = session.child.lock().ok().and_then(|mut child| {
+        child.as_mut().and_then(|child| {
+            let deadline = Instant::now() + TERMINAL_READER_JOIN_TIMEOUT;
+            loop {
+                match terminal_child_exit_status(child.as_mut()) {
+                    Ok(None) if Instant::now() < deadline => {
+                        thread::sleep(Duration::from_millis(10))
+                    }
+                    Ok(status) => break status,
+                    Err(_) => break None,
+                }
+            }
+        })
+    });
+    let mut details = terminal_exit_details(natural_status.as_ref());
     let status = match stop_terminal_session(&session) {
         Ok(status) => status,
         Err(error) => {
+            details.reason = "error";
             crate::app_log::log_error(&format!(
                 "Unable to clean up terminal {session_id}: {error}"
             ));
@@ -2941,7 +3522,8 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
     let _ = app.emit_to(
         &session.owner_window,
         "terminal-exit",
-        serde_json::json!({ "sessionId": session_id, "status": status }),
+        serde_json::json!({ "sessionId": session_id, "status": status,
+            "exitCode": details.exit_code, "signal": details.signal, "reason": details.reason }),
     );
 }
 
@@ -3013,7 +3595,14 @@ impl TerminalProcessTree {
         let process_id = child
             .process_id()
             .ok_or_else(|| "The PTY backend did not expose its child process ID.".to_string())?;
-        #[cfg(unix)]
+        #[cfg(target_os = "linux")]
+        {
+            Ok(Self {
+                linux_session: super::process_group::LinuxTerminalSession::attach(process_id)
+                    .map_err(|error| format!("Unable to track the terminal session. {error}"))?,
+            })
+        }
+        #[cfg(all(unix, not(target_os = "linux")))]
         {
             // portable-pty starts Unix PTY children with setsid(), so the shell
             // process ID is also the process-group ID inherited by its children.
@@ -3078,7 +3667,13 @@ impl TerminalProcessTree {
     }
 
     fn terminate(&self) -> Result<(), String> {
-        #[cfg(unix)]
+        #[cfg(target_os = "linux")]
+        {
+            self.linux_session
+                .terminate(Instant::now() + TERMINAL_READER_JOIN_TIMEOUT)
+                .map_err(|error| format!("Unable to terminate terminal session jobs. {error}"))
+        }
+        #[cfg(all(unix, not(target_os = "linux")))]
         {
             let result = unsafe { libc::kill(-(self.process_group as i32), libc::SIGKILL) };
             if result == 0 {
@@ -3125,7 +3720,16 @@ impl TerminalProcessTree {
     }
 
     fn wait_until_empty(&self, deadline: Instant) -> Result<(), String> {
-        #[cfg(unix)]
+        #[cfg(target_os = "linux")]
+        {
+            let _ = deadline;
+            if self.linux_session.is_empty() {
+                Ok(())
+            } else {
+                Err("Terminal session cleanup has not completed.".to_string())
+            }
+        }
+        #[cfg(all(unix, not(target_os = "linux")))]
         {
             loop {
                 let result = unsafe { libc::kill(-(self.process_group as i32), 0) };
@@ -3170,31 +3774,6 @@ impl Drop for TerminalProcessTree {
     fn drop(&mut self) {
         unsafe {
             let _ = CloseHandle(self.job as *mut std::ffi::c_void);
-        }
-    }
-}
-
-fn terminate_terminal_process_tree(
-    child: &mut (dyn Child + Send),
-    process_tree: &TerminalProcessTree,
-) -> Result<String, String> {
-    let tree_error = process_tree.terminate().err();
-    let status = terminate_terminal_child(child);
-    let tree_status = process_tree.wait_until_empty(Instant::now() + TERMINAL_READER_JOIN_TIMEOUT);
-    match (tree_error, status, tree_status) {
-        (None, Ok(status), Ok(())) => Ok(status),
-        (tree_error, status, tree_status) => {
-            let mut details = Vec::new();
-            if let Some(error) = tree_error {
-                details.push(error);
-            }
-            if let Err(error) = status {
-                details.push(error);
-            }
-            if let Err(error) = tree_status {
-                details.push(error);
-            }
-            Err(details.join(" "))
         }
     }
 }
@@ -3349,14 +3928,14 @@ fn monitor_terminal_process(
         if session.stop_requested.load(Ordering::Acquire) {
             return Ok(());
         }
-        let status = {
+        let exited = {
             let mut child = session
                 .child
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             match child.as_mut() {
-                Some(child) => match child.try_wait() {
-                    Ok(status) => status.map(|status| format!("{status:?}")),
+                Some(child) => match terminal_child_has_exited(child.as_mut()) {
+                    Ok(exited) => exited,
                     Err(error) => {
                         return Err(format!("Unable to inspect terminal process. {error}"));
                     }
@@ -3364,7 +3943,7 @@ fn monitor_terminal_process(
                 None => return Ok(()),
             }
         };
-        if status.is_some() {
+        if exited {
             on_exit(session);
             return Ok(());
         }
@@ -3391,17 +3970,21 @@ pub(crate) fn stop_terminal_session(session: &TerminalSession) -> Result<Option<
         .process_tree
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // Keep Linux's nonreaping process checks out while the anchored session is
+    // enumerated, killed, and finally reaped. No writer lock is held here.
+    let mut child = session
+        .child
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     if let Some(process_tree) = process_tree.as_ref() {
         if let Err(error) = process_tree.terminate() {
             errors.push(error);
         }
     }
     cancel_blocking_terminal_writer(session);
-    let mut child = session
-        .child
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if let Some(process) = child.as_mut() {
+    // A failed Linux scan must retain its SID anchor for a safe cleanup retry.
+    let may_reap = !cfg!(target_os = "linux") || errors.is_empty();
+    if let Some(process) = child.as_mut().filter(|_| may_reap) {
         match terminate_terminal_child(process.as_mut()) {
             Ok(status) => {
                 process_status = Some(status);

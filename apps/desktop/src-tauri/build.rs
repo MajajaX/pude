@@ -21,6 +21,7 @@ fn main() {
         "rename_path",
         "delete_path",
         "git_status",
+        "get_git_ignored_paths",
         "git_branches",
         "git_commits",
         "cancel_workspace",

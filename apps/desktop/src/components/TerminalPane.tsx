@@ -8,9 +8,8 @@ import { fitVisibleTerminal } from "../lib/terminal-fit";
 import { TerminalLifecycle } from "../lib/terminal-lifecycle";
 import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "../lib/terminal-ack";
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
-import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS } from "../lib/terminal-vt";
-
-type TerminalExitPayload = { sessionId: string; status?: string | null };
+import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt } from "../lib/terminal-vt";
+import { TerminalInterruptRecovery, type TerminalExitPayload } from "../lib/terminal-interrupt";
 
 type TerminalTab = { id: number; label: string };
 
@@ -88,6 +87,8 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
   let earlyOutput = new Map<string, EarlyOutputChunk[]>();
   let earlyExit = new Map<string, TerminalExitPayload>();
   let sessionGeneration = 0;
+  let startupVersion = 0;
+  const interruptRecovery = new TerminalInterruptRecovery();
   const ackTracker = new TerminalAckTracker();
   const ackQueue = new TerminalAckQueue();
   const ackScheduler = new TerminalAckScheduler(
@@ -219,8 +220,6 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
       if (signal?.aborted) return;
       if (disposed || id !== activeId || sessionEnded()) return;
       setSessionEnded(true);
-      lifecycle.sessionEnded(id);
-      activeId = undefined;
       disposePluginTerminalWriter?.();
       disposePluginTerminalWriter = undefined;
       setSessionId(undefined);
@@ -242,6 +241,7 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
   const writeInput = (data: string, binary = false) => {
     const id = sessionId();
     if (!id || !isTauri || sessionEnded()) return;
+    interruptRecovery.input(id, data, binary);
     void writePtyInput(id, data, binary).catch(() => undefined);
   };
 
@@ -289,6 +289,8 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
       }
       return;
     }
+    const recover = interruptRecovery.consumeExit(payload) && shouldRun && !disposed;
+    const workspace = props.workspace;
     lifecycle.sessionEnded(payload.sessionId);
     shouldRun = false;
     activeId = undefined;
@@ -298,11 +300,20 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
-    appendStatus(payload.status ? `terminal exited: ${payload.status}` : "terminal exited");
+    if (recover) {
+      shouldRun = true;
+      queueMicrotask(() => {
+        if (!disposed && shouldRun && workspace === props.workspace && !activeId) void startSession(workspace, true);
+      });
+    } else appendStatus(payload.status ? `terminal exited: ${payload.status}` : "terminal exited");
   };
 
-  const startSession = async (workspace: string) => {
+  const startSession = async (workspace: string, preserveOutput = false) => {
     if (!isTauri || disposed || !listenersReady || !shouldRun || activeId || capturingStartupOutput) return;
+    const version = ++startupVersion;
+    const isCurrentStart = () => !disposed && shouldRun && version === startupVersion && workspace === props.workspace;
+    interruptRecovery.reset();
+    writeQueue = Promise.resolve();
     capturingStartupOutput = true;
     outputReady = false;
     ackQueue.reset();
@@ -311,19 +322,19 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
     sessionGeneration = 0;
     setSessionEnded(false);
     setSessionId(undefined);
-    if (terminal) {
-      terminal.reset();
-      terminal.write("pude terminal\r\n");
-      terminal.options.disableStdin = true;
-    }
-
     try {
+      if (terminal) {
+        terminal.options.disableStdin = true;
+        if (preserveOutput) await restoreTerminalAfterInterrupt(terminal);
+        else {
+          terminal.reset();
+          terminal.write("pude terminal\r\n");
+        }
+      }
+      if (!isCurrentStart()) return;
       const id = await lifecycle.start(workspace);
       if (!id) return;
-      if (disposed || !shouldRun || workspace !== props.workspace) {
-        await lifecycle.stop();
-        return;
-      }
+      if (!isCurrentStart()) return;
       activeId = id;
       if (terminal) terminal.options.disableStdin = false;
       if (props.visible) activatePluginWriter(workspace, id);
@@ -345,19 +356,27 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
       fitIfVisible();
       if (props.visible && terminal) resizeSession(id, terminal.rows, terminal.cols);
     } catch (error) {
-      if (disposed) return;
+      if (!isCurrentStart()) return;
       shouldRun = false;
       setSessionEnded(true);
       if (terminal) terminal.options.disableStdin = true;
       appendStatus(errorMessage(error, "Unable to start terminal."));
     } finally {
-      capturingStartupOutput = false;
+      if (version === startupVersion) capturingStartupOutput = false;
     }
   };
 
   const restartSession = () => {
+    startupVersion += 1;
     shouldRun = true;
-    void startSession(props.workspace);
+    const workspace = props.workspace;
+    activeId = undefined;
+    outputReady = false;
+    void lifecycle.stop().then(() => {
+      if (!disposed && shouldRun && workspace === props.workspace) void startSession(workspace);
+    }).catch((error) => {
+      if (!disposed && workspace === props.workspace) appendStatus(errorMessage(error, "Unable to restart terminal."));
+    });
   };
 
   onMount(() => {
@@ -428,7 +447,9 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
 
   createEffect(on(() => props.workspace, (workspace) => {
     if (!paneInitialized) return;
+    startupVersion += 1;
     shouldRun = true;
+    interruptRecovery.reset();
     outputReady = false;
     capturingStartupOutput = false;
     activeId = undefined;
@@ -473,7 +494,9 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
   }, { defer: true }));
 
   onCleanup(() => {
+    startupVersion += 1;
     disposed = true;
+    interruptRecovery.reset();
     shouldRun = false;
     ackScheduler.reset();
     disposePluginTerminalWriter?.();

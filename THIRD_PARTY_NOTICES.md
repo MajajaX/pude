@@ -14,6 +14,8 @@
 - 2026-09-28 LW-05 依賴升級後重核：直接依賴版本已隨 `package-lock.json`／`Cargo.lock` 更新（見下表）；[`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) 已就升級後的 win/mac runtime 閉包全量重驗（npm 47 個 runtime 套件、49 份授權文件；Cargo macOS arm64 300 個、Windows x64 305 個 runtime crate、兩平台聯集 600 份命名授權文件、18 個以上游精確來源補齊的 crate），逐 archive checksum／SRI 與授權原文雜湊全部相符。
 - 專案採 MIT；根目錄 [`LICENSE`](./LICENSE)、root／desktop／web npm metadata 與 Cargo package metadata 已補為 MIT。這只授權專案本身，不延伸到來源、作者或散布權未核對的素材。
 
+- 2026-10-15 v0.1.2：已核對本次更新後的直接依賴版本，並補入目前 macOS／Windows runtime 閉包中尚未列出的 30 個套件版本之精確 archive、lock digest 與授權原文雜湊；歷史版本記錄保留於完整授權清冊。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -22,7 +24,7 @@
 
 | 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `@codemirror/commands` | 6.11.0 | MIT | [repository](https://code.haverbeke.berlin/codemirror/commands) | desktop runtime |
+| `@codemirror/commands` | 6.11.1 | MIT | [repository](https://code.haverbeke.berlin/codemirror/commands) | desktop runtime |
 | `@codemirror/lang-cpp` | 6.0.3 | MIT | [repository](https://github.com/codemirror/lang-cpp) | desktop runtime |
 | `@codemirror/lang-css` | 6.3.1 | MIT | [repository](https://github.com/codemirror/lang-css) | desktop runtime |
 | `@codemirror/lang-go` | 6.0.1 | MIT | [repository](https://github.com/codemirror/lang-go) | desktop runtime |
@@ -30,22 +32,22 @@
 | `@codemirror/lang-java` | 6.0.2 | MIT | [repository](https://github.com/codemirror/lang-java) | desktop runtime |
 | `@codemirror/lang-javascript` | 6.2.5 | MIT | [repository](https://github.com/codemirror/lang-javascript) | desktop runtime |
 | `@codemirror/lang-json` | 6.0.2 | MIT | [repository](https://github.com/codemirror/lang-json) | desktop runtime |
-| `@codemirror/legacy-modes` | 6.5.4 | MIT | [repository](https://code.haverbeke.berlin/codemirror/legacy-modes) | desktop runtime |
+| `@codemirror/legacy-modes` | 6.5.5 | MIT | [repository](https://code.haverbeke.berlin/codemirror/legacy-modes) | desktop runtime |
 | `@codemirror/lang-markdown` | 6.5.2 | MIT | [repository](https://code.haverbeke.berlin/codemirror/lang-markdown) | desktop runtime |
 | `@codemirror/lang-python` | 6.2.1 | MIT | [repository](https://github.com/codemirror/lang-python) | desktop runtime |
 | `@codemirror/lang-rust` | 6.0.2 | MIT | [repository](https://github.com/codemirror/lang-rust) | desktop runtime |
 | `@codemirror/lang-sql` | 6.10.0 | MIT | [repository](https://github.com/codemirror/lang-sql) | desktop runtime |
 | `@codemirror/lang-yaml` | 6.1.3 | MIT | [repository](https://github.com/codemirror/lang-yaml) | desktop runtime |
-| `@codemirror/language` | 6.12.4 | MIT | [repository](https://code.haverbeke.berlin/codemirror/language) | desktop runtime |
+| `@codemirror/language` | 6.13.1 | MIT | [repository](https://code.haverbeke.berlin/codemirror/language) | desktop runtime |
 | `@codemirror/search` | 6.7.2 | MIT | [repository](https://code.haverbeke.berlin/codemirror/search) | desktop runtime |
-| `@codemirror/state` | 6.7.4 | MIT | [repository](https://code.haverbeke.berlin/codemirror/state) | desktop runtime |
+| `@codemirror/state` | 6.7.6 | MIT | [repository](https://code.haverbeke.berlin/codemirror/state) | desktop runtime |
 | `@codemirror/theme-one-dark` | 6.1.3 | MIT | [repository](https://github.com/codemirror/theme-one-dark) | desktop runtime |
-| `@codemirror/view` | 6.43.13 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
-| `@tauri-apps/api` | 2.12.0 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
+| `@codemirror/view` | 6.43.14 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
+| `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
 | `@xterm/addon-fit` | 0.11.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
 | `codemirror` | 6.0.2 | MIT | [repository](https://github.com/codemirror/basic-setup) | desktop runtime |
-| `solid-js` | 1.9.15 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
+| `solid-js` | 1.9.17 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
 
 ### 建置、型別與測試工具
 
@@ -53,14 +55,14 @@
 
 | 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `@tauri-apps/cli` | 2.12.0 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
+| `@tauri-apps/cli` | 2.12.3 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
 | `fake-indexeddb` | 6.2.5 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
-| `@types/node` | 26.5.1 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
+| `@types/node` | 26.6.5 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
 | `typescript` | 7.0.2 | Apache-2.0 | [repository](https://github.com/microsoft/TypeScript) | desktop and web build |
-| `vite` | 8.3.1（desktop）／7.3.6（web） | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
-| `vite-plugin-solid` | 2.11.14（desktop）／2.11.10（web） | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
-| `vitest` | 5.0.2 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
+| `vite` | 8.3.4 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
+| `vite-plugin-solid` | 2.11.14 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
+| `vitest` | 5.0.4 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
 
 ### npm 核對限制
 
@@ -73,18 +75,18 @@
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
 | `tauri` | 2.12.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.0) · [repository](https://github.com/tauri-apps/tauri) | runtime |
-| `tauri-plugin-single-instance` | 2.5.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.0) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
-| `tauri-build` | 2.7.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.0) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
+| `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
+| `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
-| `libc` | 0.2.189 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.189) · [repository](https://github.com/rust-lang/libc) | runtime |
+| `libc` | 0.2.190 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.190) · [repository](https://github.com/rust-lang/libc) | runtime |
 | `notify` | 8.2.0 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.0) · [repository](https://github.com/notify-rs/notify) | runtime |
 | `portable-pty` | 0.9.0 | MIT | [crates.io](https://crates.io/crates/portable-pty/0.9.0) · [repository](https://github.com/wezterm/wezterm) | runtime |
 | `reqwest` | 0.13.5 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/reqwest/0.13.5) · [repository](https://github.com/seanmonstar/reqwest) | runtime |
 | `rfd` | 0.17.2 | MIT | [crates.io](https://crates.io/crates/rfd/0.17.2) · [repository](https://github.com/PolyMeilex/rfd) | runtime |
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde/1.0.229) · [repository](https://github.com/serde-rs/serde) | runtime |
-| `serde_json` | 1.0.151 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.151) · [repository](https://github.com/serde-rs/json) | runtime |
-| `tokio` | 1.53.1 | MIT | [crates.io](https://crates.io/crates/tokio/1.53.1) · [repository](https://github.com/tokio-rs/tokio) | runtime |
-| `uuid` | 1.26.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.26.1) · [repository](https://github.com/uuid-rs/uuid) | runtime |
+| `serde_json` | 1.0.154 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.154) · [repository](https://github.com/serde-rs/json) | runtime |
+| `tokio` | 1.53.3 | MIT | [crates.io](https://crates.io/crates/tokio/1.53.3) · [repository](https://github.com/tokio-rs/tokio) | runtime |
+| `uuid` | 1.28.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.28.0) · [repository](https://github.com/uuid-rs/uuid) | runtime |
 
 ### Cargo 核對限制與 2026-09-27 快照
 

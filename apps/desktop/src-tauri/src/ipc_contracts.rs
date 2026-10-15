@@ -152,6 +152,7 @@ fn test_webview() -> tauri::WebviewWindow<tauri::test::MockRuntime> {
             plugin_workspace::cancel_plugin_workspace_file_read,
             runtime_generic_command_probe,
             git_operation,
+            get_git_ignored_paths,
         ])
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build MockRuntime app with production command handlers");
@@ -345,4 +346,36 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
     let cancelled_range = invoke(&webview, "plugin_workspace_read_file_range", cancelled_range_args)
         .expect_err("pre-start cancellation should reject the real range command");
     assert_eq!(cancelled_range, fixture["pluginWorkspaceCancelledReadError"]);
+}
+
+#[test]
+fn ignored_paths_command_accepts_paths_and_handles_non_repositories() {
+    let scratch = ScratchDirectory::new();
+    let root = scratch.0.canonicalize().unwrap();
+    let webview = test_webview();
+    let path = wire_path(&root.join("test.log"));
+    let args = json!({ "workspace": wire_path(&root), "paths": [path] });
+    assert_eq!(
+        invoke(&webview, "get_git_ignored_paths", args.clone()).unwrap(),
+        json!([])
+    );
+    assert!(std::process::Command::new("git")
+        .args(["init", "--quiet"])
+        .arg(&root)
+        .status()
+        .unwrap()
+        .success());
+    fs::write(root.join(".gitignore"), "*.log\n").unwrap();
+    fs::write(root.join("test.log"), "fixture").unwrap();
+    assert_eq!(
+        invoke(&webview, "get_git_ignored_paths", args).unwrap(),
+        json!([path])
+    );
+    let error = invoke(
+        &webview,
+        "get_git_ignored_paths",
+        json!({ "workspace": wire_path(&root), "paths": vec![path; 257] }),
+    )
+    .unwrap_err();
+    assert_eq!(error["kind"], "capacity");
 }

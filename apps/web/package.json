@@ -1,6 +1,6 @@
 {
   "name": "@pude/web",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "author": "MajajaX",
   "license": "MIT",
@@ -27,12 +27,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "solid-js": "1.9.15"
+    "solid-js": "1.9.17"
   },
   "devDependencies": {
-    "@types/node": "26.5.1",
+    "@types/node": "26.6.5",
     "typescript": "7.0.2",
-    "vite": "7.3.6",
-    "vite-plugin-solid": "2.11.10"
+    "vite": "8.3.4",
+    "vite-plugin-solid": "2.11.14"
   }
 }
