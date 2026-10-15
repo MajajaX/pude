@@ -24,7 +24,7 @@ tauri-build = { version = "=2.7.3", features = [] }
 # so only wry + compression + common-controls-v6 stay on. This shrank
 # pude.exe by ~6.0% (14,901,248 -> 14,010,880 bytes) under fat LTO.
 # Revisit Linux features when a Linux release ships.
-tauri = { version = "=2.12.0", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
+tauri = { version = "=2.12.1", default-features = false, features = ["wry", "compression", "common-controls-v6"] }
 tauri-plugin-single-instance = "=2.5.4"
 tauri-plugin-updater = "=2.13.3"
 cap-std = "=4.0.3"
@@ -42,4 +42,4 @@ uuid = { version = "=1.28.0", features = ["v4"] }
 
 [dev-dependencies]
 # Enable MockRuntime IPC contract checks only for tests.
-tauri = { version = "=2.12.0", default-features = false, features = ["test"] }
+tauri = { version = "=2.12.1", default-features = false, features = ["test"] }
