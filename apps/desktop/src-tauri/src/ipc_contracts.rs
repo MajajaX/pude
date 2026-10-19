@@ -229,7 +229,12 @@ fn project_search_ipc_accepts_frontend_options_and_returns_file_locations() {
     assert_eq!(result["matches"][0]["preview"], "搜尋 needle");
     assert_eq!(result["truncated"], false);
     assert_eq!(result["skippedFiles"], 0);
-    invoke(&webview, "cancel_project_search", json!({ "requestId": "search-ipc-test" })).unwrap();
+    invoke(
+        &webview,
+        "cancel_project_search",
+        json!({ "requestId": "search-ipc-test" }),
+    )
+    .unwrap();
 }
 
 #[test]

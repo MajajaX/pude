@@ -134,7 +134,7 @@ fn search_project_sync(
     request: &RequestHandle,
 ) -> Result<SearchResults, String> {
     let token = request.token();
-    let root = fs::canonicalize(decode_wire_path(&workspace))
+    let root = fs::canonicalize(decode_wire_path(workspace))
         .map_err(|error| format!("Unable to open project. {error}"))?;
     if !root.is_dir() {
         return Err("The project directory is no longer available.".into());
@@ -144,7 +144,7 @@ fn search_project_sync(
     let paths = if options.include_ignored {
         collect_files(&root, &token, started, &mut result)?
     } else {
-        match roots.resolve(&root, &runtime, &request) {
+        match roots.resolve(&root, runtime, request) {
             Ok(_) => {
                 let mut spec = GitCommandSpec::read(
                     &root,
@@ -299,6 +299,8 @@ fn search_files(
             continue;
         };
         let relative_path = checked_wire_path(relative)?;
+        #[cfg(windows)]
+        let relative_path = relative_path.replace('\\', "/");
         let matches = |text: &str| {
             if options.case_sensitive {
                 text.contains(&needle)

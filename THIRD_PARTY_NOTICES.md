@@ -16,6 +16,8 @@
 
 - 2026-10-15 v0.1.2：已核對本次更新後的直接依賴版本，並補入目前 macOS／Windows runtime 閉包中尚未列出的 30 個套件版本之精確 archive、lock digest 與授權原文雜湊；歷史版本記錄保留於完整授權清冊。
 
+- 2026-10-19 v0.1.3：Tauri 更新為 2.12.1、updater 更新為 2.14.0；六個更新套件的精確 archive checksum 與授權文件已核對並記錄於完整清冊。Windows 只使用既有的原始 NSIS EXE 更新格式並關閉 ZIP 支援；macOS 與 Linux 保留 tar.gz。安全檢查逐平台解析實際 feature 與依賴，未加入 advisory 忽略規則。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -74,7 +76,7 @@
 
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.0) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.0) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
