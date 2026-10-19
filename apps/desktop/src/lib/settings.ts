@@ -9,6 +9,7 @@ export const defaultSettings = {
   sidebarWidth: 276,
   terminalHeight: 238,
   hideDotFiles: false,
+  groupGitIgnoredFiles: true,
   checkForUpdates: true,
   watcherExcludes: [],
 } satisfies AppSettings;
@@ -40,6 +41,7 @@ export function validateSettings(value: unknown, defaults: AppSettings): AppSett
     sidebarWidth: clampSetting("sidebarWidth", stored.sidebarWidth, defaults.sidebarWidth),
     terminalHeight: clampSetting("terminalHeight", stored.terminalHeight, defaults.terminalHeight),
     hideDotFiles: typeof stored.hideDotFiles === "boolean" ? stored.hideDotFiles : defaults.hideDotFiles,
+    groupGitIgnoredFiles: typeof stored.groupGitIgnoredFiles === "boolean" ? stored.groupGitIgnoredFiles : defaults.groupGitIgnoredFiles,
     checkForUpdates: typeof stored.checkForUpdates === "boolean" ? stored.checkForUpdates : defaults.checkForUpdates,
     watcherExcludes: parseWatcherExcludes(stored.watcherExcludes, defaults.watcherExcludes),
   };

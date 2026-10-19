@@ -17,6 +17,7 @@ type ExplorerProps = {
   gitFiles: GitFileStatus[];
   hideDotFiles: boolean;
   ignoredPaths?: ReadonlySet<string>;
+  groupIgnored?: boolean;
   ignoredExpanded?: boolean;
   onToggleIgnored?: () => void;
   onToggle: (entry: ExplorerEntry) => void;
@@ -81,7 +82,7 @@ export function Explorer(props: ExplorerProps) {
   const pathOptions = runtimePathOptions();
   const pathKey = (path: string) => pathComparisonKey(path, pathOptions);
   const isIgnored = (path: string) => props.ignoredPaths?.has(pathKey(path)) ?? false;
-  const displayRoot = createMemo(() => groupIgnoredEntries(props.root, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles));
+  const displayRoot = createMemo(() => props.groupIgnored === false ? props.root : groupIgnoredEntries(props.root, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles));
   const treeModel = new VisibleTreeModel<ExplorerEntry>(pathOptions);
   treeModel.update(displayRoot(), props.hideDotFiles);
   const stableRowCache = new Map<string, StableTreeRow>();
@@ -139,7 +140,7 @@ export function Explorer(props: ExplorerProps) {
   const ensureIndexVisible = (index: number) => {
     if (index < 0 || !scrollHost) return;
     const top = scrollHost.scrollTop;
-    const height = scrollHost.clientHeight;
+    const height = viewportHeight();
     const rowTop = index * TREE_ROW_HEIGHT;
     const rowBottom = rowTop + TREE_ROW_HEIGHT;
     let nextTop = top;
@@ -154,7 +155,8 @@ export function Explorer(props: ExplorerProps) {
 
   const updateViewport = () => {
     if (!scrollHost) return;
-    setViewportHeight(scrollHost.clientHeight);
+    const style = getComputedStyle(scrollHost);
+    setViewportHeight(Math.max(0, scrollHost.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)));
     setScrollTop(scrollHost.scrollTop);
   };
 
@@ -342,7 +344,7 @@ function TreeRow(props: {
         "tree-row-tracked": entry().kind === "file" && props.hasRepository && !isUntracked(),
         "tree-row-ignored": props.ignored,
         "tree-row-ignored-group": Boolean(entry().gitIgnoredGroup),
-        "tree-row-directory": entry().kind === "directory",
+        "tree-row-directory": entry().kind === "directory" && !entry().gitIgnoredGroup,
       }}
       style={{ position: "absolute", top: `${props.row.index * TREE_ROW_HEIGHT}px`, left: "0", right: "0", "padding-left": `${10 + props.row.depth * 16}px` }}
       role="treeitem"
@@ -374,11 +376,16 @@ function TreeRow(props: {
         </Show>
       </button>
       <span class="tree-kind">
-        <Show when={entry().kind === "file" && languageIconForPath(entry().path)} fallback={<Icon name={entry().kind === "directory" ? (entry().expanded ? "folder-open" : "folder") : "file-code"} size={15} />}>
-          {(language) => <LanguageIcon name={language()} size={15} />}
+        <Show when={entry().gitIgnoredGroup} fallback={
+          <Show when={entry().kind === "file" && languageIconForPath(entry().path)} fallback={<Icon name={entry().kind === "directory" ? (entry().expanded ? "folder-open" : "folder") : "file-code"} size={15} />}>
+            {(language) => <LanguageIcon name={language()} size={15} />}
+          </Show>
+        }>
+          <Icon name="git" size={13} />
         </Show>
       </span>
       <button class="tree-label" tabIndex={-1} onClick={(event) => { event.currentTarget.parentElement?.focus({ preventScroll: true }); props.onOpen(entry()); }}>{entry().name}</button>
+      <Show when={entry().gitIgnoredGroup}><span class="tree-group-count">{entry().gitIgnoredCount}</span></Show>
       <Show when={statusText()}>
         <span class={`git-badge git-badge-${statusText()}`} title={statusText() === "?" ? "Untracked file: Git is not tracking this file yet" : `Git ${statusText()}`} aria-label={statusText() === "?" ? "Untracked file" : `Git ${statusText()}`}>{statusText()}</span>
       </Show>

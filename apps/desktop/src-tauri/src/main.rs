@@ -49,6 +49,7 @@ mod plugin_security;
 mod plugin_workspace;
 #[cfg(unix)]
 mod process_group;
+mod project_search;
 mod python_environment;
 mod startup_timeline;
 mod terminal;
@@ -4871,6 +4872,8 @@ fn main() {
                     open_new_window,
                     filesystem::list_directory,
                     filesystem::cancel_directory_listing,
+                    project_search::search_project,
+                    project_search::cancel_project_search,
                     filesystem::read_file,
                     filesystem::read_workspace_image,
                     filesystem::path_exists,

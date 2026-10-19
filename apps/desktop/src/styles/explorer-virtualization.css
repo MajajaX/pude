@@ -2,6 +2,28 @@
   contain: layout style;
 }
 
+.tree-row-ignored-group {
+  border-top: 1px dashed var(--border);
+  background: color-mix(in srgb, var(--panel-raised) 60%, transparent);
+}
+
+.tree-row-ignored-group .tree-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.tree-row-ignored-group .tree-kind { color: var(--muted); }
+
+.tree-group-count {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font: 10px "DM Mono", monospace;
+}
+
 .tree-row:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;

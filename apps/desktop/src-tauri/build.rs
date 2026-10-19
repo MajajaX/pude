@@ -9,6 +9,8 @@ fn main() {
         "save_file_dialog",
         "open_new_window",
         "list_directory",
+        "search_project",
+        "cancel_project_search",
         "read_file",
         "read_workspace_image",
         "path_exists",

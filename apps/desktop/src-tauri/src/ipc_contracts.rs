@@ -155,6 +155,8 @@ fn test_webview() -> tauri::WebviewWindow<tauri::test::MockRuntime> {
             runtime_generic_command_probe,
             git_operation,
             get_git_ignored_paths,
+            project_search::search_project,
+            project_search::cancel_project_search,
         ])
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build MockRuntime app with production command handlers");
@@ -208,6 +210,26 @@ fn exact_object_keys(value: &Value) -> Vec<String> {
         .collect::<Vec<_>>();
     keys.sort();
     keys
+}
+
+#[test]
+fn project_search_ipc_accepts_frontend_options_and_returns_file_locations() {
+    let scratch = ScratchDirectory::new();
+    fs::create_dir(scratch.0.join("nested")).unwrap();
+    fs::write(scratch.0.join("nested/notes.md"), "heading\n搜尋 needle\n").unwrap();
+    let webview = test_webview();
+    let result = invoke(&webview, "search_project", json!({
+        "workspace": wire_path(&scratch.0),
+        "requestId": "search-ipc-test",
+        "options": { "query": "NEEDLE", "mode": "content", "caseSensitive": false, "includeIgnored": true }
+    })).unwrap();
+    assert_eq!(result["matches"].as_array().unwrap().len(), 1);
+    assert_eq!(result["matches"][0]["relativePath"], "nested/notes.md");
+    assert_eq!(result["matches"][0]["line"], 2);
+    assert_eq!(result["matches"][0]["preview"], "搜尋 needle");
+    assert_eq!(result["truncated"], false);
+    assert_eq!(result["skippedFiles"], 0);
+    invoke(&webview, "cancel_project_search", json!({ "requestId": "search-ipc-test" })).unwrap();
 }
 
 #[test]

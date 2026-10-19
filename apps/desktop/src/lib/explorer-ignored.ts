@@ -1,6 +1,6 @@
 import type { DirectoryEntry } from "../types";
 
-export type ExplorerEntry = DirectoryEntry & { gitIgnoredGroup?: boolean };
+export type ExplorerEntry = DirectoryEntry & { gitIgnoredGroup?: boolean; gitIgnoredCount?: number };
 
 export function loadedExplorerPaths(root: DirectoryEntry): string[] {
   const paths: string[] = [];
@@ -33,6 +33,7 @@ export function groupIgnoredEntries(
     loaded: true,
     expanded,
     gitIgnoredGroup: true,
+    gitIgnoredCount: ignored.filter((entry) => !hideDotFiles || !entry.name.startsWith(".")).length,
     children: ignored,
   };
   return { ...root, children: [...children, group] };

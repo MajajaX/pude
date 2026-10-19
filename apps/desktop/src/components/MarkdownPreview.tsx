@@ -118,7 +118,7 @@ export function MarkdownPreview(props: {
   return (
     <article class="markdown-preview" aria-label="Markdown preview" on:click={scrollToAnchor}>
       <Show when={parsed().documentKey === props.documentKey && parsed().truncated}>
-        <aside class="markdown-preview-notice" role="status" style={{ "max-width": "840px", "margin": "0 auto 20px", "padding": "8px 10px", "color": "var(--muted)", "font-size": "12px", "border": "1px solid var(--border)", "border-radius": "4px", "background": "var(--panel-raised)" }}>
+        <aside class="markdown-preview-notice" role="status" style={{ "margin": "0 auto 20px", "padding": "8px 10px", "color": "var(--muted)", "font-size": "12px", "border": "1px solid var(--border)", "border-radius": "4px", "background": "var(--panel-raised)" }}>
           Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.
         </aside>
       </Show>

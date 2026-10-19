@@ -24,7 +24,7 @@ describe("Explorer ignored entries", () => {
     const projected = groupIgnoredEntries(root, isIgnored, false, false);
     expect(projected.children?.map((entry) => entry.name)).toEqual(["src", "README.md", "Git ignored"]);
     const group = projected.children?.at(-1) as ExplorerEntry;
-    expect(group).toMatchObject({ gitIgnoredGroup: true, expanded: false });
+    expect(group).toMatchObject({ gitIgnoredGroup: true, gitIgnoredCount: 2, expanded: false });
     expect(group.children).toEqual([root.children![1], root.children![2]]);
     expect(projected.children![0]).toBe(root.children![0]);
     expect(root.children).toHaveLength(4);
@@ -48,6 +48,7 @@ describe("Explorer ignored entries", () => {
     expect(groupIgnoredEntries(root, () => false, false, false)).toBe(root);
     expect(groupIgnoredEntries(root, (path) => path === "/repo/.env", false, true)).toBe(root);
     const projected = groupIgnoredEntries(root, isIgnored, true, true);
+    expect((projected.children?.at(-1) as ExplorerEntry).gitIgnoredCount).toBe(1);
     const model = new VisibleTreeModel<ExplorerEntry>();
     model.update(projected, true);
     expect(model.indexOfPath("/repo/.env")).toBe(-1);
