@@ -34,6 +34,10 @@ notarized macOS DMG and the Windows installer in parallel, writes `latest.json` 
 `SHA256SUMS.txt`, publishes the release with the changelog section as notes, and
 verifies it. Continue with step 5 when it finishes.
 
+Publication downloads only the `release-macos` and `release-windows` build
+artifacts. CI diagnostics remain attached to the Actions run, including after a
+failed job is rerun; they must not be uploaded as release assets.
+
 ## Updater signing key
 
 Installed copies of pude check `releases/latest/download/latest.json` on startup and
