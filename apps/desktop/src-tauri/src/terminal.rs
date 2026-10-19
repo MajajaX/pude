@@ -2930,6 +2930,16 @@ mod terminal_lifecycle_tests {
     }
 
     #[test]
+    #[ignore = "subprocess fixture for the bootstrap gate test"]
+    fn bootstrap_child_fixture() {
+        let Some(pid_path) = std::env::var_os("PUDE_TERMINAL_CHILD_PID") else {
+            return;
+        };
+        fs::write(pid_path, std::process::id().to_string()).expect("write fixture PID");
+        thread::sleep(Duration::from_secs(30));
+    }
+
+    #[test]
     fn bootstrap_gate_releases_the_shell_only_after_job_assignment() {
         let pid_path = std::env::temp_dir().join(format!(
             "pude-terminal-job-child-{}-{}",
@@ -2947,10 +2957,14 @@ mod terminal_lifecycle_tests {
             .expect("ConPTY should open");
         let mut command = CommandBuilder::new(env!("PUDE_TERMINAL_BOOTSTRAP_EXE"));
         command.arg(gate.name());
-        command.arg("powershell.exe");
+        command.arg(std::env::current_exe().expect("test executable should exist"));
         command.arg(std::env::temp_dir());
-        command.args(["-NoLogo", "-NoProfile", "-Command"]);
-        command.arg("[IO.File]::WriteAllText($env:PUDE_TERMINAL_CHILD_PID,[string]$PID); Start-Sleep -Seconds 30");
+        command.args([
+            "--exact",
+            "terminal::terminal_lifecycle_tests::bootstrap_child_fixture",
+            "--ignored",
+            "--nocapture",
+        ]);
         command.env("PUDE_TERMINAL_CHILD_PID", &pid_path);
         let child = pair
             .slave

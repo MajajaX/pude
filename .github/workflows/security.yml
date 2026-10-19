@@ -16,9 +16,13 @@ permissions:
 
 jobs:
   cargo-deny:
-    name: Rust advisories, licenses and sources
+    name: Rust advisories, licenses and sources (${{ matrix.target }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,6 +31,7 @@ jobs:
         with:
           # cargo-deny reads deny.toml next to this manifest.
           manifest-path: apps/desktop/src-tauri/Cargo.toml
+          arguments: --all-features --target ${{ matrix.target }}
 
   npm-audit:
     name: npm advisories

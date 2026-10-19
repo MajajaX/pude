@@ -15,6 +15,8 @@ This file contains the license and notice texts for the locked desktop app runti
 
 - 2026-10-15 v0.1.2 verification: added exact-archive inventory for 30 previously unlisted locked runtime package versions. Every added npm archive matches its lockfile SRI and every added Cargo archive matches Cargo.lock SHA-256; named license files (or exact-commit upstream license files when omitted from an archive) and newly included full texts are hashed below. Existing verified historical rows remain. Current npm runtime inventory: 48 locked package versions. Current normal Cargo closures (excluding pude): 282 macOS arm64 crates and 283 Windows x64 crates.
 
+- 2026-10-19 v0.1.3 preparation: verified the six updated Tauri/updater package archives against Cargo.lock and their named license texts. Codegen and macro packages are recorded as build-time procedural dependencies. Windows uses raw NSIS update executables with ZIP support disabled; macOS and Linux retain tar.gz update support. Historical dependency rows remain for earlier releases.
+
 ## Locked runtime package inventory
 
 | Target | Package and version | Role | Archive license metadata | Exact source archive and lock digest | Original source file(s) and SHA-256 |
@@ -421,6 +423,13 @@ This file contains the license and notice texts for the locked desktop app runti
 | Windows x64 | **windows-registry@0.6.1** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/windows-registry/windows-registry-0.6.1.crate); Cargo.lock SHA-256 02752bf7fbdcce7f2a27a742f798510f3e5ad88dbe84871e5168e2120c3d5720 | license-apache-2.0 → text [c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b](#c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b); SHA-256 c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b<br>license-mit → text [c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383](#c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383); SHA-256 c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383 |
 | macOS arm64 | **xattr@1.6.1** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/xattr/xattr-1.6.1.crate); Cargo.lock SHA-256 32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36](#8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36); SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36 |
 | Windows x64 | **zip@4.6.1** | app runtime | MIT | [archive](https://static.crates.io/crates/zip/zip-4.6.1.crate); Cargo.lock SHA-256 caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1 | LICENSE → text [04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6](#04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6); SHA-256 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6 |
+
+| macOS arm64, Windows x64 | **tauri@2.12.1** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri/tauri-2.12.1.crate); Cargo.lock SHA-256 ed99ee9694a2deb776d91cae48ac7411ddfc89ecae2f9b5041111d8c88f2ace9 | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
+| macOS arm64, Windows x64 | **tauri-codegen@2.7.3** | build-time procedural dependency | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-codegen/tauri-codegen-2.7.3.crate); Cargo.lock SHA-256 a6585c5b536c00f039d12ce70a9755172d5423bbcfd3969863baa70314c3e02f | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
+| macOS arm64, Windows x64 | **tauri-macros@2.7.3** | build-time procedural dependency | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-macros/tauri-macros-2.7.3.crate); Cargo.lock SHA-256 e2e83a0cfa1bae376e8fbbdc0b1692707aed50cd6072ce85cae4789af5d6c19f | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
+| macOS arm64, Windows x64 | **tauri-plugin-updater@2.14.0** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-plugin-updater/tauri-plugin-updater-2.14.0.crate); Cargo.lock SHA-256 7259989d4fe11b2bf51f7d671642249b1837c4ae2da1430dc713ae38f98ceeec | LICENSE.spdx → text [eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef](#eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef); SHA-256 eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef<br>LICENSE_APACHE-2.0 → text [0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9](#0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9); SHA-256 0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9<br>LICENSE_MIT → text [89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607](#89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607); SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607 |
+| macOS arm64, Windows x64 | **tauri-runtime@2.12.2** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-runtime/tauri-runtime-2.12.2.crate); Cargo.lock SHA-256 7c55766d99cea69055904d1735b93c2049302b2e09effd462120deb5581d78e9 | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
+| macOS arm64, Windows x64 | **tauri-runtime-wry@2.12.2** | app runtime | Apache-2.0 OR MIT | [archive](https://static.crates.io/crates/tauri-runtime-wry/tauri-runtime-wry-2.12.2.crate); Cargo.lock SHA-256 8d61892587aea2a85245bcaec98c6fe46268874c0a0deae5535fb71ca7b93eae | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d |
 
 ## Exact source supplements for archive omissions
 
@@ -18022,6 +18031,33 @@ Source: tauri-plugin-single-instance@2.5.0 LICENSE_MIT (exact lock-verified arch
 MIT License
 
 Copyright (c) 2017 - Present The Tauri Programme in the Commons Conservancy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+~~~
+
+<a id="89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607"></a>
+### 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607 — source-byte SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607; LF-normalized fenced-body SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d
+
+~~~
+MIT License
+
+Copyright (c) 2017 - Present Tauri Apps Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
