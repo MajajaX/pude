@@ -1,0 +1,105 @@
+# pude product specification
+
+Implemented behavior for **0.1.3**. Update this specification in the same change as
+a feature or behavior change, together with the changelog, README and applicable
+English and Traditional Chinese website copy. User instructions live at
+[pude.dev/docs](https://pude.dev/docs) and [pude.dev/zh/docs](https://pude.dev/zh/docs).
+Release targets are Windows 11 x64 and macOS 14+ Apple Silicon; Linux has source CI
+coverage and no published installer yet.
+
+## Projects and Explorer
+
+- A window can hold multiple project tabs. Each project retains its open files,
+  unsaved edits, undo history, Git view and running terminals while inactive.
+- Opening a folder reads its top level. Subfolders load on expansion and long
+  trees render visible rows only. File/folder creation, rename, copy paths and
+  native reveal are available from Explorer. Delete uses recoverable system trash.
+- Dot files are visible by default and can be hidden in Settings.
+- Git-ignored names are muted. With **Group ignored** enabled, ignored root items
+  appear in a collapsed group identified by a Git icon, divider and item count.
+  Expanding it exposes the same file operations as other entries; the final row
+  remains fully scrollable. Ignored descendants keep their normal hierarchy.
+- **Group ignored** is a checkbox at the left of the Explorer footer's plugin
+  count. It defaults to on, persists locally across restarts, and shows ignored
+  items among normal entries when off. It does not change `.gitignore` or search
+  filters.
+
+## Project search
+
+- The Explorer toolbar's **Search project** button or **Cmd+Shift+F** on macOS /
+  **Ctrl+Shift+F** on Windows opens search for the active project. Closing it or
+  pressing Escape returns to the file tree.
+- **Text** finds literal text in saved UTF-8 files. **Files** matches a filename
+  or relative path. Both support **Match case**; matching is case insensitive by
+  default. Paths in results use `/`, including on Windows.
+- Git-ignored files are excluded by default. **Include Git ignored files** changes
+  this independently of Explorer grouping. Search includes dot files, always
+  excludes `.git`, and does not follow symlinks. No background index is created.
+- Selecting a text result opens the file at its matching line; selecting a path
+  result opens that file. Unsaved editor buffers are not searched: save first to
+  include current edits. Search has no project-wide replacement or regex mode.
+- Queries run after a short typing delay. Changing a query, closing search or
+  switching projects cancels obsolete work; stale results do not replace new ones.
+- A query is at most 4,096 bytes. Each search is bounded by 300 results, 50,000
+  directory entries, 100 MiB read and eight seconds. Text search skips files over
+  2 MiB, binary/unsupported encodings and unreadable files, with a skipped count.
+  Reaching a limit displays a notice asking for a narrower query.
+
+## Editing and Markdown
+
+- CodeMirror provides syntax highlighting, file-local find/replace, multiple
+  cursors, undo/redo and indentation. File tabs support reorder, pin, Save As and
+  reopening closed tabs.
+- Markdown starts in source mode. The lower-right **Source / Preview** control
+  switches the project's Markdown files to a rendered view. The choice follows
+  Markdown files in that project, including after switching file types or diffs.
+- Preview fills the editor's available width with modest responsive side padding.
+  Body text is legible in both dark and light themes. Switching modes never changes
+  the source text.
+- UTF-8 and UTF-8 with BOM are accepted. Text files are limited to 20 MiB. Above
+  5 MiB, large-file mode disables heavy parsing and Markdown preview while keeping
+  editing and file-local search.
+
+## Integrated terminals
+
+- The panel opens with **Cmd+`** / **Ctrl+`**. A normal new terminal uses the project
+  root; xterm.js and a PTY start only when a terminal first appears.
+- Explorer's **Open in Integrated Terminal** creates a separate terminal tab in
+  the selected folder, or in the parent directory of a selected file. It shows the
+  panel and keeps existing tabs' directories and processes intact. The tab belongs
+  to the originating project even when its starting directory is a subfolder.
+- Hiding the panel or switching projects keeps sessions running. Closing a tab,
+  project or window stops its process tree. Ctrl+C returns to an editable shell;
+  if it terminates the shell, that tab restarts with earlier output retained. An
+  explicit `exit` ends the session.
+- Windows uses `ComSpec`, falling back to PowerShell. Unix uses `SHELL` as a login
+  shell, falling back to `/bin/sh`. A project `.venv`, `venv` or `env` is activated
+  for new terminals when present. Scrollback holds 5,000 lines.
+- Terminals run with the user's account and can access the network and files
+  outside the project. Windows assigns processes to a Job before releasing the
+  shell bootstrap. Linux cleanup requires kernel 5.1+, permitted pidfd signals and
+  readable `/proc`; processes that deliberately leave the session are excluded.
+
+## Saves, Git, plugins and updates
+
+- Saves are atomic, queued per file and preserve LF/CRLF. External changes offer
+  comparison or explicit recovery choices. Local checkpoints recover the last
+  completed snapshot of unsaved work.
+- Git operations use system Git, update from events, and include status, history,
+  diffs, staging, commits, branches, stash, push/pull and worktrees. Destructive
+  operations require explicit confirmation. Full merge/rebase editing is planned.
+- Local plugins use permission-reviewed sandboxed workers. The authoritative
+  permission and API contract is [Plugin API 2](plugin-api-v2.md).
+- Settings, sessions and recovery remain local. There is no account, cloud sync
+  or telemetry. Startup update checks can be disabled. Download and installation
+  require user actions and verify an updater signature. Windows uses the raw NSIS
+  executable; macOS uses the signed/notarized app archive and DMG.
+
+## Validation and documentation
+
+Native checks verify Explorer terminal actions with `pwd` for a folder, nested file
+and root file, and verify the grouping checkbox after restart. Unit, browser and
+native CI cover search, path handling, scrolling, terminal lifecycle and previews.
+All required checks must pass before merge and release. Use the documentation
+checklist in [releasing.md](releasing.md); benchmark claims retain their original
+measured version and date until new measurements replace them.

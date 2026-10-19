@@ -41,12 +41,12 @@ export const PAGE_META = {
   },
   docs: {
     en: {
-      title: "pude Docs — Installation, Git, Shortcuts & Plugins",
-      description: "Install pude on Windows or macOS, review Git changes, edit files, use terminals and keyboard shortcuts, and develop local plugins.",
+      title: "pude Docs — Search, Git, Terminals & Plugins",
+      description: "Install pude on Windows or macOS, search project text and files, review Git changes, preview Markdown, open terminals and develop local plugins.",
     },
     "zh-Hant": {
-      title: "pude 使用文件 — 安裝、Git、快捷鍵與外掛開發",
-      description: "pude 輕量程式碼編輯器使用指南：Windows 與 macOS 安裝、Git 變更檢視、檔案編輯、終端機、鍵盤快捷鍵與本地外掛開發。",
+      title: "pude 使用文件 — 專案搜尋、Git、終端機與外掛開發",
+      description: "pude 輕量程式碼編輯器使用指南：Windows 與 macOS 安裝、專案文字與檔案搜尋、Git 變更檢視、Markdown 預覽、終端機、快捷鍵與本地外掛開發。",
     },
   },
 };

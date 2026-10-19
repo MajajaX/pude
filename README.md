@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://github.com/MajajaX/pude/releases/latest">Download</a> ·
   <a href="docs/plugin-api-v2.md">Plugin API</a> ·
+  <a href="docs/product-spec.md">Product spec</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
@@ -56,13 +57,18 @@ permission).
 - **Project tabs** — open several folders in one window. Each project keeps its own
   files, unsaved edits, undo history, Git view and terminals.
 - **Editor** — CodeMirror 6 with syntax highlighting, find and replace, pinned tabs,
-  Save As and a Markdown source/preview toggle.
+  Save As and a wide, readable Markdown source/preview toggle.
+- **Explorer and project search** — optional Git-ignored grouping, file operations,
+  and on-demand text or file-path search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads
+  saved files, respects Git ignores by default and supports match case.
 - **Safe saves** — atomic writes, preserved LF/CRLF line endings, external change
   detection and crash recovery for unsaved work.
 - **Git** — status, staging, commits, branches, stash, push/pull, a commit graph and
   full-file diffs, using the Git already installed on your system.
 - **Terminals** — multiple on-demand terminal sessions per project that keep running
-  while you switch projects.
+  while you switch projects. Right-click a file or folder in Explorer and choose
+  **Open in Integrated Terminal** to start a new tab in that folder or the file's
+  parent directory.
 - **Plugins** — install local plugins with permission review. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).
@@ -121,7 +127,7 @@ apps/desktop/src/          SolidJS UI, editor and frontend logic
 apps/desktop/src-tauri/    Rust backend: filesystem, Git, terminal, plugins
 apps/web/                  Project website
 examples/plugins/          Example plugins
-docs/                      Plugin API and release guides
+docs/                      Product specification, plugin API and release guides
 scripts/                   Build and release tooling
 ```
 

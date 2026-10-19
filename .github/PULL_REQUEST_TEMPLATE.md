@@ -27,7 +27,11 @@
 
 ## Documentation and release impact
 
-- [ ] I updated relevant documentation, issue templates, or security guidance.
+- [ ] I updated `docs/product-spec.md` and `CHANGELOG.md` for feature or behavior changes.
+- [ ] I synchronized the README and both English and Traditional Chinese website/user guides.
+- [ ] I updated affected shortcuts, settings, limits, permissions, persistence and platform notes.
+- [ ] I reviewed affected screenshots, SEO metadata, and third-party notices.
+- Documentation surfaces not affected (explain why):
 - [ ] I documented any user-visible limitation or platform-specific behavior.
 - [ ] This PR does not require release/signing secrets, or the maintainer-only setup
       is described here:

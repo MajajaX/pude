@@ -61,8 +61,8 @@ export function renderSeoHead(page: Page, locale: Locale): string {
     .replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
   const ogLocale = (value: Locale) => value === "en" ? "en_US" : "zh_TW";
   const imageAlt = locale === "en"
-    ? "The pude editor window with a TypeScript project open"
-    : "pude 編輯器視窗，開啟中的 TypeScript 專案";
+    ? "pude — pure code editor. Fast. Local. Focused. Mint cursor on a dark background."
+    : "pude 純粹的程式碼編輯器：快速、在地、專注。深色背景搭配薄荷綠游標。";
 
   return [
     `<title>${escapeHtml(meta.title)}</title>`,
@@ -76,12 +76,15 @@ export function renderSeoHead(page: Page, locale: Locale): string {
     `<meta property="og:description" content="${escapeHtml(meta.description)}" />`,
     `<meta property="og:url" content="${canonical}" />`,
     `<meta property="og:image" content="${SITE_URL}/og-image.png" />`,
-    `<meta property="og:image:width" content="1200" />`,
-    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:type" content="image/png" />`,
+    `<meta property="og:image:width" content="1280" />`,
+    `<meta property="og:image:height" content="640" />`,
     `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}" />`,
     `<meta property="og:locale" content="${ogLocale(locale)}" />`,
     `<meta property="og:locale:alternate" content="${ogLocale(otherLocale)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${SITE_URL}/og-image.png" />`,
+    `<meta name="twitter:image:alt" content="${escapeHtml(imageAlt)}" />`,
     `<script type="application/ld+json">${json}</script>`,
   ].join("\n    ");
 }

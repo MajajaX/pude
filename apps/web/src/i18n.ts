@@ -55,12 +55,12 @@ const en = {
   showcase: {
     eyebrow: "The tour",
     title: "Take a look. Make an edit.",
-    sub: "Captured from the current build. Keep scrolling to move through them.",
+    sub: "A tour of the native editor. Keep scrolling to move through the views.",
     steps: [
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "A single focused editing surface with tabs, pinning, find and replace, and a file tree that only loads the folders you open.",
+        desc: "Tabs, pinning, find and replace, plus project text and file search. The file tree loads folders on expand, with optional Git-ignored grouping.",
       },
       {
         k: "git",
@@ -75,12 +75,12 @@ const en = {
       {
         k: "terminal",
         title: "Terminals that wait for you",
-        desc: "Add as many terminal tabs as you need. Each one starts its own PTY on first view and keeps running while the panel is hidden.",
+        desc: "Right-click a file or folder to open a terminal in its directory. Each tab starts its own PTY on first view and keeps running while the panel is hidden.",
       },
       {
         k: "markdown",
         title: "Markdown, rendered",
-        desc: "Toggle any Markdown file between source and preview from the status bar. The text itself never changes.",
+        desc: "Switch source and preview from the editor’s lower-right corner. Preview uses the available width with clear text in both themes.",
       },
     ],
   },
@@ -92,7 +92,7 @@ const en = {
       {
         k: "01",
         title: "Lazy by default",
-        desc: "Opening a workspace reads only its top level. Folders load on expand; parsers and terminals load on first use.",
+        desc: "Opening a workspace reads only its top level. Folders load on expand; project search, parsers and terminals load when you use them.",
         meta: "list_dir(\"src/\") · on expand",
       },
       {
@@ -233,6 +233,7 @@ const en = {
       { keys: ["⌘", "O"], label: "Open file" },
       { keys: ["⌘", "K", "⌘", "O"], label: "Open folder" },
       { keys: ["⌘", "F"], label: "Find" },
+      { keys: ["⌘", "⇧", "F"], label: "Search project" },
       { keys: ["⌘", "⌥", "F"], label: "Replace" },
       { keys: ["⌘", "G"], label: "Go to line" },
       { keys: ["⌘", "W"], label: "Close tab" },
@@ -329,12 +330,12 @@ const zhHant: Dict = {
   showcase: {
     eyebrow: "功能導覽",
     title: "看一眼，改幾行。",
-    sub: "畫面擷取自目前的版本。繼續往下捲動，逐一瀏覽。",
+    sub: "原生編輯器功能導覽。繼續往下捲動，逐一瀏覽。",
     steps: [
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "專注的單一編輯區，支援分頁、釘選、尋找與取代；檔案樹只在你展開時載入資料夾。",
+        desc: "支援分頁、釘選、尋找與取代，以及專案文字與檔案搜尋。檔案樹展開時才載入資料夾，也能切換 Git 忽略項目分組。",
       },
       {
         k: "git",
@@ -349,12 +350,12 @@ const zhHant: Dict = {
       {
         k: "terminal",
         title: "等你開口的終端機",
-        desc: "需要幾個終端機分頁就開幾個。每個分頁首次顯示時才啟動自己的 PTY，面板隱藏時仍持續執行。",
+        desc: "對檔案或資料夾按右鍵，即可在所在目錄開啟終端機。每個分頁首次顯示時才啟動自己的 PTY，面板隱藏時仍持續執行。",
       },
       {
         k: "markdown",
         title: "Markdown，即時渲染",
-        desc: "從狀態列切換原始碼與預覽，檔案文字本身不會被更動。",
+        desc: "從編輯器右下角切換原始碼與預覽。預覽充分使用可用寬度，深淺主題的內文都清晰易讀。",
       },
     ],
   },
@@ -366,7 +367,7 @@ const zhHant: Dict = {
       {
         k: "01",
         title: "預設延遲載入",
-        desc: "開啟工作區只讀取最上層；展開時才載入資料夾，第一次使用時才載入解析器與終端機。",
+        desc: "開啟工作區只讀取最上層；展開時才載入資料夾，專案搜尋、解析器與終端機都在使用時才載入。",
         meta: "list_dir(\"src/\") · on expand",
       },
       {
@@ -507,6 +508,7 @@ const zhHant: Dict = {
       { keys: ["⌘", "O"], label: "開啟檔案" },
       { keys: ["⌘", "K", "⌘", "O"], label: "開啟資料夾" },
       { keys: ["⌘", "F"], label: "尋找" },
+      { keys: ["⌘", "⇧", "F"], label: "專案搜尋" },
       { keys: ["⌘", "⌥", "F"], label: "取代" },
       { keys: ["⌘", "G"], label: "跳至行號" },
       { keys: ["⌘", "W"], label: "關閉分頁" },

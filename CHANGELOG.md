@@ -4,6 +4,39 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-19
+
+### Added
+
+- Project text and file-path search from the Explorer toolbar or `⌘⇧F` /
+  `Ctrl+Shift+F`, with match case, optional Git-ignored files and results that open
+  at the matching line. Search reads saved files on demand without an index.
+- **Open in Integrated Terminal** in Explorer context menus. Folders open a new
+  terminal tab in that directory; files use their parent directory.
+- A persistent **Group ignored** checkbox beside the Explorer footer's plugin
+  count, enabled by default.
+
+### Changed
+
+- Git-ignored groups use a Git icon, divider and item count to distinguish them
+  from folders.
+- Markdown preview uses more of the available width, smaller side margins and
+  clearer body text in both themes.
+- Updated Tauri to 2.12.1 and the updater to 2.14.0. Windows updates use the signed
+  raw NSIS payload without the unused legacy ZIP extractor; Rust dependency checks
+  verify advisories, licenses and sources for each supported CI platform.
+- Updated the website's English and Traditional Chinese feature descriptions,
+  guides, shortcuts and social preview assets. Added a product specification and
+  required documentation updates alongside future feature changes.
+
+### Fixed
+
+- The last file in an expanded Git-ignored group is no longer clipped by the
+  Explorer's scroll padding.
+- Project search accepts slash-separated file paths on Windows.
+- The Windows terminal bootstrap test uses a deterministic subprocess fixture,
+  while retaining native shell and process-tree cleanup coverage.
+
 ## [0.1.2] - 2026-10-15
 
 ### Changed

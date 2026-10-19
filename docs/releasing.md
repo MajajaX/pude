@@ -52,6 +52,19 @@ which turns on `createUpdaterArtifacts`; ordinary `tauri:build` runs do not need
 
 ## 1. Prepare the version
 
+Before versioning, review every user-visible change since the previous release:
+
+- Update [the product specification](product-spec.md) and the matching changelog
+  entry with implemented behavior and any limitations.
+- Synchronize the README, English and Traditional Chinese homepage and user guides,
+  including entry points, shortcuts, settings, permissions, persistence and OS notes.
+- Check affected screenshots, SEO/social metadata and asset provenance. Preserve
+  the original version/date of historical benchmark measurements.
+- Record any unaffected documentation surface and its reason in the PR. Review
+  both website languages and relevant desktop/mobile layouts; run `npm run check`.
+- Confirm the release commit's CI and security checks pass on macOS, Windows and
+  Linux before tagging. Do not bypass a failed check to publish.
+
 ```bash
 npm run release:version:sync -- 0.1.0
 npm ci

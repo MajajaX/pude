@@ -122,6 +122,20 @@ Follow the surrounding code rather than introducing a new framework or abstracti
 
 ## Issues and pull requests
 
+Every feature or user-visible behavior change must update its documentation in the
+same pull request. Start with [the product specification](docs/product-spec.md) and
+[CHANGELOG.md](CHANGELOG.md), then update the README and the English and Traditional
+Chinese website and user guides (`apps/web/src/i18n.ts`, `i18n-docs.ts`). Document
+the actual entry points, shortcuts, settings, limits, permissions, persistence and
+platform differences. Refresh screenshots and SEO metadata when they are affected.
+List the updated surfaces in the PR; explain any surface that does not need a change.
+Preserve the version and date of historical benchmark measurements.
+
+Run `npm run check` after website changes; review both languages and the relevant
+desktop/mobile layouts. Before a release, use the documentation checklist in
+[docs/releasing.md](docs/releasing.md). Documentation must describe implemented,
+verified behavior rather than a planned feature.
+
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). How
 decisions are made and who can merge is described in [GOVERNANCE.md](GOVERNANCE.md).
 

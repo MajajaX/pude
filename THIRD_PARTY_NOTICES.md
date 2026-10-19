@@ -16,7 +16,7 @@
 
 - 2026-10-15 v0.1.2：已核對本次更新後的直接依賴版本，並補入目前 macOS／Windows runtime 閉包中尚未列出的 30 個套件版本之精確 archive、lock digest 與授權原文雜湊；歷史版本記錄保留於完整授權清冊。
 
-- 2026-10-19 v0.1.3：Tauri 更新為 2.12.1、updater 更新為 2.14.0；六個更新套件的精確 archive checksum 與授權文件已核對並記錄於完整清冊。Windows 只使用既有的原始 NSIS EXE 更新格式並關閉 ZIP 支援；macOS 與 Linux 保留 tar.gz。安全檢查逐平台解析實際 feature 與依賴，未加入 advisory 忽略規則。
+- 2026-10-19 v0.1.3：Tauri 更新為 2.12.1、updater 更新為 2.14.0；六個更新套件的精確 archive checksum 與授權文件已核對並記錄於完整清冊。Windows 只使用既有的原始 NSIS EXE 更新格式並關閉 ZIP 支援；macOS 與 Linux 保留 tar.gz。安全檢查逐平台解析實際 feature 與依賴，未加入 advisory 忽略規則。網站 OG 與 GitHub social preview 換用相同的 1280x640 品牌圖，產製提示存於 [`docs/github-social-preview.prompt.txt`](./docs/github-social-preview.prompt.txt)，檔案雜湊與散布範圍記錄於下表。
 
 ## JavaScript／npm
 
@@ -76,7 +76,7 @@
 
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.0) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.1) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
@@ -115,7 +115,7 @@
 
 維護者確認下表目前的圖像素材由維護者自行製作或 AI 生成，並授權 MajajaX 依專案 [`MIT LICENSE`](./LICENSE) 散布。此聲明涵蓋下表所列檔案。未提供逐項作者、生成工具、外部原始來源 URL 或素材產製日期，因此本紀錄不填寫或推定這些資訊。
 
-清冊包含 `apps/desktop/icon-src` 50 個來源圖示、`apps/desktop/public` 3 個圖像檔案、`apps/web/public` 11 個圖像檔案及 `apps/desktop/src-tauri/icons` 53 個檔案。PNG／WebP 尺寸取自檔案標頭，ICO／ICNS 列出容器中的尺寸，SHA-256 覆蓋原始檔 bytes。Android XML launcher 檔列入清冊供完整盤點，尺寸不適用。
+清冊包含 `apps/desktop/icon-src` 50 個來源圖示、`apps/desktop/public` 3 個圖像檔案、`apps/web/public` 11 個圖像檔案、`docs` 1 個 social preview 圖像及 `apps/desktop/src-tauri/icons` 53 個檔案。PNG／WebP 尺寸取自檔案標頭，ICO／ICNS 列出容器中的尺寸，SHA-256 覆蓋原始檔 bytes。Android XML launcher 檔列入清冊供完整盤點，尺寸不適用。
 
 兩個 Vite `public` 目錄的檔案會複製到各自 frontend dist；desktop frontend 隨 Tauri app 封裝。`apps/desktop/icon-src` 保留原始 PNG 圖示，不隨 frontend 散布；`scripts/convert-icons.py` 將相同圖像縮為 32x32 cells，產生 `apps/desktop/public/icons/sprite.webp`。Sprite 僅調整尺寸、排列及格式，沿用這 50 個來源圖示的權利聲明。Tauri 目前明列 `32x32.png`、`128x128.png`、`128x128@2x.png`、`icon.icns` 與 `icon.ico` 作為 bundle icon 輸入。Tauri icon 資料夾中其餘項目未列於目前 `tauri.conf.json` 的 `bundle.icon`，不代表當前 Windows／macOS bundle 輸入。
 
@@ -227,7 +227,8 @@
 | `apps/desktop/src-tauri/icons/Square71x71Logo.png` | 71x71 px | `322c6df603675f26e3c54e89cbccf1d3e50a1f4f1505bac91f4b71705bd5e998` | Source repository only; not in tauri.conf.json bundle.icon. |
 | `apps/desktop/src-tauri/icons/Square89x89Logo.png` | 89x89 px | `b2c04105351fa022b5fdf1abbafce02dd5ba8299daab491189b3f8394c2cbbad` | Source repository only; not in tauri.conf.json bundle.icon. |
 | `apps/desktop/src-tauri/icons/StoreLogo.png` | 50x50 px | `97c504eefdb4c9ae182aff6ab012c8454f8fb1880cedcb099ad777c21bab3ff2` | Source repository only; not in tauri.conf.json bundle.icon. |
-| `apps/web/public/og-image.png` | 1200x630 px | `3b8dfbc86a556c759b5847955ab3ef7b2ef931ad165b8808753b8fd0b945eef2` | Website dist (Vite public); social preview image composed from the pude logo and `shots/editor.webp` source capture. |
+| `apps/web/public/og-image.png` | 1280x640 px | `9cd4f107797a18fd44e23e3779c67b2e6a4228805f95945e071ffa501bdc73b6` | Website dist (Vite public); same brand artwork as `docs/github-social-preview.png`, with the production brief in `docs/github-social-preview.prompt.txt`. |
+| `docs/github-social-preview.png` | 1280x640 px | `9cd4f107797a18fd44e23e3779c67b2e6a4228805f95945e071ffa501bdc73b6` | Repository social preview source; identical to the website OG image. |
 | `apps/web/public/pude-app-icon.png` | 128x128 px | `4430d99287845538df9c6d34414de037502e2fff10b570c290489266254faefb` | Website dist (Vite public). |
 | `apps/web/public/pude-favicon.png` | 128x128 px | `4430d99287845538df9c6d34414de037502e2fff10b570c290489266254faefb` | Website dist (Vite public). |
 | `apps/web/public/pude-favicon.webp` | 64x128 px | `eacb594b8934317d3ad92705f3e1e49e8eeb78b1dd44437a6e070afe5f36203d` | Website dist (Vite public). |
