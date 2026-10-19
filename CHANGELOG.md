@@ -4,6 +4,13 @@ All notable changes to `pude` are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Release artifact collection excludes CI diagnostics retained from earlier failed
+  attempts of the same workflow run.
+
 ## [0.1.3] - 2026-10-19
 
 ### Added
