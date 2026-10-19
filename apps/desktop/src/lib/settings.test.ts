@@ -17,11 +17,18 @@ describe("settings validation", () => {
       wordWrap: true,
       sidebarWidth: 276,
       watcherExcludes: [],
+      groupGitIgnoredFiles: true,
     });
   });
 
   it("normalizes watcher excludes from stored and editable values", () => {
     expect(parseWatcherExcludes(" node_modules, dist\n.cache, node_modules ")).toEqual(["node_modules", "dist", ".cache"]);
     expect(validateSettings({ watcherExcludes: ["dist", "", 4, "dist", "x".repeat(513)] }, defaultSettings).watcherExcludes).toEqual(["dist"]);
+  });
+
+  it("preserves the ignored grouping preference and migrates older settings", () => {
+    expect(validateSettings({ groupGitIgnoredFiles: false }, defaultSettings).groupGitIgnoredFiles).toBe(false);
+    expect(validateSettings({ groupGitIgnoredFiles: "false" }, defaultSettings).groupGitIgnoredFiles).toBe(true);
+    expect(validateSettings({}, defaultSettings).groupGitIgnoredFiles).toBe(true);
   });
 });

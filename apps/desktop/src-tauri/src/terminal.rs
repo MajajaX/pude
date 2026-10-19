@@ -434,6 +434,7 @@ struct TerminalProcessTree {
 #[tauri::command]
 pub(crate) async fn terminal_start(
     workspace: String,
+    working_directory: Option<String>,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -453,6 +454,7 @@ pub(crate) async fn terminal_start(
             let _admission = admission;
             terminal_start_sync(
                 workspace,
+                working_directory,
                 rows,
                 cols,
                 events,
@@ -469,6 +471,7 @@ pub(crate) async fn terminal_start(
 
 fn terminal_start_sync(
     workspace: String,
+    working_directory: Option<String>,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -481,7 +484,8 @@ fn terminal_start_sync(
     if rows == 0 || cols == 0 {
         return Err("Terminal size must be greater than zero.".to_string());
     }
-    let working_directory = terminal_working_directory(&workspace)?;
+    let working_directory =
+        terminal_working_directory(working_directory.as_deref().unwrap_or(&workspace))?;
     if cancellation.load(Ordering::Acquire) {
         return Err("The terminal window has closed.".to_string());
     }

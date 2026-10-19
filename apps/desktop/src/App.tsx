@@ -1,4 +1,6 @@
 import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount } from "solid-js";
+import type { TerminalOpenRequest } from "./components/TerminalPane";
+import type { ProjectSearchMatch } from "./lib/project-search";
 import type { EditorDocumentChange, EditorSettings, GoToLineRequest, SearchRequest } from "./components/EditorPane";
 import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
 import { SidebarTabs, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID } from "./components/SidebarTabs";
@@ -118,6 +120,8 @@ const LazyEditorPane = lazy(async () => {
   const module = await getEditorChunk();
   return { default: module.EditorPane };
 });
+const LazyProjectSearch = lazy(async () => ({ default: (await import("./components/ProjectSearch")).ProjectSearch }));
+const LazyFileContextMenu = lazy(async () => ({ default: (await import("./components/FileContextMenu")).FileContextMenu }));
 const LazyExplorer = lazy(async () => ({ default: (await import("./components/Explorer")).Explorer }));
 const LazyRecentProjectsList = lazy(async () => ({ default: (await import("./components/RecentProjectsList")).RecentProjectsList }));
 // MS-01: these milestones can only be reported once per window.
@@ -210,6 +214,9 @@ export default function App() {
   const [gitHistoryIncomplete, setGitHistoryIncomplete] = createSignal<string>();
   const [diffContextLoading, setDiffContextLoading] = createSignal(false);
   const [sidebarView, setSidebarView] = createSignal<"explorer" | "git">("explorer");
+  const [projectSearchOpen, setProjectSearchOpen] = createSignal(false);
+  const [terminalOpenRequests, setTerminalOpenRequests] = createSignal<Record<string, TerminalOpenRequest>>({});
+  let terminalOpenRequestId = 0;
   const [terminalOpen, setTerminalOpen] = createSignal(false);
   const [terminalInitialized, setTerminalInitialized] = createSignal(false);
   const hideTerminal = () => {
@@ -2583,6 +2590,36 @@ export default function App() {
     }
   };
 
+  const openInIntegratedTerminal = (entry: DirectoryEntry) => {
+    closeFileMenu();
+    const projectId = activeProjectId();
+    if (!projectId || !hydrated()) return;
+    const directory = entry.kind === "directory" ? entry.path : parentPath(entry.path);
+    setTerminalOpenRequests((requests) => ({ ...requests, [projectId]: { id: ++terminalOpenRequestId, directory } }));
+    setTerminalInitialized(true);
+    setTerminalOpen(true);
+  };
+
+  const openProjectSearchResult = async (match: ProjectSearchMatch) => {
+    const generation = workspaceGeneration;
+    if (confirmedOperationInProgress() || appQuitPrepared()) return;
+    if (isImagePath(match.path)) {
+      openImageFile(match.path);
+      return;
+    }
+    try {
+      const file = await readFileForEditor(match.path);
+      if (generation !== workspaceGeneration || confirmedOperationInProgress() || appQuitPrepared()) return;
+      openReadFile(file);
+      if (match.line) {
+        setMarkdownPreviewEnabled(false);
+        setGoToLine({ line: match.line, actionId: Date.now() });
+      }
+    } catch (error) {
+      if (generation === workspaceGeneration) notify(errorMessage(error, "Unable to open search result."));
+    }
+  };
+
   const copyEntryPath = async (entry: DirectoryEntry, relative: boolean) => {
     closeFileMenu();
     const relativePath = relativePathWithinRoot(entry.path, workspace());
@@ -4531,6 +4568,14 @@ export default function App() {
       setCommandPaletteOpen(true);
       return;
     }
+    if (modifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === "f" && workspace()) {
+      event.preventDefault();
+      openFolderChord = null;
+      setSidebarView("explorer");
+      setProjectSearchOpen(true);
+      queueMicrotask(() => document.querySelector<HTMLInputElement>(".project-search-input input")?.focus());
+      return;
+    }
     if (historyViewActive() && modifier && !event.altKey) {
       const historyKey = event.key.toLowerCase();
       if (historyKey === "w" || historyKey === "s" || historyKey === "f" || historyKey === "h" || historyKey === "g") {
@@ -4762,7 +4807,7 @@ export default function App() {
 
       <div class="main-layout" id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
         <aside class="sidebar">
-           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /><Show when={sidebarView() === "explorer" && workspace()}><div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></Show></div>
+           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /><Show when={sidebarView() === "explorer" && workspace()}><div class="sidebar-create-actions"><button class="icon-button" classList={{ "sidebar-search-active": projectSearchOpen() }} onClick={() => setProjectSearchOpen((open) => !open)} title="Search project (Ctrl/Cmd+Shift+F)" aria-label="Search project" aria-pressed={projectSearchOpen()}><Icon name="search" size={14} /></button><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></Show></div>
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
                <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={
@@ -4774,18 +4819,24 @@ export default function App() {
                  </Show>
                  </div>
                }>
+                 <Show when={projectSearchOpen()} fallback={
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label="Loading workspace files" />}>
-                     <LazyExplorer ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
+                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
                    </Suspense>
                  </div>
+                 }>
+                   <Suspense fallback={<div aria-busy="true" aria-label="Loading project search" />}>
+                     <LazyProjectSearch workspace={workspace()} onOpen={openProjectSearchResult} onClose={() => { setProjectSearchOpen(false); queueMicrotask(() => document.querySelector<HTMLButtonElement>('.sidebar-create-actions [aria-label="Search project"]')?.focus()); }} />
+                   </Suspense>
+                 </Show>
                </Show>
              </Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_GIT_PANEL_ID} aria-labelledby={SIDEBAR_GIT_TAB_ID} hidden={sidebarView() !== "git"}>
              <Show when={sidebarView() === "git"}><LazyGitPanel status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(`Created worktree ${result.branch}; opened ${result.path} in a new window.`))} /></Show>
            </div>
-            <div class="sidebar-footer"><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? "plugin" : "plugins"}</button></div>
+            <div class="sidebar-footer"><Show when={sidebarView() === "explorer" && workspace()}><label class="sidebar-ignored-toggle" title="Group Git ignored files in Explorer"><input type="checkbox" aria-label="Group Git ignored files" checked={settings().groupGitIgnoredFiles} onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })} />Group ignored</label></Show><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? "plugin" : "plugins"}</button></div>
          </aside>
          <div class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-valuemin="215" aria-valuemax="520" aria-valuenow={settings().sidebarWidth} aria-label="Resize sidebar" onPointerDown={startSidebarResize} onKeyDown={nudgeSidebarWidth} tabIndex={0} />
 
@@ -4802,7 +4853,10 @@ export default function App() {
             </div>
           </div>
            <Show when={tabMenu()}>{(menu) => <div class="tab-context-menu" style={{ left: `${menu().x}px`, top: `${menu().y}px` }} onClick={(event) => event.stopPropagation()}><button onClick={() => toggleTabPinned(menu().id)}><Icon name="lock" size={13} /> {tabById[menu().id]?.pinned ? "Unpin" : "Pin"}</button><Show when={tabById[menu().id]?.language !== "Image"}><button onClick={() => { const target = tabById[menu().id]; closeTabMenu(); if (target) void saveTabAs(target); }}><Icon name="save" size={13} /> Save As…</button></Show><button onClick={() => { void closeTab(menu().id); closeTabMenu(); }}><Icon name="close" size={13} /> Close</button><button onClick={() => { void closeOthers(menu().id); closeTabMenu(); }}><Icon name="split" size={13} /> Close others</button><button onClick={() => { void closeToRight(menu().id); closeTabMenu(); }}><Icon name="arrow-down" size={13} /> Close to right</button></div>}</Show>
-           <Show when={fileMenu()}>{(menu) => <div class="file-context-menu" style={{ left: `${menu().x}px`, top: `${menu().y}px` }} onClick={(event) => event.stopPropagation()}><Show when={menu().entry.kind === "directory"}><button onClick={() => { const entry = menu().entry; closeFileMenu(); void contextAction("new-file", entry); }}><Icon name="plus" size={13} /> New file</button><button onClick={() => { const entry = menu().entry; closeFileMenu(); void contextAction("new-folder", entry); }}><Icon name="folder" size={13} /> New folder</button></Show><button onClick={() => void copyEntryPath(menu().entry, false)}><Icon name="copy" size={13} /> Copy Path</button><Show when={workspace() && relativePathWithinRoot(menu().entry.path, workspace()) !== null}><button onClick={() => void copyEntryPath(menu().entry, true)}><Icon name="copy" size={13} /> Copy Relative Path</button></Show><button onClick={() => void openInFileExplorer(menu().entry)}><Icon name="external" size={13} /> {isMacPlatform() ? "Reveal in Finder" : "Open in File Explorer"}</button><button onClick={() => { const entry = menu().entry; closeFileMenu(); void contextAction("rename", entry); }}><Icon name="file" size={13} /> Rename</button><button onClick={() => { const entry = menu().entry; closeFileMenu(); void contextAction("delete", entry); }}><Icon name="trash" size={13} /> Delete</button></div>}</Show>
+           <Show when={fileMenu()}>{(menu) => <LazyFileContextMenu entry={menu().entry} x={menu().x} y={menu().y}
+             showRelativePath={Boolean(workspace() && relativePathWithinRoot(menu().entry.path, workspace()) !== null)} revealLabel={isMacPlatform() ? "Reveal in Finder" : "Open in File Explorer"}
+             onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
+             onCopyPath={(relative) => void copyEntryPath(menu().entry, relative)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">
               <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind("find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder="Find in file" aria-label="Find in file" /><Show when={search().query}><span class="find-count">local</span></Show></div>
@@ -4833,7 +4887,7 @@ export default function App() {
              const project = () => projects().find((item) => item.id === id)!;
              const selected = () => activeProjectId() === id;
              return <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
-               <LazyTerminalPane workspace={project().workspace} height={settings().terminalHeight} visible={selected() && terminalOpen()} onHide={hideTerminal} onClose={hideTerminal} />
+               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={project().workspace} height={settings().terminalHeight} visible={selected() && terminalOpen()} onHide={hideTerminal} onClose={hideTerminal} />
              </Show>;
            }}</For>
         </main>

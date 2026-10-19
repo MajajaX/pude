@@ -11,19 +11,27 @@ import { registerActivePluginTerminal } from "../lib/plugin-terminal";
 import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt } from "../lib/terminal-vt";
 import { TerminalInterruptRecovery, type TerminalExitPayload } from "../lib/terminal-interrupt";
 
-type TerminalTab = { id: number; label: string };
+type TerminalTab = { id: number; label: string; directory?: string };
+export type TerminalOpenRequest = { id: number; directory: string };
 
 type EarlyOutputChunk = { seq: number; generation: number; data: string; bytes: number };
 
-export function TerminalPane(props: { workspace: string; height: number; visible: boolean; onHide: () => void; onClose: () => void }) {
-  const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: "Terminal 1" }]);
+export function TerminalPane(props: { workspace: string; height: number; visible: boolean; openRequest?: TerminalOpenRequest; onHide: () => void; onClose: () => void }) {
+  const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: "Terminal 1", directory: props.openRequest?.directory }]);
   const [activeTabId, setActiveTabId] = createSignal(1);
+  let lastOpenRequestId = props.openRequest?.id;
   let nextTabId = 2;
-  const addTab = () => {
+  const addTab = (directory?: string) => {
     const id = nextTabId++;
-    setTabs((current) => [...current, { id, label: `Terminal ${id}` }]);
+    setTabs((current) => [...current, { id, label: `Terminal ${id}`, directory }]);
     setActiveTabId(id);
   };
+  createEffect(() => {
+    const request = props.openRequest;
+    if (!request || request.id === lastOpenRequestId) return;
+    lastOpenRequestId = request.id;
+    addTab(request.directory);
+  });
   const closeTab = (id: number) => {
     const current = tabs();
     const index = current.findIndex((tab) => tab.id === id);
@@ -49,7 +57,7 @@ export function TerminalPane(props: { workspace: string; height: number; visible
             <button type="button" role="tab" aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)}><Icon name="terminal" size={13} />{tab.label}</button>
             <button type="button" class="terminal-tab-close" title={`Kill ${tab.label}`} aria-label={`Kill ${tab.label}`} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
           </div>}</For>
-          <button class="icon-button terminal-add-tab" type="button" title="New terminal" aria-label="New terminal" onClick={addTab}><Icon name="plus" size={14} /></button>
+          <button class="icon-button terminal-add-tab" type="button" title="New terminal" aria-label="New terminal" onClick={() => addTab()}><Icon name="plus" size={14} /></button>
         </div>
         <div class="terminal-toolbar-actions">
           <button class="icon-button" type="button" title="Hide terminal" aria-label="Hide terminal" onClick={props.onHide}><Icon name="chevron-down" size={14} /></button>
@@ -58,13 +66,13 @@ export function TerminalPane(props: { workspace: string; height: number; visible
       </div>
       <For each={tabs()}>{(tab) => {
         const visible = createMemo(() => props.visible && activeTabId() === tab.id);
-        return <TerminalSession workspace={props.workspace} visible={visible()} />;
+        return <TerminalSession workspace={props.workspace} workingDirectory={tab.directory} visible={visible()} />;
       }}</For>
     </section>
   );
 }
 
-function TerminalSession(props: { workspace: string; visible: boolean }) {
+function TerminalSession(props: { workspace: string; workingDirectory?: string; visible: boolean }) {
   const [sessionId, setSessionId] = createSignal<string>();
   const [sessionEnded, setSessionEnded] = createSignal(isTauri);
   let hostRef!: HTMLDivElement;
@@ -98,7 +106,7 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
   const lifecycle = new TerminalLifecycle({
     // Every start creates a fresh per-session output channel via
     // `startTerminal`, so a restart automatically rebinds the stream.
-    start: (workspace) => startTerminal(workspace, terminal?.rows ?? 24, terminal?.cols ?? 80, handleOutputPayload),
+    start: (workspace) => startTerminal(workspace, terminal?.rows ?? 24, terminal?.cols ?? 80, handleOutputPayload, props.workingDirectory),
     stop: killTerminal,
   });
 
@@ -250,7 +258,7 @@ function TerminalSession(props: { workspace: string; visible: boolean }) {
     if (!trimmed) return [];
     if (trimmed === "clear") return [];
     if (trimmed === "help") return ["help  clear  pwd  git status"];
-    if (trimmed === "pwd") return [props.workspace];
+    if (trimmed === "pwd") return [props.workingDirectory ?? props.workspace];
     if (trimmed === "git status") return ["On branch main", "Changes not staged for commit: src/main.ts"];
     return [`browser demo: ${trimmed}`];
   };

@@ -19,6 +19,8 @@
     "allow-save-file-dialog",
     "allow-open-new-window",
     "allow-list-directory",
+    "allow-search-project",
+    "allow-cancel-project-search",
     "allow-read-file",
     "allow-read-workspace-image",
     "allow-path-exists",
