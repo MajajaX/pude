@@ -73,6 +73,7 @@ export function TerminalPane(props: { workspace: string; height: number; visible
 }
 
 function TerminalSession(props: { workspace: string; workingDirectory?: string; visible: boolean }) {
+  const sessionWorkspace = createMemo(() => props.workspace);
   const [sessionId, setSessionId] = createSignal<string>();
   const [sessionEnded, setSessionEnded] = createSignal(isTauri);
   let hostRef!: HTMLDivElement;
@@ -453,7 +454,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     })();
   });
 
-  createEffect(on(() => props.workspace, (workspace) => {
+  createEffect(on(sessionWorkspace, (workspace) => {
     if (!paneInitialized) return;
     startupVersion += 1;
     shouldRun = true;

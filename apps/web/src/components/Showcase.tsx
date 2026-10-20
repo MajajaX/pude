@@ -47,7 +47,7 @@ export default function Showcase() {
               <For each={t().showcase.steps}>
                 {(step, i) => (
                   <picture>
-                    <source media="(max-width: 920px)" srcset="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1708' height='979'/%3E" />
+                    <source media="(max-width: 920px)" srcset="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1708'%20height='979'/%3E" />
                     <img
                       src={`/shots/${step.k}.webp`}
                       alt=""

@@ -5,7 +5,7 @@ import { errorMessage } from "../lib/core";
 import type { ProjectSearchMatch, ProjectSearchOptions, ProjectSearchResults } from "../lib/project-search";
 import "../styles/project-search.css";
 
-export function ProjectSearch(props: { workspace: string; onOpen: (match: ProjectSearchMatch) => Promise<void>; onClose: () => void }) {
+export function ProjectSearch(props: { workspace: string; onOpen: (match: ProjectSearchMatch, options: ProjectSearchOptions) => Promise<void>; onClose: () => void }) {
   const [query, setQuery] = createSignal("");
   const [mode, setMode] = createSignal<ProjectSearchOptions["mode"]>("content");
   const [caseSensitive, setCaseSensitive] = createSignal(false);
@@ -48,12 +48,11 @@ export function ProjectSearch(props: { workspace: string; onOpen: (match: Projec
   const openResult = async (match: ProjectSearchMatch) => {
     if (opening()) return;
     setOpening(true);
-    try { await props.onOpen(match); }
+    try { await props.onOpen(match, { query: query(), mode: mode(), caseSensitive: caseSensitive(), includeIgnored: includeIgnored() }); }
     finally { setOpening(false); }
   };
 
   return <section class="project-search" aria-label="Search project">
-    <div class="project-search-heading"><span>SEARCH PROJECT</span><button class="icon-button" type="button" aria-label="Close project search" title="Back to files" onClick={props.onClose}><Icon name="close" size={13} /></button></div>
     <div class="project-search-controls">
       <div class="project-search-modes" role="group" aria-label="Search type">
         <button type="button" aria-pressed={mode() === "content"} onClick={() => setMode("content")}>Text</button>
@@ -61,7 +60,7 @@ export function ProjectSearch(props: { workspace: string; onOpen: (match: Projec
       </div>
       <div class="project-search-input">
         <Icon name="search" size={13} />
-        <input ref={input} value={query()} aria-label={mode() === "content" ? "Search project text" : "Search project files"} placeholder={mode() === "content" ? "Find text in project…" : "Find files by name or path…"} autocorrect="off" autocapitalize="off" spellcheck={false}
+        <input ref={input} value={query()} disabled={!props.workspace} aria-label={mode() === "content" ? "Search project text" : "Search project files"} placeholder={mode() === "content" ? "Find text in project…" : "Find files by name or path…"} autocorrect="off" autocapitalize="off" spellcheck={false}
           onInput={(event) => setQuery(event.currentTarget.value)} onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
           onKeyDown={(event) => { if (event.key === "Escape" && !event.isComposing) { event.preventDefault(); props.onClose(); } }} />
         <button type="button" aria-label="Match case" title="Match case" aria-pressed={caseSensitive()} onClick={() => setCaseSensitive((value) => !value)}>Aa</button>
@@ -69,7 +68,7 @@ export function ProjectSearch(props: { workspace: string; onOpen: (match: Projec
       <label class="project-search-ignored"><input type="checkbox" checked={includeIgnored()} onChange={(event) => setIncludeIgnored(event.currentTarget.checked)} />Include Git ignored files</label>
     </div>
     <div class="project-search-status" role="status">
-      <Show when={busy()} fallback={<Show when={error()} fallback={<Show when={results()} fallback="Search across files in this project.">{(result) => <>{result().matches.length}{result().truncated ? "+" : ""} {result().matches.length === 1 && !result().truncated ? "result" : "results"}{result().skippedFiles ? ` · ${result().skippedFiles} skipped` : ""}</>}</Show>}>{error()}</Show>}>Searching…</Show>
+      <Show when={busy()} fallback={<Show when={error()} fallback={<Show when={results()} fallback={props.workspace ? "Search across files in this project." : "Open a folder to search its files."}>{(result) => <>{result().matches.length}{result().truncated ? "+" : ""} {result().matches.length === 1 && !result().truncated ? "result" : "results"}{result().skippedFiles ? ` · ${result().skippedFiles} skipped` : ""}</>}</Show>}>{error()}</Show>}>Searching…</Show>
     </div>
     <Show when={results()?.truncated}><p class="project-search-notice">Search limit reached. Narrow your query to see more results.</p></Show>
     <Show when={results()?.skippedFiles}><p class="project-search-notice">Skipped binary, unsupported, unreadable, or large files (over 2 MiB).</p></Show>

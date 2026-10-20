@@ -56,11 +56,12 @@ permission).
 
 - **Project tabs** — open several folders in one window. Each project keeps its own
   files, unsaved edits, undo history, Git view and terminals.
-- **Editor** — CodeMirror 6 with syntax highlighting, find and replace, pinned tabs,
+- **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
   Save As and a wide, readable Markdown source/preview toggle.
-- **Explorer and project search** — optional Git-ignored grouping, file operations,
-  and on-demand text or file-path search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads
-  saved files, respects Git ignores by default and supports match case.
+- **Explorer and project search** — **EXPLORER / GIT / SEARCH** sidebar tabs,
+  optional Git-ignored grouping, file operations and on-demand text or file-path
+  search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
+  by default and supports match case. Text results center and highlight the match.
 - **Safe saves** — atomic writes, preserved LF/CRLF line endings, external change
   detection and crash recovery for unsaved work.
 - **Git** — status, staging, commits, branches, stash, push/pull, a commit graph and
@@ -69,6 +70,8 @@ permission).
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
   parent directory.
+  Ctrl+C returns to an editable prompt, automatically recovering the shell in the
+  same tab if needed while preserving earlier output. Typing `exit` ends the session.
 - **Plugins** — install local plugins with permission review. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).
@@ -87,8 +90,10 @@ Download the installer for your platform from
 | Windows 11 x64 | [`pude-windows-x64-setup.exe`](https://github.com/MajajaX/pude/releases/latest/download/pude-windows-x64-setup.exe) (unsigned) |
 
 Each release includes `SHA256SUMS.txt` so you can verify your download. pude never
-installs an update by itself; to update, use **Download update** and **Restart and
-update** in the About dialog, or install the newer version manually.
+installs an update by itself. When an update is available, click **Update [version]**
+beside the branch name at the lower left to download it, then **Restart and update**.
+The About dialog also provides update controls and release notes, or install the
+newer version manually.
 Linux builds are planned — until then you can [build from source](#build-from-source).
 
 The [website download section](https://pude.dev/#download) recommends an installer

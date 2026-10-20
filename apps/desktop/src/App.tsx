@@ -1,9 +1,9 @@
 import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount } from "solid-js";
 import type { TerminalOpenRequest } from "./components/TerminalPane";
-import type { ProjectSearchMatch } from "./lib/project-search";
+import type { ProjectSearchMatch, ProjectSearchOptions } from "./lib/project-search";
 import type { EditorDocumentChange, EditorSettings, GoToLineRequest, SearchRequest } from "./components/EditorPane";
 import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
-import { SidebarTabs, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID } from "./components/SidebarTabs";
+import { SidebarTabs, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/SidebarTabs";
 import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
@@ -135,6 +135,7 @@ const LazyPluginModal = lazy(async () => ({ default: (await import("./components
 const LazyPluginAuthorizationDialog = lazy(async () => ({ default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationDialog }));
 const LazyPluginAuthorizationManagementDialog = lazy(async () => ({ default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationManagementDialog }));
 const LazyTerminalPane = lazy(async () => ({ default: (await import("./components/TerminalPane")).TerminalPane }));
+const LazyStatusUpdateButton = lazy(async () => ({ default: (await import("./components/StatusUpdateButton")).StatusUpdateButton }));
 // These dialogs sit on rarely-used UI paths; keep them out of the entry
 // chunk. CloseWindowDialog is the exception — closing the window must work
 // instantly — so it is preloaded during idle time instead of at startup.
@@ -213,8 +214,7 @@ export default function App() {
   const [gitHistoryHasMore, setGitHistoryHasMore] = createSignal(false);
   const [gitHistoryIncomplete, setGitHistoryIncomplete] = createSignal<string>();
   const [diffContextLoading, setDiffContextLoading] = createSignal(false);
-  const [sidebarView, setSidebarView] = createSignal<"explorer" | "git">("explorer");
-  const [projectSearchOpen, setProjectSearchOpen] = createSignal(false);
+  const [sidebarView, setSidebarView] = createSignal<SidebarView>("explorer");
   const [terminalOpenRequests, setTerminalOpenRequests] = createSignal<Record<string, TerminalOpenRequest>>({});
   let terminalOpenRequestId = 0;
   const [terminalOpen, setTerminalOpen] = createSignal(false);
@@ -843,7 +843,7 @@ export default function App() {
   const checkForUpdatesAfterStartup = async () => {
     await checkForUpdates();
     const status = updateStatus();
-    if (status.phase === "available") notify(`pude ${status.version} is available. Open Help > About pude to update.`);
+    if (status.phase === "available") notify(`pude ${status.version} is available. Click Update beside the branch name.`);
   };
 
   const notify = (message: string) => {
@@ -2600,7 +2600,7 @@ export default function App() {
     setTerminalOpen(true);
   };
 
-  const openProjectSearchResult = async (match: ProjectSearchMatch) => {
+  const openProjectSearchResult = async (match: ProjectSearchMatch, options: ProjectSearchOptions) => {
     const generation = workspaceGeneration;
     if (confirmedOperationInProgress() || appQuitPrepared()) return;
     if (isImagePath(match.path)) {
@@ -2613,7 +2613,7 @@ export default function App() {
       openReadFile(file);
       if (match.line) {
         setMarkdownPreviewEnabled(false);
-        setGoToLine({ line: match.line, actionId: Date.now() });
+        setGoToLine({ line: match.line, tabId: activeTabId(), query: options.query, caseSensitive: options.caseSensitive, actionId: Date.now() });
       }
     } catch (error) {
       if (generation === workspaceGeneration) notify(errorMessage(error, "Unable to open search result."));
@@ -3356,7 +3356,7 @@ export default function App() {
     }
     const lineCount = getDocumentText(tabById[tabId]!).split("\n").length;
     const line = Math.min(requestedLine, Math.max(1, lineCount));
-    setGoToLine({ line, actionId: Date.now() });
+    setGoToLine({ line, tabId, actionId: Date.now() });
   };
 
   const renameOpenTabs = (from: string, to: string) => {
@@ -4571,8 +4571,7 @@ export default function App() {
     if (modifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === "f" && workspace()) {
       event.preventDefault();
       openFolderChord = null;
-      setSidebarView("explorer");
-      setProjectSearchOpen(true);
+      setSidebarView("search");
       queueMicrotask(() => document.querySelector<HTMLInputElement>(".project-search-input input")?.focus());
       return;
     }
@@ -4807,7 +4806,7 @@ export default function App() {
 
       <div class="main-layout" id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
         <aside class="sidebar">
-           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /><Show when={sidebarView() === "explorer" && workspace()}><div class="sidebar-create-actions"><button class="icon-button" classList={{ "sidebar-search-active": projectSearchOpen() }} onClick={() => setProjectSearchOpen((open) => !open)} title="Search project (Ctrl/Cmd+Shift+F)" aria-label="Search project" aria-pressed={projectSearchOpen()}><Icon name="search" size={14} /></button><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></Show></div>
+           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /><Show when={sidebarView() === "explorer" && workspace()}><div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></Show></div>
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
                <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={
@@ -4819,22 +4818,23 @@ export default function App() {
                  </Show>
                  </div>
                }>
-                 <Show when={projectSearchOpen()} fallback={
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label="Loading workspace files" />}>
                      <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
                    </Suspense>
                  </div>
-                 }>
-                   <Suspense fallback={<div aria-busy="true" aria-label="Loading project search" />}>
-                     <LazyProjectSearch workspace={workspace()} onOpen={openProjectSearchResult} onClose={() => { setProjectSearchOpen(false); queueMicrotask(() => document.querySelector<HTMLButtonElement>('.sidebar-create-actions [aria-label="Search project"]')?.focus()); }} />
-                   </Suspense>
-                 </Show>
                </Show>
              </Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_GIT_PANEL_ID} aria-labelledby={SIDEBAR_GIT_TAB_ID} hidden={sidebarView() !== "git"}>
              <Show when={sidebarView() === "git"}><LazyGitPanel status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(`Created worktree ${result.branch}; opened ${result.path} in a new window.`))} /></Show>
+           </div>
+           <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
+             <Show when={sidebarView() === "search"}>
+                 <Suspense fallback={<div aria-busy="true" aria-label="Loading project search" />}>
+                   <LazyProjectSearch workspace={workspace()} onOpen={openProjectSearchResult} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
+                 </Suspense>
+             </Show>
            </div>
             <div class="sidebar-footer"><Show when={sidebarView() === "explorer" && workspace()}><label class="sidebar-ignored-toggle" title="Group Git ignored files in Explorer"><input type="checkbox" aria-label="Group Git ignored files" checked={settings().groupGitIgnoredFiles} onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })} />Group ignored</label></Show><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? "plugin" : "plugins"}</button></div>
          </aside>
@@ -4886,14 +4886,34 @@ export default function App() {
            <For each={projects().map((project) => project.id)}>{(id) => {
              const project = () => projects().find((item) => item.id === id)!;
              const selected = () => activeProjectId() === id;
+             const terminalWorkspace = createMemo(() => selected() ? workspace() : project().workspace);
              return <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
-               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={project().workspace} height={settings().terminalHeight} visible={selected() && terminalOpen()} onHide={hideTerminal} onClose={hideTerminal} />
+               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} visible={selected() && terminalOpen()} onHide={hideTerminal} onClose={hideTerminal} />
              </Show>;
            }}</For>
         </main>
       </div>
 
-       <footer class="statusbar"><div class="status-left"><span class="status-branch"><Icon name="git" size={12} /> {git().branch ?? "local"}</span><Show when={statusTab()?.dirty}><span class="status-unsaved">Unsaved changes</span></Show><Show when={statusTab()?.orphaned}><span class="status-unsaved">File missing on disk</span></Show></div><div class="status-right"><Show when={statusTab()} fallback={<span>Ready</span>}>{(tab) => <Show when={tab().language === "Image"} fallback={<><span>Ln {tab().cursorLine}, Col {tab().cursorColumn}</span><span>Spaces: {settings().tabSize}</span><span>{tab().encoding}</span><span>{tab().lineEnding.toUpperCase()}</span><span>{tab().language}</span></>}><><span>Image preview</span><span>{tab().name}</span></></Show>}</Show><For each={Object.values(pluginStatusItems())}>{(item) => <span title={item.tooltip}>{item.pluginName}: {item.text}</span>}</For></div></footer>
+      <footer class="statusbar">
+        <div class="status-left">
+          <span class="status-branch"><Icon name="git" size={12} /> {git().branch ?? "local"}</span>
+          <Show when={["available", "downloading", "ready"].includes(updateStatus().phase)}>
+            <LazyStatusUpdateButton onError={() => setAboutOpen(true)} />
+          </Show>
+          <Show when={statusTab()?.dirty}><span class="status-unsaved">Unsaved changes</span></Show>
+          <Show when={statusTab()?.orphaned}><span class="status-unsaved">File missing on disk</span></Show>
+        </div>
+        <div class="status-right">
+          <Show when={statusTab()} fallback={<span>Ready</span>}>{(tab) =>
+            <Show when={tab().language === "Image"} fallback={<>
+              <span>Ln {tab().cursorLine}, Col {tab().cursorColumn}</span>
+              <span>Spaces: {settings().tabSize}</span>
+              <span>{tab().encoding}</span><span>{tab().lineEnding.toUpperCase()}</span><span>{tab().language}</span>
+            </>}><span>Image preview</span><span>{tab().name}</span></Show>
+          }</Show>
+          <For each={Object.values(pluginStatusItems())}>{(item) => <span title={item.tooltip}>{item.pluginName}: {item.text}</span>}</For>
+        </div>
+      </footer>
       <Show when={toast()}><div class="toast" role="status"><Icon name="check" size={14} />{toast()}</div></Show>
       <Show when={commandPaletteOpen()}><LazyCommandPalette commands={commandPaletteItems()} onRun={runPaletteCommand} onClose={() => setCommandPaletteOpen(false)} returnFocus={() => editMenuTrigger} /></Show>
       <Show when={activePluginQuickPick()}>{(request) => (

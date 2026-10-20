@@ -1,5 +1,4 @@
 .project-search { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
-.project-search-heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 2px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
 .project-search-controls { padding: 6px 12px 0; }
 .project-search-modes { display: flex; gap: 4px; margin-bottom: 8px; }
 .project-search-modes button { padding: 4px 10px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--muted); font-size: 11px; }
@@ -20,4 +19,3 @@
 .project-search-path > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-search-line { flex: 0 0 auto; color: var(--accent); font: 10px "DM Mono", monospace; }
 .project-search-preview { display: block; margin-top: 5px; padding-left: 18px; overflow: hidden; color: var(--muted); font: 10px/1.6 "DM Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
-.sidebar-search-active { color: var(--accent-strong); background: var(--selection); }

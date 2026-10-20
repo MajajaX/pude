@@ -1,6 +1,6 @@
 # pude product specification
 
-Implemented behavior for **0.1.3**. Update this specification in the same change as
+Implemented behavior for **0.1.4**. Update this specification in the same change as
 a feature or behavior change, together with the changelog, README and applicable
 English and Traditional Chinese website copy. User instructions live at
 [pude.dev/docs](https://pude.dev/docs) and [pude.dev/zh/docs](https://pude.dev/zh/docs).
@@ -26,18 +26,20 @@ coverage and no published installer yet.
 
 ## Project search
 
-- The Explorer toolbar's **Search project** button or **Cmd+Shift+F** on macOS /
-  **Ctrl+Shift+F** on Windows opens search for the active project. Closing it or
-  pressing Escape returns to the file tree.
+- The sidebar has **EXPLORER / GIT / SEARCH** tabs. **SEARCH** or **Cmd+Shift+F**
+  on macOS / **Ctrl+Shift+F** on Windows opens search for the active project.
+  Selecting **EXPLORER** or pressing Escape in the search input returns to files.
 - **Text** finds literal text in saved UTF-8 files. **Files** matches a filename
   or relative path. Both support **Match case**; matching is case insensitive by
   default. Paths in results use `/`, including on Windows.
 - Git-ignored files are excluded by default. **Include Git ignored files** changes
   this independently of Explorer grouping. Search includes dot files, always
   excludes `.git`, and does not follow symlinks. No background index is created.
-- Selecting a text result opens the file at its matching line; selecting a path
+- Selecting a text result opens the file, centers its match in the editor where
+  scrolling allows, and selects the matching text to highlight it. Selecting a path
   result opens that file. Unsaved editor buffers are not searched: save first to
   include current edits. Search has no project-wide replacement or regex mode.
+- The editor can scroll past the final line so matches near the end can be centered.
 - Queries run after a short typing delay. Changing a query, closing search or
   switching projects cancels obsolete work; stale results do not replace new ones.
 - A query is at most 4,096 bytes. Each search is bounded by 300 results, 50,000
@@ -50,6 +52,9 @@ coverage and no published installer yet.
 - CodeMirror provides syntax highlighting, file-local find/replace, multiple
   cursors, undo/redo and indentation. File tabs support reorder, pin, Save As and
   reopening closed tabs.
+- `.env` and `.env.*` files use shell syntax highlighting for variable assignments,
+  quoted strings, numbers, expansions and comments. The status bar labels them **Dotenv**;
+  they follow the same large-file parsing limits as other languages.
 - Markdown starts in source mode. The lower-right **Source / Preview** control
   switches the project's Markdown files to a rendered view. The choice follows
   Markdown files in that project, including after switching file types or diffs.
@@ -71,7 +76,9 @@ coverage and no published installer yet.
 - Hiding the panel or switching projects keeps sessions running. Closing a tab,
   project or window stops its process tree. Ctrl+C returns to an editable shell;
   if it terminates the shell, that tab restarts with earlier output retained. An
-  explicit `exit` ends the session.
+  explicit `exit` ends the session. Project state refreshes do not restart sessions.
+  Interrupt recovery also works when the shell reports an ordinary or error exit
+  status after Ctrl+C; a subsequent user input cancels that recovery intent.
 - Windows uses `ComSpec`, falling back to PowerShell. Unix uses `SHELL` as a login
   shell, falling back to `/bin/sh`. A project `.venv`, `venv` or `env` is activated
   for new terminals when present. Scrollback holds 5,000 lines.
@@ -94,6 +101,12 @@ coverage and no published installer yet.
   or telemetry. Startup update checks can be disabled. Download and installation
   require user actions and verify an updater signature. Windows uses the raw NSIS
   executable; macOS uses the signed/notarized app archive and DMG.
+- When an update is available, **Update [version]** appears immediately to the right
+  of the branch name in the lower-left status bar. Clicking downloads the update;
+  **Downloading…** becomes **Restart and update** when ready. Restart follows the
+  existing unsaved-changes flow. Errors open About with details and a retry action.
+  **Help > About pude** still provides manual checks and release notes. The status
+  button is transient; startup-check preferences remain local and persistent.
 
 ## Validation and documentation
 

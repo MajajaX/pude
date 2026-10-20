@@ -6,8 +6,30 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-20
+
+### Added
+
+- Syntax highlighting for `.env` and `.env.*` files, labeled Dotenv in the status bar.
+- An update button beside the branch name in the lower-left status bar, with
+  download, downloading and restart states using the existing signed update flow.
+
+### Changed
+
+- Project search now has its own **SEARCH** tab beside **EXPLORER** and **GIT**.
+  Selecting a text result centers and highlights the match in the editor.
+- Updated the README, product specification, English and Traditional Chinese website
+  copy and guides for search, dotenv files, terminals and the update button, and
+  refreshed all five website tour screenshots.
+
 ### Fixed
 
+- Switching project tabs no longer resets terminals when their workspace path has
+  not changed. Terminal tabs, output, input and running processes stay intact.
+- Ctrl+C shell recovery accepts shell-specific exit statuses and survives terminal
+  device replies, while explicit user commands such as `exit` end the session.
+- Mobile website tour placeholders use valid image source URLs without browser
+  parsing warnings.
 - Release artifact collection excludes CI diagnostics retained from earlier failed
   attempts of the same workflow run.
 

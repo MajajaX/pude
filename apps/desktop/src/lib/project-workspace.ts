@@ -4,6 +4,7 @@ import { restorePersistedTab, type RestoreTabReadFailure } from "./session-resto
 import { markRestoreTabStarted, shouldMergeRestoredTab } from "./restore-state";
 import { limitIo } from "./io-limiter";
 import type { EditorDocumentHandle, SearchRequest } from "../components/EditorPane";
+import type { SidebarView } from "../components/SidebarTabs";
 import type { RestoreIntent } from "./restore-state";
 import { createSessionMetadata, retainSessionTabs, type SessionMetadata, type ProjectSessionMetadata } from "./session-storage-schema";
 export { VersionedFileReader } from "./versioned-file-reader";
@@ -21,7 +22,7 @@ export type ProjectWorkspaceState = {
   diff?: DiffResult;
   git: GitStatusResult;
   gitBranches: GitBranch[];
-  sidebarView: "explorer" | "git";
+  sidebarView: SidebarView;
   search: SearchRequest;
   searchOpen: boolean;
   replaceOpen: boolean;

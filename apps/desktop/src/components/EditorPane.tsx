@@ -3,7 +3,7 @@ import { minimalSetup } from "codemirror";
 import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
 import { Compartment, EditorState, Text, Transaction } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, scrollPastEnd } from "@codemirror/view";
 import { search, setSearchQuery, SearchQuery, findNext, replaceNext, replaceAll } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { fileLanguageForPath, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, normalizeLineEndingMapForLineBreakCount } from "../lib/file-metadata";
@@ -39,7 +39,7 @@ export type SearchRequest = {
   actionId: number;
 };
 
-export type GoToLineRequest = { line: number; actionId: number };
+export type GoToLineRequest = { line: number; actionId: number; tabId?: string; query?: string; caseSensitive?: boolean };
 
 export type EditorSettings = Pick<AppSettings, "theme" | "fontSize" | "tabSize" | "insertSpaces" | "wordWrap">;
 
@@ -528,6 +528,7 @@ export function EditorPane(props: EditorPaneProps) {
     const extensions = [
       ...(largeFile ? largeFileExtensions : [minimalSetup, lineNumbers()]),
       EditorState.allowMultipleSelections.of(true),
+      scrollPastEnd(),
       editorContentName(() => `Editing ${props.tab?.name ?? tab.name}`),
       lineEnding.extension,
       themeCompartment.of(props.settings.theme === "dark" ? oneDark : lightEditorTheme),
@@ -1022,11 +1023,22 @@ export function EditorPane(props: EditorPaneProps) {
     });
   });
 
+  let lastNavigationRequest: GoToLineRequest | undefined;
   createEffect(() => {
-    if (!view || !props.goToLine) return;
-    const lineNumber = Math.max(1, Math.min(props.goToLine.line, view.state.doc.lines));
+    const request = props.goToLine;
+    const tabId = props.tab?.id;
+    if (!view || !request || request === lastNavigationRequest || request.tabId && request.tabId !== tabId) return;
+    if (activeDocumentId !== tabId) return;
+    lastNavigationRequest = request;
+    const lineNumber = Math.max(1, Math.min(request.line, view.state.doc.lines));
     const line = view.state.doc.line(lineNumber);
-    view.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+    let anchor = line.from;
+    let head = line.from;
+    if (request.query) {
+      const cursor = new SearchQuery({ search: request.query, caseSensitive: request.caseSensitive, literal: true }).getCursor(view.state.doc, line.from, line.to).next();
+      if (!cursor.done) { anchor = cursor.value.from; head = cursor.value.to; }
+    }
+    view.dispatch({ selection: { anchor, head }, effects: EditorView.scrollIntoView(anchor, { y: "center", x: "center" }) });
     view.focus();
   });
 

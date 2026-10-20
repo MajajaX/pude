@@ -59,6 +59,8 @@ const languageByExtension: Record<string, FileLanguageMetadata> = {
 };
 
 export function fileLanguageForPath(path: string): FileLanguageMetadata {
+  const name = path.split(/[\\/]/).at(-1)?.toLowerCase() ?? "";
+  if (name === ".env" || name.startsWith(".env.")) return { key: "shell", label: "Dotenv", icon: "sh" };
   const extension = path.split(/[\\/.]/).at(-1)?.toLowerCase();
   return languageByExtension[extension ?? ""] ?? plainText;
 }

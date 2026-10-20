@@ -1,6 +1,7 @@
 import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
-import { checkForUpdates, downloadAvailableUpdate, restartAndUpdate, updateStatus } from "../lib/app-update";
+import { checkForUpdates, updateStatus } from "../lib/app-update";
+import { downloadAvailableUpdate, restartAndUpdate } from "../lib/app-update-actions";
 
 export function AboutDialog(props: {
   version: string;

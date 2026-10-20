@@ -60,7 +60,7 @@ const en = {
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "Tabs, pinning, find and replace, plus project text and file search. The file tree loads folders on expand, with optional Git-ignored grouping.",
+        desc: "Tabs, pinning, find and replace, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search close; results center and highlight the match.",
       },
       {
         k: "git",
@@ -75,7 +75,7 @@ const en = {
       {
         k: "terminal",
         title: "Terminals that wait for you",
-        desc: "Right-click a file or folder to open a terminal in its directory. Each tab starts its own PTY on first view and keeps running while the panel is hidden.",
+        desc: "Right-click a file or folder to open a terminal in its directory. Sessions keep running across project switches; Ctrl+C returns to an editable prompt.",
       },
       {
         k: "markdown",
@@ -335,7 +335,7 @@ const zhHant: Dict = {
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "支援分頁、釘選、尋找與取代，以及專案文字與檔案搜尋。檔案樹展開時才載入資料夾，也能切換 Git 忽略項目分組。",
+        desc: "支援分頁、釘選、尋找與取代，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋隨手可用，結果會置中並標示命中文字。",
       },
       {
         k: "git",
@@ -350,7 +350,7 @@ const zhHant: Dict = {
       {
         k: "terminal",
         title: "等你開口的終端機",
-        desc: "對檔案或資料夾按右鍵，即可在所在目錄開啟終端機。每個分頁首次顯示時才啟動自己的 PTY，面板隱藏時仍持續執行。",
+        desc: "對檔案或資料夾按右鍵，即可在所在目錄開啟終端機。切換專案仍持續執行，Ctrl+C 後可直接繼續輸入指令。",
       },
       {
         k: "markdown",

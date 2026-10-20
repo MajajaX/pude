@@ -1,12 +1,14 @@
 import { For, createSignal } from "solid-js";
 import { tabNavigationAction, tabRovingIndex } from "../lib/tab-navigation";
 
-export type SidebarView = "explorer" | "git";
+export type SidebarView = "explorer" | "git" | "search";
 
 export const SIDEBAR_EXPLORER_TAB_ID = "sidebar-explorer-tab";
 export const SIDEBAR_GIT_TAB_ID = "sidebar-git-tab";
+export const SIDEBAR_SEARCH_TAB_ID = "sidebar-search-tab";
 export const SIDEBAR_EXPLORER_PANEL_ID = "sidebar-explorer-panel";
 export const SIDEBAR_GIT_PANEL_ID = "sidebar-git-panel";
+export const SIDEBAR_SEARCH_PANEL_ID = "sidebar-search-panel";
 
 export type SidebarTabsProps = {
   selected: SidebarView;
@@ -16,6 +18,7 @@ export type SidebarTabsProps = {
 const views: readonly { id: SidebarView; label: string; tabId: string; panelId: string }[] = [
   { id: "explorer", label: "EXPLORER", tabId: SIDEBAR_EXPLORER_TAB_ID, panelId: SIDEBAR_EXPLORER_PANEL_ID },
   { id: "git", label: "GIT", tabId: SIDEBAR_GIT_TAB_ID, panelId: SIDEBAR_GIT_PANEL_ID },
+  { id: "search", label: "SEARCH", tabId: SIDEBAR_SEARCH_TAB_ID, panelId: SIDEBAR_SEARCH_PANEL_ID },
 ];
 
 export function SidebarTabs(props: SidebarTabsProps) {
@@ -36,14 +39,14 @@ export function SidebarTabs(props: SidebarTabsProps) {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
     const view = target.dataset.sidebarView;
-    if (view === "explorer" || view === "git") setFocusedView(view);
+    if (view === "explorer" || view === "git" || view === "search") setFocusedView(view);
   };
 
   const moveFocus = (index: number) => {
     const button = tablistElement?.querySelectorAll<HTMLButtonElement>('button[role="tab"]')[index];
     if (!button) return;
     const view = button.dataset.sidebarView;
-    if (view !== "explorer" && view !== "git") return;
+    if (view !== "explorer" && view !== "git" && view !== "search") return;
     setFocusedView(view);
     button.focus({ preventScroll: true });
     props.onSelect(view);
