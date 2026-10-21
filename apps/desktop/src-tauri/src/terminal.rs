@@ -500,11 +500,10 @@ fn terminal_start_sync(
             pixel_height: 0,
         })
         .map_err(|error| format!("Unable to create terminal. {error}"))?;
-    let shell = if cfg!(windows) {
-        std::env::var("ComSpec").unwrap_or_else(|_| "powershell.exe".to_string())
-    } else {
-        std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
-    };
+    #[cfg(windows)]
+    let shell = windows_shell();
+    #[cfg(unix)]
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     #[cfg(windows)]
     let mut bootstrap_gate = TerminalBootstrapGate::new()
         .map_err(|error| format!("Unable to prepare the terminal startup gate. {error}"))?;
@@ -793,6 +792,19 @@ fn terminal_start_sync(
         });
     }
     Ok(id)
+}
+
+/// PowerShell 7 when installed, otherwise the Windows PowerShell shipped with Windows,
+/// matching Windows Terminal's defaults.
+#[cfg(windows)]
+fn windows_shell() -> String {
+    std::env::var_os("PATH")
+        .into_iter()
+        .flat_map(|path| std::env::split_paths(&path).collect::<Vec<_>>())
+        .map(|directory| directory.join("pwsh.exe"))
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "powershell.exe".to_string())
 }
 
 fn terminal_working_directory(workspace: &str) -> Result<PathBuf, String> {
@@ -1623,12 +1635,165 @@ mod terminal_unix_output_tests {
 #[cfg(all(test, windows))]
 mod terminal_pty_tests {
     use super::{TerminalBootstrapGate, TerminalProcessTree};
-    use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+    use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
     use std::fs;
     use std::io::{Read, Write};
+    use std::path::PathBuf;
     use std::sync::mpsc;
-    use std::thread;
+    use std::thread::{self, JoinHandle};
     use std::time::{Duration, Instant};
+
+    struct PowerShellPty {
+        child: Box<dyn Child + Send + Sync>,
+        master: Box<dyn MasterPty + Send>,
+        writer: Box<dyn Write + Send>,
+        output: mpsc::Receiver<Vec<u8>>,
+        reader_thread: JoinHandle<()>,
+        transcript: Vec<u8>,
+        cursor_report_sent: bool,
+        workspace: PathBuf,
+        _process_tree: Option<TerminalProcessTree>,
+        _startup_gate: Option<TerminalBootstrapGate>,
+    }
+
+    impl PowerShellPty {
+        fn start(use_bootstrap: bool) -> Self {
+            let workspace = std::env::temp_dir().join(format!(
+                "pude-terminal-pty-workspace-{}",
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir(&workspace).unwrap();
+            let pair = native_pty_system()
+                .openpty(PtySize {
+                    rows: 24,
+                    cols: 80,
+                    pixel_width: 0,
+                    pixel_height: 0,
+                })
+                .expect("ConPTY should open");
+            let mut gate =
+                use_bootstrap.then(|| TerminalBootstrapGate::new().expect("startup gate"));
+            let mut command = if let Some(gate) = gate.as_ref() {
+                let mut command = CommandBuilder::new(env!("PUDE_TERMINAL_BOOTSTRAP_EXE"));
+                command.arg(gate.name());
+                command.arg("powershell.exe");
+                command.arg(&workspace);
+                command
+            } else {
+                CommandBuilder::new("powershell.exe")
+            };
+            command.args(["-NoLogo", "-NoProfile"]);
+            command.cwd(&workspace);
+            command.env("TERM", "xterm-256color");
+            command.env("COLORTERM", "truecolor");
+            let child = pair
+                .slave
+                .spawn_command(command)
+                .expect("PowerShell should start");
+            let process_tree = gate.as_mut().map(|gate| {
+                TerminalProcessTree::attach(child.as_ref(), Some(gate))
+                    .expect("attach before releasing startup gate")
+            });
+            drop(pair.slave);
+
+            let mut reader = pair
+                .master
+                .try_clone_reader()
+                .expect("PTY reader should clone");
+            let (output_sender, output) = mpsc::channel();
+            let reader_thread = thread::spawn(move || {
+                let mut buffer = [0_u8; 1024];
+                loop {
+                    match reader.read(&mut buffer) {
+                        Ok(0) | Err(_) => break,
+                        Ok(size) => {
+                            if output_sender.send(buffer[..size].to_vec()).is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+            let writer = pair
+                .master
+                .take_writer()
+                .expect("PTY writer should be available");
+            let mut pty = Self {
+                child,
+                master: pair.master,
+                writer,
+                output,
+                reader_thread,
+                transcript: Vec::new(),
+                cursor_report_sent: false,
+                workspace,
+                _process_tree: process_tree,
+                _startup_gate: gate,
+            };
+            pty.pump(Duration::from_millis(500));
+            pty
+        }
+
+        fn send(&mut self, input: &str) {
+            self.writer
+                .write_all(input.as_bytes())
+                .expect("terminal input should be written");
+            self.writer.flush().expect("terminal input should be flushed");
+        }
+
+        fn text(&self) -> String {
+            String::from_utf8_lossy(&self.transcript).into_owned()
+        }
+
+        /// Collects output until `done` accepts the transcript or the timeout passes,
+        /// answering ConPTY's one cursor position query so PowerShell can start.
+        fn wait_until(&mut self, timeout: Duration, done: impl Fn(&str) -> bool) -> bool {
+            let deadline = Instant::now() + timeout;
+            while Instant::now() < deadline {
+                match self.output.recv_timeout(Duration::from_millis(100)) {
+                    Ok(bytes) => self.transcript.extend(bytes),
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => return done(&self.text()),
+                }
+                if !self.cursor_report_sent
+                    && self
+                        .transcript
+                        .windows(b"\x1b[6n".len())
+                        .any(|window| window == b"\x1b[6n")
+                {
+                    self.send("\x1b[1;1R");
+                    self.cursor_report_sent = true;
+                }
+                if done(&self.text()) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        fn pump(&mut self, duration: Duration) {
+            self.wait_until(duration, |_| false);
+        }
+
+        fn finish(self) -> String {
+            let Self {
+                mut child,
+                master,
+                writer,
+                reader_thread,
+                transcript,
+                workspace,
+                ..
+            } = self;
+            let _ = child.kill();
+            let _ = child.wait();
+            drop(writer);
+            drop(master);
+            reader_thread.join().expect("PTY reader should stop");
+            fs::remove_dir(workspace).unwrap();
+            String::from_utf8_lossy(&transcript).into_owned()
+        }
+    }
 
     #[test]
     fn powershell_runs_a_command_through_the_native_pty() {
@@ -1641,131 +1806,53 @@ mod terminal_pty_tests {
     }
 
     fn run_native_pty_smoke(use_bootstrap: bool) {
-        let workspace = std::env::temp_dir().join(format!(
-            "pude-terminal-pty-workspace-{}",
-            uuid::Uuid::new_v4()
-        ));
-        fs::create_dir(&workspace).unwrap();
+        let mut pty = PowerShellPty::start(use_bootstrap);
         // temp_dir() can be an 8.3 short path while PowerShell prints the long one,
         // so match the unique folder name instead of the whole path.
-        let workspace_name = workspace
+        let workspace_name = pty
+            .workspace
             .file_name()
             .unwrap()
             .to_string_lossy()
             .to_lowercase();
-        let pty_system = native_pty_system();
-        let pair = pty_system
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .expect("ConPTY should open");
-        let mut gate = use_bootstrap.then(|| TerminalBootstrapGate::new().expect("startup gate"));
-        let mut command = if let Some(gate) = gate.as_ref() {
-            let mut command = CommandBuilder::new(env!("PUDE_TERMINAL_BOOTSTRAP_EXE"));
-            command.arg(gate.name());
-            command.arg("powershell.exe");
-            command.arg(&workspace);
-            command
-        } else {
-            CommandBuilder::new("powershell.exe")
-        };
-        command.args(["-NoLogo", "-NoProfile"]);
-        command.cwd(&workspace);
-        command.env("TERM", "xterm-256color");
-        command.env("COLORTERM", "truecolor");
-        let mut child = pair
-            .slave
-            .spawn_command(command)
-            .expect("PowerShell should start");
-        let _process_tree = gate.as_mut().map(|gate| {
-            TerminalProcessTree::attach(child.as_ref(), Some(gate))
-                .expect("attach before releasing startup gate")
+        pty.send("Write-Output 'PUDE_TERMINAL_SMOKE_OK'; (Get-Location).Path; exit\r\n");
+        pty.wait_until(Duration::from_secs(15), |output| {
+            output.contains("PUDE_TERMINAL_SMOKE_OK")
+                && output.to_lowercase().contains(&workspace_name)
         });
-        drop(pair.slave);
-
-        let mut reader = pair
-            .master
-            .try_clone_reader()
-            .expect("PTY reader should clone");
-        let (output_sender, output_receiver) = mpsc::channel();
-        let reader_thread = thread::spawn(move || {
-            let mut buffer = [0_u8; 1024];
-            loop {
-                match reader.read(&mut buffer) {
-                    Ok(0) | Err(_) => break,
-                    Ok(size) => {
-                        if output_sender.send(buffer[..size].to_vec()).is_err() {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        let mut writer = pair
-            .master
-            .take_writer()
-            .expect("PTY writer should be available");
-        thread::sleep(Duration::from_millis(500));
-        writer
-            .write_all(b"Write-Output 'PUDE_TERMINAL_SMOKE_OK'; (Get-Location).Path; exit\r\n")
-            .expect("PowerShell command should be written");
-        writer.flush().expect("PowerShell input should be flushed");
-
-        let deadline = Instant::now() + Duration::from_secs(15);
-        let mut output = Vec::new();
-        let mut cursor_report_sent = false;
-        while Instant::now() < deadline {
-            match output_receiver.recv_timeout(Duration::from_millis(100)) {
-                Ok(bytes) => output.extend(bytes),
-                Err(mpsc::RecvTimeoutError::Timeout) => {}
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            }
-            if !cursor_report_sent
-                && output
-                    .windows(b"\x1b[6n".len())
-                    .any(|window| window == b"\x1b[6n")
-            {
-                writer
-                    .write_all(b"\x1b[1;1R")
-                    .expect("terminal cursor report should be written");
-                writer
-                    .flush()
-                    .expect("terminal cursor report should be flushed");
-                cursor_report_sent = true;
-            }
-            if output
-                .windows(b"PUDE_TERMINAL_SMOKE_OK".len())
-                .any(|window| window == b"PUDE_TERMINAL_SMOKE_OK")
-                && String::from_utf8_lossy(&output)
-                    .to_lowercase()
-                    .contains(&workspace_name)
-            {
-                break;
-            }
-        }
-
-        let _ = child.kill();
-        let _ = child.wait();
-        drop(writer);
-        drop(pair.master);
-        reader_thread.join().expect("PTY reader should stop");
+        let output = pty.finish();
         assert!(
-            String::from_utf8_lossy(&output).contains("PUDE_TERMINAL_SMOKE_OK"),
-            "PowerShell PTY output did not contain the command result: {}",
-            String::from_utf8_lossy(&output)
+            output.contains("PUDE_TERMINAL_SMOKE_OK"),
+            "PowerShell PTY output did not contain the command result: {output}"
         );
         assert!(
-            String::from_utf8_lossy(&output)
-                .to_lowercase()
-                .contains(&workspace_name),
-            "PowerShell did not start in the selected workspace: {}",
-            String::from_utf8_lossy(&output)
+            output.to_lowercase().contains(&workspace_name),
+            "PowerShell did not start in the selected workspace: {output}"
         );
-        fs::remove_dir(workspace).unwrap();
+    }
+
+    #[test]
+    fn console_bootstrap_and_shell_survive_ctrl_c() {
+        let mut pty = PowerShellPty::start(true);
+        pty.send("Start-Sleep -Seconds 60\r\n");
+        pty.pump(Duration::from_secs(1));
+        pty.send("\x03");
+        pty.pump(Duration::from_secs(1));
+        // The marker is assembled by the command, so only its output contains it.
+        pty.send("Write-Output ('PUDE_AFTER_' + 'CTRL_C')\r\n");
+        let shell_responded = pty.wait_until(Duration::from_secs(15), |output| {
+            output.contains("PUDE_AFTER_CTRL_C")
+        });
+        let bootstrap_exit = pty.child.try_wait().expect("bootstrap should be inspectable");
+        let output = pty.finish();
+        assert!(
+            bootstrap_exit.is_none(),
+            "Ctrl+C ended the terminal bootstrap: {bootstrap_exit:?}\n{output}"
+        );
+        assert!(
+            shell_responded,
+            "PowerShell did not return to a usable prompt after Ctrl+C: {output}"
+        );
     }
 }
 
@@ -3296,30 +3383,12 @@ fn terminal_pty_read_error_is_eof(error: &io::Error) -> bool {
 struct TerminalExitDetails {
     exit_code: Option<u32>,
     signal: Option<String>,
-    reason: &'static str,
 }
 
 fn terminal_exit_details(status: Option<&portable_pty::ExitStatus>) -> TerminalExitDetails {
-    let exit_code = status.map(|status| status.exit_code());
-    let signal = status.and_then(|status| status.signal()).map(str::to_owned);
-    #[cfg(unix)]
-    let interrupted_signal = signal.as_ref().is_some_and(|signal| unsafe {
-        let name = libc::strsignal(libc::SIGINT);
-        !name.is_null() && std::ffi::CStr::from_ptr(name).to_string_lossy() == signal.as_str()
-    });
-    #[cfg(not(unix))]
-    let interrupted_signal = false;
-    let reason = if interrupted_signal || matches!(exit_code, Some(130 | 0xc000013a)) {
-        "interrupted"
-    } else if status.is_some_and(|status| status.success()) {
-        "normal"
-    } else {
-        "error"
-    };
     TerminalExitDetails {
-        exit_code,
-        signal,
-        reason,
+        exit_code: status.map(|status| status.exit_code()),
+        signal: status.and_then(|status| status.signal()).map(str::to_owned),
     }
 }
 
@@ -3350,7 +3419,7 @@ mod interrupt_tests {
             assert!(Instant::now() < deadline);
             thread::sleep(Duration::from_millis(10));
         };
-        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
+        assert!(terminal_exit_details(Some(&status)).signal.is_some());
         let mut info = unsafe { std::mem::zeroed::<libc::siginfo_t>() };
         assert_eq!(
             unsafe {
@@ -3368,19 +3437,14 @@ mod interrupt_tests {
     }
 
     #[test]
-    fn exit_details_distinguish_interrupts_normal_exits_and_errors() {
-        for (code, reason) in [
-            (0, "normal"),
-            (1, "error"),
-            (130, "interrupted"),
-            (0xc000013a, "interrupted"),
-        ] {
+    fn exit_details_report_the_exit_code_without_a_signal() {
+        for code in [0, 1, 130, 0xc000013a] {
             let status = portable_pty::ExitStatus::with_exit_code(code);
             let details = terminal_exit_details(Some(&status));
-            assert_eq!(details.reason, reason);
             assert_eq!(details.exit_code, Some(code));
+            assert_eq!(details.signal, None);
         }
-        assert_eq!(terminal_exit_details(None).reason, "error");
+        assert_eq!(terminal_exit_details(None).exit_code, None);
     }
 
     #[cfg(unix)]
@@ -3465,7 +3529,7 @@ mod interrupt_tests {
         let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
             .unwrap()
             .unwrap();
-        assert_eq!(terminal_exit_details(Some(&status)).reason, "normal");
+        assert_eq!(terminal_exit_details(Some(&status)).exit_code, Some(0));
         drop(writer);
         drop(pair.master);
         worker.join().unwrap();
@@ -3489,7 +3553,6 @@ mod interrupt_tests {
         let status = wait_for_terminal_child(child.as_mut(), Duration::from_secs(5))
             .unwrap()
             .unwrap();
-        assert_eq!(terminal_exit_details(Some(&status)).reason, "interrupted");
         assert!(terminal_exit_details(Some(&status)).signal.is_some());
     }
 }
@@ -3516,11 +3579,10 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
             }
         })
     });
-    let mut details = terminal_exit_details(natural_status.as_ref());
+    let details = terminal_exit_details(natural_status.as_ref());
     let status = match stop_terminal_session(&session) {
         Ok(status) => status,
         Err(error) => {
-            details.reason = "error";
             crate::app_log::log_error(&format!(
                 "Unable to clean up terminal {session_id}: {error}"
             ));
@@ -3535,7 +3597,7 @@ fn finish_terminal_session(app: &AppHandle, session_id: &str) {
         &session.owner_window,
         "terminal-exit",
         serde_json::json!({ "sessionId": session_id, "status": status,
-            "exitCode": details.exit_code, "signal": details.signal, "reason": details.reason }),
+            "exitCode": details.exit_code, "signal": details.signal }),
     );
 }
 

@@ -6,6 +6,19 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- On Windows the terminal starts PowerShell 7 when it is installed, otherwise Windows
+  PowerShell, instead of `cmd.exe` from `ComSpec`, matching Windows Terminal.
+- The terminal no longer restarts the shell by itself after Ctrl+C. When a shell ends,
+  the tab shows its exit status and the **Restart terminal** button.
+
+### Fixed
+
+- Ctrl+C in a Windows terminal no longer ends the whole session. The shell bootstrap
+  now ignores console interrupts, so stopping a dev server such as `nuxt dev` returns
+  to the same prompt with its directory, environment and history intact.
+
 ### Security
 
 - Updated the locked `rustls-webpki` dependency to 0.103.16 for

@@ -74,12 +74,15 @@ coverage and no published installer yet.
   panel and keeps existing tabs' directories and processes intact. The tab belongs
   to the originating project even when its starting directory is a subfolder.
 - Hiding the panel or switching projects keeps sessions running. Closing a tab,
-  project or window stops its process tree. Ctrl+C returns to an editable shell;
-  if it terminates the shell, that tab restarts with earlier output retained. An
-  explicit `exit` ends the session. Project state refreshes do not restart sessions.
-  Interrupt recovery also works when the shell reports an ordinary or error exit
-  status after Ctrl+C; a subsequent user input cancels that recovery intent.
-- Windows uses `ComSpec`, falling back to PowerShell. Unix uses `SHELL` as a login
+  project or window stops its process tree. Ctrl+C interrupts the foreground program
+  and returns to the same shell, as in the operating system's terminal. When a shell
+  ends, the tab shows its exit status and a **Restart terminal** button; pude never
+  starts a replacement shell on its own. Project state refreshes do not restart
+  sessions.
+- Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows
+  PowerShell, matching Windows Terminal; `ComSpec` is no longer used. The shell runs
+  behind a small bootstrap process that survives Ctrl+C and Ctrl+Break, so an
+  interrupt reaches the shell and its jobs without ending the terminal. Unix uses `SHELL` as a login
   shell, falling back to `/bin/sh`. A project `.venv`, `venv` or `env` is activated
   for new terminals when present. Scrollback holds 5,000 lines.
 - Terminals run with the user's account and can access the network and files

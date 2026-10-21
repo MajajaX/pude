@@ -70,8 +70,9 @@ permission).
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
   parent directory.
-  Ctrl+C returns to an editable prompt, automatically recovering the shell in the
-  same tab if needed while preserving earlier output. Typing `exit` ends the session.
+  Ctrl+C interrupts the running program, such as a dev server, and returns to the
+  prompt in the same shell, as in the operating system's own terminal. Windows uses
+  PowerShell 7 when installed, otherwise Windows PowerShell.
 - **Plugins** — install local plugins with permission review. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).

@@ -273,8 +273,8 @@ const en: DocsDict = {
             items: [
               "Right-click a folder in Explorer and choose `Open in Integrated Terminal` to create a new tab in that directory. For a file, it starts in the file’s parent directory. Existing terminal tabs keep their current directories.",
               "Every project has its own terminals. Hiding the panel or switching to another project keeps them running; closing a terminal tab, the project or the window stops that terminal's process tree.",
-              "Windows uses `ComSpec`, falling back to `powershell.exe`. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
-              "`Ctrl+C` returns you to the prompt. If the shell itself exits after the interrupt, it restarts in the same tab with the earlier output retained, even when the shell reports a normal or error exit code. No `Restart terminal` click is needed; typing `exit` still ends the session.",
+              "Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows PowerShell, like Windows Terminal. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
+              "`Ctrl+C` interrupts the running program, such as a dev server, and returns you to the same prompt, as in your operating system's terminal. If a shell ends, the tab shows its exit status and a `Restart terminal` button; pude does not start a new shell by itself.",
               "If the workspace has a Python virtual environment in `.venv`, `venv` or `env`, new terminals activate it.",
               "Scrollback keeps 5,000 lines. ANSI colors, the alternate screen, mouse tracking, CJK text and IME input work as expected.",
             ],
@@ -644,8 +644,8 @@ const zhHant: DocsDict = {
             items: [
               "在檔案總管對資料夾按右鍵，選擇 `Open in Integrated Terminal`，會在該目錄建立新的終端機分頁；對檔案使用時則開在檔案所在的資料夾。既有終端機分頁的目錄不會改變。",
               "每個專案都有自己的終端機。隱藏面板或切換到其他專案時仍會繼續執行；關閉終端機分頁、關閉專案或關閉視窗，才會停止該終端機的程序樹。",
-              "Windows 使用 `ComSpec`，未設定時改用 `powershell.exe`；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
-              "按 `Ctrl+C` 會回到提示字元。如果 shell 本身在中斷後結束，即使回報一般或錯誤結束碼，也會在同一個分頁自動重啟並保留先前輸出，不需再按 `Restart terminal`；輸入 `exit` 仍會結束工作階段。",
+              "Windows 優先啟動 PowerShell 7（`pwsh.exe`，需在 `PATH` 中），否則使用 Windows PowerShell，與 Windows Terminal 一致；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
+              "按 `Ctrl+C` 會中斷正在執行的程式（例如 dev server），並回到同一個提示字元，行為與作業系統的終端機相同。若 shell 結束，分頁會顯示結束狀態與 `Restart terminal` 按鈕，pude 不會自行啟動新的 shell。",
               "若工作區的 `.venv`、`venv` 或 `env` 中有 Python 虛擬環境，新終端機會自動啟用它。",
               "scrollback 保留 5,000 行，支援 ANSI 色彩、alternate screen、滑鼠追蹤、中日韓文字與輸入法。",
             ],
