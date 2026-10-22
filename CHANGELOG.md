@@ -22,6 +22,11 @@ All notable changes to `pude` are recorded here. The format follows
 - Updated the product specification, README, English and Traditional Chinese
   website guides and all five website tour screenshots.
 
+### Security
+
+- Updated the locked `rustls-webpki` dependency to 0.103.16 for
+  [RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382.html).
+
 ## [0.1.4] - 2026-10-20
 
 ### Added
