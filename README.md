@@ -58,6 +58,8 @@ permission).
   files, unsaved edits, undo history, Git view and terminals.
 - **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
   Save As and a wide, readable Markdown source/preview toggle.
+- **Readable interface** — bundled open-source Inter and JetBrains Mono fonts,
+  larger interface text and high-contrast labels in both dark and light themes.
 - **Explorer and project search** — **EXPLORER / GIT / SEARCH** sidebar tabs,
   optional Git-ignored grouping, file operations and on-demand text or file-path
   search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
@@ -70,8 +72,9 @@ permission).
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
   parent directory.
-  Ctrl+C returns to an editable prompt, automatically recovering the shell in the
-  same tab if needed while preserving earlier output. Typing `exit` ends the session.
+  Ctrl+C interrupts the running program, such as a dev server, and returns to the
+  prompt in the same shell, as in the operating system's own terminal. Windows uses
+  PowerShell 7 when installed, otherwise Windows PowerShell.
 - **Plugins** — install local plugins with permission review. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).

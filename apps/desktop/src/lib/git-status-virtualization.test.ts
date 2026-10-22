@@ -87,7 +87,7 @@ describe("git status virtualization", () => {
     const layout = layoutGitStatusRows(rows);
 
     expect(layout.offsets).toEqual([0, GIT_STATUS_HEADER_HEIGHT, GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT, GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT + GIT_STATUS_HEADER_HEIGHT]);
-    expect(rows.map(gitStatusRowHeight)).toEqual([27, 28, 27, 28]);
+    expect(rows.map(gitStatusRowHeight)).toEqual([32, 30, 32, 30]);
 
     const window = gitStatusWindow(rows, layout, 999999, 100, 8);
     expect(window.scrollTop).toBe(window.maxScrollTop);

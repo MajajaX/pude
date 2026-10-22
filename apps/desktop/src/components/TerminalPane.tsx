@@ -2,14 +2,13 @@ import { For, createEffect, createMemo, createSignal, on, onCleanup, onMount } f
 import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { Icon } from "./Icons";
-import { isTauri, ackTerminalOutput, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalOutputPayload } from "../lib/bridge";
+import { isTauri, ackTerminalOutput, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalExitPayload, type TerminalOutputPayload } from "../lib/bridge";
 import { errorMessage } from "../lib/core";
 import { fitVisibleTerminal } from "../lib/terminal-fit";
 import { TerminalLifecycle } from "../lib/terminal-lifecycle";
 import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "../lib/terminal-ack";
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
-import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt } from "../lib/terminal-vt";
-import { TerminalInterruptRecovery, type TerminalExitPayload } from "../lib/terminal-interrupt";
+import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, TERMINAL_FONT_FAMILY } from "../lib/terminal-vt";
 
 type TerminalTab = { id: number; label: string; directory?: string };
 export type TerminalOpenRequest = { id: number; directory: string };
@@ -97,7 +96,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   let earlyExit = new Map<string, TerminalExitPayload>();
   let sessionGeneration = 0;
   let startupVersion = 0;
-  const interruptRecovery = new TerminalInterruptRecovery();
   const ackTracker = new TerminalAckTracker();
   const ackQueue = new TerminalAckQueue();
   const ackScheduler = new TerminalAckScheduler(
@@ -250,7 +248,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   const writeInput = (data: string, binary = false) => {
     const id = sessionId();
     if (!id || !isTauri || sessionEnded()) return;
-    interruptRecovery.input(id, data, binary);
     void writePtyInput(id, data, binary).catch(() => undefined);
   };
 
@@ -298,8 +295,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
       }
       return;
     }
-    const recover = interruptRecovery.consumeExit(payload) && shouldRun && !disposed;
-    const workspace = props.workspace;
     lifecycle.sessionEnded(payload.sessionId);
     shouldRun = false;
     activeId = undefined;
@@ -309,19 +304,13 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
-    if (recover) {
-      shouldRun = true;
-      queueMicrotask(() => {
-        if (!disposed && shouldRun && workspace === props.workspace && !activeId) void startSession(workspace, true);
-      });
-    } else appendStatus(payload.status ? `terminal exited: ${payload.status}` : "terminal exited");
+    appendStatus(payload.status ? `terminal exited: ${payload.status}` : "terminal exited");
   };
 
-  const startSession = async (workspace: string, preserveOutput = false) => {
+  const startSession = async (workspace: string) => {
     if (!isTauri || disposed || !listenersReady || !shouldRun || activeId || capturingStartupOutput) return;
     const version = ++startupVersion;
     const isCurrentStart = () => !disposed && shouldRun && version === startupVersion && workspace === props.workspace;
-    interruptRecovery.reset();
     writeQueue = Promise.resolve();
     capturingStartupOutput = true;
     outputReady = false;
@@ -334,11 +323,8 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     try {
       if (terminal) {
         terminal.options.disableStdin = true;
-        if (preserveOutput) await restoreTerminalAfterInterrupt(terminal);
-        else {
-          terminal.reset();
-          terminal.write("pude terminal\r\n");
-        }
+        terminal.reset();
+        terminal.write("pude terminal\r\n");
       }
       if (!isCurrentStart()) return;
       const id = await lifecycle.start(workspace);
@@ -394,6 +380,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         const [{ Terminal: XtermTerminal }, { FitAddon }] = await Promise.all([
           import("@xterm/xterm"),
           import("@xterm/addon-fit"),
+          document.fonts?.load(`13px ${TERMINAL_FONT_FAMILY}`).catch(() => undefined),
         ]);
         if (disposed) return;
 
@@ -458,7 +445,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     if (!paneInitialized) return;
     startupVersion += 1;
     shouldRun = true;
-    interruptRecovery.reset();
     outputReady = false;
     capturingStartupOutput = false;
     activeId = undefined;
@@ -505,7 +491,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   onCleanup(() => {
     startupVersion += 1;
     disposed = true;
-    interruptRecovery.reset();
     shouldRun = false;
     ackScheduler.reset();
     disposePluginTerminalWriter?.();

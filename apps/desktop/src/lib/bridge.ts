@@ -1,6 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import type { TerminalExitPayload } from "./terminal-interrupt";
 import { contentFingerprint } from "./fingerprint";
 import { lineEndingMapForContent, normalizeLineEndingMap, serializeDocumentBytes } from "./file-metadata";
 // The browser-demo dataset is only used when !isTauri; loading it
@@ -600,6 +599,13 @@ export type TerminalOutputPayload = {
   data: string;
   /** UTF-8 byte length of `data`, measured on the Rust side. */
   bytes: number;
+};
+
+export type TerminalExitPayload = {
+  sessionId: string;
+  status?: string | null;
+  exitCode?: number | null;
+  signal?: string | null;
 };
 
 export async function ackTerminalOutput(sessionId: string, generation: number, upToSeq: number, bytes: number): Promise<void> {

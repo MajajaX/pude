@@ -2,6 +2,7 @@ import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid
 import { Icon } from "./Icons";
 import { cancelProjectSearch, searchProject } from "../lib/project-search";
 import { errorMessage } from "../lib/core";
+import { splitDisplayPath } from "../lib/display-path";
 import type { ProjectSearchMatch, ProjectSearchOptions, ProjectSearchResults } from "../lib/project-search";
 import "../styles/project-search.css";
 
@@ -74,7 +75,7 @@ export function ProjectSearch(props: { workspace: string; onOpen: (match: Projec
     <Show when={results()?.skippedFiles}><p class="project-search-notice">Skipped binary, unsupported, unreadable, or large files (over 2 MiB).</p></Show>
     <div class="project-search-results" aria-label="Project search results" aria-busy={busy()}>
       <For each={results()?.matches}>{(match) => <button type="button" class="project-search-result" disabled={opening()} onClick={() => void openResult(match)} title={`${match.relativePath}${match.line ? `:${match.line}` : ""}`}>
-        <span class="project-search-path"><Icon name="file-code" size={13} /><span>{match.relativePath}</span><Show when={match.line}><span class="project-search-line">:{match.line}</span></Show></span>
+        <span class="project-search-path"><Icon name="file-code" size={14} /><span class="project-search-name">{splitDisplayPath(match.relativePath).name}</span><span class="project-search-directory">{splitDisplayPath(match.relativePath).directory}</span><Show when={match.line}><span class="project-search-line">:{match.line}</span></Show></span>
         <Show when={match.preview}><span class="project-search-preview">{match.preview}</span></Show>
       </button>}</For>
       <Show when={results()?.matches.length === 0}><p class="project-search-notice">No matches found.</p></Show>

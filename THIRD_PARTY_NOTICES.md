@@ -18,6 +18,8 @@
 
 - 2026-10-19 v0.1.3：Tauri 更新為 2.12.1、updater 更新為 2.14.0；六個更新套件的精確 archive checksum 與授權文件已核對並記錄於完整清冊。Windows 只使用既有的原始 NSIS EXE 更新格式並關閉 ZIP 支援；macOS 與 Linux 保留 tar.gz。安全檢查逐平台解析實際 feature 與依賴，未加入 advisory 忽略規則。網站 OG 與 GitHub social preview 換用相同的 1280x640 品牌圖，產製提示存於 [`docs/github-social-preview.prompt.txt`](./docs/github-social-preview.prompt.txt)，檔案雜湊與散布範圍記錄於下表。
 
+- 2026-10-22：新增介面字型 `@fontsource-variable/inter` 與 `@fontsource-variable/jetbrains-mono`（皆為 5.3.0，OFL-1.1），字型檔隨 desktop bundle 內建、不從網路載入。兩個 npm archive 與 `package-lock.json` SRI 相符，授權原文（含字型版權聲明與完整 SIL Open Font License 1.1）已收錄於完整授權清冊。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -45,6 +47,8 @@
 | `@codemirror/state` | 6.7.6 | MIT | [repository](https://code.haverbeke.berlin/codemirror/state) | desktop runtime |
 | `@codemirror/theme-one-dark` | 6.1.3 | MIT | [repository](https://github.com/codemirror/theme-one-dark) | desktop runtime |
 | `@codemirror/view` | 6.43.14 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
+| `@fontsource-variable/inter` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled UI font) |
+| `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled code font) |
 | `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
 | `@xterm/addon-fit` | 0.11.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
@@ -76,7 +80,7 @@
 
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.1) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.3) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |

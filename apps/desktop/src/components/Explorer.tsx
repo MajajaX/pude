@@ -7,7 +7,7 @@ import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored
 import { isImeComposing } from "../lib/keyboard-input";
 import "../styles/explorer-virtualization.css";
 
-const TREE_ROW_HEIGHT = 27;
+const TREE_ROW_HEIGHT = 30;
 const TREE_OVERSCAN = 8;
 
 type ExplorerProps = {

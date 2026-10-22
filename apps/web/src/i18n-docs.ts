@@ -187,14 +187,14 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Create, rename and delete files and folders. Deleting moves items to the Recycle Bin or Trash — never a permanent delete.",
+              "Create, rename and delete files and folders. Deleting moves items to the Recycle Bin or Trash — never a permanent delete. The `FILES` bar under the sidebar tabs has `+` for a new file and a folder button for a new folder.",
               "Right-click for `Copy Path`, `Copy Relative Path`, `Open in Integrated Terminal` and `Reveal in Finder` (`Open in File Explorer` on Windows).",
               "Dot files are shown. Git-ignored items have gray names. The `Git ignored` root group uses a Git icon, divider and count; expand it to browse ignored items. Toggle `Group ignored` beside the footer’s plugin count to show them among normal entries instead. The choice is remembered after restart.",
               "Long folders stay fast: only visible rows are rendered.",
             ],
           },
           { t: "h3", text: "Project search" },
-          { t: "p", text: "Select `SEARCH` beside `EXPLORER` and `GIT`, or press `⌘⇧F` (`Ctrl+Shift+F` on Windows). Choose `Text` for literal text or `Files` for names and relative paths; `Aa` matches case. Git-ignored files are excluded unless you enable `Include Git ignored files`. Selecting a text result centers its match in the editor where scrolling allows, and highlights the matching text. Select `EXPLORER` or press Escape in the search input to return to files." },
+          { t: "p", text: "Select `SEARCH` beside `EXPLORER` and `GIT`, or press `⌘⇧F` (`Ctrl+Shift+F` on Windows). Choose `Text` for literal text or `Files` for names and relative paths; `Aa` matches case. Git-ignored files are excluded unless you enable `Include Git ignored files`. Results show the file name first, with its folder in a dimmer color and the line number beside it. Selecting a text result centers its match in the editor where scrolling allows, and highlights the matching text. Select `EXPLORER` or press Escape in the search input to return to files." },
           { t: "note", text: "Search reads saved files on demand, without an index; save your edits first. It skips `.git` and symlinks. Text search skips binary, unsupported, unreadable and over-2-MiB files. Each query is limited to 300 results, 50,000 entries, 100 MiB read and eight seconds. Narrow your query if a limit notice appears." },
           { t: "h3", text: "Edit" },
           {
@@ -205,6 +205,7 @@ const en: DocsDict = {
               "Multiple cursors, undo and redo, and indentation come from CodeMirror 6.",
               "`.env` and `.env.*` files have shell syntax highlighting for assignments, quoted strings, numbers, expansions and comments, and show `Dotenv` in the status bar. The same large-file limits apply.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor to set the font size between 11 and 24.",
+              "The interface uses the open-source Inter typeface; the editor, terminals and diffs use JetBrains Mono. Both are bundled with pude, so they look the same offline and on every platform. Chinese text falls back to the system font.",
               "Markdown opens as source. The `Source / Preview` button in the lower-right corner of the editor switches to a rendered preview, and every Markdown file in the project follows that choice. Preview uses the available editor width with smaller side margins and clear body text in both themes.",
             ],
           },
@@ -242,7 +243,7 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Switch the sidebar to `GIT` for the branch plus staged, unstaged, untracked, renamed and conflicted files.",
+              "Switch the sidebar to `GIT` for the branch plus staged, unstaged, untracked, renamed and conflicted files. The current branch sits at the top, and each changed file shows its name first with its folder in a dimmer color.",
               "The commit graph handles detached HEAD, unborn branches and multiple refs, and loads older history on demand. Open the full history as an editor tab, filter it by branch, and select a commit to see its changed files.",
               "Open any change as a `Side by side` or `Stacked` diff.",
             ],
@@ -273,8 +274,8 @@ const en: DocsDict = {
             items: [
               "Right-click a folder in Explorer and choose `Open in Integrated Terminal` to create a new tab in that directory. For a file, it starts in the file’s parent directory. Existing terminal tabs keep their current directories.",
               "Every project has its own terminals. Hiding the panel or switching to another project keeps them running; closing a terminal tab, the project or the window stops that terminal's process tree.",
-              "Windows uses `ComSpec`, falling back to `powershell.exe`. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
-              "`Ctrl+C` returns you to the prompt. If the shell itself exits after the interrupt, it restarts in the same tab with the earlier output retained, even when the shell reports a normal or error exit code. No `Restart terminal` click is needed; typing `exit` still ends the session.",
+              "Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows PowerShell, like Windows Terminal. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
+              "`Ctrl+C` interrupts the running program, such as a dev server, and returns you to the same prompt, as in your operating system's terminal. If a shell ends, the tab shows its exit status and a `Restart terminal` button; pude does not start a new shell by itself.",
               "If the workspace has a Python virtual environment in `.venv`, `venv` or `env`, new terminals activate it.",
               "Scrollback keeps 5,000 lines. ANSI colors, the alternate screen, mouse tracking, CJK text and IME input work as expected.",
             ],
@@ -558,14 +559,14 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "建立、重新命名與刪除檔案和資料夾。刪除會移到資源回收筒或垃圾桶，絕不永久刪除。",
+              "建立、重新命名與刪除檔案和資料夾。刪除會移到資源回收筒或垃圾桶，絕不永久刪除。側邊欄分頁下方的 `FILES` 列有 `+`（新增檔案）與資料夾按鈕（新增資料夾）。",
               "右鍵選單提供 `Copy Path`、`Copy Relative Path`、`Open in Integrated Terminal` 與 `Reveal in Finder`（Windows 為 `Open in File Explorer`）。",
               "會顯示以 `.` 開頭的檔案。被 Git 忽略的項目以灰色顯示；根目錄的 `Git ignored` 群組以 Git 圖示、分隔線與數量標示，展開即可瀏覽。在底部外掛數量旁取消勾選 `Group ignored`，可將項目放回一般列表；重新啟動後也會記住選擇。",
               "很長的資料夾也保持流暢：只渲染看得到的列。",
             ],
           },
           { t: "h3", text: "專案搜尋" },
-          { t: "p", text: "選擇 `EXPLORER / GIT / SEARCH` 中的 `SEARCH` 分頁，或按 `⌘⇧F`（Windows 為 `Ctrl+Shift+F`）。`Text` 搜尋文字，`Files` 搜尋檔名與相對路徑，`Aa` 切換區分大小寫。預設排除 Git 忽略的檔案，勾選 `Include Git ignored files` 可納入。選取文字結果會開啟檔案，在可捲動的範圍內將命中處置中，並反白標示文字；選擇 `EXPLORER` 或在搜尋欄按 Escape 可回到檔案列表。" },
+          { t: "p", text: "選擇 `EXPLORER / GIT / SEARCH` 中的 `SEARCH` 分頁，或按 `⌘⇧F`（Windows 為 `Ctrl+Shift+F`）。`Text` 搜尋文字，`Files` 搜尋檔名與相對路徑，`Aa` 切換區分大小寫。預設排除 Git 忽略的檔案，勾選 `Include Git ignored files` 可納入。結果先顯示檔名，所在資料夾以較淡的顏色列在旁邊，並附上行號。選取文字結果會開啟檔案，在可捲動的範圍內將命中處置中，並反白標示文字；選擇 `EXPLORER` 或在搜尋欄按 Escape 可回到檔案列表。" },
           { t: "note", text: "搜尋按需讀取已儲存的檔案，不建立索引；請先儲存修改。它不搜尋 `.git`，也不跟隨符號連結。文字搜尋略過二進位、不支援、無法讀取及超過 2 MiB 的檔案。每次最多 300 筆結果、50,000 個項目、讀取 100 MiB 或執行八秒；出現限制提示時請縮小搜尋範圍。" },
           { t: "h3", text: "編輯" },
           {
@@ -576,6 +577,7 @@ const zhHant: DocsDict = {
               "多游標、復原與重做、縮排由 CodeMirror 6 提供。",
               "`.env` 與 `.env.*` 支援 shell 語法高亮，包括變數賦值、引號、數字、變數展開與註解，狀態列顯示 `Dotenv`；沿用相同的大型檔案限制。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，可將字體大小調整為 11 到 24。",
+              "介面使用開源字型 Inter，編輯器、終端機與差異檢視使用 JetBrains Mono。兩者都隨 pude 內建，離線與各平台顯示一致；中文會使用系統字型。",
               "Markdown 預設顯示原始碼；編輯器右下角的 `Source / Preview` 按鈕可切換為渲染預覽，同一個專案裡的 Markdown 檔都會沿用這個選擇。預覽會使用編輯區可用寬度，縮小兩側留白，並在深淺主題使用清晰的內文字色。",
             ],
           },
@@ -613,7 +615,7 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "把側邊欄切到 `GIT`，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。",
+              "把側邊欄切到 `GIT`，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。目前分支顯示在最上方，每個變更檔案先顯示檔名，所在資料夾以較淡的顏色列在旁邊。",
               "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs，並按需載入更早的歷史。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看變更的檔案。",
               "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。",
             ],
@@ -644,8 +646,8 @@ const zhHant: DocsDict = {
             items: [
               "在檔案總管對資料夾按右鍵，選擇 `Open in Integrated Terminal`，會在該目錄建立新的終端機分頁；對檔案使用時則開在檔案所在的資料夾。既有終端機分頁的目錄不會改變。",
               "每個專案都有自己的終端機。隱藏面板或切換到其他專案時仍會繼續執行；關閉終端機分頁、關閉專案或關閉視窗，才會停止該終端機的程序樹。",
-              "Windows 使用 `ComSpec`，未設定時改用 `powershell.exe`；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
-              "按 `Ctrl+C` 會回到提示字元。如果 shell 本身在中斷後結束，即使回報一般或錯誤結束碼，也會在同一個分頁自動重啟並保留先前輸出，不需再按 `Restart terminal`；輸入 `exit` 仍會結束工作階段。",
+              "Windows 優先啟動 PowerShell 7（`pwsh.exe`，需在 `PATH` 中），否則使用 Windows PowerShell，與 Windows Terminal 一致；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
+              "按 `Ctrl+C` 會中斷正在執行的程式（例如 dev server），並回到同一個提示字元，行為與作業系統的終端機相同。若 shell 結束，分頁會顯示結束狀態與 `Restart terminal` 按鈕，pude 不會自行啟動新的 shell。",
               "若工作區的 `.venv`、`venv` 或 `env` 中有 Python 虛擬環境，新終端機會自動啟用它。",
               "scrollback 保留 5,000 行，支援 ANSI 色彩、alternate screen、滑鼠追蹤、中日韓文字與輸入法。",
             ],

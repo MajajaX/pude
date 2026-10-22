@@ -1,12 +1,13 @@
 import type { ITerminalOptions, Terminal } from "@xterm/xterm";
 
 export const TERMINAL_SCROLLBACK = 5_000;
+export const TERMINAL_FONT_FAMILY = '"JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Consolas, monospace';
 
 export const DEFAULT_TERMINAL_OPTIONS: ITerminalOptions = {
   cursorBlink: true,
   cursorStyle: "bar",
-  fontFamily: '"DM Mono", "SFMono-Regular", Consolas, monospace',
-  fontSize: 12,
+  fontFamily: TERMINAL_FONT_FAMILY,
+  fontSize: 13,
   lineHeight: 1.4,
   scrollback: TERMINAL_SCROLLBACK,
   screenReaderMode: true,
@@ -20,15 +21,6 @@ export const DEFAULT_TERMINAL_OPTIONS: ITerminalOptions = {
 
 type TerminalEvents = Pick<Terminal, "onData" | "onBinary" | "onResize">;
 type TerminalSubscription = { dispose: () => void };
-
-export function restoreTerminalAfterInterrupt(terminal: Pick<Terminal, "write" | "buffer">): Promise<void> {
-  return new Promise((resolve) => {
-    terminal.write("", () => {
-      const normalBuffer = terminal.buffer.active.type === "alternate" ? "\u001b[?1049l" : "";
-      terminal.write(`${normalBuffer}\u001b[!p\r\nRestarting shell after Ctrl+C…\r\n`, resolve);
-    });
-  });
-}
 
 export function bindTerminalToPty(
   terminal: TerminalEvents,

@@ -2,6 +2,8 @@ import { render } from "solid-js/web";
 import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
 import { emitDiagnostic } from "./lib/diagnostics";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 import { markFirstFrameShown, markStartupEvent } from "./lib/startup-timeline";
 

@@ -8,7 +8,7 @@
 }
 
 .tree-row-ignored-group .tree-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -21,7 +21,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--muted);
-  font: 10px "DM Mono", monospace;
+  font: 12px var(--font-mono);
 }
 
 .tree-row:focus-visible {
@@ -32,7 +32,7 @@
 .tree-scan-warning {
   margin-left: auto;
   color: var(--yellow);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: .04em;
 }
 
@@ -42,7 +42,7 @@
   margin-left: 4px;
   padding: 0;
   color: var(--yellow);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 22px;
   text-align: center;
   background: transparent;

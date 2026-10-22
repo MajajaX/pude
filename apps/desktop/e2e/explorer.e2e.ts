@@ -32,7 +32,9 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   await input.fill("setReady(true)");
   const result = page.locator(".project-search-result");
   await expect(result).toHaveCount(1);
-  await expect(result).toContainText("src/main.ts");
+  await expect(result).toHaveAttribute("title", "src/main.ts:6");
+  await expect(result.locator(".project-search-name")).toHaveText("main.ts");
+  await expect(result.locator(".project-search-directory")).toHaveText("src");
   await expect(result).toContainText(":6");
   await result.click();
   await expect(page.locator(".cm-content")).toContainText("bootstrap()");
@@ -48,7 +50,7 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   await page.getByRole("button", { name: "Files", exact: true }).click();
   await page.getByRole("textbox", { name: "Search project files" }).fill("src/editor");
   await expect(result).toHaveCount(1);
-  await expect(result).toContainText("src/editor.ts");
+  await expect(result).toHaveAttribute("title", "src/editor.ts");
   await page.screenshot({ path: "/tmp/pude-project-search.png" });
   await result.click();
   await expect(page.locator(".cm-content")).toContainText("openDocument");
