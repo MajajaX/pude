@@ -80,7 +80,7 @@
 
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.1) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.3) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |

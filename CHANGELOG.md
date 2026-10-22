@@ -6,6 +6,8 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-22
+
 ### Changed
 
 - On Windows the terminal starts PowerShell 7 when it is installed, otherwise Windows
@@ -23,6 +25,7 @@ All notable changes to `pude` are recorded here. The format follows
 - The Git view shows the current branch at the top and lists each change by file
   name with its folder dimmed beside it. Project search results use the same layout
   with a line-number badge; hover a row for its full path.
+- Updated Tauri to 2.12.3.
 - Updated the product specification, README, English and Traditional Chinese
   website guides and all five website tour screenshots.
 
