@@ -8,6 +8,10 @@ All notable changes to `pude` are recorded here. The format follows
 
 ### Changed
 
+- On Windows the terminal starts PowerShell 7 when it is installed, otherwise Windows
+  PowerShell, instead of `cmd.exe` from `ComSpec`, matching Windows Terminal.
+- The terminal no longer restarts the shell by itself after Ctrl+C. When a shell ends,
+  the tab shows its exit status and the **Restart terminal** button.
 - Interface text is larger and easier to read. The app now bundles the open-source
   Inter typeface for the interface and JetBrains Mono for the editor, terminals and
   diffs (both SIL Open Font License 1.1), so text looks the same offline and on every
@@ -21,6 +25,12 @@ All notable changes to `pude` are recorded here. The format follows
   with a line-number badge; hover a row for its full path.
 - Updated the product specification, README, English and Traditional Chinese
   website guides and all five website tour screenshots.
+
+### Fixed
+
+- Ctrl+C in a Windows terminal no longer ends the whole session. The shell bootstrap
+  now ignores console interrupts, so stopping a dev server such as `nuxt dev` returns
+  to the same prompt with its directory, environment and history intact.
 
 ### Security
 

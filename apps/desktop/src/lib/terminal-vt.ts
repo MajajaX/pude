@@ -22,15 +22,6 @@ export const DEFAULT_TERMINAL_OPTIONS: ITerminalOptions = {
 type TerminalEvents = Pick<Terminal, "onData" | "onBinary" | "onResize">;
 type TerminalSubscription = { dispose: () => void };
 
-export function restoreTerminalAfterInterrupt(terminal: Pick<Terminal, "write" | "buffer">): Promise<void> {
-  return new Promise((resolve) => {
-    terminal.write("", () => {
-      const normalBuffer = terminal.buffer.active.type === "alternate" ? "\u001b[?1049l" : "";
-      terminal.write(`${normalBuffer}\u001b[!p\r\nRestarting shell after Ctrl+C…\r\n`, resolve);
-    });
-  });
-}
-
 export function bindTerminalToPty(
   terminal: TerminalEvents,
   pty: {

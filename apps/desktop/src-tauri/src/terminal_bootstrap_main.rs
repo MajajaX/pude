@@ -2,14 +2,35 @@ use std::io;
 use std::os::windows::ffi::OsStrExt;
 use std::process::{Command, Stdio};
 
+const CTRL_C_EVENT: u32 = 0;
+const CTRL_BREAK_EVENT: u32 = 1;
+
 #[link(name = "kernel32")]
 extern "system" {
+    fn SetConsoleCtrlHandler(
+        handler: Option<unsafe extern "system" fn(u32) -> i32>,
+        add: i32,
+    ) -> i32;
     fn OpenEventW(access: u32, inherit: i32, name: *const u16) -> *mut std::ffi::c_void;
     fn WaitForSingleObject(handle: *mut std::ffi::c_void, milliseconds: u32) -> u32;
     fn CloseHandle(handle: *mut std::ffi::c_void) -> i32;
 }
 
+/// Ctrl+C and Ctrl+Break reach every process on the console. The shell and its jobs
+/// handle them; the bootstrap must outlive them, or the whole terminal ends.
+unsafe extern "system" fn keep_running_on_interrupt(event: u32) -> i32 {
+    (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT) as i32
+}
+
 fn run() -> Result<i32, String> {
+    // A handler, unlike SetConsoleCtrlHandler(NULL, TRUE), is not inherited, so the
+    // shell and its children still receive the interrupt.
+    if unsafe { SetConsoleCtrlHandler(Some(keep_running_on_interrupt), 1) } == 0 {
+        return Err(format!(
+            "Unable to protect the terminal bootstrap from interrupts: {}",
+            io::Error::last_os_error()
+        ));
+    }
     let mut arguments = std::env::args_os().skip(1);
     let (Some(event_name), Some(shell), Some(working_directory)) =
         (arguments.next(), arguments.next(), arguments.next())
