@@ -1738,7 +1738,9 @@ mod terminal_pty_tests {
             self.writer
                 .write_all(input.as_bytes())
                 .expect("terminal input should be written");
-            self.writer.flush().expect("terminal input should be flushed");
+            self.writer
+                .flush()
+                .expect("terminal input should be flushed");
         }
 
         fn text(&self) -> String {
@@ -1843,7 +1845,10 @@ mod terminal_pty_tests {
         let shell_responded = pty.wait_until(Duration::from_secs(15), |output| {
             output.contains("PUDE_AFTER_CTRL_C")
         });
-        let bootstrap_exit = pty.child.try_wait().expect("bootstrap should be inspectable");
+        let bootstrap_exit = pty
+            .child
+            .try_wait()
+            .expect("bootstrap should be inspectable");
         let output = pty.finish();
         assert!(
             bootstrap_exit.is_none(),
