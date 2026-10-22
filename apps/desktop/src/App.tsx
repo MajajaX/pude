@@ -4806,7 +4806,7 @@ export default function App() {
 
       <div class="main-layout" id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
         <aside class="sidebar">
-           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /><Show when={sidebarView() === "explorer" && workspace()}><div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></Show></div>
+           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /></div>
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
                <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={
@@ -4818,6 +4818,7 @@ export default function App() {
                  </Show>
                  </div>
                }>
+                 <div class="sidebar-toolbar">Files<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></div>
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label="Loading workspace files" />}>
                      <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />

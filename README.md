@@ -58,6 +58,8 @@ permission).
   files, unsaved edits, undo history, Git view and terminals.
 - **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
   Save As and a wide, readable Markdown source/preview toggle.
+- **Readable interface** — bundled open-source Inter and JetBrains Mono fonts,
+  larger interface text and high-contrast labels in both dark and light themes.
 - **Explorer and project search** — **EXPLORER / GIT / SEARCH** sidebar tabs,
   optional Git-ignored grouping, file operations and on-demand text or file-path
   search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores

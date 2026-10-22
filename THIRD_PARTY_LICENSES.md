@@ -17,6 +17,8 @@ This file contains the license and notice texts for the locked desktop app runti
 
 - 2026-10-19 v0.1.3 preparation: verified the six updated Tauri/updater package archives against Cargo.lock and their named license texts. Codegen and macro packages are recorded as build-time procedural dependencies. Windows uses raw NSIS update executables with ZIP support disabled; macOS and Linux retain tar.gz update support. Historical dependency rows remain for earlier releases.
 
+- 2026-10-22 interface fonts: added `@fontsource-variable/inter@5.3.0` and `@fontsource-variable/jetbrains-mono@5.3.0` (OFL-1.1) to the desktop runtime. Both npm archives match their package-lock.json SRI; each bundled LICENSE (font copyright notice plus the full SIL Open Font License 1.1) matches the extracted node_modules copy and is included below. This adds two locked package versions to the npm runtime inventory.
+
 ## Locked runtime package inventory
 
 | Target | Package and version | Role | Archive license metadata | Exact source archive and lock digest | Original source file(s) and SHA-256 |
@@ -399,6 +401,8 @@ This file contains the license and notice texts for the locked desktop app runti
 | macOS arm64, Windows x64 | **@codemirror/state@6.7.6** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/state/-/state-6.7.6.tgz); npm SRI sha512-kAz+AncRtKuIknedxT1bq4XwXv4UowhbkHU1myPrtVb/jZtImWuV5BXzv5vK6i3kYACsdiZiQKFQQ5Mq7elW8w== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
 | macOS arm64, Windows x64 | **@codemirror/streamparser@6.0.0** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/streamparser/-/streamparser-6.0.0.tgz); npm SRI sha512-JTFPF6xrfjt0mnfGPgzcLiMwYmvIyNaoizp8BYzv8FE8KrT6GBGDZ190rtt+O7Wke3gG/MFHyiY9YGNeimof4w== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
 | macOS arm64, Windows x64 | **@codemirror/view@6.43.14** | app runtime | MIT | [archive](https://registry.npmjs.org/@codemirror/view/-/view-6.43.14.tgz); npm SRI sha512-hC45YnmJNR1rz42OF57BLoQNFMV12/13drnvibDsR2quNDmldcb4WvYVV81hFQg56i9lcqQMEDqilhX2QDcGQQ== | LICENSE → text [05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07](#05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07); SHA-256 05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07 |
+| macOS arm64, Windows x64 | **@fontsource-variable/inter@5.3.0** | app runtime | OFL-1.1 | [archive](https://registry.npmjs.org/@fontsource-variable/inter/-/inter-5.3.0.tgz); npm SRI sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA== | LICENSE → text [3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345](#3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345); SHA-256 3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345 |
+| macOS arm64, Windows x64 | **@fontsource-variable/jetbrains-mono@5.3.0** | app runtime | OFL-1.1 | [archive](https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz); npm SRI sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw== | LICENSE → text [403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b](#403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b); SHA-256 403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b |
 | macOS arm64, Windows x64 | **@tauri-apps/api@2.12.4** | app runtime | Apache-2.0 OR MIT | [archive](https://registry.npmjs.org/@tauri-apps/api/-/api-2.12.4.tgz); npm SRI sha512-pVmfis+4zT8H0Qhp3xPZx9Ju7kpzvA6rr/PSJPyuwfvucTQ8sVt61NYU9KMkK703UFlYadFmjKA4HhybOtN0gg== | LICENSE-APACHE-2.0 → text [0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594](#0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594); SHA-256 0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594<br>LICENSE-MIT → text [9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d](#9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d); SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d<br>LICENSE.spdx → text [5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008](#5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008); SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008 |
 | macOS arm64 | **core-foundation@0.9.4** | app runtime | MIT OR Apache-2.0 | [archive](https://static.crates.io/crates/core-foundation/core-foundation-0.9.4.crate); Cargo.lock SHA-256 91e195e091a93c46f7102ec7818a2aa394e1e1771c3ab4825963fa03e45afb8f | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3](#62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3); SHA-256 62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3 |
 | macOS arm64 | **filetime@0.2.29** | app runtime | MIT/Apache-2.0 | [archive](https://static.crates.io/crates/filetime/filetime-0.2.29.crate); Cargo.lock SHA-256 5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759 | LICENSE-APACHE → text [a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2](#a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2); SHA-256 a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2<br>LICENSE-MIT → text [378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397](#378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397); SHA-256 378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397 |
@@ -3826,6 +3830,105 @@ THE SOFTWARE.
 
 ~~~
 
+<a id="3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"></a>
+### 3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345 — source-byte SHA-256 3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345; LF-normalized fenced-body SHA-256 3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345
+
+~~~
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+~~~
+
 <a id="3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"></a>
 ### 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94 — source-byte SHA-256 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94; LF-normalized fenced-body SHA-256 3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94
 
@@ -3880,6 +3983,105 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+~~~
+
+<a id="403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b"></a>
+### 403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b — source-byte SHA-256 403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b; LF-normalized fenced-body SHA-256 403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b
+
+~~~
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
 ~~~
 
 <a id="4108245a1f2df9d4e94df8abed5b4ba0759bb2f9b40a6b939f1be141077ae50b"></a>

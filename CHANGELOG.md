@@ -6,6 +6,22 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Interface text is larger and easier to read. The app now bundles the open-source
+  Inter typeface for the interface and JetBrains Mono for the editor, terminals and
+  diffs (both SIL Open Font License 1.1), so text looks the same offline and on every
+  platform. Chinese text falls back to the system font.
+- Secondary and hint text has stronger contrast in both dark and light themes and
+  now meets WCAG AA (at least 4.5:1) against sidebar and panel backgrounds.
+- The **EXPLORER / GIT / SEARCH** tabs fill the sidebar width. New file and New
+  folder moved to a **FILES** bar under the tabs, and Explorer rows are taller.
+- The Git view shows the current branch at the top and lists each change by file
+  name with its folder dimmed beside it. Project search results use the same layout
+  with a line-number badge; hover a row for its full path.
+- Updated the product specification, README, English and Traditional Chinese
+  website guides and all five website tour screenshots.
+
 ## [0.1.4] - 2026-10-20
 
 ### Added

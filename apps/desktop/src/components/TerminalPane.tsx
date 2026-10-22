@@ -8,7 +8,7 @@ import { fitVisibleTerminal } from "../lib/terminal-fit";
 import { TerminalLifecycle } from "../lib/terminal-lifecycle";
 import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "../lib/terminal-ack";
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
-import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt } from "../lib/terminal-vt";
+import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, restoreTerminalAfterInterrupt, TERMINAL_FONT_FAMILY } from "../lib/terminal-vt";
 import { TerminalInterruptRecovery, type TerminalExitPayload } from "../lib/terminal-interrupt";
 
 type TerminalTab = { id: number; label: string; directory?: string };
@@ -394,6 +394,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         const [{ Terminal: XtermTerminal }, { FitAddon }] = await Promise.all([
           import("@xterm/xterm"),
           import("@xterm/addon-fit"),
+          document.fonts?.load(`13px ${TERMINAL_FONT_FAMILY}`).catch(() => undefined),
         ]);
         if (disposed) return;
 

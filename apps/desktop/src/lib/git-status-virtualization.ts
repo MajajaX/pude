@@ -6,8 +6,8 @@ export type GitStatusRow =
   | { kind: "header"; key: string; group: GitStatusGroup; label: string; count: number }
   | { kind: "file"; key: string; group: GitStatusGroup; file: GitFileStatus; staged: boolean };
 
-export const GIT_STATUS_HEADER_HEIGHT = 27;
-export const GIT_STATUS_FILE_ROW_HEIGHT = 28;
+export const GIT_STATUS_HEADER_HEIGHT = 32;
+export const GIT_STATUS_FILE_ROW_HEIGHT = 30;
 
 export function buildGitStatusRows(files: readonly GitFileStatus[]): GitStatusRow[] {
   const staged = files.filter((file) => !file.conflict && file.indexStatus && file.indexStatus !== ".");

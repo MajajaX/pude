@@ -19,6 +19,8 @@ coverage and no published installer yet.
   appear in a collapsed group identified by a Git icon, divider and item count.
   Expanding it exposes the same file operations as other entries; the final row
   remains fully scrollable. Ignored descendants keep their normal hierarchy.
+- A **FILES** bar under the sidebar tabs holds **New file** (`+`) and **New folder**
+  for the project root. Right-click a folder to create items inside it.
 - **Group ignored** is a checkbox at the left of the Explorer footer's plugin
   count. It defaults to on, persists locally across restarts, and shows ignored
   items among normal entries when off. It does not change `.gitignore` or search
@@ -29,6 +31,8 @@ coverage and no published installer yet.
 - The sidebar has **EXPLORER / GIT / SEARCH** tabs. **SEARCH** or **Cmd+Shift+F**
   on macOS / **Ctrl+Shift+F** on Windows opens search for the active project.
   Selecting **EXPLORER** or pressing Escape in the search input returns to files.
+- Results show the file name first, its folder dimmed beside it and a line-number
+  badge for text matches; the full relative path is in the row tooltip.
 - **Text** finds literal text in saved UTF-8 files. **Files** matches a filename
   or relative path. Both support **Match case**; matching is case insensitive by
   default. Paths in results use `/`, including on Windows.
@@ -46,6 +50,21 @@ coverage and no published installer yet.
   directory entries, 100 MiB read and eight seconds. Text search skips files over
   2 MiB, binary/unsupported encodings and unreadable files, with a skipped count.
   Reaching a limit displays a notice asking for a narrower query.
+
+## Interface and readability
+
+- The interface uses the bundled Inter variable font. The editor, terminals, diffs
+  and other code text use the bundled JetBrains Mono variable font. Both are SIL Open
+  Font License 1.1, ship inside the app and are never downloaded. Text outside their
+  character sets, such as Chinese, falls back to the system font (PingFang TC on
+  macOS, Microsoft JhengHei on Windows).
+- Interface text is 13 px, with 11–12 px for labels and metadata; the terminal uses
+  13 px. The editor font size setting is unchanged (default 14, range 11–24).
+- Primary, secondary and hint text reach at least 4.5:1 contrast against sidebar and
+  panel backgrounds in both dark and light themes.
+- The **EXPLORER / GIT / SEARCH** tabs fill the sidebar width. The Git view lists
+  the current branch at the top, and each changed file by name with its folder
+  dimmed beside it.
 
 ## Editing and Markdown
 

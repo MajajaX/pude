@@ -2,6 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { Icon } from "./Icons";
 import { GitHistory } from "./GitHistory";
 import { errorMessage, gitStatusLabel } from "../lib/core";
+import { splitDisplayPath } from "../lib/display-path";
 import { isTauri } from "../lib/bridge";
 import { defaultGitWorktreePath } from "../lib/git-worktree";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
@@ -221,7 +222,7 @@ export function GitPanel(props: GitPanelProps) {
 
   return (
     <section classList={{ "git-panel": true, "git-panel-history-only": Boolean(props.historyOnly), "git-panel-history-mode": Boolean(props.historyOnly) || view() === "graph" }}>
-      <Show when={!props.historyOnly}><div class="git-panel-heading"><span class="sidebar-title">GIT</span><span class="git-panel-branch">{repositoryState() === "detached" ? "HEAD detached" : repositoryState() === "unborn" ? `${props.status.branch ?? "unborn"} (unborn)` : props.status.branch ?? "No repository"}</span></div></Show>
+      <Show when={!props.historyOnly}><div class="git-panel-heading sidebar-toolbar">Branch<span class="git-panel-branch"><Icon name="git" size={13} /><span>{repositoryState() === "detached" ? "HEAD detached" : repositoryState() === "unborn" ? `${props.status.branch ?? "unborn"} (unborn)` : props.status.branch ?? "No repository"}</span></span></div></Show>
       <div classList={{ "git-content": true, "git-content-history-mode": Boolean(props.historyOnly) || view() === "graph" }}>
         <Show when={!props.historyOnly}>
         <form class="git-quick-commit" onSubmit={(event) => {
@@ -598,7 +599,7 @@ function GitRow(props: { style: Record<string, string>; rowKey: string; file: Gi
     <div class="git-row" data-row-key={props.rowKey} style={props.style}>
       <button class="git-row-open" type="button" onClick={props.onClick} title={`${props.title} (${gitStatusLabel(props.file.indexStatus, props.file.worktreeStatus)}): ${props.file.path}`}>
         <span class={`git-badge git-badge-${props.badge}`}>{props.badge}</span>
-        <span class="git-path">{props.file.path}</span>
+        <span class="git-path"><span class="git-path-name">{splitDisplayPath(props.file.path).name}</span><span class="git-path-directory">{splitDisplayPath(props.file.path).directory}</span></span>
       </button>
       <div class="git-row-actions">
         <button type="button" disabled={props.busy} onClick={props.onStage} title={props.staged ? `Unstage ${props.file.path}` : `Stage ${props.file.path}`} aria-label={props.staged ? `Unstage ${props.file.path}` : `Stage ${props.file.path}`}><Icon name={props.staged ? "git-unstage" : "git-stage"} size={16} /></button>
