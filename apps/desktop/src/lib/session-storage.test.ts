@@ -915,6 +915,15 @@ describe("multi-project window recovery", () => {
     expect(restored.tabs.map((item) => item.path)).toEqual([tab.path, tab.path]);
   });
 
+  it("round trips the folders and file of a multi-folder workspace", () => {
+    const { session } = multiProjectSession();
+    session.projects![0] = { ...session.projects![0], folders: ["/api", "/api", 42 as unknown as string], workspaceFile: "/work/team.pdw" };
+    const restored = parseSession(JSON.stringify(session))!;
+    expect(restored.projects?.[0]).toMatchObject({ folders: ["/api"], workspaceFile: "/work/team.pdw" });
+    expect(restored.projects?.[1]).not.toHaveProperty("folders");
+    expect(restored.projects?.[1]).not.toHaveProperty("workspaceFile");
+  });
+
   it("accepts old single-project sessions and rejects duplicate cross-project document IDs", () => {
     const legacy = { ...dirtySession(3), version: 2 };
     expect(parseSession(JSON.stringify(legacy))).toMatchObject({ version: 3, workspace: "/workspace", tabs: [{ id: tab.id }] });

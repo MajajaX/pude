@@ -2,6 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { Icon } from "./Icons";
 import type { ProjectTab } from "../lib/project-tabs";
 import { tabNavigationAction } from "../lib/tab-navigation";
+import { t } from "../lib/i18n";
 
 export function ProjectTabs(props: {
   projects: readonly ProjectTab[];
@@ -42,9 +43,9 @@ export function ProjectTabs(props: {
   };
   return (
     <div class="project-tabs-container">
-      <div class="project-tabs" ref={list} role="tablist" aria-label="Projects">
+      <div class="project-tabs" ref={list} role="tablist" aria-label={t("Projects")}>
         <For each={projectIds()}>{(id) => {
-          const project = () => projectById().get(id) ?? { id, workspace: "", label: "Files", dirty: false };
+          const project = () => projectById().get(id) ?? { id, workspace: "", label: "Files", title: "Files", dirty: false };
           return (
           <div class="project-tab" classList={{ "project-tab-active": props.activeId === project().id }} draggable={!props.busy}
             onDragStart={(event) => { setDraggedId(project().id); event.dataTransfer?.setData("application/x-pude-project", project().id); if (event.dataTransfer) event.dataTransfer.effectAllowed = "move"; }}
@@ -54,16 +55,16 @@ export function ProjectTabs(props: {
             <button type="button" role="tab" id={`project-tab-${project().id}`} data-project-id={project().id}
               aria-selected={props.activeId === project().id} aria-controls="project-workspace-panel"
               tabIndex={props.activeId === project().id ? 0 : -1} aria-disabled={props.busy}
-              title={project().workspace || "Files"} onClick={() => { if (!props.busy) void props.onSelect(project().id); }} onKeyDown={(event) => keyDown(event, project().id)}>
+              title={project().title} onClick={() => { if (!props.busy) void props.onSelect(project().id); }} onKeyDown={(event) => keyDown(event, project().id)}>
               <Icon name="folder" size={13} /><span class="project-tab-label">{project().label}</span>
-              <Show when={project().dirty}><span class="project-tab-dirty" aria-label="Unsaved changes">●</span></Show>
+              <Show when={project().dirty}><span class="project-tab-dirty" aria-label={t("Unsaved changes")}>●</span></Show>
             </button>
-            <button type="button" class="project-tab-close" aria-disabled={props.busy} title="Close project" aria-label={`Close ${project().label}`} onClick={() => { if (!props.busy) void props.onClose(project().id); }}><Icon name="close" size={12} /></button>
+            <button type="button" class="project-tab-close" aria-disabled={props.busy} title={t("Close project")} aria-label={t("Close {label}", { label: project().label })} onClick={() => { if (!props.busy) void props.onClose(project().id); }}><Icon name="close" size={12} /></button>
           </div>
           );
         }}</For>
       </div>
-      <button type="button" class="icon-button project-add" aria-disabled={props.busy} title="New tab" aria-label="New tab" onClick={() => { if (!props.busy) props.onAdd(); }}><Icon name="plus" size={15} /></button>
+      <button type="button" class="icon-button project-add" aria-disabled={props.busy} title={t("New tab")} aria-label={t("New tab")} onClick={() => { if (!props.busy) props.onAdd(); }}><Icon name="plus" size={15} /></button>
     </div>
   );
 }

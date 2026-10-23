@@ -2,6 +2,7 @@ import { Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { checkForUpdates, updateStatus } from "../lib/app-update";
 import { downloadAvailableUpdate, restartAndUpdate } from "../lib/app-update-actions";
+import { t } from "../lib/i18n";
 
 export function AboutDialog(props: {
   version: string;
@@ -46,22 +47,22 @@ export function AboutDialog(props: {
       >
         <div class="modal-heading">
           <div>
-            <span class="modal-kicker">PUDE</span>
-            <h2 id="about-title">About pude</h2>
+            <span class="modal-kicker">{t("PUDE")}</span>
+            <h2 id="about-title">{t("About pude")}</h2>
           </div>
-          <button ref={(element) => { closeButton = element; }} type="button" class="icon-button" onClick={props.onClose} aria-label="Close About">
+          <button ref={(element) => { closeButton = element; }} type="button" class="icon-button" onClick={props.onClose} aria-label={t("Close About")}>
             ×
           </button>
         </div>
         <div class="input-dialog-body">
-          <p><strong>Version {props.version}</strong></p>
+          <p><strong>{t("Version {version}", { version: props.version })}</strong></p>
           <p id="about-update-status" role="status">
-            <Switch fallback="Check GitHub for a newer version of pude.">
-              <Match when={updateStatus().phase === "checking"}>Checking for updates…</Match>
-              <Match when={updateStatus().phase === "up-to-date"}>pude is up to date.</Match>
-              <Match when={updateStatus().phase === "available"}>pude {updateStatus().version} is available.</Match>
-              <Match when={updateStatus().phase === "downloading"}>Downloading pude {updateStatus().version}…</Match>
-              <Match when={updateStatus().phase === "ready"}>pude {updateStatus().version} is ready. pude asks about unsaved changes before it restarts.</Match>
+            <Switch fallback={t("Check GitHub for a newer version of pude.")}>
+              <Match when={updateStatus().phase === "checking"}>{t("Checking for updates…")}</Match>
+              <Match when={updateStatus().phase === "up-to-date"}>{t("pude is up to date.")}</Match>
+              <Match when={updateStatus().phase === "available"}>{t("pude {version} is available.", { version: updateStatus().version })}</Match>
+              <Match when={updateStatus().phase === "downloading"}>{t("Downloading pude {version}…", { version: updateStatus().version })}</Match>
+              <Match when={updateStatus().phase === "ready"}>{t("pude {version} is ready. pude asks about unsaved changes before it restarts.", { version: updateStatus().version })}</Match>
             </Switch>
           </p>
           <Show when={updateStatus().notes}>
@@ -69,10 +70,10 @@ export function AboutDialog(props: {
           </Show>
           <Switch>
             <Match when={updateStatus().phase === "available"}>
-              <button class="secondary-button" type="button" onClick={() => void downloadAvailableUpdate()}>Download update</button>
+              <button class="secondary-button" type="button" onClick={() => void downloadAvailableUpdate()}>{t("Download update")}</button>
             </Match>
             <Match when={updateStatus().phase === "ready"}>
-              <button class="secondary-button" type="button" onClick={() => void restartAndUpdate()}>Restart and update</button>
+              <button class="secondary-button" type="button" onClick={() => void restartAndUpdate()}>{t("Restart and update")}</button>
             </Match>
             <Match when={true}>
               <button
@@ -81,7 +82,7 @@ export function AboutDialog(props: {
                 disabled={updateStatus().phase === "checking" || updateStatus().phase === "downloading"}
                 onClick={() => void checkForUpdates()}
               >
-                Check for updates
+                {t("Check for updates")}
               </button>
             </Match>
           </Switch>
@@ -90,7 +91,7 @@ export function AboutDialog(props: {
           </Show>
         </div>
         <div class="modal-footer">
-          <button type="button" class="secondary-button" onClick={props.onClose}>Done</button>
+          <button type="button" class="secondary-button" onClick={props.onClose}>{t("Done")}</button>
         </div>
       </section>
     </div>

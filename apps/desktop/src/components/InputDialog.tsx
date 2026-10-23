@@ -2,6 +2,7 @@ import { createSignal, onCleanup, onMount } from "solid-js";
 import { Icon } from "./Icons";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { shouldSubmitOnEnter } from "../lib/keyboard-input";
+import { t } from "../lib/i18n";
 
 export type InputDialogProps = {
   title: string;
@@ -67,10 +68,10 @@ export function InputDialog(props: InputDialogProps) {
       >
         <div class="modal-heading">
           <div>
-            <span class="modal-kicker">PUDE INPUT</span>
+            <span class="modal-kicker">{t("PUDE INPUT")}</span>
             <h2 id="input-dialog-title">{props.title}</h2>
           </div>
-          <button type="button" class="icon-button" onClick={props.onClose} aria-label="Close input dialog"><Icon name="close" size={13} /></button>
+          <button type="button" class="icon-button" onClick={props.onClose} aria-label={t("Close input dialog")}><Icon name="close" size={13} /></button>
         </div>
         <div class="input-dialog-body">
           <label for="input-dialog-field">{props.label}</label>
@@ -90,8 +91,8 @@ export function InputDialog(props: InputDialogProps) {
           />
         </div>
         <div class="modal-footer input-dialog-actions">
-          <button type="button" class="secondary-button" onClick={props.onClose}>Cancel</button>
-          <button type="button" class="primary-button" disabled={!value().trim()} onClick={submit}>{props.submitLabel ?? "Confirm"}</button>
+          <button type="button" class="secondary-button" onClick={props.onClose}>{t("Cancel")}</button>
+          <button type="button" class="primary-button" disabled={!value().trim()} onClick={submit}>{props.submitLabel ?? t("Confirm")}</button>
         </div>
       </section>
     </div>

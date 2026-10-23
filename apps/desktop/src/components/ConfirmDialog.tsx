@@ -1,6 +1,7 @@
 import { createEffect, onCleanup, onMount } from "solid-js";
 import { confirmDialogKeyAction } from "../lib/confirm-dialog-keyboard";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
+import { t } from "../lib/i18n";
 
 export type ConfirmDialogProps = {
   title: string;
@@ -68,7 +69,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       >
         <div class="modal-heading">
           <div>
-            <span class="modal-kicker">CONFIRM ACTION</span>
+            <span class="modal-kicker">{t("CONFIRM ACTION")}</span>
             <h2 id="confirm-dialog-title">{props.title}</h2>
           </div>
         </div>

@@ -107,7 +107,7 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Project tabs for several folders in one window, multiple windows, a lazy Explorer and on-demand project text/file search",
+              "Project tabs for several folders in one window, multi-folder workspaces saved as `.pdw` files, multiple windows, a lazy Explorer and on-demand project text/file search and replace",
               "Multi-tab editing, syntax highlighting, find and replace, Markdown preview",
               "Git status, commit graph, diffs and common actions through your system Git",
               "Multiple on-demand terminals backed by real PTYs, including opening at a file or folder from Explorer",
@@ -173,7 +173,7 @@ const en: DocsDict = {
           { t: "h3", text: "Open a project" },
           {
             t: "p",
-            text: "Choose `File › Open folder` (`⌘K ⌘O`, or `Ctrl+K Ctrl+O` on Windows) and pick a local directory. It opens as a project tab in the header; opening a folder that is already open switches to its tab. Only the top level is read, and folders load as you expand them. An empty tab lists your recent projects.",
+            text: "Choose `File › Open folder` (`⌘K ⌘O`, or `Ctrl+K Ctrl+O` on Windows) and pick a local directory. It opens as a project tab in the header; opening a folder that is already open switches to its tab. Only the top level is read, and folders load as you expand them. An empty tab lists `Recent folders` and `Recent workspaces` separately.",
           },
           {
             t: "list",
@@ -181,6 +181,20 @@ const en: DocsDict = {
               "Each project tab keeps its own files, unsaved edits, undo history, search, Git view and terminals while it is in the background. Drag project tabs to reorder them; they reopen in that order.",
               "`+` in the header adds an empty project tab. `File › New window` opens a separate window with its own projects.",
               "On Windows, right-click a folder and choose `Open with pude`.",
+              "Right-click pude in the macOS Dock, or on the Windows taskbar or Start, for `New Window` and your recent folders and workspaces. A recent item opens as a new project tab in the pude window you used last, or switches to the tab that already shows it; only with no window open does it open a new one.",
+            ],
+          },
+          { t: "h3", text: "Workspaces" },
+          {
+            t: "p",
+            text: "A project tab can show several folders. Choose `File › Add folder to workspace…`, or the folder button with a split icon in the `FILES` bar. Explorer then shows a `(Workspace)` row with each folder below it, and search covers every folder. Right-click a folder row and choose `Remove Folder from Workspace` to take it out again.",
+          },
+          {
+            t: "list",
+            items: [
+              "`File › Save workspace as…` saves the folders as a `.pdw` file. While the tab has a workspace file, adding or removing folders updates it. Folders near the file are stored as relative paths, so the workspace still opens after you move or clone the whole tree.",
+              "`File › Open workspace…` opens a `.pdw` file in a new project tab, or switches to the tab that already shows it. Folders that no longer exist are skipped with a notice. From a terminal, `pude team.pdw` works too.",
+              "Git, terminals and plugins use the first folder. If you remove the first folder, the next one takes over. `New file` and `New folder` in the `FILES` bar create items in the first folder; right-click another folder to create items there.",
             ],
           },
           { t: "h3", text: "Explorer" },
@@ -195,13 +209,15 @@ const en: DocsDict = {
           },
           { t: "h3", text: "Project search" },
           { t: "p", text: "Select `SEARCH` beside `EXPLORER` and `GIT`, or press `⌘⇧F` (`Ctrl+Shift+F` on Windows). Choose `Text` for literal text or `Files` for names and relative paths; `Aa` matches case. Git-ignored files are excluded unless you enable `Include Git ignored files`. Results show the file name first, with its folder in a dimmer color and the line number beside it. Selecting a text result centers its match in the editor where scrolling allows, and highlights the matching text. Select `EXPLORER` or press Escape in the search input to return to files." },
+          { t: "p", text: "To replace, select the chevron beside `Text / Files` to show `Replace with`. `Replace all` (or Enter in that field) replaces every match in the project, including files beyond the listed results; hover a result and select its replace button to change only that file. pude asks before it changes files and then reports how many matches and files changed." },
+          { t: "note", text: "Replace uses the same literal text, `Aa` and Git-ignored rules as search. Files with unsaved edits are skipped and counted, open files without edits reload, and `Undo` cannot reverse a project-wide replacement. Replacing across files is available in the desktop app." },
           { t: "note", text: "Search reads saved files on demand, without an index; save your edits first. It skips `.git` and symlinks. Text search skips binary, unsupported, unreadable and over-2-MiB files. Each query is limited to 300 results, 50,000 entries, 100 MiB read and eight seconds. Narrow your query if a limit notice appears." },
           { t: "h3", text: "Edit" },
           {
             t: "list",
             items: [
               "File tabs support drag to reorder and middle-click close. Right-click a tab for `Pin`, `Save As…`, `Close others` and `Close to right`; the arrow at the end of the tab bar reopens a closed tab.",
-              "Find and replace with match case (`Aa`), regex (`.*`) and whole-word options; `⌘G` jumps to a line.",
+              "Find and replace with match case (`Aa`), regex (`.*`) and whole-word options; hover any find bar button to see what it does. `⌘G` jumps to a line.",
               "Multiple cursors, undo and redo, and indentation come from CodeMirror 6.",
               "`.env` and `.env.*` files have shell syntax highlighting for assignments, quoted strings, numbers, expansions and comments, and show `Dotenv` in the status bar. The same large-file limits apply.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor to set the font size between 11 and 24.",
@@ -244,14 +260,15 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Switch the sidebar to `GIT` for the branch plus staged, unstaged, untracked, renamed and conflicted files. The current branch sits at the top, and each changed file shows its name first with its folder in a dimmer color.",
-              "The commit graph handles detached HEAD, unborn branches and multiple refs, and loads older history on demand. Open the full history as an editor tab, filter it by branch, and select a commit to see its changed files.",
+              "The commit graph handles detached HEAD, unborn branches and multiple refs. Older commits load automatically as you scroll near the end, and the history refreshes after commits, push, pull, branch and stash operations, including ones run outside pude. Open the full history as an editor tab, filter it by branch, and select a commit to see its changed files.",
+              "When the repository has stashes, a `STASH` tab appears beside `STATUS` and `HISTORY`. Expand a stash to see its changed files and open their diffs. `Apply` keeps the stash, `Pop` applies and removes it, and the trash button drops it; each asks first.",
               "Open any change as a `Side by side` or `Stacked` diff.",
             ],
           },
           { t: "h3", text: "Actions" },
           {
             t: "p",
-            text: "Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. When a command fails, the full Git output opens in a dialog instead of a toast that disappears.",
+            text: "The action groups `Changes`, `Sync`, `Branches` and `Stash` are always shown in the Git view. Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. When a command fails, the full Git output opens in a dialog instead of a toast that disappears.",
           },
           {
             t: "note",
@@ -274,6 +291,7 @@ const en: DocsDict = {
             items: [
               "Right-click a folder in Explorer and choose `Open in Integrated Terminal` to create a new tab in that directory. For a file, it starts in the file’s parent directory. Existing terminal tabs keep their current directories.",
               "Every project has its own terminals. Hiding the panel or switching to another project keeps them running; closing a terminal tab, the project or the window stops that terminal's process tree.",
+              "Drag the top edge of the terminal panel to resize it, or focus the edge and press the Up/Down arrow keys. The height is saved and used for every project; the editor always keeps at least 120 px.",
               "Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows PowerShell, like Windows Terminal. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
               "`Ctrl+C` interrupts the running program, such as a dev server, and returns you to the same prompt, as in your operating system's terminal. If a shell ends, the tab shows its exit status and a `Restart terminal` button; pude does not start a new shell by itself.",
               "If the workspace has a Python virtual environment in `.venv`, `venv` or `env`, new terminals activate it.",
@@ -296,6 +314,7 @@ const en: DocsDict = {
             t: "table",
             head: ["Setting", "What it does"],
             rows: [
+              ["Language", "`System default` (default), `English` or `繁體中文`. System default picks Traditional Chinese when your system prefers it. Applies right away; Git, terminal and plugin messages keep their own language."],
               ["Font size", "Editor text size from 11 to 24. `⌘` + scroll changes it too."],
               ["Tab size", "Width used for tabs and indentation, from 1 to 8."],
               ["Word wrap", "Wraps long lines inside the editor."],
@@ -311,7 +330,7 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Workspace files stay at their own paths. pude never copies them elsewhere.",
-              "Settings, recent projects and session metadata are kept in local WebView storage.",
+              "Settings, recent folders and workspaces, and session metadata are kept in local WebView storage. `.pdw` workspace files are saved where you choose.",
               "Recovery checkpoints use IndexedDB with a local fallback. Clearing app storage can remove them.",
               "Installed plugins are copied into the app data directory.",
               "Error diagnostics go to a small rolling log in the app's log directory, with common credentials redacted. Nothing is sent anywhere.",
@@ -479,7 +498,7 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "在同一個視窗以專案分頁開啟多個資料夾、多視窗、按需載入的檔案總管與專案文字／檔案搜尋",
+              "在同一個視窗以專案分頁開啟多個資料夾、可存成 `.pdw` 檔的多資料夾工作區、多視窗、按需載入的檔案總管與專案文字／檔案搜尋及取代",
               "多分頁編輯、語法突顯、尋找與取代、Markdown 預覽",
               "透過系統 Git 呈現狀態、提交圖譜、差異與常用操作",
               "以真實 PTY 運作、按需啟動的多個終端機，可從檔案總管在指定檔案或資料夾所在目錄開啟",
@@ -545,7 +564,7 @@ const zhHant: DocsDict = {
           { t: "h3", text: "開啟專案" },
           {
             t: "p",
-            text: "選擇 `File › Open folder`（`⌘K ⌘O`，Windows 為 `Ctrl+K Ctrl+O`）並挑選本機資料夾，它會在標題列開成一個專案分頁；開啟已經開著的資料夾則會切換到該分頁。pude 只讀取最上層，展開時才載入子資料夾。空白分頁會列出最近的專案。",
+            text: "選擇 `File › Open folder`（`⌘K ⌘O`，Windows 為 `Ctrl+K Ctrl+O`）並挑選本機資料夾，它會在標題列開成一個專案分頁；開啟已經開著的資料夾則會切換到該分頁。pude 只讀取最上層，展開時才載入子資料夾。空白分頁會分開列出 `Recent folders`（最近的資料夾）與 `Recent workspaces`（最近的工作區）。",
           },
           {
             t: "list",
@@ -553,6 +572,20 @@ const zhHant: DocsDict = {
               "每個專案分頁在背景時都保留自己的檔案、未儲存的修改、復原紀錄、搜尋、Git 檢視與終端機。專案分頁可以拖曳排序，下次會依相同順序開啟。",
               "標題列的 `+` 會新增空白專案分頁；`File › New window` 會開啟另一個擁有自己專案的視窗。",
               "在 Windows 上，可以對資料夾按右鍵選擇 `Open with pude`。",
+              "在 macOS 的 Dock，或 Windows 的工作列與開始功能表對 pude 按右鍵，可選 `New Window` 以及最近的資料夾和工作區。選擇最近項目會在你最後使用的 pude 視窗開成新的專案分頁，若已經開著則切換到該分頁；只有沒有任何視窗時才會開新視窗。",
+            ],
+          },
+          { t: "h3", text: "工作區" },
+          {
+            t: "p",
+            text: "一個專案分頁可以同時顯示多個資料夾。選擇 `File › Add folder to workspace…`，或 `FILES` 列上帶分割圖示的按鈕即可加入。檔案總管會顯示一列 `(Workspace)`，底下是各個資料夾，專案搜尋也會涵蓋所有資料夾。對資料夾列按右鍵選擇 `Remove Folder from Workspace` 可以移除。",
+          },
+          {
+            t: "list",
+            items: [
+              "`File › Save workspace as…` 會把這些資料夾存成 `.pdw` 檔。分頁有工作區檔案時，加入或移除資料夾都會自動更新它。與檔案位置相近的資料夾以相對路徑儲存，整個目錄搬移或重新 clone 後仍可開啟。",
+              "`File › Open workspace…` 會以新的專案分頁開啟 `.pdw` 檔，若已經開著則切換到該分頁。不存在的資料夾會略過並提示。也可以在終端機執行 `pude team.pdw`。",
+              "Git、終端機與外掛使用第一個資料夾；移除第一個資料夾時，由下一個資料夾接手。`FILES` 列的 `New file` 與 `New folder` 會建立在第一個資料夾，要在其他資料夾建立項目請對該資料夾按右鍵。",
             ],
           },
           { t: "h3", text: "檔案總管" },
@@ -567,13 +600,15 @@ const zhHant: DocsDict = {
           },
           { t: "h3", text: "專案搜尋" },
           { t: "p", text: "選擇 `EXPLORER / GIT / SEARCH` 中的 `SEARCH` 分頁，或按 `⌘⇧F`（Windows 為 `Ctrl+Shift+F`）。`Text` 搜尋文字，`Files` 搜尋檔名與相對路徑，`Aa` 切換區分大小寫。預設排除 Git 忽略的檔案，勾選 `Include Git ignored files` 可納入。結果先顯示檔名，所在資料夾以較淡的顏色列在旁邊，並附上行號。選取文字結果會開啟檔案，在可捲動的範圍內將命中處置中，並反白標示文字；選擇 `EXPLORER` 或在搜尋欄按 Escape 可回到檔案列表。" },
+          { t: "p", text: "要取代時，按 `Text / Files` 旁的箭頭顯示 `Replace with`。`Replace all`（或在該欄按 Enter）會取代整個專案的所有符合項目，包括清單以外的檔案；將滑鼠移到某筆結果上按取代按鈕，則只取代那個檔案。pude 會先請你確認，完成後告訴你取代了幾處、幾個檔案。" },
+          { t: "note", text: "取代沿用搜尋的純文字比對、`Aa` 與 Git 忽略規則。有未儲存修改的檔案會略過並計數，沒有修改的已開啟檔案會重新載入；全專案取代無法用 `Undo` 復原。跨檔案取代僅在桌面版提供。" },
           { t: "note", text: "搜尋按需讀取已儲存的檔案，不建立索引；請先儲存修改。它不搜尋 `.git`，也不跟隨符號連結。文字搜尋略過二進位、不支援、無法讀取及超過 2 MiB 的檔案。每次最多 300 筆結果、50,000 個項目、讀取 100 MiB 或執行八秒；出現限制提示時請縮小搜尋範圍。" },
           { t: "h3", text: "編輯" },
           {
             t: "list",
             items: [
               "檔案分頁支援拖曳排序與中鍵關閉。在分頁上按右鍵可使用 `Pin`、`Save As…`、`Close others` 與 `Close to right`；分頁列最右側的箭頭可重新開啟剛關閉的分頁。",
-              "尋找與取代支援區分大小寫（`Aa`）、正規表示式（`.*`）與全字比對；`⌘G` 跳至指定行。",
+              "尋找與取代支援區分大小寫（`Aa`）、正規表示式（`.*`）與全字比對；將滑鼠移到尋找列的按鈕上即可看到說明。`⌘G` 跳至指定行。",
               "多游標、復原與重做、縮排由 CodeMirror 6 提供。",
               "`.env` 與 `.env.*` 支援 shell 語法高亮，包括變數賦值、引號、數字、變數展開與註解，狀態列顯示 `Dotenv`；沿用相同的大型檔案限制。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，可將字體大小調整為 11 到 24。",
@@ -616,14 +651,15 @@ const zhHant: DocsDict = {
             t: "list",
             items: [
               "把側邊欄切到 `GIT`，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。目前分支顯示在最上方，每個變更檔案先顯示檔名，所在資料夾以較淡的顏色列在旁邊。",
-              "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs，並按需載入更早的歷史。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看變更的檔案。",
+              "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs。捲動到接近底部時會自動載入更早的提交；提交、推送、拉取、分支與 stash 操作後（包括在 pude 以外執行的操作）歷史會自動更新。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看變更的檔案。",
+              "儲存庫有 stash 時，`STATUS` 與 `HISTORY` 旁會出現 `STASH` 分頁。展開 stash 可查看變更的檔案並開啟差異。`Apply` 套用並保留 stash，`Pop` 套用後移除，垃圾桶按鈕則直接刪除；每項操作都會先請你確認。",
               "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。",
             ],
           },
           { t: "h3", text: "操作" },
           {
             t: "p",
-            text: "暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令失敗時，完整的 Git 輸出會顯示在對話框中，而不是一閃即逝的提示。",
+            text: "Git 檢視會一直顯示 `Changes`、`Sync`、`Branches` 與 `Stash` 操作群組。暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令失敗時，完整的 Git 輸出會顯示在對話框中，而不是一閃即逝的提示。",
           },
           {
             t: "note",
@@ -646,6 +682,7 @@ const zhHant: DocsDict = {
             items: [
               "在檔案總管對資料夾按右鍵，選擇 `Open in Integrated Terminal`，會在該目錄建立新的終端機分頁；對檔案使用時則開在檔案所在的資料夾。既有終端機分頁的目錄不會改變。",
               "每個專案都有自己的終端機。隱藏面板或切換到其他專案時仍會繼續執行；關閉終端機分頁、關閉專案或關閉視窗，才會停止該終端機的程序樹。",
+              "拖曳終端機面板的上緣即可調整高度，也可以聚焦上緣後按上／下方向鍵調整。高度會被記住並套用到所有專案，編輯器至少保留 120 px。",
               "Windows 優先啟動 PowerShell 7（`pwsh.exe`，需在 `PATH` 中），否則使用 Windows PowerShell，與 Windows Terminal 一致；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",
               "按 `Ctrl+C` 會中斷正在執行的程式（例如 dev server），並回到同一個提示字元，行為與作業系統的終端機相同。若 shell 結束，分頁會顯示結束狀態與 `Restart terminal` 按鈕，pude 不會自行啟動新的 shell。",
               "若工作區的 `.venv`、`venv` 或 `env` 中有 Python 虛擬環境，新終端機會自動啟用它。",
@@ -668,6 +705,7 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["設定", "作用"],
             rows: [
+              ["語言（Language）", "`跟隨系統`（預設）、`English` 或 `繁體中文`。跟隨系統時，若系統偏好語言為繁體中文就使用繁體中文。切換後立即生效；Git、終端機與外掛的訊息維持原本的語言。"],
               ["Font size", "編輯器字體大小，範圍 11 到 24，也可以用 `⌘` + 滾輪調整。"],
               ["Tab size", "Tab 與縮排的寬度，範圍 1 到 8。"],
               ["Word wrap", "在編輯器內自動換行。"],
@@ -677,13 +715,13 @@ const zhHant: DocsDict = {
               ["Watcher excluded paths", "檔案監看要忽略的路徑，例如建置輸出。"],
             ],
           },
-          { t: "p", text: "從 `View › Settings` 開啟設定。標題列右側的太陽／月亮按鈕可切換深色與淺色主題。" },
+          { t: "p", text: "從 `View › Settings`（繁體中文介面為 `檢視 › 設定`）開啟設定。標題列右側的太陽／月亮按鈕可切換深色與淺色主題。本文件中的介面名稱以英文介面為準；切換為繁體中文後，選單與按鈕會顯示對應的中文名稱。" },
           { t: "h3", text: "資料存放位置" },
           {
             t: "list",
             items: [
               "工作區檔案留在原本的路徑，pude 不會複製到其他地方。",
-              "設定、最近的專案與工作階段資訊存放在本機 WebView 儲存空間。",
+              "設定、最近的資料夾與工作區，以及工作階段資訊存放在本機 WebView 儲存空間；`.pdw` 工作區檔案則存放在你選擇的位置。",
               "復原檢查點使用 IndexedDB，並有本機備援；清除應用程式儲存空間可能會移除它們。",
               "已安裝的外掛會複製到應用程式資料目錄。",
               "錯誤診斷會寫入應用程式日誌目錄中的小型輪替日誌，常見的憑證格式會被遮蔽，不會傳送到任何地方。",

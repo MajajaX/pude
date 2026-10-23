@@ -1,3 +1,4 @@
+import { translatable } from "./i18n";
 import type { GitFileStatus } from "../types";
 
 export type GitStatusGroup = "staged" | "changes";
@@ -14,11 +15,11 @@ export function buildGitStatusRows(files: readonly GitFileStatus[]): GitStatusRo
   const changes = files.filter((file) => file.conflict || !file.indexStatus || file.worktreeStatus);
   const rows: GitStatusRow[] = [];
   if (staged.length) {
-    rows.push({ kind: "header", key: "header:staged", group: "staged", label: "STAGED CHANGES", count: staged.length });
+    rows.push({ kind: "header", key: "header:staged", group: "staged", label: translatable("STAGED CHANGES"), count: staged.length });
     for (const file of staged) rows.push({ kind: "file", key: `staged:${file.path}`, group: "staged", file, staged: true });
   }
   if (changes.length) {
-    rows.push({ kind: "header", key: "header:changes", group: "changes", label: "CHANGES", count: changes.length });
+    rows.push({ kind: "header", key: "header:changes", group: "changes", label: translatable("CHANGES"), count: changes.length });
     for (const file of changes) rows.push({ kind: "file", key: `changes:${file.path}`, group: "changes", file, staged: false });
   }
   return rows;

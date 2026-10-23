@@ -1,6 +1,7 @@
 import { updateStatus } from "../lib/app-update";
 import { downloadAvailableUpdate, restartAndUpdate } from "../lib/app-update-actions";
 import { Icon } from "./Icons";
+import { t } from "../lib/i18n";
 
 export function StatusUpdateButton(props: { onError: () => void }) {
   const runUpdate = async () => {
@@ -14,12 +15,12 @@ export function StatusUpdateButton(props: { onError: () => void }) {
     type="button"
     disabled={updateStatus().phase === "downloading"}
     title={updateStatus().error ?? (updateStatus().phase === "ready"
-      ? `Restart to install pude ${updateStatus().version}`
-      : `Download pude ${updateStatus().version}`)}
+      ? t("Restart to install pude {version}", { version: updateStatus().version })
+      : t("Download pude {version}", { version: updateStatus().version }))}
     onClick={() => void runUpdate()}
   >
     <Icon name={updateStatus().phase === "ready" ? "refresh" : "arrow-down"} size={12} />
-    {updateStatus().phase === "ready" ? "Restart and update"
-      : updateStatus().phase === "downloading" ? "Downloading…" : `Update ${updateStatus().version}`}
+    {updateStatus().phase === "ready" ? t("Restart and update")
+      : updateStatus().phase === "downloading" ? t("Downloading…") : t("Update {version}", { version: updateStatus().version })}
   </button>;
 }

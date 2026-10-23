@@ -4,8 +4,10 @@ import { Icon } from "./Icons";
 import { buildGitGraph } from "../lib/git-graph";
 import { reconcileGitHistoryBranchFilter, type GitHistoryBranchFilter } from "../lib/git-history-filter";
 import { GIT_HISTORY_ROW_HEIGHT, gitHistoryRenderWindow } from "../lib/git-history-virtualization";
+import { relativeTimeLabel } from "../lib/relative-time";
 import type { GitBranch, GitCommit, GitCommitFile } from "../types";
 import "../styles/git-history.css";
+import { t } from "../lib/i18n";
 
 type BranchFilter = GitHistoryBranchFilter;
 type HistoryBranch = { value: BranchFilter; name: string; kind: "local" | "remote"; tipHash?: string; current: boolean };
@@ -35,7 +37,6 @@ type GitHistoryProps = {
 };
 
 const commitRowHeight = 44;
-const ageFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 export function GitHistory(props: GitHistoryProps) {
   const [branchFilter, setBranchFilter] = createSignal<BranchFilter>("all");
@@ -125,6 +126,19 @@ export function GitHistory(props: GitHistoryProps) {
     return renderWindow().indexes.flatMap((index) => rows[index] ? [rows[index]] : []);
   });
   const historyContentHeight = () => graph().rows.length * GIT_HISTORY_ROW_HEIGHT + (props.historyHasMore ? 46 : 0);
+  // Load the next page when the viewport nears the end of the loaded rows. A
+  // page that adds no visible rows (hidden by the branch filter) stops the
+  // automatic loading; the Load older commits button continues it.
+  let autoLoadedRowCount = -1;
+  createEffect(() => {
+    const rowCount = graph().rows.length;
+    const viewport = viewportHeight();
+    const remaining = rowCount * GIT_HISTORY_ROW_HEIGHT - (Math.max(0, scrollTop() - listTop()) + viewport);
+    if (!props.historyHasMore || props.loading || props.historyLoadingMore || !viewport || remaining > GIT_HISTORY_ROW_HEIGHT * 4) return;
+    if (rowCount === autoLoadedRowCount) return;
+    autoLoadedRowCount = rowCount;
+    props.onLoadMoreHistory();
+  });
   const railWidth = createMemo(() => {
     const laneCount = Math.max(1, graph().laneCount);
     return Math.max(props.fullMode ? 46 : 30, laneCount * 14 + 4);
@@ -315,7 +329,7 @@ export function GitHistory(props: GitHistoryProps) {
   const jumpToHead = () => {
     const head = headCommit();
     if (!head) {
-      setCopyMessage("HEAD is not in the loaded history");
+      setCopyMessage(t("HEAD is not in the loaded history"));
       clearTimeout(copyMessageTimer);
       copyMessageTimer = setTimeout(() => setCopyMessage(""), 2200);
       return;
@@ -337,9 +351,9 @@ export function GitHistory(props: GitHistoryProps) {
   const copyHash = async (hash: string) => {
     try {
       await navigator.clipboard.writeText(hash);
-      setCopyMessage("Hash copied");
+      setCopyMessage(t("Hash copied"));
     } catch {
-      setCopyMessage("Clipboard is unavailable");
+      setCopyMessage(t("Clipboard is unavailable"));
     }
     clearTimeout(copyMessageTimer);
     copyMessageTimer = setTimeout(() => setCopyMessage(""), 1800);
@@ -350,7 +364,7 @@ export function GitHistory(props: GitHistoryProps) {
   const referencesFor = (commit: GitCommit) => commitReferences(commit, props.branches);
 
   return (
-    <section classList={{ "git-history": true, "git-history-full": Boolean(props.fullMode) }} aria-label="Git history" onKeyDown={(event) => {
+    <section classList={{ "git-history": true, "git-history-full": Boolean(props.fullMode) }} aria-label={t("Git history")} onKeyDown={(event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "f") {
         event.preventDefault();
         searchInput?.focus();
@@ -360,18 +374,18 @@ export function GitHistory(props: GitHistoryProps) {
       <div class="git-history-toolbar">
         <div class="git-history-tools">
           <label class="git-history-filter">
-            <span class="git-history-sr-only">Filter commits by branch</span>
-            <select value={branchFilter()} onChange={(event) => setBranchChoice(event.currentTarget.value)} aria-label="Filter commits by branch">
-              <option value="all">All branches</option>
-              <Show when={props.repositoryState === "detached"}><option value="current-head">Current HEAD</option></Show>
-              <Show when={!branchOptions().length}><option value="all" disabled>No branch refs available</option></Show>
+            <span class="git-history-sr-only">{t("Filter commits by branch")}</span>
+            <select value={branchFilter()} onChange={(event) => setBranchChoice(event.currentTarget.value)} aria-label={t("Filter commits by branch")}>
+              <option value="all">{t("All branches")}</option>
+              <Show when={props.repositoryState === "detached"}><option value="current-head">{t("Current HEAD")}</option></Show>
+              <Show when={!branchOptions().length}><option value="all" disabled>{t("No branch refs available")}</option></Show>
               <Show when={branchOptions().some((branch) => branch.kind === "local")}>
-                <optgroup label="Local branches">
-                  <For each={branchOptions().filter((branch) => branch.kind === "local")}>{(branch) => <option value={branch.value}>{branch.name}{branch.current ? " · HEAD" : ""}</option>}</For>
+                <optgroup label={t("Local branches")}>
+                  <For each={branchOptions().filter((branch) => branch.kind === "local")}>{(branch) => <option value={branch.value}>{branch.name}{branch.current ? t(" · HEAD") : ""}</option>}</For>
                 </optgroup>
               </Show>
               <Show when={branchOptions().some((branch) => branch.kind === "remote")}>
-                <optgroup label="Remote branches">
+                <optgroup label={t("Remote branches")}>
                   <For each={branchOptions().filter((branch) => branch.kind === "remote")}>{(branch) => <option value={branch.value}>{branch.name}</option>}</For>
                 </optgroup>
               </Show>
@@ -384,29 +398,29 @@ export function GitHistory(props: GitHistoryProps) {
             <input ref={searchInput} autocorrect="off" autocapitalize="off" spellcheck={false} value={search()} onInput={(event) => setSearch(event.currentTarget.value)} onKeyDown={(event) => {
               if (event.key === "Enter") { event.preventDefault(); jumpToSearchMatch(event.shiftKey ? -1 : 1); }
               if (event.key === "Escape") { event.stopPropagation(); setSearch(""); searchInput?.blur(); }
-            }} placeholder="Search history" aria-label="Search history; Enter jumps to a match" />
+            }} placeholder={t("Search history")} aria-label={t("Search history; Enter jumps to a match")} />
             <Show when={search().trim()}><span class="git-history-match-count">{searchMatches().length}</span></Show>
           </label>
           <div class="git-history-toolbar-actions">
-            <button class="git-history-icon-button" type="button" title="Locate current HEAD" aria-label="Locate current HEAD" onClick={jumpToHead}><span class="git-history-head-icon">●</span></button>
-            <button class="git-history-icon-button" type="button" title="Refresh history" aria-label="Refresh history" onClick={props.onRefresh}><Icon name="refresh" size={13} /></button>
-            <Show when={props.onOpenHistory}><button class="git-history-icon-button git-history-expand" type="button" title="Open full history" aria-label="Open full history" onClick={props.onOpenHistory}><Icon name="external" size={13} /></button></Show>
+            <button class="git-history-icon-button" type="button" title={t("Locate current HEAD")} aria-label={t("Locate current HEAD")} onClick={jumpToHead}><span class="git-history-head-icon">●</span></button>
+            <button class="git-history-icon-button" type="button" title={t("Refresh history")} aria-label={t("Refresh history")} onClick={props.onRefresh}><Icon name="refresh" size={13} /></button>
+            <Show when={props.onOpenHistory}><button class="git-history-icon-button git-history-expand" type="button" title={t("Open full history")} aria-label={t("Open full history")} onClick={props.onOpenHistory}><Icon name="external" size={13} /></button></Show>
           </div>
         </div>
       </div>
 
-      <Show when={props.loading}><div class="git-history-loading" role="status">Refreshing history…</div></Show>
+      <Show when={props.loading}><div class="git-history-loading" role="status">{t("Refreshing history…")}</div></Show>
       <Show when={props.error}><div class="git-history-error" role="alert">{props.error}</div></Show>
-      <Show when={hasUnloadedParents()}><div class="git-history-note" role="note">Some older parents are outside the loaded history; dashed edges or dotted nodes mark those boundaries.</div></Show>
-      <Show when={hasUnknownParents()}><div class="git-history-note" role="note">Some commits have unavailable parent data; dotted nodes mark incomplete ancestry.</div></Show>
-      <Show when={hasFilteredParents()}><div class="git-history-note" role="note">Dotted nodes mark commits with a parent hidden by the selected branch filter.</div></Show>
+      <Show when={hasUnloadedParents()}><div class="git-history-note" role="note">{t("Some older parents are outside the loaded history; dashed edges or dotted nodes mark those boundaries.")}</div></Show>
+      <Show when={hasUnknownParents()}><div class="git-history-note" role="note">{t("Some commits have unavailable parent data; dotted nodes mark incomplete ancestry.")}</div></Show>
+      <Show when={hasFilteredParents()}><div class="git-history-note" role="note">{t("Dotted nodes mark commits with a parent hidden by the selected branch filter.")}</div></Show>
       <Show when={copyMessage()}><div class="git-history-feedback" role="status">{copyMessage()}</div></Show>
-      <Show when={search().trim() && !searchMatches().length}><div class="git-history-search-empty" role="status">No commits match “{search().trim()}”. The history rows remain visible.</div></Show>
+      <Show when={search().trim() && !searchMatches().length}><div class="git-history-search-empty" role="status">{t("No commits match “{query}”. The history rows remain visible.", { query: search().trim() })}</div></Show>
 
-      <Show when={visibleCommits().length} fallback={<div class="git-history-empty">{props.loading ? "Loading commit history…" : props.commits.length ? "No history found for the selected branches" : "No commit history"}</div>}>
+      <Show when={visibleCommits().length} fallback={<div class="git-history-empty">{props.loading ? t("Loading commit history…") : props.commits.length ? t("No history found for the selected branches") : t("No commit history")}</div>}>
           <div class="git-history-table" ref={setTableElement} style={{ "--history-rail-width": `${railWidth()}px`, "--history-row-height": `${GIT_HISTORY_ROW_HEIGHT}px` }} onScroll={closeTooltip}>
-          <Show when={props.fullMode}><div class="git-history-column-header"><span>GRAPH</span><span>MESSAGE</span><span>AUTHOR</span><span>DATE</span><span>HASH</span></div></Show>
-          <div class="git-history-list" ref={setListElement} role="list" aria-label="Commits" onScroll={closeTooltip} onKeyDown={(event) => {
+          <Show when={props.fullMode}><div class="git-history-column-header"><span>{t("GRAPH")}</span><span>{t("MESSAGE")}</span><span>{t("AUTHOR")}</span><span>{t("DATE")}</span><span>{t("HASH")}</span></div></Show>
+          <div class="git-history-list" ref={setListElement} role="list" aria-label={t("Commits")} onScroll={closeTooltip} onKeyDown={(event) => {
           if (event.key === "Escape") {
             const focusedRow = [...rowElements.entries()].find(([, row]) => row === document.activeElement);
             if (focusedRow) suppressedFocusedTooltipHash = focusedRow[0];
@@ -436,7 +450,7 @@ export function GitHistory(props: GitHistoryProps) {
                 <span class="git-history-columns">
                   <span class="git-history-message">
                     <span class="git-history-subject" title={commit.subject}><HighlightedText value={commit.subject} query={search()} /></span>
-                    <span class="git-history-ref-list" aria-label={commit.refs.length ? `References: ${commit.refs.join(", ")}` : undefined}>
+                    <span class="git-history-ref-list" aria-label={commit.refs.length ? t("References: {value}", { value: commit.refs.join(", ") }) : undefined}>
                       <For each={references}>{(reference, refIndex) => <Show when={refIndex() < visibleReferenceCount}><span class={`git-history-ref git-history-ref-${reference.kind}`} title={`${reference.kind}: ${reference.label}`}>{reference.label}</span></Show>}</For>
                       <Show when={references.length > visibleReferenceCount}><span class="git-history-ref-more" title={references.slice(visibleReferenceCount).map((reference) => reference.label).join(", ")}>+{references.length - visibleReferenceCount}</span></Show>
                     </span>
@@ -447,7 +461,7 @@ export function GitHistory(props: GitHistoryProps) {
               </button>
             </div>;
           }}</For>
-          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory(); }}>{props.historyLoadingMore ? "Loading older commits…" : "Load older commits"}</button></div></Show>
+          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory(); }}>{props.historyLoadingMore ? t("Loading older commits…") : t("Load older commits")}</button></div></Show>
           </div>
           </div>
         </div>
@@ -548,8 +562,8 @@ function commitReferences(commit: GitCommit, branches: GitBranch[]): CommitRefer
 
 function CommitMetadataTooltip(props: { id: string; commit: GitCommit; left: number; top: number; width: number; maxHeight: number; onMouseEnter: () => void; onMouseLeave: () => void }) {
   const parents = () => props.commit.parents === undefined
-    ? "Parent data unavailable"
-    : props.commit.parents.length ? props.commit.parents.join(", ") : "Root commit";
+    ? t("Parent data unavailable")
+    : props.commit.parents.length ? props.commit.parents.join(", ") : t("Root commit");
   return <div
     class="git-history-tooltip"
     id={props.id}
@@ -561,27 +575,17 @@ function CommitMetadataTooltip(props: { id: string; commit: GitCommit; left: num
     <strong class="git-history-tooltip-subject">{props.commit.subject}</strong>
     <Show when={props.commit.body}><p class="git-history-tooltip-body">{props.commit.body}</p></Show>
     <dl class="git-history-tooltip-fields">
-      <dt>Author</dt><dd>{props.commit.author}</dd>
-      <dt>Date</dt><dd>{props.commit.authoredAt ?? props.commit.date}</dd>
-      <dt>Hash</dt><dd><code>{props.commit.hash}</code></dd>
-      <dt>Parents</dt><dd>{parents()}</dd>
-      <dt>Refs</dt><dd>{props.commit.refs.length ? props.commit.refs.join(", ") : "None"}</dd>
+      <dt>{t("Author")}</dt><dd>{props.commit.author}</dd>
+      <dt>{t("Date")}</dt><dd>{props.commit.authoredAt ?? props.commit.date}</dd>
+      <dt>{t("Hash")}</dt><dd><code>{props.commit.hash}</code></dd>
+      <dt>{t("Parents")}</dt><dd>{parents()}</dd>
+      <dt>{t("Refs")}</dt><dd>{props.commit.refs.length ? props.commit.refs.join(", ") : t("None")}</dd>
     </dl>
   </div>;
 }
 
 function relativeCommitAge(commit: GitCommit): string {
-  const timestamp = Date.parse(commit.authoredAt ?? commit.date);
-  if (!Number.isFinite(timestamp)) return commit.date;
-  const elapsedDays = (timestamp - Date.now()) / 86_400_000;
-  const elapsedHours = elapsedDays * 24;
-  const elapsedMinutes = elapsedHours * 60;
-  if (Math.abs(elapsedMinutes) < 60) return ageFormatter.format(Math.round(elapsedMinutes), "minute");
-  if (Math.abs(elapsedHours) < 24) return ageFormatter.format(Math.round(elapsedHours), "hour");
-  if (Math.abs(elapsedDays) < 45) return ageFormatter.format(Math.round(elapsedDays), "day");
-  const elapsedMonths = elapsedDays / 30.44;
-  if (Math.abs(elapsedMonths) < 18) return ageFormatter.format(Math.round(elapsedMonths), "month");
-  return ageFormatter.format(Math.round(elapsedDays / 365.25), "year");
+  return relativeTimeLabel(commit.authoredAt ?? commit.date);
 }
 
 function GitGraphRail(props: { row: ReturnType<typeof buildGitGraph>["rows"][number]; laneCount: number; width: number }) {
@@ -617,25 +621,25 @@ function CommitDetails(props: {
   onOpenDiff: (commit: GitCommit, file: GitCommitFile) => void;
   onClose: () => void;
 }) {
-  return <section class="git-history-details" aria-label="Commit details" onKeyDown={(event) => {
+  return <section class="git-history-details" aria-label={t("Commit details")} onKeyDown={(event) => {
     if (event.key === "Escape") props.onClose();
   }}>
-    <Show when={props.commit} fallback={<div class="git-history-details-empty">Select a commit to view changed files</div>}>
+    <Show when={props.commit} fallback={<div class="git-history-details-empty">{t("Select a commit to view changed files")}</div>}>
       {(commit) => <>
         <div class="git-history-details-heading">
-          <div class="git-history-details-title"><strong>Changed files</strong><Show when={props.loaded && !props.loading}><span>{props.files.length} in {commit().shortHash}</span></Show></div>
+          <div class="git-history-details-title"><strong>{t("Changed files")}</strong><Show when={props.loaded && !props.loading}><span>{t("{count} in {hash}", { count: props.files.length, hash: commit().shortHash })}</span></Show></div>
           <div class="git-history-detail-actions">
-            <button type="button" onClick={() => props.onCopy(commit().hash)} title="Copy full commit hash"><Icon name="copy" size={12} /><span>Copy hash</span></button>
-            <button type="button" onClick={() => props.onCreateBranch(commit())} title={`Create a branch from ${commit().shortHash}`}><Icon name="plus" size={12} /><span>Create branch</span></button>
+            <button type="button" onClick={() => props.onCopy(commit().hash)} title={t("Copy full commit hash")}><Icon name="copy" size={12} /><span>{t("Copy hash")}</span></button>
+            <button type="button" onClick={() => props.onCreateBranch(commit())} title={t("Create a branch from {shortHash}", { shortHash: commit().shortHash })}><Icon name="plus" size={12} /><span>{t("Create branch")}</span></button>
           </div>
         </div>
-        <Show when={props.loading}><div class="git-history-files-state">Loading changed files…</div></Show>
-        <Show when={!props.loading && props.error}><div class="git-history-files-state git-history-files-error">Unable to load changed files: {props.error}<button type="button" onClick={() => props.onRetry(commit())}>Retry</button></div></Show>
-        <Show when={!props.loading && !props.error && props.loaded && !props.files.length}><div class="git-history-files-state">No changed files</div></Show>
-        <Show when={!props.loading && !props.error && !props.loaded}><div class="git-history-files-state">Changed file list is unavailable</div></Show>
+        <Show when={props.loading}><div class="git-history-files-state">{t("Loading changed files…")}</div></Show>
+        <Show when={!props.loading && props.error}><div class="git-history-files-state git-history-files-error">{t("Unable to load changed files: {error}", { error: props.error })}<button type="button" onClick={() => props.onRetry(commit())}>{t("Retry")}</button></div></Show>
+        <Show when={!props.loading && !props.error && props.loaded && !props.files.length}><div class="git-history-files-state">{t("No changed files")}</div></Show>
+        <Show when={!props.loading && !props.error && !props.loaded}><div class="git-history-files-state">{t("Changed file list is unavailable")}</div></Show>
         <Show when={!props.loading && !props.error && props.files.length}>
           <div class="git-history-files">
-            <For each={props.files}>{(file) => <button class="git-history-file" type="button" onClick={() => props.onOpenDiff(commit(), file)} title={`Open ${file.path} from commit ${commit().shortHash}`}>
+            <For each={props.files}>{(file) => <button class="git-history-file" type="button" onClick={() => props.onOpenDiff(commit(), file)} title={t("Open {path} from commit {shortHash}", { path: file.path, shortHash: commit().shortHash })}>
               <span class={`git-history-file-status git-history-file-status-${file.status.slice(0, 1)}`}>{file.status}</span><span>{file.path}</span><Icon name="chevron-right" size={11} />
             </button>}</For>
           </div>

@@ -1,12 +1,23 @@
 import { wireBasename, wireParentPath } from "./path-identity";
+import { workspaceLabel } from "./workspace-folders";
+import { t } from "./i18n";
 
-export type ProjectTab = { id: string; workspace: string; label: string; dirty: boolean };
+export type ProjectTab = { id: string; workspace: string; label: string; title: string; dirty: boolean };
+type ProjectLabelSource = { workspace: string; additionalFolders?: readonly string[]; workspaceFile?: string };
 
-export function projectTabLabel(project: Pick<ProjectTab, "workspace">, projects: readonly Pick<ProjectTab, "workspace">[]): string {
-  if (!project.workspace) return "Files";
-  const name = wireBasename(project.workspace);
-  const duplicates = projects.filter((item) => item.workspace && wireBasename(item.workspace) === name);
-  return duplicates.length > 1 ? `${name} — ${wireBasename(wireParentPath(project.workspace))}` : name;
+const projectName = (project: ProjectLabelSource) => workspaceLabel([project.workspace, ...(project.additionalFolders ?? [])], project.workspaceFile);
+
+export function projectTabLabel(project: ProjectLabelSource, projects: readonly ProjectLabelSource[]): string {
+  if (!project.workspace) return t("Files");
+  const name = projectName(project);
+  const duplicates = projects.filter((item) => item.workspace && projectName(item) === name);
+  return duplicates.length > 1 ? `${name} — ${wireBasename(wireParentPath(project.workspaceFile ?? project.workspace))}` : name;
+}
+
+/** Tooltip: the workspace file and every folder, one per line. */
+export function projectTabTitle(project: ProjectLabelSource): string {
+  if (!project.workspace) return t("Files");
+  return [project.workspaceFile, project.workspace, ...(project.additionalFolders ?? [])].filter(Boolean).join("\n");
 }
 
 export function projectAfterClose(ids: readonly string[], activeId: string | undefined, closedId: string): string | undefined {

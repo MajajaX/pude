@@ -2,6 +2,7 @@ import { For, Show, createSignal } from "solid-js";
 import type { EditorTab } from "../types";
 import { Icon, LanguageIcon, languageIconForPath } from "./Icons";
 import { tabNavigationAction, tabRovingIndex } from "../lib/tab-navigation";
+import { t } from "../lib/i18n";
 
 export const WORKBENCH_EDITOR_PANEL_ID = "workbench-editor-panel";
 export const WORKBENCH_HISTORY_PANEL_ID = "workbench-history-panel";
@@ -138,7 +139,7 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
       ref={(element) => { tablistElement = element; }}
       class="tabbar-tabs"
       role="tablist"
-      aria-label="Open tabs"
+      aria-label={t("Open tabs")}
       aria-orientation="horizontal"
       tabIndex={-1}
       onFocusIn={rememberFocusedTab}
@@ -198,7 +199,7 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
               type="button"
               tabIndex={selected() ? 0 : -1}
               onClick={() => closeTab(tab.id)}
-              aria-label={`Close ${tab.name}`}
+              aria-label={t("Close {name}", { name: tab.name })}
             >
               <Icon name="close" size={13} />
             </button>
@@ -230,15 +231,15 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
             onClick={() => props.onSelectHistory()}
           >
             <span class="tab-file-icon"><Icon name="git" size={14} /></span>
-            <span>Git History</span>
+            <span>{t("Git History")}</span>
           </button>
-          <button class="tab-close" type="button" tabIndex={props.historySelected ? 0 : -1} onClick={closeHistory} aria-label="Close Git History">
+          <button class="tab-close" type="button" tabIndex={props.historySelected ? 0 : -1} onClick={closeHistory} aria-label={t("Close Git History")}>
             <Icon name="close" size={13} />
           </button>
         </div>
       </Show>
       <Show when={!props.tabs.length && !props.historyTabOpen}>
-        <div class="empty-tab-label" role="presentation">No file open</div>
+        <div class="empty-tab-label" role="presentation">{t("No file open")}</div>
       </Show>
       <div class="tabbar-fill" role="presentation" />
     </div>

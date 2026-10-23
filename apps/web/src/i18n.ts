@@ -60,7 +60,7 @@ const en = {
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "Tabs, pinning, find and replace, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search close; results center and highlight the match.",
+        desc: "Tabs, pinning, find and replace, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
       },
       {
         k: "git",
@@ -104,7 +104,7 @@ const en = {
       {
         k: "03",
         title: "Git, built in",
-        desc: "Branches, staging, commit graph, stash and diffs — powered by the Git CLI you already have.",
+        desc: "Branches, staging, a commit graph that loads as you scroll, stashes and diffs — powered by the Git CLI you already have.",
         meta: "git status --porcelain=v2 -z",
       },
       {
@@ -335,7 +335,7 @@ const zhHant: Dict = {
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "支援分頁、釘選、尋找與取代，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋隨手可用，結果會置中並標示命中文字。",
+        desc: "支援分頁、釘選、尋找與取代，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
       },
       {
         k: "git",
@@ -379,7 +379,7 @@ const zhHant: Dict = {
       {
         k: "03",
         title: "內建 Git",
-        desc: "分支、暫存、提交圖譜、stash 與差異比對——直接使用你已安裝的 Git CLI。",
+        desc: "分支、暫存、捲動即載入的提交圖譜、stash 與差異比對——直接使用你已安裝的 Git CLI。",
         meta: "git status --porcelain=v2 -z",
       },
       {

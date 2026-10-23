@@ -2,6 +2,7 @@ import { For, createEffect, createMemo, createSignal, onCleanup, onMount } from 
 import type { CommandPaletteItem } from "../lib/plugin-activation";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { isImeComposing } from "../lib/keyboard-input";
+import { t } from "../lib/i18n";
 
 const normalize = (value: string) => value.normalize("NFKD").toLocaleLowerCase();
 
@@ -21,7 +22,7 @@ export function CommandPalette(props: {
   const filteredCommands = createMemo(() => {
     const needle = normalize(query().trim());
     if (!needle) return props.commands;
-    return props.commands.filter((command) => normalize(`${command.title} ${command.detail ?? ""} ${command.id}`).includes(needle));
+    return props.commands.filter((command) => normalize(`${t(command.title)} ${command.title} ${command.detail ? t(command.detail) : ""} ${command.detail ?? ""} ${command.id}`).includes(needle));
   });
 
   const runSelected = () => {
@@ -80,7 +81,7 @@ export function CommandPalette(props: {
         class="command-palette"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("Command palette")}
         onKeyDown={handleKeyDown}
       >
         <input
@@ -91,17 +92,17 @@ export function CommandPalette(props: {
           autocapitalize="off"
           spellcheck={false}
           role="combobox"
-          aria-label="Search commands"
+          aria-label={t("Search commands")}
           aria-controls="command-palette-list"
           aria-expanded="true"
           aria-autocomplete="list"
           aria-activedescendant={filteredCommands()[selectedIndex()] ? optionId(selectedIndex()) : undefined}
           value={query()}
           onInput={(event) => { setQuery(event.currentTarget.value); setSelectedIndex(0); }}
-          placeholder="Type a command to search…"
+          placeholder={t("Type a command to search…")}
         />
         <div ref={(element) => { list = element; }} id="command-palette-list" class="command-palette-list" role="listbox">
-          <For each={filteredCommands()} fallback={<div class="command-palette-empty">No matching commands</div>}>
+          <For each={filteredCommands()} fallback={<div class="command-palette-empty">{t("No matching commands")}</div>}>
             {(command, index) => (
               <button
                 id={optionId(index())}
@@ -113,13 +114,13 @@ export function CommandPalette(props: {
                 onMouseEnter={() => setSelectedIndex(index())}
                 onClick={() => props.onRun(command)}
               >
-                <span class="command-palette-item-title">{command.title}</span>
-                <span class="command-palette-item-detail">{command.detail ?? (command.source === "plugin" ? "Plugin command" : "Built-in command")}</span>
+                <span class="command-palette-item-title">{t(command.title)}</span>
+                <span class="command-palette-item-detail">{command.detail ? t(command.detail) : command.source === "plugin" ? t("Plugin command") : t("Built-in command")}</span>
               </button>
             )}
           </For>
         </div>
-        <footer class="command-palette-footer"><span>↑ ↓ Navigate</span><span>↵ Run</span><span>Esc Close</span></footer>
+        <footer class="command-palette-footer"><span>{t("↑ ↓ Navigate")}</span><span>{t("↵ Run")}</span><span>{t("Esc Close")}</span></footer>
       </section>
     </div>
   );

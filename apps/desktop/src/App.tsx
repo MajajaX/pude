@@ -1,4 +1,4 @@
-import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, lazy, onCleanup, onMount } from "solid-js";
+import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
 import type { TerminalOpenRequest } from "./components/TerminalPane";
 import type { ProjectSearchMatch, ProjectSearchOptions } from "./lib/project-search";
 import type { EditorDocumentChange, EditorSettings, GoToLineRequest, SearchRequest } from "./components/EditorPane";
@@ -8,13 +8,14 @@ import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
 import type { ProjectWorkspaceState } from "./lib/project-workspace";
-import { projectAfterClose, projectTabLabel, reorderProjects } from "./lib/project-tabs";
+import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./lib/project-tabs";
+import { folderContaining, isWorkspaceFilePath, isWorkspaceRootEntry, makeWorkspaceRoot, watcherExcludesForFolders, workspaceFileName, workspaceLabel, workspaceRootFolders } from "./lib/workspace-folders";
 import { WindowControls } from "./components/WindowControls";
 import { version as appVersion } from "../package.json";
 import { checkForUpdates, updateStatus } from "./lib/app-update";
-import { defaultSettings } from "./lib/settings";
-import { getStartupFolder } from "./lib/bridge";
-import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import { defaultSettings, SETTINGS_STORAGE_KEY } from "./lib/settings";
+import { getStartupFolder, setRecentItems } from "./lib/bridge";
+import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStashDiff, getGitStashes, getGitStashFiles, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
 import { loadedExplorerPaths } from "./lib/explorer-ignored";
 import { errorMessage, orderTabsByPinned } from "./lib/core";
 import { emitDiagnostic } from "./lib/diagnostics";
@@ -59,9 +60,11 @@ import type { VersionedFileReader } from "./lib/versioned-file-reader";
 import { createExpandedPathsCache } from "./lib/expanded-paths";
 import type { RestoredTabRecord, RestoredTabResult } from "./lib/session-restore-documents";
 import { reconcile, createStore } from "solid-js/store";
-import type { AppSettings, DirectoryEntry, DiffResult, EditorTab, FileChange, FileChangedEvent, GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStatusResult, InstalledPlugin, PluginLspServer, ReadFileResult, WatchRoot } from "./types";
+import type { WorkspaceActions } from "./lib/workspace-actions";
+import type { AppSettings, DirectoryEntry, DiffResult, DirectoryListResult, EditorTab, FileChange, FileChangedEvent, GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult, InstalledPlugin, PluginLspServer, ReadFileResult, WatchRoot } from "./types";
 import type { PluginInstallPlan } from "./lib/bridge";
 import type { LspEvent } from "./lib/bridge";
+import { applyLanguage, t, translateMessage } from "./lib/i18n";
 
 type ViewMode = "editor" | "diff" | "history";
 type FileContextMenu = { entry: DirectoryEntry; x: number; y: number };
@@ -105,10 +108,15 @@ type AppQuitPreparePayload = { requestId: string };
 type AppQuitCommitPayload = { requestId: string; decision: AppQuitDecision };
 type AppQuitAbortPayload = { requestId: string; error?: string };
 type AppQuitCommitSnapshot = { requestId: string; workspace: string; discardedTabs: EditorTab[]; projects?: ProjectWorkspaceState[] };
+// Git operations that only touch the index or working tree; every other action can move HEAD or refs.
+const GIT_WORKING_TREE_ACTIONS: ReadonlySet<GitActionRequest["action"]> = new Set(["add", "stage-file", "unstage-file", "unstage-all", "discard-file", "discard-untracked-file"]);
 const emptyGit: GitStatusResult = { repositoryRoot: "", branch: null, repositoryState: "unknown", headOid: null, files: [], commits: [], error: null };
 const PLUGINS_STORAGE_KEY = "pude-plugins-v1";
 const windowPlatform = detectWindowPlatform();
+const RECENT_PROJECTS_STORAGE_KEY = "pude-recent-projects-v1";
+const RECENT_WORKSPACES_STORAGE_KEY = "pude-recent-workspaces-v1";
 const initialRecentProjects = loadRecentProjects();
+const initialRecentWorkspaces = loadRecentWorkspaces();
 const loadEditorChunk = () => import("./components/EditorPane");
 let editorChunkPromise: ReturnType<typeof loadEditorChunk> | undefined;
 const getEditorChunk = () => {
@@ -182,6 +190,13 @@ const getPluginHostModules = () => (pluginHostModulesPromise ??= loadPluginHost(
 
 export default function App() {
   const [workspace, setWorkspace] = createSignal("");
+  const [additionalFolders, setAdditionalFolders] = createSignal<string[]>([]);
+  const [workspaceFile, setWorkspaceFile] = createSignal<string>();
+  const workspaceFolders = createMemo(() => workspace() ? [workspace(), ...additionalFolders()] : [], [], {
+    equals: (left, right) => left.length === right.length && left.every((path, index) => path === right[index]),
+  });
+  const workspaceName = () => workspaceLabel(workspaceFolders(), workspaceFile(), PATH_OPTIONS);
+  const isInWorkspaceFolders = (path: string) => Boolean(folderContaining(path, workspaceFolders(), PATH_OPTIONS));
   const [projects, setProjects] = createSignal<ProjectWorkspaceState[]>([]);
   const [activeProjectId, setActiveProjectId] = createSignal<string>();
   const [projectCloseId, setProjectCloseId] = createSignal<string>();
@@ -189,6 +204,7 @@ export default function App() {
   let projectRuntime: typeof import("./lib/project-workspace") | undefined;
   let restoredCheckpointRecoveries: Readonly<Record<string, RecoverySnapshot>> | undefined;
   const [recentProjects, setRecentProjects] = createSignal(initialRecentProjects);
+  const [recentWorkspaces, setRecentWorkspaces] = createSignal(initialRecentWorkspaces);
   const [root, setRoot] = createSignal<DirectoryEntry>(makeRecentProjectsRoot(initialRecentProjects));
   // The directory tree is immutable, so caching expanded paths by root
   // identity is equivalent to incremental maintenance and self-invalidates on
@@ -209,10 +225,12 @@ export default function App() {
   const historyViewActive = () => viewMode() === "history" || viewMode() === "diff" && diffReturnToHistory();
   const [git, setGit] = createSignal<GitStatusResult>(emptyGit);
   const [gitBranches, setGitBranches] = createSignal<GitBranch[]>([]);
+  const [gitStashes, setGitStashes] = createSignal<GitStash[]>([]);
   const [gitHistoryLoading, setGitHistoryLoading] = createSignal(false);
   const [gitHistoryLoadingOlder, setGitHistoryLoadingOlder] = createSignal(false);
   const [gitHistoryHasMore, setGitHistoryHasMore] = createSignal(false);
   const [gitHistoryIncomplete, setGitHistoryIncomplete] = createSignal<string>();
+  const [gitHistoryRevision, setGitHistoryRevision] = createSignal(0);
   const [diffContextLoading, setDiffContextLoading] = createSignal(false);
   const [sidebarView, setSidebarView] = createSignal<SidebarView>("explorer");
   const [terminalOpenRequests, setTerminalOpenRequests] = createSignal<Record<string, TerminalOpenRequest>>({});
@@ -404,6 +422,19 @@ export default function App() {
       finally { directoryRequests.delete(requestId); }
     }, { signal, isCurrent });
   };
+  /** List a project's root folder, or every folder of a workspace; a missing folder only marks its own row. */
+  const listWorkspaceRoot = async (rootEntry: DirectoryEntry): Promise<DirectoryEntry> => {
+    if (!isWorkspaceRootEntry(rootEntry)) return withDirectoryListing(rootEntry, await listWorkspaceDirectory(rootEntry.path));
+    const children = await Promise.all(workspaceRootFolders(rootEntry).map(async (folder) => {
+      try {
+        return withDirectoryListing(folder, await listWorkspaceDirectory(folder.path));
+      } catch (error) {
+        if (error instanceof IoStaleGenerationError) throw error;
+        return { ...folder, loaded: false, partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") } };
+      }
+    }));
+    return { ...rootEntry, children };
+  };
   const cancelWorkspaceReads = (preserveRestore = false) => {
     if (!preserveRestore && restoreIntent?.pendingTabIds.size && (!sessionRestoreCheckpointVerified
       || restoreMetadata?.tabs.some((tab) => tab.dirty && restoreIntent?.pendingTabIds.has(tab.id)))) pauseUnverifiedSessionRecovery();
@@ -488,9 +519,9 @@ export default function App() {
           getWorkspace: workspace,
           isDisposed: () => disposed,
           pathKey,
-          isPathInWorkspace: isSameOrDescendantPath,
-          isWorkspaceRoot: samePath,
-          isExpanded: (path, currentWorkspace) => samePath(path, currentWorkspace) || findDirectoryEntry(root(), path)?.expanded === true,
+          isPathInWorkspace: (path) => isInWorkspaceFolders(path),
+          isWorkspaceRoot: (path) => workspaceFolders().some((folder) => samePath(path, folder)),
+          isExpanded: (path) => workspaceFolders().some((folder) => samePath(path, folder)) || findDirectoryEntry(root(), path)?.expanded === true,
           markStale: (path) => setRoot((current) => markDirectoryStale(current, path)),
           list: listWorkspaceDirectory,
           apply: (path, listing) => setRoot((current) => samePath(path, current.path)
@@ -498,7 +529,7 @@ export default function App() {
             : updateEntry(current, path, (entry) => ({ ...entry, children: mergeDirectoryState(entry.children, listing.entries), loaded: true, stale: false, partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason, expanded: true }))),
           onError: (path, error) => {
             setRoot((current) => updateEntry(markDirectoryStale(current, path), path, (entry) => ({ ...entry, partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") } })));
-            notify("Unable to refresh workspace directory.");
+            notify(t("Unable to refresh workspace directory."));
           },
           cancelDirectoryListing,
         });
@@ -559,6 +590,7 @@ export default function App() {
   const invalidateGitHistory = () => {
     gitHistoryController?.invalidate();
     gitDirtyState = { ...gitDirtyState, history: true };
+    setGitHistoryRevision((revision) => revision + 1);
   };
 
   const enqueueWatcherOperation = <T,>(operation: () => Promise<T>): Promise<T> => {
@@ -591,6 +623,10 @@ export default function App() {
     }, delay);
   };
 
+  // Additional workspace folders are watched recursively next to the first folder.
+  const watcherExtraPaths = () => [...additionalFolders(), ...externalWatchParents];
+  const watcherExcludeList = () => watcherExcludesForFolders(settings().watcherExcludes, workspaceFolders(), joinPath);
+
   const restartWatcher = async () => {
     const currentWorkspace = workspace();
     const generation = workspaceGeneration;
@@ -609,7 +645,7 @@ export default function App() {
         await stopWatcher();
         watcherSessionId = undefined;
         watcherEvents.resetSequence();
-        const nextSessionId = await startWatcher(currentWorkspace, [...externalWatchParents], settings().watcherExcludes, tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
+        const nextSessionId = await startWatcher(currentWorkspace, watcherExtraPaths(), watcherExcludeList(), tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
         if (disposed || generation !== workspaceGeneration || workspace() !== currentWorkspace || restartVersion !== watcherRestartVersion) {
           await stopWatcher(nextSessionId);
           return;
@@ -637,7 +673,7 @@ export default function App() {
   const syncExternalWatchParents = () => {
     const next = new Set(
       tabs()
-        .filter((tab) => !workspace() || !isSameOrDescendantPath(tab.path, workspace()))
+        .filter((tab) => !isInWorkspaceFolders(tab.path))
         .map((tab) => parentPath(tab.path)),
     );
     const changed = next.size !== externalWatchParents.size || [...next].some((path) => !externalWatchParents.has(path));
@@ -664,10 +700,16 @@ export default function App() {
   const allLoadedTabs = () => Object.values(tabById).filter((tab): tab is EditorTab => Boolean(tab));
   const createProject = (path: string, id: string = crypto.randomUUID()): ProjectWorkspaceState => projectRuntime!.createProject(id, path,
     path ? { name: baseName(path), path, kind: "directory", expanded: true, loaded: false } : makeRecentProjectsRoot(recentProjects()));
+  const createWorkspaceProject = (folders: string[], file?: string, id?: string): ProjectWorkspaceState => {
+    const project = createProject(folders[0] ?? "", id);
+    if (!folders.length) return project;
+    return { ...project, additionalFolders: folders.slice(1), workspaceFile: file,
+      root: makeWorkspaceRoot(folders, workspaceLabel(folders, file, PATH_OPTIONS), undefined, PATH_OPTIONS) };
+  };
   const captureProject = (): ProjectWorkspaceState => ({
-    id: activeProjectId()!, workspace: workspace(), root: root(), tabIds: [...tabOrder()], activeTabId: activeTabId(),
+    id: activeProjectId()!, workspace: workspace(), additionalFolders: additionalFolders(), workspaceFile: workspaceFile(), root: root(), tabIds: [...tabOrder()], activeTabId: activeTabId(),
     viewMode: viewMode(), historyTabOpen: historyTabOpen(), diffReturnToHistory: diffReturnToHistory(), diff: diff(),
-    git: git(), gitBranches: gitBranches(), sidebarView: sidebarView(), search: { ...search(), action: null },
+    git: git(), gitBranches: gitBranches(), gitStashes: gitStashes(), sidebarView: sidebarView(), search: { ...search(), action: null },
     searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewEnabled: markdownPreviewEnabled(), gitIgnoredExpanded: gitIgnoredExpanded(), lastClosedTab: lastClosedTab(),
     terminalOpen: terminalOpen(), terminalInitialized: terminalInitialized(), restoreMetadata, restoreIntent, conflicts: externalConflicts(),
   });
@@ -681,10 +723,10 @@ export default function App() {
   const projectTabItems = createMemo(() => {
     const activeId = activeProjectId();
     const items = projects().map((project) => project.id === activeId
-      ? { ...project, workspace: workspace(), tabIds: tabOrder(), restoreMetadata, restoreIntent }
+      ? { ...project, workspace: workspace(), additionalFolders: additionalFolders(), workspaceFile: workspaceFile(), tabIds: tabOrder(), restoreMetadata, restoreIntent }
       : project);
     return items.map((project) => ({
-      id: project.id, workspace: project.workspace, label: projectTabLabel(project, items),
+      id: project.id, workspace: project.workspace, label: projectTabLabel(project, items), title: projectTabTitle(project),
       dirty: projectRuntime?.projectHasDirtyTabs(project, (id) => tabById[id], pathKey) ?? false,
     }));
   });
@@ -742,7 +784,7 @@ export default function App() {
         return true;
       });
       if (status.overBudget && !documentCacheWarningShown) {
-        notify("Editor memory exceeds the cache budget. Documents that cannot be safely rebuilt are being retained.");
+        notify(t("Editor memory exceeds the cache budget. Documents that cannot be safely rebuilt are being retained."));
       }
       documentCacheWarningShown = status.overBudget;
     }, 250);
@@ -773,7 +815,9 @@ export default function App() {
   createEffect(() => {
     const currentWorkspace = workspace();
     const repositoryRoot = git().repositoryRoot;
-    const paths = loadedPaths();
+    const paths = additionalFolders().length
+      ? loadedPaths().filter((path) => isSameOrDescendantPath(path, currentWorkspace) && !samePath(path, currentWorkspace))
+      : loadedPaths();
     let cancelled = false;
     const generation = workspaceGeneration;
     const isCurrent = () => !cancelled && !disposed && generation === workspaceGeneration && currentWorkspace === workspace();
@@ -843,11 +887,12 @@ export default function App() {
   const checkForUpdatesAfterStartup = async () => {
     await checkForUpdates();
     const status = updateStatus();
-    if (status.phase === "available") notify(`pude ${status.version} is available. Click Update beside the branch name.`);
+    if (status.phase === "available") notify(t("pude {version} is available. Click Update beside the branch name.", { version: status.version }));
   };
 
+  // Messages from the native side and from controllers arrive in English; known ones are translated here.
   const notify = (message: string) => {
-    setToast(message);
+    setToast(translateMessage(message));
     if (toastTimer) window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => setToast(undefined), 2600);
   };
@@ -948,7 +993,7 @@ export default function App() {
   const resolveStartupSession = (windowId: string): Promise<StartupSessionSelection> => {
     const generation = workspaceGeneration;
     return resolveSessionStartup(windowId, {
-      confirmStaleRecovery: () => requestConfirmation({ title: "Restore previous changes?", message: "A previous editor window has recoverable changes. Restore them in this window?", confirmLabel: "Restore", cancelLabel: "Not now" }),
+      confirmStaleRecovery: () => requestConfirmation({ title: t("Restore previous changes?"), message: t("A previous editor window has recoverable changes. Restore them in this window?"), confirmLabel: t("Restore"), cancelLabel: t("Not now") }),
       notify,
       isCurrent: () => !disposed && generation === workspaceGeneration,
     });
@@ -990,21 +1035,48 @@ export default function App() {
 
   const storeRecentProjects = (paths: string[]) => {
     setRecentProjects(paths);
-    writeStorage("pude-recent-projects-v1", JSON.stringify(paths));
+    writeStorage(RECENT_PROJECTS_STORAGE_KEY, JSON.stringify(paths));
+  };
+  const storeRecentWorkspaces = (paths: string[]) => {
+    setRecentWorkspaces(paths);
+    writeStorage(RECENT_WORKSPACES_STORAGE_KEY, JSON.stringify(paths));
   };
 
+  // Other windows may have added entries since this one started, so start from storage.
   const rememberRecentProject = (path: string) => {
     if (path === "pude-demo") return;
-    storeRecentProjects([path, ...recentProjects().filter((item) => item !== path)].slice(0, 8));
+    storeRecentProjects([path, ...loadRecentProjects().filter((item) => !samePath(item, path))].slice(0, 8));
+  };
+  const rememberRecentWorkspace = (path: string) => {
+    storeRecentWorkspaces([path, ...loadRecentWorkspaces().filter((item) => !samePath(item, path))].slice(0, 8));
   };
 
   const forgetMissingRecentProjects = async () => {
-    const paths = recentProjects();
-    const exists = await Promise.all(paths.map((path) => pathExists(path).catch(() => true)));
-    const remaining = paths.filter((_, index) => exists[index]);
-    if (remaining.length !== paths.length) storeRecentProjects(remaining);
+    const existing = async (paths: string[]) => {
+      const exists = await Promise.all(paths.map((path) => pathExists(path).catch(() => true)));
+      return paths.filter((_, index) => exists[index]);
+    };
+    const [folders, workspaceFiles] = await Promise.all([existing(recentProjects()), existing(recentWorkspaces())]);
+    if (folders.length !== recentProjects().length) storeRecentProjects(folders);
+    if (workspaceFiles.length !== recentWorkspaces().length) storeRecentWorkspaces(workspaceFiles);
   };
   const recentProjectEntries = createMemo(() => makeRecentProjectsRoot(recentProjects()).children ?? []);
+  const recentWorkspaceEntries = createMemo<DirectoryEntry[]>(() => recentWorkspaces().map((path) => ({ name: workspaceFileName(path, PATH_OPTIONS), path, kind: "file", recentProject: true })));
+  createEffect(() => {
+    const folders = recentProjects();
+    const workspaceFiles = recentWorkspaces();
+    const labels = { newWindow: t("New Window"), newWindowDescription: t("Open a new pude window"), recentFolders: t("Recent Folders"), recentWorkspaces: t("Recent Workspaces") };
+    void setRecentItems(folders, workspaceFiles, labels).catch((error) => emitDiagnostic("window.failure", error));
+  });
+  onMount(() => {
+    // Keep the recent lists in step with other windows of this app.
+    const syncRecentLists = (event: StorageEvent) => {
+      if (event.key === RECENT_PROJECTS_STORAGE_KEY) setRecentProjects(loadRecentProjects());
+      if (event.key === RECENT_WORKSPACES_STORAGE_KEY) setRecentWorkspaces(loadRecentWorkspaces());
+    };
+    window.addEventListener("storage", syncRecentLists);
+    onCleanup(() => window.removeEventListener("storage", syncRecentLists));
+  });
 
   const createRecoverySnapshot = (tab: EditorTab): RecoverySnapshot => {
     const liveSnapshot = documentController.getHandle(tab.id)?.getSnapshot();
@@ -1103,11 +1175,11 @@ export default function App() {
     }
     if (isCurrentCommit && !result.ok && !sessionStorageWarningShown) {
       sessionStorageWarningShown = true;
-      notify("Session restore state could not be saved.");
+      notify(t("Session restore state could not be saved."));
     }
     if (isCurrentCommit && !result.complete && result.missingRecoveryKeys.length && !recoveryStorageWarningShown) {
       recoveryStorageWarningShown = true;
-      notify("Some unsaved files do not have a durable recovery checkpoint.");
+      notify(t("Some unsaved files do not have a durable recovery checkpoint."));
     }
     if (isCurrentCommit && result.ok && result.complete && result.checkpoint) {
       for (const baseline of baselinesToWrite) {
@@ -1297,7 +1369,7 @@ export default function App() {
     if (!recovery || recoverySnapshotSizeBytes(recovery) > MAX_RECOVERY_BYTES) {
       if (!recoveryStorageWarningShown) {
         recoveryStorageWarningShown = true;
-        notify("Recovery backup skipped for this large document; editing is still available.");
+        notify(t("Recovery backup skipped for this large document; editing is still available."));
       }
       unavailableRecoveryKeys.add(recoveryKey(tabId));
       pendingRecoverySnapshots.delete(recoveryKey(tabId));
@@ -1356,9 +1428,9 @@ export default function App() {
 
   const persistSettings = () => {
     settingsPersistTimer = undefined;
-    if (!writeStorage("pude-settings-v1", JSON.stringify(settings())) && !sessionStorageWarningShown) {
+    if (!writeStorage(SETTINGS_STORAGE_KEY, JSON.stringify(settings())) && !sessionStorageWarningShown) {
       sessionStorageWarningShown = true;
-      notify("Settings could not be saved.");
+      notify(t("Settings could not be saved."));
     }
   };
 
@@ -1380,6 +1452,8 @@ export default function App() {
     }, delay);
   }
 
+  createEffect(on(() => settings().language, (language) => void applyLanguage(language), { defer: true }));
+
   createEffect(() => {
     const currentSettings = settings();
     document.documentElement.dataset.theme = currentSettings.theme;
@@ -1391,7 +1465,7 @@ export default function App() {
   });
 
   createEffect(() => {
-    const title = windowTitleForWorkspace(workspace(), PATH_OPTIONS);
+    const title = windowTitleForWorkspace(workspace(), PATH_OPTIONS, workspaceFile() || additionalFolders().length ? workspaceName() : undefined);
     document.title = title;
     if (isTauri) void getWindowApi().then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title)).catch((error) => emitDiagnostic("window.failure", error));
   });
@@ -1410,7 +1484,7 @@ export default function App() {
     if (!hydrated() && !persistedPlugins.length) return;
     if (!writeStorage(PLUGINS_STORAGE_KEY, JSON.stringify(persistedPlugins)) && !pluginStorageWarningShown) {
       pluginStorageWarningShown = true;
-      notify("Installed plugin state could not be saved.");
+      notify(t("Installed plugin state could not be saved."));
     }
   });
 
@@ -1419,7 +1493,7 @@ export default function App() {
     // action that completes while storage or the first file is loading must
     // remain authoritative over this startup restore.
     const restoreGeneration = workspaceGeneration;
-    setRecoveryDatabaseBlockedHandler((timeoutMs, status) => notify(status === "timed-out" ? "Recovery storage did not open in time. Close the other editor window and retry; existing recovery data has been retained." : `Another window is blocking recovery storage. Close the other editor window and retry; this attempt will stop within ${timeoutMs / 1000} seconds.`));
+    setRecoveryDatabaseBlockedHandler((timeoutMs, status) => notify(status === "timed-out" ? t("Recovery storage did not open in time. Close the other editor window and retry; existing recovery data has been retained.") : t("Another window is blocking recovery storage. Close the other editor window and retry; this attempt will stop within {value} seconds.", { value: timeoutMs / 1000 })));
     let startupPluginRecoverySucceeded = !isTauri;
     // Fetch the close-window dialog chunk while the browser is idle so
     // closing the window never waits on a network fetch, without blocking the
@@ -1450,7 +1524,7 @@ export default function App() {
         const persistedPlugins = reconciledPlugins.map((plugin) => ({ ...plugin, status: "inactive" as const }));
         if (!writeStorage(PLUGINS_STORAGE_KEY, JSON.stringify(persistedPlugins))) {
           setPlugins(reconciledPlugins.map((plugin) => ({ ...plugin, enabled: false })));
-          notify("Recovered plugin state could not be saved; plugins remain disabled.");
+          notify(t("Recovered plugin state could not be saved; plugins remain disabled."));
         } else {
           setPlugins(reconciledPlugins);
           setPendingCleanupIds(recovery.pendingCleanupIds);
@@ -1503,12 +1577,14 @@ export default function App() {
       : null;
     if (restored && (restored.workspace || restored.tabs.length || restored.projects?.length)) {
       const savedProjects = restored.projects ?? [{ id: crypto.randomUUID(), workspace: restored.workspace, tabs: restored.tabs, activeTabId: restored.activeTabId, expandedPaths: restored.expandedPaths }];
-      const states = savedProjects.map((saved) => ({ ...createProject(saved.workspace, saved.id),
+      const states = savedProjects.map((saved) => ({ ...createWorkspaceProject([saved.workspace, ...(saved.folders ?? [])].filter(Boolean), saved.workspaceFile, saved.id),
         restoreMetadata: { version: 3 as const, workspace: saved.workspace, tabs: saved.tabs, activeTabId: saved.activeTabId, expandedPaths: saved.expandedPaths },
         restoreIntent: createRestoreIntent(saved.tabs, restoreGeneration) }));
       const selected = states.find((project) => project.id === restored!.activeProjectId) ?? states[0];
       setProjects(states);
       setActiveProjectId(selected?.id);
+      setAdditionalFolders(selected?.additionalFolders ?? []);
+      setWorkspaceFile(selected?.workspaceFile);
       restored = selected?.restoreMetadata ?? null;
     }
     if (restored?.workspace && restored.workspace !== "pude-demo") {
@@ -1621,11 +1697,11 @@ export default function App() {
           if (!disposed && restoreGeneration === workspaceGeneration) manager.notifyWorkspaceChanged("", initialWorkspace);
         });
       }
-      setRoot({ name: baseName(initialWorkspace), path: initialWorkspace, kind: "directory", expanded: true, loaded: false });
+      setRoot(makeWorkspaceRoot(workspaceFolders(), workspaceName(), undefined, PATH_OPTIONS));
       if (isTauri) {
         const restoredOpenFiles = restored?.tabs.map((tab) => tab.path) ?? [];
         const restoredExternalParents = restoredOpenFiles
-          .filter((path) => !isSameOrDescendantPath(path, initialWorkspace))
+          .filter((path) => !isInWorkspaceFolders(path))
           .map(parentPath);
         externalWatchParents.clear();
         restoredExternalParents.forEach((path) => externalWatchParents.add(path));
@@ -1638,7 +1714,7 @@ export default function App() {
           try {
             const nextSessionId = await enqueueWatcherOperation(async () => {
               watcherEvents.resetSequence();
-              return startWatcher(initialWorkspace, [...externalWatchParents], settings().watcherExcludes, restoredOpenFiles, handleFileChangeEvent);
+              return startWatcher(initialWorkspace, watcherExtraPaths(), watcherExcludeList(), restoredOpenFiles, handleFileChangeEvent);
             });
             if (!disposed && restoreGeneration === workspaceGeneration) {
               watcherSessionId = nextSessionId;
@@ -1681,7 +1757,7 @@ export default function App() {
         if (!("status" in record)) return true;
         if (isRestoreCurrent()) {
           if (record.recoveryUnavailable) pauseUnverifiedSessionRecovery();
-          else notify(`Unable to restore ${baseName(record.path)}. Its recovery metadata has been retained for retry.`);
+          else notify(t("Unable to restore {value}. Its recovery metadata has been retained for retry.", { value: baseName(record.path) }));
           emitDiagnostic("session.failure", record.error);
         }
         return false;
@@ -1720,7 +1796,7 @@ export default function App() {
         if (recoveredConflict) externalConflictController.queue(recoveredConflict);
         if (restored.workspace) {
           const workspacePath = restored.workspace;
-          const restoredRoot: DirectoryEntry = { name: baseName(workspacePath), path: workspacePath, kind: "directory", expanded: true, loaded: false };
+          const restoredRoot = makeWorkspaceRoot(workspaceFolders(), workspaceName(), undefined, PATH_OPTIONS);
           setRoot(restoredRoot);
           void (async () => {
             try {
@@ -1729,11 +1805,11 @@ export default function App() {
               const isWorkspaceRestoreCurrent = () => !disposed && !sessionStartupUnavailable
                 && restoreGeneration === workspaceGeneration && sessionScope === restoreScope
                 && workspace() === workspacePath && watcherEvents.isCurrent(snapshot);
-              const listing = await listWorkspaceDirectory(workspacePath);
+              const listedRoot = await listWorkspaceRoot(restoredRoot);
               const expandedPaths = new Set(restored.expandedPaths.map(pathKey));
-              expandedPaths.add(pathKey(workspacePath));
+              for (const folder of workspaceFolders()) expandedPaths.add(pathKey(folder));
               await restoreDirectoryTreeByLevelLazy({
-                root: { ...restoredRoot, children: listing.entries, loaded: true, partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason },
+                root: listedRoot,
                 expandedPaths,
                 listDirectory: listWorkspaceDirectory,
                 isCurrent: isWorkspaceRestoreCurrent,
@@ -1802,7 +1878,7 @@ export default function App() {
       window.setTimeout(() => { if (!disposed) void checkForUpdatesAfterStartup(); }, 5000);
     }
     markStartupEvent("hydrated");
-    if (launchFolder) void openWorkspacePath(launchFolder);
+    if (launchFolder) void openLaunchPath(launchFolder);
     fileEventHandler = (event) => {
       // SB-04: events are directed to their owner window. Never adopt a
       // foreign watcher session; mismatched events are dropped. Events that
@@ -1812,7 +1888,7 @@ export default function App() {
       if (event.watchRoots?.length) watcherRoots = event.watchRoots;
       if (event.error) {
         watcherNeedsRestart = true;
-        notify(`File watcher needs attention: ${event.error}`);
+        notify(t("File watcher needs attention: {error}", { error: event.error }));
         void restartWatcher();
       }
 
@@ -1882,7 +1958,7 @@ export default function App() {
         const generation = workspaceGeneration;
         const nextSessionId = await enqueueWatcherOperation(async () => {
           watcherEvents.resetSequence();
-          return startWatcher(currentWorkspace, [...externalWatchParents], settings().watcherExcludes, tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
+          return startWatcher(currentWorkspace, watcherExtraPaths(), watcherExcludeList(), tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
         });
         if (disposed || generation !== workspaceGeneration || workspace() !== currentWorkspace) {
           if (nextSessionId) await stopWatcher(nextSessionId);
@@ -1928,7 +2004,7 @@ export default function App() {
         if (result.status === "rejected") {
           const plugin = enabledPlugins[index];
           pluginsWithUnavailableLsp.add(plugin.id);
-          notify(errorMessage(result.reason, `${plugin.name}: language-server approvals could not be restored; the plugin was disabled.`));
+          notify(errorMessage(result.reason, t("{name}: language-server approvals could not be restored; the plugin was disabled.", { name: plugin.name })));
         }
       });
       if (pluginsWithUnavailableLsp.size) {
@@ -1939,7 +2015,7 @@ export default function App() {
         setPlugins(disabledPlugins);
         if (!writeStorage(PLUGINS_STORAGE_KEY, JSON.stringify(persistedPlugins))) {
           pluginsSafeToActivate = false;
-          notify("Disabled plugin state could not be saved; plugins remain unavailable for this session.");
+          notify(t("Disabled plugin state could not be saved; plugins remain unavailable for this session."));
         }
       }
     }
@@ -2025,7 +2101,7 @@ export default function App() {
   const canSwitchProject = () => {
     if (!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || dialogRequestInFlight || projectCloseBusy() || projectCloseId()) return false;
     if (pluginOperationInFlight || gitMutationInFlight) {
-      notify("Wait for the current project operation to finish before switching projects.");
+      notify(t("Wait for the current project operation to finish before switching projects."));
       return false;
     }
     return true;
@@ -2037,6 +2113,8 @@ export default function App() {
       restoreIntent = project.restoreIntent ? { ...project.restoreIntent, generation: workspaceGeneration } : undefined;
       setActiveProjectId(project.id || undefined);
       setWorkspace(project.workspace);
+      setAdditionalFolders(project.additionalFolders ?? []);
+      setWorkspaceFile(project.workspaceFile);
       setRoot(project.root);
       setTabOrder([...project.tabIds]);
       setActiveTab(project.activeTabId);
@@ -2046,6 +2124,7 @@ export default function App() {
       setDiff(project.diff);
       setGit(project.git);
       setGitBranches(project.gitBranches);
+      setGitStashes(project.gitStashes);
       setSidebarView(project.sidebarView);
       setSearch(project.search);
       setSearchOpen(project.searchOpen);
@@ -2074,7 +2153,7 @@ export default function App() {
       onTabs: setTabs, onIntent: (intent) => { restoreIntent = intent; }, onConflict: (tab) => externalConflictController.queue(tab),
       onFailure: (failure) => {
         if (failure.recoveryUnavailable) pauseUnverifiedSessionRecovery();
-        notify(`Unable to restore ${baseName(failure.path)}. Its recovery metadata has been retained for retry.`);
+        notify(t("Unable to restore {value}. Its recovery metadata has been retained for retry.", { value: baseName(failure.path) }));
       },
     });
     if (generation !== workspaceGeneration) return;
@@ -2130,12 +2209,12 @@ export default function App() {
       await restoreSelectedProjectDocuments();
       if (target.workspace) {
         try {
-          const listing = await listWorkspaceDirectory(target.workspace);
+          const listedRoot = await listWorkspaceRoot(target.root);
           if (generation !== workspaceGeneration || disposed) return false;
           const expanded = new Set((target.restoreMetadata?.expandedPaths ?? collectExpandedPaths(target.root)).map(pathKey));
-          expanded.add(pathKey(target.workspace));
+          for (const folder of [target.workspace, ...target.additionalFolders]) expanded.add(pathKey(folder));
           await restoreDirectoryTreeByLevelLazy({
-            root: { ...target.root, loaded: true, stale: false, children: mergeDirectoryState(target.root.children, listing.entries), partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason },
+            root: listedRoot,
             expandedPaths: expanded, listDirectory: listWorkspaceDirectory,
             isCurrent: () => !disposed && generation === workspaceGeneration,
             onTree: setRoot,
@@ -2151,7 +2230,7 @@ export default function App() {
           (await ensureAuthorizationManager()).notifyWorkspaceChanged(previous.workspace, target.workspace);
           for (const plugin of plugins().filter((item) => item.enabled)) {
             try { await restorePluginLspAuthorizations(plugin, target.workspace); }
-            catch (error) { notify(errorMessage(error, `${plugin.name}: language-server approvals could not be restored.`)); }
+            catch (error) { notify(errorMessage(error, t("{name}: language-server approvals could not be restored.", { name: plugin.name }))); }
           }
         }
         activatePluginsForEvent("onWorkspaceOpen", { workspace: target.workspace });
@@ -2199,7 +2278,7 @@ export default function App() {
     try {
       if (authorizationReview()) await cancelPluginAuthorizationReview();
       const selected = await canonicalizeWorkspaceRoot(selectedPath);
-      const existing = projects().find((project) => samePath(project.workspace, selected));
+      const existing = currentProjects().find((project) => samePath(project.workspace, selected) && !project.workspaceFile && !project.additionalFolders.length);
       const blankProjectId = activeProjectIsBlank() ? activeProjectId() : undefined;
       const discardBlankProject = () => {
         if (blankProjectId) setProjects((items) => items.filter((item) => item.id !== blankProjectId));
@@ -2215,7 +2294,7 @@ export default function App() {
         if (blankProjectId) setProjects((items) => reorderProjects(items, project.id, blankProjectId));
         discardBlankProject();
         rememberRecentProject(selected);
-        notify(`Opened ${baseName(selected)}`);
+        notify(t("Opened {value}", { value: baseName(selected) }));
       }
     } catch (error) { notify(errorMessage(error, "Unable to open project.")); }
     finally { setConfirmedOperationInProgress(false); }
@@ -2293,10 +2372,86 @@ export default function App() {
     }
   };
 
+  const openLaunchPath = (path: string) => isWorkspaceFilePath(path) ? openWorkspaceFile(path) : openWorkspacePath(path);
+
+  /** Show these folders in the active project tab, listing folders that are new to the Explorer. */
+  const setWorkspaceFolders = (folders: string[]) => {
+    const generation = workspaceGeneration;
+    batch(() => {
+      setAdditionalFolders(folders.slice(1));
+      setRoot((current) => makeWorkspaceRoot(folders, workspaceName(), current, PATH_OPTIONS));
+    });
+    syncExternalWatchParents();
+    void restartWatcher();
+    markSessionDirty();
+    for (const folder of workspaceRootFolders(root()).filter((entry) => !entry.loaded)) {
+      void listWorkspaceDirectory(folder.path).then(
+        (listing) => (entry: DirectoryEntry) => withDirectoryListing(entry, listing),
+        (error) => (entry: DirectoryEntry) => ({ ...entry, partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") } }),
+      ).then((update) => {
+        if (generation === workspaceGeneration) setRoot((current) => updateEntry(current, folder.path, update));
+      });
+    }
+  };
+
+  const switchFirstFolder = async (folders: string[]): Promise<boolean> => {
+    if (!canSwitchProject()) return false;
+    setConfirmedOperationInProgress(true);
+    try {
+      const current = captureProject();
+      return await transitionToProject({
+        ...current, workspace: folders[0], additionalFolders: folders.slice(1),
+        root: makeWorkspaceRoot(folders, workspaceLabel(folders, current.workspaceFile, PATH_OPTIONS), current.root, PATH_OPTIONS),
+        git: emptyGit, gitBranches: [], gitStashes: [], diff: undefined, diffReturnToHistory: false, historyTabOpen: false, viewMode: "editor",
+      });
+    } finally { setConfirmedOperationInProgress(false); }
+  };
+
+  const openWorkspaceTab = async (file: string, folders: string[]): Promise<boolean> => {
+    if (!canSwitchProject()) return false;
+    setConfirmedOperationInProgress(true);
+    try {
+      if (authorizationReview()) await cancelPluginAuthorizationReview();
+      const existing = currentProjects().find((project) => project.workspaceFile && samePath(project.workspaceFile, file));
+      if (existing?.id === activeProjectId()) return true;
+      const blankProjectId = activeProjectIsBlank() ? activeProjectId() : undefined;
+      const target = existing ?? createWorkspaceProject(folders, file);
+      if (!await transitionToProject(target, !existing)) return false;
+      if (blankProjectId) setProjects((items) => (existing ? items : reorderProjects(items, target.id, blankProjectId)).filter((item) => item.id !== blankProjectId));
+      return true;
+    } finally { setConfirmedOperationInProgress(false); }
+  };
+
+  let workspaceActionsPromise: Promise<WorkspaceActions> | undefined;
+  const workspaceActions = () => workspaceActionsPromise ??= import("./lib/workspace-actions").then(({ createWorkspaceActions }) => createWorkspaceActions({
+    folders: workspaceFolders, workspaceFile, workspaceName, notify,
+    canChangeWorkspace: () => hydrated() && !confirmedOperationInProgress() && !appQuitPrepared(),
+    captureCurrent: () => {
+      const generation = workspaceGeneration;
+      const projectId = activeProjectId();
+      return () => !disposed && generation === workspaceGeneration && projectId === activeProjectId();
+    },
+    openFolderInNewTab: loadWorkspace,
+    setFolders: setWorkspaceFolders,
+    switchFirstFolder,
+    setWorkspaceFile: (path) => {
+      batch(() => {
+        setWorkspaceFile(path);
+        setRoot((current) => makeWorkspaceRoot(workspaceFolders(), workspaceName(), current, PATH_OPTIONS));
+      });
+      markSessionDirty();
+    },
+    openWorkspaceTab,
+    rememberWorkspaceFile: rememberRecentWorkspace,
+  }));
+  const runWorkspaceAction = (action: (actions: WorkspaceActions) => Promise<void>) => workspaceActions().then(action)
+    .catch((error) => notify(errorMessage(error, "Unable to change the workspace.")));
+  const openWorkspaceFile = (path: string) => runWorkspaceAction((actions) => actions.open(path));
+
   const openNewWindowAction = async () => {
     try {
       await openNewWindow();
-      if (!isTauri) notify("Opened a new browser window.");
+      if (!isTauri) notify(t("Opened a new browser window."));
     } catch (error) {
       notify(errorMessage(error, "Unable to open a new window."));
     }
@@ -2310,9 +2465,9 @@ export default function App() {
   };
 
   const imageWorkspaceRoot = (path: string) => {
-    const currentWorkspace = workspace();
-    if (currentWorkspace && isSameOrDescendantPath(path, currentWorkspace)) return currentWorkspace;
-    return isTauri ? parentPath(path) : currentWorkspace ?? "pude-demo";
+    const folder = folderContaining(path, workspaceFolders(), PATH_OPTIONS);
+    if (folder) return folder;
+    return isTauri ? parentPath(path) : workspace() || "pude-demo";
   };
 
   const openImageFile = (path: string, size?: number) => {
@@ -2320,7 +2475,7 @@ export default function App() {
     const existing = tabs().find((tab) => samePath(tab.path, path));
     if (existing) {
       if (existing.language !== "Image" && existing.dirty) {
-        notify("Save or close the modified tab before previewing this image.");
+        notify(t("Save or close the modified tab before previewing this image."));
         return;
       }
       if (existing.language !== "Image") updateTab(existing.id, { ...makeImageTabChanges(size), revision: existing.revision + 1, savedRevision: existing.revision + 1, contentVersion: existing.contentVersion + 1 });
@@ -2389,8 +2544,10 @@ export default function App() {
         const branchesPromise = shouldRefreshBranches
           ? getGitBranches(path).catch((error) => { branchError = error; return undefined; })
           : Promise.resolve(gitBranches());
+        const stashesPromise = shouldRefreshBranches ? getGitStashes(path).catch(() => [] as GitStash[]) : Promise.resolve(gitStashes());
         const status = await statusPromise;
         const branches = await branchesPromise;
+        const stashes = await stashesPromise;
         if (requestVersion !== gitRequestVersion || path !== workspace()) return;
         if (statusRevision !== gitStatusRevision || (shouldRefreshBranches && branchesRevision !== gitBranchesRevision)) return;
         if (shouldRefreshBranches) {
@@ -2399,6 +2556,7 @@ export default function App() {
         const sameRepository = previous.repositoryRoot !== "" && previous.repositoryRoot === status.repositoryRoot;
         if (!sameRepository) resetGitHistoryPagination();
         setGit({ ...status, error: branchError ? errorMessage(branchError, "Unable to read Git branches.") : null, commits: sameRepository ? previous.commits : [] });
+        setGitStashes(status.repositoryRoot ? stashes : []);
         gitDirtyState = {
           status: statusRevision === gitStatusRevision ? false : gitDirtyState.status,
           branches: shouldRefreshBranches && branchesRevision === gitBranchesRevision ? false : gitDirtyState.branches,
@@ -2413,7 +2571,7 @@ export default function App() {
           gitBranchesWorkspace = path;
           if (gitBranchesRevision === branchesRevision) gitBranchesDirty = false;
         }
-        if (showToast) notify(branchError ? errorMessage(branchError, "Unable to read Git branches.") : "Git status refreshed");
+        if (showToast) notify(branchError ? errorMessage(branchError, "Unable to read Git branches.") : t("Git status refreshed"));
       } catch (error) {
         if (requestVersion !== gitRequestVersion || path !== workspace()) return;
         setGit((current) => ({ ...current, error: errorMessage(error, "Unable to read Git status.") }));
@@ -2520,14 +2678,17 @@ export default function App() {
   const runGitAction = async (request: GitActionRequest) => {
     if (gitMutationInFlight) throw new Error("Another Git operation is already running.");
     gitMutationInFlight = true;
+    const changesRefs = !GIT_WORKING_TREE_ACTIONS.has(request.action);
     gitStatusRevision += 1;
-    gitBranchesDirty = true;
-    gitBranchesRevision += 1;
+    if (changesRefs) {
+      gitBranchesDirty = true;
+      gitBranchesRevision += 1;
+    }
     try {
       const result = await performGitAction(workspace(), request);
-      notify(result.output || `${request.action} completed.`);
+      notify(result.output || t("{action} completed.", { action: request.action }));
     } finally {
-      invalidateGitHistory();
+      if (changesRefs) invalidateGitHistory();
       try {
         await refreshGit(false);
         await waitForGitRefreshSettled();
@@ -2569,7 +2730,7 @@ export default function App() {
     try {
       const result = await readFileForEditor(entry.path);
       if (confirmedOperationInProgress() || appQuitPrepared()) return;
-       if (result.size > 5 * 1024 * 1024) notify("Large file mode enabled: semantic language features and rich Markdown preview are disabled.");
+       if (result.size > 5 * 1024 * 1024) notify(t("Large file mode enabled: semantic language features and rich Markdown preview are disabled."));
       openReadFile(result);
     } catch (error) {
       notify(errorMessage(error, "This file cannot be displayed as text."));
@@ -2579,12 +2740,12 @@ export default function App() {
   const openInFileExplorer = async (entry: DirectoryEntry) => {
     closeFileMenu();
     if (!isTauri) {
-      notify("Open in File Explorer is available in the desktop build.");
+      notify(t("Open in File Explorer is available in the desktop build."));
       return;
     }
     try {
       await revealInFileManager(entry.path);
-      notify(`Opened ${entry.name} in File Explorer`);
+      notify(t("Opened {name} in File Explorer", { name: entry.name }));
     } catch (error) {
       notify(errorMessage(error, "Unable to open File Explorer."));
     }
@@ -2622,23 +2783,28 @@ export default function App() {
 
   const copyEntryPath = async (entry: DirectoryEntry, relative: boolean) => {
     closeFileMenu();
-    const relativePath = relativePathWithinRoot(entry.path, workspace());
+    const folder = folderContaining(entry.path, workspaceFolders(), PATH_OPTIONS);
+    const relativePath = folder ? relativePathWithinRoot(entry.path, folder) : null;
     const value = relative ? relativePath : entry.path;
-    const label = relative ? "relative path" : "path";
+    const label = relative ? t("relative path") : t("path");
     if (!value) {
-      notify("Copy Relative Path is only available for items inside the current workspace.");
+      notify(t("Copy Relative Path is only available for items inside the current workspace."));
       return;
     }
     try {
       if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) throw new Error("Clipboard is unavailable in this window.");
       await navigator.clipboard.writeText(value);
-      notify(`Copied ${label}: ${value}`);
+      notify(t("Copied {label}: {value}", { label, value }));
     } catch (error) {
-      notify(errorMessage(error, `Unable to copy ${label}.`));
+      notify(errorMessage(error, t("Unable to copy {label}.", { label })));
     }
   };
 
+  // With several folders the toolbar creates items in the first folder; the context menu targets any folder.
+  const explorerCreateTarget = () => workspaceRootFolders(root())[0] ?? root();
+
   const showFileContextMenu = (entry: DirectoryEntry, x: number, y: number) => {
+    if (isWorkspaceRootEntry(entry)) return;
     setTabMenu(undefined);
     const row = document.elementFromPoint(x, y)?.closest<HTMLElement>("[role=treeitem]");
     contextMenuFocusTarget = row?.querySelector<HTMLElement>("button") ?? undefined;
@@ -2704,7 +2870,7 @@ export default function App() {
         if (!disposed && generation === workspaceGeneration) activatePluginsForEvent("onFileSave", { file: { path: current.path, name: current.name, language: host.activationLanguageId(fileLanguageForPath(current.path).label) } });
       });
     }
-    if (!currentDirty) notify(`Saved ${current.name}`);
+    if (!currentDirty) notify(t("Saved {name}", { name: current.name }));
   };
 
   let saveControllerPromise: Promise<SaveController> | undefined;
@@ -2767,7 +2933,7 @@ export default function App() {
           if (selected()) externalConflictController.queue(tab);
           else setProjects((items) => items.map((project) => project.id === state.id ? { ...project, conflicts: [...project.conflicts, tab] } : project));
         },
-        onFailure: () => notify("Some unsaved files could not be restored. Their recovery data has been retained."),
+        onFailure: () => notify(t("Some unsaved files could not be restored. Their recovery data has been retained.")),
       });
       if (!restored) return false;
     }
@@ -2781,7 +2947,7 @@ export default function App() {
       if (tab.dirty && !(await saveTab(tab))) failed = true;
     }
     const complete = !failed && !windowHasDirtyTabs();
-    notify(complete ? "All changes saved" : "Some changes could not be saved.");
+    notify(complete ? t("All changes saved") : t("Some changes could not be saved."));
     return complete;
   };
 
@@ -2845,7 +3011,7 @@ export default function App() {
     }
     const recoveryRestored = await flushRecoveryWrites();
     if (closeCleanupGeneration !== restoreCloseGeneration || workspaceGeneration !== restoreGeneration || workspace() !== workspacePath) return;
-    if (!recoveryRestored) notify("Session recovery could not be restored after the window stayed open.");
+    if (!recoveryRestored) notify(t("Session recovery could not be restored after the window stayed open."));
   };
 
   const flushWindowBeforeClose = async (discard: boolean, timeoutMs = 3000): Promise<boolean> => {
@@ -2935,7 +3101,7 @@ export default function App() {
           notify(errorMessage(error, "The window stayed open, but session recovery could not be restored."));
         });
         cleanupStarted = false;
-        notify("The window stayed open because its session could not be closed safely.");
+        notify(t("The window stayed open because its session could not be closed safely."));
         return;
       }
       setClosePromptOpen(false);
@@ -3013,10 +3179,10 @@ export default function App() {
       }
     }
     clearAppQuitState(payload.requestId);
-    if (payload.error) notify(`Application quit was cancelled: ${payload.error}`);
+    if (payload.error) notify(t("Application quit was cancelled: {error}", { error: payload.error }));
     if (restoration) void restoration.catch((error) => {
       emitDiagnostic("window.restore", error);
-      notify(`The window stayed open, but session recovery could not be restored: ${errorMessage(error, "unknown error")}`);
+      notify(t("The window stayed open, but session recovery could not be restored: {value}", { value: errorMessage(error, "unknown error") }));
     });
   };
 
@@ -3083,6 +3249,23 @@ export default function App() {
   onMount(() => {
     if (!isTauri) return;
     let active = true;
+    let unlisten: (() => void) | undefined;
+    // The Dock menu and the taskbar Jump List open recent items in the last focused window.
+    void import("@tauri-apps/api/event").then(({ listen }) => listen<{ windowLabel: string; path: string }>("open-recent-path", ({ payload }) => {
+      if (payload.windowLabel === sessionWindowId) void openLaunchPath(payload.path);
+    })).then((stop) => {
+      if (active) unlisten = stop;
+      else stop();
+    }).catch((error) => emitDiagnostic("window.failure", error));
+    onCleanup(() => {
+      active = false;
+      unlisten?.();
+    });
+  });
+
+  onMount(() => {
+    if (!isTauri) return;
+    let active = true;
     const unlisteners: Array<() => void> = [];
     void import("@tauri-apps/api/event").then(({ listen }) => Promise.all([
       listen<AppQuitPreparePayload>("app-quit-prepare", ({ payload }) => handleAppQuitPrepare(payload)),
@@ -3112,15 +3295,15 @@ export default function App() {
     const snapshot = captureTabOperation(closing);
     if (closing.dirty) {
       const confirmed = await requestConfirmation({
-        title: `Close ${closing.name}?`,
-        message: "This file has unsaved changes. Close it and discard them?",
-        confirmLabel: "Close and discard",
-        cancelLabel: "Cancel",
+        title: t("Close {name}?", { name: closing.name }),
+        message: t("This file has unsaved changes. Close it and discard them?"),
+        confirmLabel: t("Close and discard"),
+        cancelLabel: t("Cancel"),
         destructive: true,
       });
       if (!confirmed) return;
       if (requestGeneration !== workspaceGeneration || !tabOperationIsCurrent(snapshot)) {
-        notify("This file changed while waiting for confirmation. It stayed open.");
+        notify(t("This file changed while waiting for confirmation. It stayed open."));
         return;
       }
     }
@@ -3213,7 +3396,7 @@ export default function App() {
     const generation = workspaceGeneration;
     try {
       if (isImagePath(targetPath)) {
-        if (!await pathExists(targetPath)) throw new Error(`The image file no longer exists: ${currentDiff.path}.`);
+        if (!await pathExists(targetPath)) throw new Error(t("The image file no longer exists: {path}.", { path: currentDiff.path }));
         if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
         openImageFile(targetPath);
         return;
@@ -3226,9 +3409,9 @@ export default function App() {
       if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
       if (activeTab()) {
         setViewMode("editor");
-        notify(`${errorMessage(error, `Unable to open ${currentDiff.path}.`)} Showing the current editor instead.`);
+        notify(t("{error} Showing the current editor instead.", { error: errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })) }));
       } else {
-        notify(errorMessage(error, `Unable to open ${currentDiff.path}.`));
+        notify(errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })));
       }
     }
   };
@@ -3257,11 +3440,27 @@ export default function App() {
       const result = await getGitCommitDiff(requestedWorkspace, commit.hash, file.path);
       if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
       setDiffReturnToHistory(returnToHistory);
-      setDiff({ ...result, commit: commit.hash, label: `COMMIT ${commit.shortHash}` });
+      setDiff({ ...result, commit: commit.hash, label: t("COMMIT {hash}", { hash: commit.shortHash }) });
       setViewMode("diff");
     } catch (error) {
       if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
       notify(errorMessage(error, "Unable to open Git diff."));
+    }
+  };
+
+  const openStashDiff = async (stash: GitStash, file: GitStashFile) => {
+    const requestVersion = ++diffRequestVersion;
+    const generation = workspaceGeneration;
+    const requestedWorkspace = workspace();
+    const isCurrent = () => !disposed && requestVersion === diffRequestVersion && generation === workspaceGeneration && requestedWorkspace === workspace();
+    try {
+      const result = await getGitStashDiff(requestedWorkspace, stash.hash, file.path, file.untracked);
+      if (!isCurrent()) return;
+      setDiffReturnToHistory(false);
+      setDiff({ ...result, stash: { hash: stash.hash, untracked: file.untracked }, label: t("STASH {reference}", { reference: stash.reference }) });
+      setViewMode("diff");
+    } catch (error) {
+      if (isCurrent()) notify(errorMessage(error, "Unable to open the stashed change."));
     }
   };
 
@@ -3273,7 +3472,9 @@ export default function App() {
     const requestedWorkspace = workspace();
     setDiffContextLoading(true);
     try {
-      const result = current.commit
+      const result = current.stash
+        ? await getGitStashDiff(requestedWorkspace, current.stash.hash, current.path, current.stash.untracked, current.nextContextLines)
+        : current.commit
         ? await getGitCommitDiff(requestedWorkspace, current.commit, current.path, current.nextContextLines)
         : await getGitDiff(requestedWorkspace, current.path, current.staged, current.untrackedHint, current.nextContextLines);
       if (generation === workspaceGeneration && requestVersion === diffRequestVersion && current === diff()) setDiff({ ...current, ...result, label: current.label });
@@ -3343,15 +3544,15 @@ export default function App() {
     if (!tabId || !tab) return;
     const generation = workspaceGeneration;
     const snapshot = captureTabOperation(tab);
-    const value = await requestInput({ title: "Go to line", label: "Line number", initialValue: "1", placeholder: "1", submitLabel: "Go" });
+    const value = await requestInput({ title: t("Go to line"), label: t("Line number"), initialValue: "1", placeholder: "1", submitLabel: t("Go") });
     if (value === null) return;
     if (generation !== workspaceGeneration || activeTabId() !== tabId || !tabOperationIsCurrent(snapshot) || confirmedOperationInProgress() || appQuitPrepared()) {
-      notify("The active file changed while Go to line was open.");
+      notify(t("The active file changed while Go to line was open."));
       return;
     }
     const requestedLine = Number(value);
     if (!Number.isSafeInteger(requestedLine) || requestedLine < 1) {
-      notify("Enter a positive whole line number.");
+      notify(t("Enter a positive whole line number."));
       return;
     }
     const lineCount = getDocumentText(tabById[tabId]!).split("\n").length;
@@ -3384,21 +3585,21 @@ export default function App() {
     const targetDirectory = entry.kind === "directory" ? entry.path : parentPath(entry.path);
     if (action === "new-file" || action === "new-folder") {
       const name = await requestInput({
-        title: action === "new-file" ? "New file" : "New folder",
-        label: action === "new-file" ? "File name" : "Folder name",
+        title: action === "new-file" ? t("New file") : t("New folder"),
+        label: action === "new-file" ? t("File name") : t("Folder name"),
         placeholder: action === "new-file" ? "example.ts" : "folder-name",
-        submitLabel: "Create",
+        submitLabel: t("Create"),
       });
       if (!name) return;
       if (!isSafeEntryName(name)) {
-        notify("Use a single file or folder name without path separators.");
+        notify(t("Use a single file or folder name without path separators."));
         return;
       }
       if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || confirmedOperationInProgress() || appQuitPrepared()) return;
       setConfirmedOperationInProgress(true);
       try {
         if (!await pathExists(targetDirectory) || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace()) {
-          notify("The destination folder changed. Try again.");
+          notify(t("The destination folder changed. Try again."));
           return;
         }
         const path = joinPath(targetDirectory, name);
@@ -3413,10 +3614,10 @@ export default function App() {
     }
     if (action === "rename") {
       const affectedSnapshots = tabs().filter((tab) => isSameOrDescendantPath(tab.path, entry.path)).map(captureTabOperation);
-      const name = await requestInput({ title: `Rename ${entry.name}`, label: "New name", initialValue: entry.name, submitLabel: "Rename" });
+      const name = await requestInput({ title: t("Rename {name}", { name: entry.name }), label: t("New name"), initialValue: entry.name, submitLabel: t("Rename") });
       if (!name || name === entry.name) return;
       if (!isSafeEntryName(name)) {
-        notify("Use a single file or folder name without path separators.");
+        notify(t("Use a single file or folder name without path separators."));
         return;
       }
       if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || confirmedOperationInProgress() || appQuitPrepared() || !tabOperationsAreCurrent(affectedSnapshots)) return;
@@ -3424,14 +3625,14 @@ export default function App() {
       try {
         const sourceExists = await pathExists(entry.path);
         if (!sourceExists || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || !tabOperationsAreCurrent(affectedSnapshots)) {
-          notify("The file or folder changed. It was not renamed.");
+          notify(t("The file or folder changed. It was not renamed."));
           return;
         }
         const nextPath = joinPath(parentPath(entry.path), name);
         await renamePath(entry.path, nextPath);
         renameOpenTabs(entry.path, nextPath);
         setRoot((current) => renameEntryPaths(current, entry.path, nextPath));
-        notify(`Renamed to ${name}`);
+        notify(t("Renamed to {name}", { name }));
         if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(parentPath(nextPath));
       } catch (error) {
         notify(errorMessage(error, "Unable to rename item."));
@@ -3445,10 +3646,10 @@ export default function App() {
       const hasDirtyTabs = affectedTabs.some((tab) => tab.dirty);
       const prompt = deleteConfirmationMessage(entry.name, windowPlatform, affectedTabs.length, hasDirtyTabs);
       const confirmed = await requestConfirmation({
-        title: `Move ${entry.name} to ${trashLocationLabel(windowPlatform)}?`,
+        title: t("Move {name} to {value}?", { name: entry.name, value: trashLocationLabel(windowPlatform) }),
         message: prompt,
-        confirmLabel: `Move to ${trashLocationLabel(windowPlatform)}`,
-        cancelLabel: "Cancel",
+        confirmLabel: t("Move to {value}", { value: trashLocationLabel(windowPlatform) }),
+        cancelLabel: t("Cancel"),
         destructive: true,
       });
       if (!confirmed) return;
@@ -3459,11 +3660,11 @@ export default function App() {
         const sourceExists = await pathExists(entry.path);
         const latestAffected = tabs().filter((tab) => isSameOrDescendantPath(tab.path, entry.path)).map(captureTabOperation);
         if (!sourceExists || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || !sameTabOperations(affectedSnapshots, latestAffected)) {
-          notify("The file or folder changed while waiting for confirmation. Nothing was moved.");
+          notify(t("The file or folder changed while waiting for confirmation. Nothing was moved."));
           return;
         }
         if (!sameTabOperations(affectedSnapshots, currentAffected.map(captureTabOperation))) {
-          notify("An affected file changed while waiting for confirmation. Nothing was moved.");
+          notify(t("An affected file changed while waiting for confirmation. Nothing was moved."));
           return;
         }
         await deletePath(entry.path);
@@ -3481,7 +3682,7 @@ export default function App() {
           syncExternalWatchParents();
           if (affectedIds.has(activeTabId() ?? "")) setActiveTab(remaining[0]?.id);
         }
-        notify(`Moved ${entry.name} to ${trashLocationLabel(windowPlatform)}`);
+        notify(t("Moved {name} to {value}", { name: entry.name, value: trashLocationLabel(windowPlatform) }));
         if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(parentPath(entry.path));
       } catch (error) {
         notify(errorMessage(error, "Unable to delete item."));
@@ -3511,7 +3712,7 @@ export default function App() {
     }).catch((error: unknown) => {
       if (epoch !== directoryRefreshEpoch || generation !== workspaceGeneration || currentWorkspace !== workspace() || disposed) return;
       setRoot((current) => updateEntry(markDirectoryStale(current, path), path, (entry) => ({ ...entry, partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") } })));
-      notify("Unable to load workspace directory refresh.");
+      notify(t("Unable to load workspace directory refresh."));
     });
   };
 
@@ -3520,7 +3721,7 @@ export default function App() {
     if (!currentWorkspace) return;
     const expandedPaths = currentExpandedPaths();
     setRoot((current) => markAllDirectoriesStale(current));
-    scheduleDirectoryRefresh(currentWorkspace);
+    for (const folder of workspaceFolders()) scheduleDirectoryRefresh(folder);
     for (const path of expandedPaths) scheduleDirectoryRefresh(path);
   };
 
@@ -3966,6 +4167,9 @@ export default function App() {
     switch (command.id) {
       case "pude.builtin.openFile": void openFileAction(); break;
       case "pude.builtin.openFolder": void loadWorkspace(); break;
+      case "pude.builtin.openWorkspace": void runWorkspaceAction((actions) => actions.openFromDialog()); break;
+      case "pude.builtin.addFolderToWorkspace": void runWorkspaceAction((actions) => actions.addFolder()); break;
+      case "pude.builtin.saveWorkspaceAs": void runWorkspaceAction((actions) => actions.saveAs()); break;
       case "pude.builtin.save": void saveTab(); break;
       case "pude.builtin.saveAs": void saveTabAs(); break;
       case "pude.builtin.find": showFind(false); break;
@@ -4022,7 +4226,7 @@ export default function App() {
       && JSON.stringify(candidate.args) === JSON.stringify(scope.args));
     const host = await getPluginHostModules();
     const resolved = manifest.resolvedLspServers?.find((candidate) => host.matchesResolvedPluginLspGrant(candidate, request));
-    if (!server || !resolved) throw new Error(`Language server ${scope.serverId} no longer matches the reviewed executable and arguments.`);
+    if (!server || !resolved) throw new Error(t("Language server {serverId} no longer matches the reviewed executable and arguments.", { serverId: scope.serverId }));
     await approveLspServer({
       pluginId: request.pluginId,
       pluginVersion: request.pluginVersion,
@@ -4100,29 +4304,29 @@ export default function App() {
       const destination = await saveFileDialog(tab.name);
       if (!destination) return false;
       if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent()) {
-        notify("This file changed while Save As was open. Try again.");
+        notify(t("This file changed while Save As was open. Try again."));
         return false;
       }
       if (isDestinationOpen(destination)) {
-        notify("That destination is already open in another tab.");
+        notify(t("That destination is already open in another tab."));
         return false;
       }
       const destinationState = await inspectSaveAsDestination(destination);
       if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent() || isDestinationOpen(destination)) {
-        notify("The file or destination changed while Save As was open. Try again.");
+        notify(t("The file or destination changed while Save As was open. Try again."));
         return false;
       }
       if (destinationState.exists) {
         const confirmed = await requestConfirmation({
-          title: `Overwrite ${baseName(destination)}?`,
-          message: `A file named ${baseName(destination)} already exists. Replace its contents with this file?`,
-          confirmLabel: "Overwrite",
-          cancelLabel: "Cancel",
+          title: t("Overwrite {value}?", { value: baseName(destination) }),
+          message: t("A file named {value} already exists. Replace its contents with this file?", { value: baseName(destination) }),
+          confirmLabel: t("Overwrite"),
+          cancelLabel: t("Cancel"),
           destructive: true,
         });
         if (!confirmed) return false;
         if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent() || isDestinationOpen(destination)) {
-          notify("The file or destination changed while waiting for confirmation. Try again.");
+          notify(t("The file or destination changed while waiting for confirmation. Try again."));
           return false;
         }
       }
@@ -4132,7 +4336,7 @@ export default function App() {
       const result = await saveFileAs(destination, content, lineEnding, lineEndings, bom, destinationState.token);
       const current = tabById[tab.id];
       if (!isSourceCurrent() || !current) {
-        notify(`Saved a copy as ${baseName(destination)}, but the source tab changed and stayed at its original path.`);
+        notify(t("Saved a copy as {value}, but the source tab changed and stayed at its original path.", { value: baseName(destination) }));
         return false;
       }
       const nextRevision = current.revision + 1;
@@ -4167,7 +4371,7 @@ export default function App() {
       if (plugins().some((plugin) => plugin.enabled)) {
         void getPluginHostModules().then((host) => activatePluginsForEvent("onFileSave", { file: { path: destination, name: baseName(destination), language: host.activationLanguageId(fileLanguageForPath(destination).label) } }));
       }
-      notify(`Saved ${sourceName} as ${baseName(destination)}`);
+      notify(t("Saved {sourceName} as {value}", { sourceName, value: baseName(destination) }));
       return true;
     } catch (error) {
       notify(errorMessage(error, "Unable to save file as the selected destination."));
@@ -4206,7 +4410,7 @@ export default function App() {
         if (current.dirty) externalConflictController.queue(current);
         else updateTab(current.id, { orphaned: true });
       } else {
-        notify(errorMessage(error, `Unable to reload ${current.name}.`));
+        notify(errorMessage(error, t("Unable to reload {name}.", { name: current.name })));
       }
     });
   };
@@ -4257,7 +4461,7 @@ export default function App() {
 
   const openPluginAuthorizationReview = async (targetPluginId?: string) => {
     if (!pluginsRecovered()) {
-      notify("Installed plugin state could not be verified; plugin changes are temporarily unavailable.");
+      notify(t("Installed plugin state could not be verified; plugin changes are temporarily unavailable."));
       return;
     }
     if (pluginOperationInFlight) return;
@@ -4266,7 +4470,7 @@ export default function App() {
     try {
       plan = await inspectPluginInstall();
       if (!plan) {
-        notify("Local plugin installation is available in the desktop build.");
+        notify(t("Local plugin installation is available in the desktop build."));
         return;
       }
       const existing = plugins().find((plugin) => plugin.id === plan!.manifest.id);
@@ -4276,13 +4480,13 @@ export default function App() {
       if (targetPluginId && (plan.manifest.id !== targetPluginId || plan.installedManifest?.id !== targetPluginId || !existing)) {
         await cancelPluginInstall(plan.transactionId);
         plan = null;
-        notify("The selected folder contains a different plugin. The update was cancelled.");
+        notify(t("The selected folder contains a different plugin. The update was cancelled."));
         return;
       }
       if (!plan.installedManifest && existing) {
         await cancelPluginInstall(plan.transactionId);
         plan = null;
-        notify("The installed plugin changed while the folder was being inspected. Try again.");
+        notify(t("The installed plugin changed while the folder was being inspected. Try again."));
         return;
       }
       let workspaceRoot = workspace();
@@ -4373,7 +4577,9 @@ export default function App() {
         : [...items, installed]);
       setAuthorizationReview(undefined);
       setPluginsOpen(true);
-      notify(`${plan.installedManifest ? "Updated" : "Installed"} ${installed.name}. Review granted permissions before use.`);
+      notify(plan.installedManifest
+        ? t("Updated {name}. Review granted permissions before use.", { name: installed.name })
+        : t("Installed {name}. Review granted permissions before use.", { name: installed.name }));
       if (wasEnabled && workspace()) activatePluginsForEvent("onWorkspaceOpen", { workspace: workspace() });
     } catch (error) {
       failureMessage = errorMessage(error, failureMessage);
@@ -4450,16 +4656,16 @@ export default function App() {
     const plugin = plugins().find((item) => item.id === id);
     if (!plugin || pluginOperationInFlight || !pluginsRecovered()) return;
     const confirmed = await requestConfirmation({
-      title: `Uninstall ${plugin.name}?`,
-      message: "Its saved permissions will also be removed.",
-      confirmLabel: "Uninstall",
-      cancelLabel: "Cancel",
+      title: t("Uninstall {name}?", { name: plugin.name }),
+      message: t("Its saved permissions will also be removed."),
+      confirmLabel: t("Uninstall"),
+      cancelLabel: t("Cancel"),
       destructive: true,
     });
     if (!confirmed) return;
     const currentPlugin = plugins().find((item) => item.id === id);
     if (pluginOperationInFlight || !currentPlugin || currentPlugin.version !== plugin.version) {
-      notify("The plugin changed while waiting for confirmation. Try again.");
+      notify(t("The plugin changed while waiting for confirmation. Try again."));
       return;
     }
     setConfirmedOperationInProgress(true);
@@ -4485,19 +4691,19 @@ export default function App() {
       });
       if (result.status === "blocked") {
         notify(result.reason === "plugin-state-storage-failed"
-          ? "Plugin is disabled for this session, but its disabled state could not be saved. Uninstall was cancelled."
-          : "Plugin is disabled, but its permissions could not be removed from storage. Uninstall was cancelled.");
+          ? t("Plugin is disabled for this session, but its disabled state could not be saved. Uninstall was cancelled.")
+          : t("Plugin is disabled, but its permissions could not be removed from storage. Uninstall was cancelled."));
         return;
       }
       if (result.cleanupPending) setPendingCleanupIds((ids) => ids.includes(id) ? ids : [...ids, id]);
       if (result.status === "removed") {
         setPlugins((items) => items.filter((item) => item.id !== id));
-        notify(`Uninstalled ${plugin.name}.`);
+        notify(t("Uninstalled {name}.", { name: plugin.name }));
       } else {
-        notify(`Could not uninstall ${plugin.name}. It is disabled; you can retry the uninstall.`);
+        notify(t("Could not uninstall {name}. It is disabled; you can retry the uninstall.", { name: plugin.name }));
       }
     } catch (error) {
-      notify(errorMessage(error, `Unable to uninstall ${plugin.name}.`));
+      notify(errorMessage(error, t("Unable to uninstall {name}.", { name: plugin.name })));
     } finally {
       pluginOperationInFlight = false;
       setConfirmedOperationInProgress(false);
@@ -4508,10 +4714,10 @@ export default function App() {
     if (!pluginsRecovered()) return;
     try {
       const cleanupPending = await retryPluginCleanup(id);
-      if (cleanupPending) notify("Some plugin files still cannot be removed.");
+      if (cleanupPending) notify(t("Some plugin files still cannot be removed."));
       else {
         setPendingCleanupIds((ids) => ids.filter((pendingId) => pendingId !== id));
-        notify("Plugin cleanup completed.");
+        notify(t("Plugin cleanup completed."));
       }
     } catch (error) {
       notify(errorMessage(error, "Unable to retry plugin cleanup."));
@@ -4525,7 +4731,7 @@ export default function App() {
 
   const revokePluginPermission = (grantId: string) => {
     void ensureAuthorizationManager().then((manager) => {
-      if (!manager.revoke(grantId)) notify("Permission could not be revoked because authorization storage is unavailable.");
+      if (!manager.revoke(grantId)) notify(t("Permission could not be revoked because authorization storage is unavailable."));
     });
   };
 
@@ -4682,15 +4888,15 @@ export default function App() {
     const snapshots = targets.map(captureTabOperation);
     if (targets.some((tab) => tab.dirty)) {
       const confirmed = await requestConfirmation({
-        title: "Close selected tabs?",
-        message: "One or more selected files have unsaved changes. Close them and discard those changes?",
-        confirmLabel: "Close and discard",
-        cancelLabel: "Cancel",
+        title: t("Close selected tabs?"),
+        message: t("One or more selected files have unsaved changes. Close them and discard those changes?"),
+        confirmLabel: t("Close and discard"),
+        cancelLabel: t("Cancel"),
         destructive: true,
       });
       if (!confirmed) return;
       if (requestGeneration !== workspaceGeneration || !tabOperationsAreCurrent(snapshots)) {
-        notify("One or more selected files changed while waiting for confirmation. They stayed open.");
+        notify(t("One or more selected files changed while waiting for confirmation. They stayed open."));
         return;
       }
     }
@@ -4765,32 +4971,35 @@ export default function App() {
     <div class="app-shell" inert={appQuitPrepared() || confirmedOperationInProgress()}>
       <header class="topbar" data-platform={windowPlatform} onMouseDown={startWindowDrag}>
         <div class="brand-lockup"><img class="brand-logo" src="/pude-logo.webp" width="36" height="36" alt="pude" /></div>
-        <nav class="topbar-actions" aria-label="Application menu">
-          <TopbarMenu label="File" open={topbarMenu() === "file"} onToggle={() => setTopbarMenu((current) => current === "file" ? undefined : "file")}>
-            <TopbarMenuItem icon="external" label="New window" onSelect={() => selectTopbarAction(() => void openNewWindowAction())} />
-            <TopbarMenuItem icon="folder-open" label="Open folder" onSelect={() => selectTopbarAction(() => void loadWorkspace())} />
-            <TopbarMenuItem icon="file" label="Open file" shortcut={`${shortcutModifier()}+O`} onSelect={() => selectTopbarAction(() => void openFileAction())} />
+        <nav class="topbar-actions" aria-label={t("Application menu")}>
+          <TopbarMenu label={t("File")} open={topbarMenu() === "file"} onToggle={() => setTopbarMenu((current) => current === "file" ? undefined : "file")}>
+            <TopbarMenuItem icon="external" label={t("New window")} onSelect={() => selectTopbarAction(() => void openNewWindowAction())} />
+            <TopbarMenuItem icon="folder-open" label={t("Open folder")} onSelect={() => selectTopbarAction(() => void loadWorkspace())} />
+            <TopbarMenuItem icon="split" label={t("Open workspace…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.openFromDialog()))} />
+            <TopbarMenuItem icon="plus" label={t("Add folder to workspace…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.addFolder()))} />
+            <TopbarMenuItem icon="save" label={t("Save workspace as…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.saveAs()))} />
+            <TopbarMenuItem icon="file" label={t("Open file")} shortcut={`${shortcutModifier()}+O`} onSelect={() => selectTopbarAction(() => void openFileAction())} />
             <div class="topbar-menu-divider" />
-            <TopbarMenuItem icon="save" label="Save" shortcut={`${shortcutModifier()}+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTab(); })} />
-            <TopbarMenuItem icon="save" label="Save As" shortcut={`${shortcutModifier()}+Shift+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTabAs(); })} />
+            <TopbarMenuItem icon="save" label={t("Save")} shortcut={`${shortcutModifier()}+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTab(); })} />
+            <TopbarMenuItem icon="save" label={t("Save As")} shortcut={`${shortcutModifier()}+Shift+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTabAs(); })} />
           </TopbarMenu>
-          <TopbarMenu label="Edit" triggerRef={(element) => { editMenuTrigger = element; }} open={topbarMenu() === "edit"} onToggle={() => setTopbarMenu((current) => current === "edit" ? undefined : "edit")}>
-          <TopbarMenuItem icon="search" label="Find" shortcut={`${shortcutModifier()}+F`} onSelect={() => selectTopbarAction(findAction)} />
-          <TopbarMenuItem icon="search" label="Replace" shortcut={isMacPlatform() ? "Cmd+Option+F" : "Ctrl+H"} onSelect={() => selectTopbarAction(() => showFind(true))} />
-            <TopbarMenuItem icon="command" label="Commands" shortcut={`${shortcutModifier()}+Shift+P`} onSelect={() => selectTopbarAction(() => setCommandPaletteOpen(true))} />
+          <TopbarMenu label={t("Edit")} triggerRef={(element) => { editMenuTrigger = element; }} open={topbarMenu() === "edit"} onToggle={() => setTopbarMenu((current) => current === "edit" ? undefined : "edit")}>
+          <TopbarMenuItem icon="search" label={t("Find")} shortcut={`${shortcutModifier()}+F`} onSelect={() => selectTopbarAction(findAction)} />
+          <TopbarMenuItem icon="search" label={t("Replace")} shortcut={isMacPlatform() ? "Cmd+Option+F" : "Ctrl+H"} onSelect={() => selectTopbarAction(() => showFind(true))} />
+            <TopbarMenuItem icon="command" label={t("Commands")} shortcut={`${shortcutModifier()}+Shift+P`} onSelect={() => selectTopbarAction(() => setCommandPaletteOpen(true))} />
           </TopbarMenu>
-          <TopbarMenu label="View" triggerRef={(element) => { viewMenuTrigger = element; }} open={topbarMenu() === "view"} onToggle={() => setTopbarMenu((current) => current === "view" ? undefined : "view")}>
-            <TopbarMenuItem icon="plugin" label="Plugins" onSelect={() => selectTopbarAction(() => setPluginsOpen(true))} />
-            <TopbarMenuItem icon="settings" label="Settings" onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
+          <TopbarMenu label={t("View")} triggerRef={(element) => { viewMenuTrigger = element; }} open={topbarMenu() === "view"} onToggle={() => setTopbarMenu((current) => current === "view" ? undefined : "view")}>
+            <TopbarMenuItem icon="plugin" label={t("Plugins")} onSelect={() => selectTopbarAction(() => setPluginsOpen(true))} />
+            <TopbarMenuItem icon="settings" label={t("Settings")} onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
           </TopbarMenu>
-          <TopbarMenu label="Help" open={topbarMenu() === "help"} triggerRef={(element) => { helpMenuTrigger = element; }} onToggle={() => setTopbarMenu((current) => current === "help" ? undefined : "help")}>
-            <TopbarMenuItem icon="external" label={["available", "downloading", "ready"].includes(updateStatus().phase) ? "About pude · Update available" : "About pude"} onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
+          <TopbarMenu label={t("Help")} open={topbarMenu() === "help"} triggerRef={(element) => { helpMenuTrigger = element; }} onToggle={() => setTopbarMenu((current) => current === "help" ? undefined : "help")}>
+            <TopbarMenuItem icon="external" label={["available", "downloading", "ready"].includes(updateStatus().phase) ? t("About pude · Update available") : t("About pude")} onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
           </TopbarMenu>
         </nav>
         <LazyProjectTabs projects={projectTabItems()} activeId={activeProjectId()} busy={!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || projectCloseBusy()}
           onSelect={selectProject} onClose={requestCloseProject} onAdd={() => void addProjectTab()}
           onReorder={(source, target) => { setProjects((items) => reorderProjects(items, source, target)); markSessionDirty(); }} />
-        <button class="theme-button header-theme-button" onClick={() => updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" })} title={settings().theme === "dark" ? "Switch to light theme" : "Switch to dark theme"} aria-label={settings().theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}><Icon name={settings().theme === "dark" ? "sun" : "moon"} size={16} /></button>
+        <button class="theme-button header-theme-button" onClick={() => updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" })} title={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")} aria-label={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")}><Icon name={settings().theme === "dark" ? "sun" : "moon"} size={16} /></button>
         <Show when={windowPlatform !== "mac"}>{windowControls()}</Show>
       </header>
       <Show when={settingsOpen()}>
@@ -4810,17 +5019,22 @@ export default function App() {
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
                <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={
-                 <div class="explorer-scroll" role="tree" aria-label="Recent projects">
-                 <Show when={recentProjectEntries().length} fallback={<div class="recent-empty">No recent projects</div>}>
+                 <div class="explorer-scroll">
+                 <Show when={recentProjectEntries().length || recentWorkspaceEntries().length} fallback={<div class="recent-empty">{t("No recent folders or workspaces")}</div>}>
                    <Suspense fallback={<div class="recent-empty" aria-busy="true" />}>
-                     <LazyRecentProjectsList entries={recentProjectEntries()} onOpen={(entry) => void openEntry(entry)} />
+                     <Show when={recentProjectEntries().length}>
+                       <LazyRecentProjectsList label={t("Recent folders")} icon="folder" entries={recentProjectEntries()} onOpen={(entry) => void openWorkspacePath(entry.path)} />
+                     </Show>
+                     <Show when={recentWorkspaceEntries().length}>
+                       <LazyRecentProjectsList label={t("Recent workspaces")} icon="split" entries={recentWorkspaceEntries()} onOpen={(entry) => void openWorkspaceFile(entry.path)} />
+                     </Show>
                    </Suspense>
                  </Show>
                  </div>
                }>
-                 <div class="sidebar-toolbar">Files<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", root())} title="New file" aria-label="New file"><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", root())} title="New folder" aria-label="New folder"><Icon name="folder" size={14} /></button></div></div>
+                 <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button></div></div>
                  <div class="explorer-scroll">
-                   <Suspense fallback={<div aria-busy="true" aria-label="Loading workspace files" />}>
+                   <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
                      <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
                    </Suspense>
                  </div>
@@ -4828,18 +5042,18 @@ export default function App() {
              </Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_GIT_PANEL_ID} aria-labelledby={SIDEBAR_GIT_TAB_ID} hidden={sidebarView() !== "git"}>
-             <Show when={sidebarView() === "git"}><LazyGitPanel status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(`Created worktree ${result.branch}; opened ${result.path} in a new window.`))} /></Show>
+             <Show when={sidebarView() === "git"}><LazyGitPanel status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path })))} stashes={gitStashes()} onLoadStashFiles={(stash) => getGitStashFiles(workspace(), stash.hash)} onOpenStashDiff={(stash, file) => void openStashDiff(stash, file)} /></Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
              <Show when={sidebarView() === "search"}>
-                 <Suspense fallback={<div aria-busy="true" aria-label="Loading project search" />}>
-                   <LazyProjectSearch workspace={workspace()} onOpen={openProjectSearchResult} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
+                 <Suspense fallback={<div aria-busy="true" aria-label={t("Loading project search")} />}>
+                   <LazyProjectSearch folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
                  </Suspense>
              </Show>
            </div>
-            <div class="sidebar-footer"><Show when={sidebarView() === "explorer" && workspace()}><label class="sidebar-ignored-toggle" title="Group Git ignored files in Explorer"><input type="checkbox" aria-label="Group Git ignored files" checked={settings().groupGitIgnoredFiles} onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })} />Group ignored</label></Show><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? "plugin" : "plugins"}</button></div>
+            <div class="sidebar-footer"><Show when={sidebarView() === "explorer" && workspace()}><label class="sidebar-ignored-toggle" title={t("Group Git ignored files in Explorer")}><input type="checkbox" aria-label={t("Group Git ignored files")} checked={settings().groupGitIgnoredFiles} onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })} />{t("Group ignored")}</label></Show><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? t("plugin") : t("plugins")}</button></div>
          </aside>
-         <div class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-valuemin="215" aria-valuemax="520" aria-valuenow={settings().sidebarWidth} aria-label="Resize sidebar" onPointerDown={startSidebarResize} onKeyDown={nudgeSidebarWidth} tabIndex={0} />
+         <div class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-valuemin="215" aria-valuemax="520" aria-valuenow={settings().sidebarWidth} aria-label={t("Resize sidebar")} onPointerDown={startSidebarResize} onKeyDown={nudgeSidebarWidth} tabIndex={0} />
 
          <main class="workbench">
           <div class="tabbar">
@@ -4849,47 +5063,48 @@ export default function App() {
               onCloseTab={closeTab} onCloseHistory={closeHistoryTab} onDragStart={setDraggedTabId} onDragEnd={() => setDraggedTabId(undefined)} onDrop={reorderTab}
               onContextMenu={(id, event, button) => { contextMenuFocusTarget = button; setTabMenu({ id, x: event.clientX, y: event.clientY }); }} />
             <div class="tabbar-actions">
-              <button class="icon-button tabbar-action" onClick={reopenClosedTab} title="Reopen closed tab"><Icon name="arrow-up" size={13} /></button>
-              <button class="icon-button tabbar-action" onClick={toggleTerminal} title="Toggle terminal"><Icon name="terminal" size={14} /></button>
+              <button class="icon-button tabbar-action" onClick={reopenClosedTab} title={t("Reopen closed tab")}><Icon name="arrow-up" size={13} /></button>
+              <button class="icon-button tabbar-action" onClick={toggleTerminal} title={t("Toggle terminal")}><Icon name="terminal" size={14} /></button>
             </div>
           </div>
-           <Show when={tabMenu()}>{(menu) => <div class="tab-context-menu" style={{ left: `${menu().x}px`, top: `${menu().y}px` }} onClick={(event) => event.stopPropagation()}><button onClick={() => toggleTabPinned(menu().id)}><Icon name="lock" size={13} /> {tabById[menu().id]?.pinned ? "Unpin" : "Pin"}</button><Show when={tabById[menu().id]?.language !== "Image"}><button onClick={() => { const target = tabById[menu().id]; closeTabMenu(); if (target) void saveTabAs(target); }}><Icon name="save" size={13} /> Save As…</button></Show><button onClick={() => { void closeTab(menu().id); closeTabMenu(); }}><Icon name="close" size={13} /> Close</button><button onClick={() => { void closeOthers(menu().id); closeTabMenu(); }}><Icon name="split" size={13} /> Close others</button><button onClick={() => { void closeToRight(menu().id); closeTabMenu(); }}><Icon name="arrow-down" size={13} /> Close to right</button></div>}</Show>
+           <Show when={tabMenu()}>{(menu) => <div class="tab-context-menu" style={{ left: `${menu().x}px`, top: `${menu().y}px` }} onClick={(event) => event.stopPropagation()}><button onClick={() => toggleTabPinned(menu().id)}><Icon name="lock" size={13} /> {tabById[menu().id]?.pinned ? t("Unpin") : t("Pin")}</button><Show when={tabById[menu().id]?.language !== "Image"}><button onClick={() => { const target = tabById[menu().id]; closeTabMenu(); if (target) void saveTabAs(target); }}><Icon name="save" size={13} /> {t("Save As…")}</button></Show><button onClick={() => { void closeTab(menu().id); closeTabMenu(); }}><Icon name="close" size={13} /> {t("Close")}</button><button onClick={() => { void closeOthers(menu().id); closeTabMenu(); }}><Icon name="split" size={13} /> {t("Close others")}</button><button onClick={() => { void closeToRight(menu().id); closeTabMenu(); }}><Icon name="arrow-down" size={13} /> {t("Close to right")}</button></div>}</Show>
            <Show when={fileMenu()}>{(menu) => <LazyFileContextMenu entry={menu().entry} x={menu().x} y={menu().y}
-             showRelativePath={Boolean(workspace() && relativePathWithinRoot(menu().entry.path, workspace()) !== null)} revealLabel={isMacPlatform() ? "Reveal in Finder" : "Open in File Explorer"}
+             showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
+             onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
              onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
              onCopyPath={(relative) => void copyEntryPath(menu().entry, relative)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">
-              <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind("find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder="Find in file" aria-label="Find in file" /><Show when={search().query}><span class="find-count">local</span></Show></div>
-              <Show when={replaceOpen()}><input ref={(element) => { replaceInputRef = element; }} class="replace-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().replace} onInput={(event) => updateSearch({ replace: event.currentTarget.value })} placeholder="Replace" aria-label="Replace" /></Show>
-              <button classList={{ "find-option": true, "find-option-active": search().caseSensitive }} onClick={() => updateSearch({ caseSensitive: !search().caseSensitive })}>Aa</button>
-              <button classList={{ "find-option": true, "find-option-active": search().wholeWord }} onClick={() => updateSearch({ wholeWord: !search().wholeWord })}>ab</button>
-              <button classList={{ "find-option": true, "find-option-active": search().regexp }} onClick={() => updateSearch({ regexp: !search().regexp })}>.*</button>
-              <button class="find-action" onClick={() => requestFind("find")} title="Find next"><Icon name="arrow-down" size={14} /></button>
-              <Show when={replaceOpen()}><button class="find-action" onClick={() => requestFind("replace")} title="Replace"><Icon name="replace" size={14} /></button><button class="find-action" onClick={() => requestFind("replaceAll")} title="Replace all"><span class="replace-all-label">All</span></button></Show>
-              <button class="find-action" onClick={() => setSearchOpen(false)} title="Close find"><Icon name="close" size={14} /></button>
+              <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind("find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Find in file")} aria-label={t("Find in file")} /><Show when={search().query}><span class="find-count">{t("local")}</span></Show></div>
+              <Show when={replaceOpen()}><input ref={(element) => { replaceInputRef = element; }} class="replace-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().replace} onInput={(event) => updateSearch({ replace: event.currentTarget.value })} placeholder={t("Replace")} aria-label={t("Replace")} /></Show>
+              <button classList={{ "find-option": true, "find-option-active": search().caseSensitive }} onClick={() => updateSearch({ caseSensitive: !search().caseSensitive })} title={t("Match case")} aria-label={t("Match case")} aria-pressed={search().caseSensitive}>Aa</button>
+              <button classList={{ "find-option": true, "find-option-active": search().wholeWord }} onClick={() => updateSearch({ wholeWord: !search().wholeWord })} title={t("Match whole word")} aria-label={t("Match whole word")} aria-pressed={search().wholeWord}>ab</button>
+              <button classList={{ "find-option": true, "find-option-active": search().regexp }} onClick={() => updateSearch({ regexp: !search().regexp })} title={t("Use regular expression")} aria-label={t("Use regular expression")} aria-pressed={search().regexp}>.*</button>
+              <button class="find-action" onClick={() => requestFind("find")} title={t("Find next (Enter)")} aria-label={t("Find next")}><Icon name="arrow-down" size={14} /></button>
+              <Show when={replaceOpen()}><button class="find-action" onClick={() => requestFind("replace")} title={t("Replace next match")} aria-label={t("Replace next match")}><Icon name="replace" size={14} /></button><button class="find-action" onClick={() => requestFind("replaceAll")} title={t("Replace all matches in this file")} aria-label={t("Replace all matches in this file")}><span class="replace-all-label">{t("All")}</span></button></Show>
+              <button class="find-action" onClick={() => setSearchOpen(false)} title={t("Close find (Escape)")} aria-label={t("Close find")}><Icon name="close" size={14} /></button>
             </div>
           </Show>
           <div class="editor-stage">
-            <div class="editor-document-panel" role="tabpanel" id={WORKBENCH_EDITOR_PANEL_ID} aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined} aria-label={!activeTabId() ? "Editor" : undefined} hidden={viewMode() === "history"}>
+            <div class="editor-document-panel" role="tabpanel" id={WORKBENCH_EDITOR_PANEL_ID} aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined} aria-label={!activeTabId() ? t("Editor") : undefined} hidden={viewMode() === "history"}>
             <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>{(tab) => <div classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() }}>
               <LazyEditorPane tab={tab()} openTabIds={allLoadedTabs().map((tab) => tab.id)} settings={editorSettings()} searchQuery={search().query} searchReplace={search().replace} searchCaseSensitive={search().caseSensitive} searchRegexp={search().regexp} searchWholeWord={search().wholeWord} searchAction={search().action} searchActionId={search().actionId} searchActionTargetTabId={searchActionTargetTabId()} onSearchActionConsumed={acknowledgeSearchAction} getCachedDocument={documentController.getCachedDocument} goToLine={goToLine()} onFontSizeChange={(fontSize) => updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })} onDocumentChange={handleDocumentChange} onCursorChange={(tabId, line, column) => { updateTab(tabId, { cursorLine: line, cursorColumn: column }); scheduleCursorPersistence(); }} onRegisterDocument={registerDocument} onUnregisterDocument={unregisterDocument} />
             </div>}</Show>
 
-            <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? "Back to history" : undefined} onBack={() => void returnToDiffFile()} />}</Show>
+            <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? t("Back to history") : undefined} onBack={() => void returnToDiffFile()} />}</Show>
             <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}><LazyMarkdownPreview documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`} revision={activeTab()!.revision} length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length} readRange={(from, to) => { const tab = activeTab(); return tab ? documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to) : ""; }} /></Show>
             <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}><LazyImagePreview path={activeTab()?.path ?? ""} workspace={imageWorkspaceRoot(activeTab()?.path ?? "")} /></Show>
             <Show when={!activeTab() && viewMode() === "editor"}><EmptyEditor onOpenFolder={() => void loadWorkspace()} /></Show>
-            <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? "Markdown preview is disabled in large file mode" : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? "Show Markdown source" : "Show Markdown preview"} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? "Source" : "Preview"}</span></button></Show>
+            <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("Markdown preview is disabled in large file mode") : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? t("Show Markdown source") : t("Show Markdown preview")} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? t("Source") : t("Preview")}</span></button></Show>
             </div>
-            <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(`Created worktree ${result.branch}; opened ${result.path} in a new window.`))} /></div></Show>
+            <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path })))} /></div></Show>
           </div>
            <For each={projects().map((project) => project.id)}>{(id) => {
              const project = () => projects().find((item) => item.id === id)!;
              const selected = () => activeProjectId() === id;
              const terminalWorkspace = createMemo(() => selected() ? workspace() : project().workspace);
              return <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
-               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} visible={selected() && terminalOpen()} onHide={hideTerminal} onClose={hideTerminal} />
+               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} visible={selected() && terminalOpen()} onSettingsChange={updateSettings} onHide={hideTerminal} onClose={hideTerminal} />
              </Show>;
            }}</For>
         </main>
@@ -4897,20 +5112,20 @@ export default function App() {
 
       <footer class="statusbar">
         <div class="status-left">
-          <span class="status-branch"><Icon name="git" size={12} /> {git().branch ?? "local"}</span>
+          <span class="status-branch"><Icon name="git" size={12} /> {git().branch ?? t("local")}</span>
           <Show when={["available", "downloading", "ready"].includes(updateStatus().phase)}>
             <LazyStatusUpdateButton onError={() => setAboutOpen(true)} />
           </Show>
-          <Show when={statusTab()?.dirty}><span class="status-unsaved">Unsaved changes</span></Show>
-          <Show when={statusTab()?.orphaned}><span class="status-unsaved">File missing on disk</span></Show>
+          <Show when={statusTab()?.dirty}><span class="status-unsaved">{t("Unsaved changes")}</span></Show>
+          <Show when={statusTab()?.orphaned}><span class="status-unsaved">{t("File missing on disk")}</span></Show>
         </div>
         <div class="status-right">
-          <Show when={statusTab()} fallback={<span>Ready</span>}>{(tab) =>
+          <Show when={statusTab()} fallback={<span>{t("Ready")}</span>}>{(tab) =>
             <Show when={tab().language === "Image"} fallback={<>
-              <span>Ln {tab().cursorLine}, Col {tab().cursorColumn}</span>
-              <span>Spaces: {settings().tabSize}</span>
+              <span>{t("Ln {line}, Col {column}", { line: tab().cursorLine, column: tab().cursorColumn })}</span>
+              <span>{t("Spaces: {size}", { size: settings().tabSize })}</span>
               <span>{tab().encoding}</span><span>{tab().lineEnding.toUpperCase()}</span><span>{tab().language}</span>
-            </>}><span>Image preview</span><span>{tab().name}</span></Show>
+            </>}><span>{t("Image preview")}</span><span>{tab().name}</span></Show>
           }</Show>
           <For each={Object.values(pluginStatusItems())}>{(item) => <span title={item.tooltip}>{item.pluginName}: {item.text}</span>}</For>
         </div>
@@ -4957,8 +5172,8 @@ export default function App() {
           onClose={() => { setAuthorizationManagementOpen(false); setPluginsOpen(true); }}
         />
       </Show>
-      <Show when={externalConflictController.first()}>{(conflict) => <LazyConflictDialog tab={conflict()} onCompare={() => void compareExternalFile(conflict())} onReload={() => void reloadExternalFile()} onSaveAs={() => void saveExternalFileAs(conflict())} onKeep={() => { externalConflictController.dismiss(conflict().id); notify("Keeping the editor version."); }} />}</Show>
-      <Show when={projectCloseId()}><LazyCloseWindowDialog busy={projectCloseBusy()} projectName={baseName(projects().find((project) => project.id === projectCloseId())?.workspace ?? "") || "Files"}
+      <Show when={externalConflictController.first()}>{(conflict) => <LazyConflictDialog tab={conflict()} onCompare={() => void compareExternalFile(conflict())} onReload={() => void reloadExternalFile()} onSaveAs={() => void saveExternalFileAs(conflict())} onKeep={() => { externalConflictController.dismiss(conflict().id); notify(t("Keeping the editor version.")); }} />}</Show>
+      <Show when={projectCloseId()}><LazyCloseWindowDialog busy={projectCloseBusy()} projectName={projectTabItems().find((project) => project.id === projectCloseId())?.label ?? "Files"}
         onSave={() => void closeProjectWithDecision("save")} onDiscard={() => void closeProjectWithDecision("discard")} onCancel={() => setProjectCloseId(undefined)} /></Show>
       <Show when={closePromptOpen()}><LazyCloseWindowDialog busy={closeSaving()} onSave={() => void handleCloseDialogSave()} onDiscard={handleCloseDialogDiscard} onPreserve={handleCloseDialogPreserve} onCancel={handleCloseDialogCancel} /></Show>
       <Show when={confirmationDialog()}>{(dialog) => <LazyConfirmDialog title={dialog().title} message={dialog().message} confirmLabel={dialog().confirmLabel} cancelLabel={dialog().cancelLabel} destructive={dialog().destructive} onConfirm={() => closeConfirmationDialog(true)} onCancel={() => closeConfirmationDialog(false)} />}</Show>
@@ -4969,7 +5184,7 @@ export default function App() {
 
 function EmptyEditor(props: { onOpenFolder: () => void }) {
   const modifier = isMacPlatform() ? "Cmd" : "Ctrl";
-  return <div class="empty-editor"><img class="empty-editor-logo" src="/pude-logo.webp" width="156" height="156" alt="pude" /><h1 class="sr-only">pude</h1><p>pure code editor</p><div class="empty-actions"><button class="primary-button" onClick={props.onOpenFolder}><Icon name="folder-open" size={14} /> Open folder</button><span>Open a file with <kbd>{modifier}+O</kbd></span></div><div class="empty-shortcuts"><span><kbd>{modifier}+S</kbd> Save</span><span><kbd>{modifier}+F</kbd> Find</span><span><kbd>{modifier}+Backtick</kbd> Terminal</span></div></div>;
+  return <div class="empty-editor"><img class="empty-editor-logo" src="/pude-logo.webp" width="156" height="156" alt="pude" /><h1 class="sr-only">pude</h1><p>{t("pure code editor")}</p><div class="empty-actions"><button class="primary-button" onClick={props.onOpenFolder}><Icon name="folder-open" size={14} /> {t("Open folder")}</button><span>{t("Open a file with")} <kbd>{modifier}+O</kbd></span></div><div class="empty-shortcuts"><span><kbd>{modifier}+S</kbd> {t("Save")}</span><span><kbd>{modifier}+F</kbd> {t("Find")}</span><span><kbd>{modifier}+Backtick</kbd> {t("Terminal")}</span></div></div>;
 }
 
 const normalizedReadFileResults = new WeakSet<ReadFileResult>();
@@ -5036,7 +5251,7 @@ async function restorePersistedTab(persistedTab: PersistedTab, cursor: CursorPos
 
 function updateEntry(entry: DirectoryEntry, path: string, update: (entry: DirectoryEntry) => DirectoryEntry): DirectoryEntry {
   if (samePath(entry.path, path)) return update(entry);
-  if (!isSameOrDescendantPath(path, entry.path)) return entry;
+  if (!isWorkspaceRootEntry(entry) && !isSameOrDescendantPath(path, entry.path)) return entry;
   if (!entry.children?.length) return entry;
   let changed = false;
   const children = entry.children.map((child) => {
@@ -5048,6 +5263,7 @@ function updateEntry(entry: DirectoryEntry, path: string, update: (entry: Direct
 }
 
 function markDirectoryStale(entry: DirectoryEntry, targetPath: string): DirectoryEntry {
+  if (isWorkspaceRootEntry(entry)) return mapWorkspaceFolders(entry, (folder) => markDirectoryStale(folder, targetPath));
   if (entry.kind !== "directory" || !isSameOrDescendantPath(targetPath, entry.path)) return entry;
   let changed = false;
   const children = entry.children?.map((child) => {
@@ -5061,6 +5277,7 @@ function markDirectoryStale(entry: DirectoryEntry, targetPath: string): Director
 }
 
 function markAllDirectoriesStale(entry: DirectoryEntry): DirectoryEntry {
+  if (isWorkspaceRootEntry(entry)) return mapWorkspaceFolders(entry, markAllDirectoriesStale);
   if (entry.kind !== "directory") return entry;
   let changed = entry.loaded === true && entry.stale !== true;
   const children = entry.children?.map((child) => {
@@ -5070,6 +5287,21 @@ function markAllDirectoriesStale(entry: DirectoryEntry): DirectoryEntry {
   });
   if (!changed) return entry;
   return { ...entry, stale: entry.loaded ? true : entry.stale, children: children ?? entry.children };
+}
+
+/** The workspace row is never listed or marked stale itself; only its folders are. */
+function mapWorkspaceFolders(entry: DirectoryEntry, update: (folder: DirectoryEntry) => DirectoryEntry): DirectoryEntry {
+  let changed = false;
+  const children = entry.children?.map((child) => {
+    const next = update(child);
+    changed ||= next !== child;
+    return next;
+  });
+  return changed ? { ...entry, children } : entry;
+}
+
+function withDirectoryListing(entry: DirectoryEntry, listing: DirectoryListResult): DirectoryEntry {
+  return { ...entry, loaded: true, stale: false, expanded: true, children: mergeDirectoryState(entry.children, listing.entries), partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason };
 }
 
 function mergeDirectoryState(previous: DirectoryEntry[] | undefined, next: DirectoryEntry[]) {
@@ -5153,7 +5385,7 @@ function renameEntryPaths(entry: DirectoryEntry, from: string, to: string): Dire
     const nextPath = replacePathPrefix(entry.path, from, to);
     return { ...entry, name: normalizedEntryPath === normalizedFrom ? baseName(to) : entry.name, path: nextPath, children: entry.children?.map((child) => renameEntryPaths(child, from, to)) };
   }
-  if (!isSameOrDescendantPath(from, entry.path)) return entry;
+  if (!isWorkspaceRootEntry(entry) && !isSameOrDescendantPath(from, entry.path)) return entry;
   if (!entry.children?.length) return entry;
   let changed = false;
   const children = entry.children.map((child) => {
@@ -5218,18 +5450,26 @@ function parsePersistedPlugin(value: unknown): InstalledPlugin | null {
 }
 
 function loadRecentProjects() {
+  return loadRecentPaths(RECENT_PROJECTS_STORAGE_KEY).filter((path) => path !== "pude-demo");
+}
+
+function loadRecentWorkspaces() {
+  return loadRecentPaths(RECENT_WORKSPACES_STORAGE_KEY).filter(isWorkspaceFilePath);
+}
+
+function loadRecentPaths(key: string): string[] {
   try {
-    const stored = JSON.parse(readStorage("pude-recent-projects-v1") ?? "[]");
-    if (!Array.isArray(stored)) return [] as string[];
-    return stored.filter((path): path is string => typeof path === "string" && path.length > 0 && path !== "pude-demo").slice(0, 8);
+    const stored = JSON.parse(readStorage(key) ?? "[]");
+    if (!Array.isArray(stored)) return [];
+    return stored.filter((path): path is string => typeof path === "string" && path.length > 0).slice(0, 8);
   } catch {
-    return [] as string[];
+    return [];
   }
 }
 
 function loadSettings(): AppSettings {
   try {
-    const stored = JSON.parse(readStorage("pude-settings-v1") ?? "null");
+    const stored = JSON.parse(readStorage(SETTINGS_STORAGE_KEY) ?? "null");
     return validateSettings(stored, defaultSettings);
   } catch {
     return { ...defaultSettings };

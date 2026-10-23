@@ -4,25 +4,30 @@ import "@xterm/xterm/css/xterm.css";
 import { Icon } from "./Icons";
 import { isTauri, ackTerminalOutput, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalExitPayload, type TerminalOutputPayload } from "../lib/bridge";
 import { errorMessage } from "../lib/core";
+import { clampSetting } from "../lib/settings";
 import { fitVisibleTerminal } from "../lib/terminal-fit";
 import { TerminalLifecycle } from "../lib/terminal-lifecycle";
 import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "../lib/terminal-ack";
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
 import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, TERMINAL_FONT_FAMILY } from "../lib/terminal-vt";
+import { t } from "../lib/i18n";
 
 type TerminalTab = { id: number; label: string; directory?: string };
 export type TerminalOpenRequest = { id: number; directory: string };
 
 type EarlyOutputChunk = { seq: number; generation: number; data: string; bytes: number };
 
-export function TerminalPane(props: { workspace: string; height: number; visible: boolean; openRequest?: TerminalOpenRequest; onHide: () => void; onClose: () => void }) {
-  const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: "Terminal 1", directory: props.openRequest?.directory }]);
+const MIN_EDITOR_HEIGHT = 120;
+
+export function TerminalPane(props: { workspace: string; height: number; visible: boolean; openRequest?: TerminalOpenRequest; onSettingsChange: (changes: { terminalHeight: number }) => void; onHide: () => void; onClose: () => void }) {
+  let paneRef!: HTMLElement;
+  const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: t("Terminal {number}", { number: 1 }), directory: props.openRequest?.directory }]);
   const [activeTabId, setActiveTabId] = createSignal(1);
   let lastOpenRequestId = props.openRequest?.id;
   let nextTabId = 2;
   const addTab = (directory?: string) => {
     const id = nextTabId++;
-    setTabs((current) => [...current, { id, label: `Terminal ${id}`, directory }]);
+    setTabs((current) => [...current, { id, label: t("Terminal {number}", { number: id }), directory }]);
     setActiveTabId(id);
   };
   createEffect(() => {
@@ -48,19 +53,48 @@ export function TerminalPane(props: { workspace: string; height: number; visible
     if (visible && !tabs().length) addTab();
   }, { defer: true }));
 
+  const resize = (height: number) => props.onSettingsChange({ terminalHeight: clampSetting("terminalHeight", height, props.height) });
+  let stopResize = () => undefined;
+  const startResize = (event: PointerEvent) => {
+    event.preventDefault();
+    stopResize();
+    const startY = event.clientY;
+    const startHeight = paneRef.getBoundingClientRect().height;
+    const maxHeight = (paneRef.parentElement?.clientHeight ?? Infinity) - MIN_EDITOR_HEIGHT;
+    document.body.classList.add("terminal-resizing");
+    const handleMove = (moveEvent: PointerEvent) => resize(Math.min(maxHeight, startHeight + startY - moveEvent.clientY));
+    const handleUp = () => stopResize();
+    stopResize = () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      document.body.classList.remove("terminal-resizing");
+      stopResize = () => undefined;
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp, { once: true });
+  };
+  onCleanup(() => stopResize());
+
+  const nudgeHeight = (event: KeyboardEvent) => {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    resize(paneRef.getBoundingClientRect().height + (event.key === "ArrowUp" ? 16 : -16));
+  };
+
   return (
-    <section class="terminal-pane" style={{ height: `${props.height}px`, display: props.visible ? undefined : "none" }} aria-hidden={!props.visible}>
+    <section ref={paneRef} class="terminal-pane" style={{ height: `${props.height}px`, display: props.visible ? undefined : "none" }} aria-hidden={!props.visible}>
+      <div class="terminal-resizer" role="separator" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="1200" aria-valuenow={props.height} aria-label={t("Resize terminal")} onPointerDown={startResize} onKeyDown={nudgeHeight} tabIndex={0} />
       <div class="terminal-toolbar">
-        <div class="terminal-tabs" role="tablist" aria-label="Terminal sessions">
+        <div class="terminal-tabs" role="tablist" aria-label={t("Terminal sessions")}>
           <For each={tabs()}>{(tab) => <div classList={{ "terminal-tab": true, "terminal-tab-active": activeTabId() === tab.id }}>
             <button type="button" role="tab" aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)}><Icon name="terminal" size={13} />{tab.label}</button>
-            <button type="button" class="terminal-tab-close" title={`Kill ${tab.label}`} aria-label={`Kill ${tab.label}`} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
+            <button type="button" class="terminal-tab-close" title={t("Kill {label}", { label: tab.label })} aria-label={t("Kill {label}", { label: tab.label })} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
           </div>}</For>
-          <button class="icon-button terminal-add-tab" type="button" title="New terminal" aria-label="New terminal" onClick={() => addTab()}><Icon name="plus" size={14} /></button>
+          <button class="icon-button terminal-add-tab" type="button" title={t("New terminal")} aria-label={t("New terminal")} onClick={() => addTab()}><Icon name="plus" size={14} /></button>
         </div>
         <div class="terminal-toolbar-actions">
-          <button class="icon-button" type="button" title="Hide terminal" aria-label="Hide terminal" onClick={props.onHide}><Icon name="chevron-down" size={14} /></button>
-          <button class="icon-button" type="button" title="Close all terminals" aria-label="Close all terminals" onClick={closeAll}><Icon name="close" size={14} /></button>
+          <button class="icon-button" type="button" title={t("Hide terminal")} aria-label={t("Hide terminal")} onClick={props.onHide}><Icon name="chevron-down" size={14} /></button>
+          <button class="icon-button" type="button" title={t("Close all terminals")} aria-label={t("Close all terminals")} onClick={closeAll}><Icon name="close" size={14} /></button>
         </div>
       </div>
       <For each={tabs()}>{(tab) => {
@@ -121,7 +155,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
-    appendStatus(`${errorMessage(error, "Unable to acknowledge terminal output.")} Restart terminal to continue.`);
+    appendStatus(t("{error} Restart terminal to continue.", { error: errorMessage(error, "Unable to acknowledge terminal output.") }));
     void lifecycle.stop().catch((stopError) => {
       if (!disposed && !activeId && sessionGeneration === generation) {
         appendStatus(errorMessage(stopError, "Unable to stop the terminal after its output acknowledgment failed."));
@@ -304,7 +338,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
-    appendStatus(payload.status ? `terminal exited: ${payload.status}` : "terminal exited");
+    appendStatus(payload.status ? t("terminal exited: {status}", { status: payload.status }) : t("terminal exited"));
   };
 
   const startSession = async (workspace: string) => {
@@ -510,5 +544,5 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     terminal = undefined;
   });
 
-  return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }}><div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? "Terminal session ended" : "Terminal"} /><button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> Restart terminal</button></div>;
+  return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }}><div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")} /><button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> {t("Restart terminal")}</button></div>;
 }

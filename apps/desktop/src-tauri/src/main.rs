@@ -30,19 +30,27 @@ use uuid::Uuid;
 mod app_log;
 mod app_update;
 mod blocking;
+#[cfg(target_os = "macos")]
+mod dock_menu;
 mod document_encoding;
 mod filesystem;
 mod git_diff;
 mod git_history;
 mod git_repository;
 mod git_runtime;
+mod git_stash;
 #[cfg(test)]
 mod ipc_contracts;
+#[cfg(windows)]
+mod jump_list;
+mod launcher_menu;
 #[cfg(windows)]
 mod lsp_bootstrap_protocol;
 mod lsp_manager;
 #[cfg(target_os = "macos")]
 mod macos_quit;
+#[cfg(target_os = "macos")]
+mod objc_runtime;
 mod platform_trash;
 mod plugin_installer;
 mod plugin_security;
@@ -55,6 +63,7 @@ mod startup_timeline;
 mod terminal;
 mod watcher;
 mod window_visibility;
+mod workspace_file;
 
 use blocking::BlockingClass;
 use document_encoding::{
@@ -1723,16 +1732,6 @@ fn encode_url_query_value(value: &str) -> String {
     encoded
 }
 
-fn existing_workspace_path(value: &str) -> Result<PathBuf, String> {
-    let path = decode_wire_path(value);
-    let path = fs::canonicalize(&path)
-        .map_err(|error| format!("Unable to open the workspace folder. {error}"))?;
-    if !path.is_dir() {
-        return Err("The workspace path must be a folder.".to_string());
-    }
-    Ok(path)
-}
-
 fn window_visibility_registry() -> &'static window_visibility::WindowVisibilityRegistry {
     static REGISTRY: OnceLock<window_visibility::WindowVisibilityRegistry> = OnceLock::new();
     REGISTRY.get_or_init(window_visibility::WindowVisibilityRegistry::default)
@@ -1806,9 +1805,7 @@ fn create_editor_window(app: &AppHandle, workspace: Option<&str>) -> Result<(), 
 fn open_new_window(app: AppHandle, workspace: Option<String>) -> Result<(), String> {
     let workspace = workspace
         .as_deref()
-        .map(existing_workspace_path)
-        .transpose()?
-        .map(|path| checked_wire_path(&path))
+        .map(launcher_menu::checked_launch_path)
         .transpose()?;
     create_editor_window(&app, workspace.as_deref())
 }
@@ -2161,6 +2158,8 @@ async fn git_operation<R: tauri::Runtime>(
         rename_pathspecs.push(format!(":(literal){original_path}"));
     }
     let value = value.trim().to_string();
+    let stash_target = (action.starts_with("stash-") && !value.is_empty())
+        .then(|| (value.clone(), start_point.clone()));
     let args: Vec<String> = match action.as_str() {
         "add" => vec!["add".to_string(), "--all".to_string()],
         "stage-file" => [
@@ -2213,6 +2212,19 @@ async fn git_operation<R: tauri::Runtime>(
             "-m".to_string(),
             "pude stash".to_string(),
         ],
+        "stash-pop" | "stash-apply" | "stash-drop" if !value.is_empty() => {
+            if !git_stash::is_stash_reference(&value) || !git_stash::is_object_id(&start_point) {
+                return Err(git_error_info(
+                    GitErrorKind::Failed,
+                    "Choose a stash from the stash list.",
+                ));
+            }
+            vec![
+                "stash".to_string(),
+                action.trim_start_matches("stash-").to_string(),
+                value.clone(),
+            ]
+        }
         "stash-pop" => vec!["stash".to_string(), "pop".to_string()],
         "switch" => {
             require_git_value(&value, "branch")?;
@@ -2265,6 +2277,15 @@ async fn git_operation<R: tauri::Runtime>(
             );
             runtime.invalidate(&repository_root, GitDirtyScope::ALL);
             staged?;
+        }
+        if let Some((reference, expected_hash)) = &stash_target {
+            git_stash::verify_stash_target(
+                &repository_root,
+                reference,
+                expected_hash,
+                &runtime,
+                &request,
+            )?;
         }
         if action == "unstage-file" || action == "unstage-all" {
             let has_head = git_execute(
@@ -4526,59 +4547,6 @@ mod window_cleanup_tests {
     }
 }
 
-fn secondary_launch_workspace(args: &[String], cwd: &Path) -> Result<Option<String>, String> {
-    let Some(argument) = args.get(1) else {
-        return Ok(None);
-    };
-    let path = PathBuf::from(argument);
-    let path = if path.is_absolute() {
-        path
-    } else {
-        cwd.join(path)
-    };
-    existing_workspace_path(&wire_path(&path))
-        .and_then(|path| checked_wire_path(&path))
-        .map(Some)
-}
-
-#[cfg(test)]
-mod secondary_launch_tests {
-    use super::*;
-
-    #[test]
-    fn resolves_relative_workspace_against_the_second_process_cwd() {
-        let root = std::env::temp_dir().join(format!("pude-launch-{}", Uuid::new_v4()));
-        let workspace = root.join("空白 folder # & %");
-        fs::create_dir_all(&workspace).unwrap();
-        let args = vec!["pude".to_string(), "空白 folder # & %".to_string()];
-        let resolved = secondary_launch_workspace(&args, &root).unwrap().unwrap();
-        assert_eq!(
-            decode_wire_path(&resolved),
-            fs::canonicalize(&workspace).unwrap()
-        );
-        let absolute_args = vec!["pude".to_string(), workspace.to_string_lossy().to_string()];
-        assert_eq!(
-            secondary_launch_workspace(&absolute_args, Path::new("unrelated")).unwrap(),
-            Some(resolved)
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn accepts_empty_launch_and_rejects_missing_workspaces() {
-        assert_eq!(
-            secondary_launch_workspace(&["pude".to_string()], Path::new(".")),
-            Ok(None)
-        );
-        let missing = std::env::temp_dir().join(format!("pude-missing-{}", Uuid::new_v4()));
-        assert!(secondary_launch_workspace(
-            &["pude".to_string(), missing.to_string_lossy().to_string()],
-            Path::new(".")
-        )
-        .is_err());
-    }
-}
-
 #[tauri::command(async)]
 async fn startup_folder(window: tauri::WebviewWindow) -> Option<String> {
     let window_url = window.url().ok();
@@ -4593,14 +4561,24 @@ async fn startup_folder(window: tauri::WebviewWindow) -> Option<String> {
     let command_line_workspace = if has_workspace_query {
         None
     } else {
-        std::env::args_os().nth(1).map(PathBuf::from)
+        let mut args = std::env::args_os().skip(1);
+        match args.next() {
+            Some(flag) if flag == launcher_menu::REUSE_WINDOW_ARG => args.next(),
+            Some(flag) if flag == launcher_menu::NEW_WINDOW_ARG => None,
+            argument => argument,
+        }
+        .map(PathBuf::from)
     };
     let candidate = window_workspace.or(command_line_workspace)?;
-    // Directory checks are blocking filesystem work; keep them off the async
+    // Path checks are blocking filesystem work; keep them off the async
     // runtime worker.
-    tauri::async_runtime::spawn_blocking(move || candidate.is_dir().then(|| wire_path(&candidate)))
-        .await
-        .unwrap_or(None)
+    tauri::async_runtime::spawn_blocking(move || {
+        launcher_menu::existing_launch_path(&candidate)
+            .ok()
+            .map(|path| wire_path(&path))
+    })
+    .await
+    .unwrap_or(None)
 }
 
 #[tauri::command(async)]
@@ -4819,12 +4797,27 @@ fn main() {
             // WebView2 creation must run off the UI thread. Tauri's builder
             // waits for a callback which needs that thread to keep dispatching.
             tauri::async_runtime::spawn_blocking(move || {
-                let workspace = match secondary_launch_workspace(&args, Path::new(&cwd)) {
-                    Ok(workspace) => workspace,
-                    Err(error) => {
+                let request = launcher_menu::parse_launch_request(&args, Path::new(&cwd))
+                    .unwrap_or_else(|error| {
                         app_log::log_error(&error);
-                        None
+                        launcher_menu::LaunchRequest::Default
+                    });
+                let workspace = match request {
+                    launcher_menu::LaunchRequest::Open {
+                        path,
+                        in_existing_window: true,
+                    } => {
+                        launcher_menu::open_in_existing_window(&app, &path);
+                        return;
                     }
+                    launcher_menu::LaunchRequest::Open { path, .. } => Some(path),
+                    launcher_menu::LaunchRequest::NewWindow => {
+                        if let Err(error) = create_editor_window(&app, None) {
+                            app_log::log_error(&error);
+                        }
+                        return;
+                    }
+                    launcher_menu::LaunchRequest::Default => None,
                 };
                 #[cfg(target_os = "macos")]
                 if workspace.is_none() {
@@ -4859,6 +4852,8 @@ fn main() {
                 app_log::init(dir);
             }
             #[cfg(target_os = "macos")]
+            dock_menu::install(app.handle().clone()).map_err(std::io::Error::other)?;
+            #[cfg(target_os = "macos")]
             macos_quit::install(app.handle().clone()).map_err(std::io::Error::other)?;
             Ok(())
         })
@@ -4870,10 +4865,16 @@ fn main() {
                     open_file_dialog,
                     save_file_dialog,
                     open_new_window,
+                    workspace_file::open_workspace_file_dialog,
+                    workspace_file::save_workspace_file_dialog,
+                    workspace_file::read_workspace_file,
+                    workspace_file::write_workspace_file,
+                    launcher_menu::set_recent_items,
                     filesystem::list_directory,
                     filesystem::cancel_directory_listing,
                     project_search::search_project,
                     project_search::cancel_project_search,
+                    project_search::replace_in_project,
                     filesystem::read_file,
                     filesystem::read_workspace_image,
                     filesystem::path_exists,
@@ -4895,6 +4896,9 @@ fn main() {
                     git_diff,
                     git_commit_diff,
                     git_commit_files,
+                    git_stash::git_stashes,
+                    git_stash::git_stash_files,
+                    git_stash::git_stash_diff,
                     watch_workspace,
                     watcher::stop_watcher,
                     terminal::terminal_start,
@@ -4976,6 +4980,11 @@ fn main() {
         tauri::RunEvent::ExitRequested { code, api, .. } => {
             handle_exit_requested(app, code, api);
         }
+        tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Focused(true),
+            ..
+        } => launcher_menu::remember_focused_window(&label),
         tauri::RunEvent::WindowEvent {
             label,
             event: tauri::WindowEvent::Destroyed,

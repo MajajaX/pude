@@ -16,6 +16,7 @@ export const SESSION_REGISTRY_STORAGE_KEY = "pude-session-registry-v1";
 export const SESSION_WINDOW_LEASE_MS = 5 * 60 * 1000;
 
 const MAX_CLEAN_TABS = 100;
+const MAX_WORKSPACE_FOLDERS = 64;
 export const MAX_PATH_LENGTH = 4096;
 export const MAX_RECOVERY_BYTES = 48 * 1024 * 1024;
 export const MAX_RECOVERY_TOTAL_BYTES = 48 * 1024 * 1024;
@@ -48,6 +49,10 @@ export type PersistedTab = {
 export type ProjectSessionMetadata = {
   id: string;
   workspace: string;
+  /** Further folders of a multi-folder workspace. */
+  folders?: string[];
+  /** The `.pdw` file of a saved workspace. */
+  workspaceFile?: string;
   activeTabId?: string;
   tabs: PersistedTab[];
   expandedPaths: string[];
@@ -320,7 +325,11 @@ export function parseSession(raw: string | null): SessionMetadata | null {
         tabIds.add(tab.id);
       }
       ids.add(candidate.id);
-      projects.push({ id: candidate.id, workspace: session.workspace, activeTabId: session.activeTabId, tabs: session.tabs, expandedPaths: session.expandedPaths });
+      const folders = Array.isArray(candidate.folders) ? uniqueStrings(candidate.folders, MAX_WORKSPACE_FOLDERS) : [];
+      const workspaceFile = boundedString(candidate.workspaceFile, MAX_PATH_LENGTH) ? candidate.workspaceFile : undefined;
+      projects.push({ id: candidate.id, workspace: session.workspace,
+        ...(folders.length ? { folders } : {}), ...(workspaceFile ? { workspaceFile } : {}),
+        activeTabId: session.activeTabId, tabs: session.tabs, expandedPaths: session.expandedPaths });
     }
     return createWindowSessionMetadata(projects, typeof value.activeProjectId === "string" ? value.activeProjectId : undefined);
   }

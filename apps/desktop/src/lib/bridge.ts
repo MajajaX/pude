@@ -18,6 +18,8 @@ import type {
   GitCommitFile,
   GitHistoryPage,
   GitOperationResult,
+  GitStash,
+  GitStashFile,
   GitStatusResult,
   GitWorktreeResult,
   InstalledPlugin,
@@ -61,6 +63,40 @@ export async function openFolder(): Promise<string | null> {
 export async function openFileDialog(): Promise<string | null> {
   if (isTauri) return invoke<string | null>("open_file_dialog");
   return "pude-demo/src/editor.ts";
+}
+
+export type WorkspaceFileInfo = {
+  path: string;
+  name: string;
+  /** Existing folders in file order. */
+  folders: string[];
+  /** Folders listed in the file that no longer exist. */
+  missing: string[];
+};
+
+export async function openWorkspaceFileDialog(): Promise<string | null> {
+  return isTauri ? invoke<string | null>("open_workspace_file_dialog") : null;
+}
+
+export async function saveWorkspaceFileDialog(defaultName: string): Promise<string | null> {
+  return isTauri ? invoke<string | null>("save_workspace_file_dialog", { defaultName }) : null;
+}
+
+export async function readWorkspaceFile(path: string): Promise<WorkspaceFileInfo> {
+  if (!isTauri) throw new Error("Workspace files are available in the desktop build.");
+  return invoke<WorkspaceFileInfo>("read_workspace_file", { path });
+}
+
+export async function writeWorkspaceFile(path: string, folders: string[]): Promise<void> {
+  if (!isTauri) throw new Error("Workspace files are available in the desktop build.");
+  await invoke("write_workspace_file", { path, folders });
+}
+
+/** Recent folders and workspaces for the Dock menu (macOS) and Jump List (Windows). */
+export type LauncherMenuLabels = { newWindow: string; newWindowDescription: string; recentFolders: string; recentWorkspaces: string };
+
+export async function setRecentItems(folders: string[], workspaces: string[], labels: LauncherMenuLabels): Promise<void> {
+  if (isTauri) await invoke("set_recent_items", { folders, workspaces, labels });
 }
 
 export async function saveFileDialog(defaultName: string): Promise<string | null> {
@@ -380,6 +416,19 @@ export async function getGitCommitFiles(workspace: string, commit: string): Prom
   if (isTauri) return invoke<GitCommitFile[]>("git_commit_files", { workspace, commit });
   const { demoGit } = await getDemoModules();
   return demoGit.commits.find((item) => item.hash === commit)?.files.map((file) => ({ ...file })) ?? [];
+}
+
+export async function getGitStashes(workspace: string): Promise<GitStash[]> {
+  return isTauri ? invoke<GitStash[]>("git_stashes", { workspace }) : [];
+}
+
+export async function getGitStashFiles(workspace: string, stash: string): Promise<GitStashFile[]> {
+  return isTauri ? invoke<GitStashFile[]>("git_stash_files", { workspace, stash }) : [];
+}
+
+export async function getGitStashDiff(workspace: string, stash: string, path: string, untracked: boolean, contextLines = 3): Promise<DiffResult> {
+  if (!isTauri) throw new Error("Stash diffs are available in the desktop build.");
+  return invoke<DiffResult>("git_stash_diff", { workspace, stash, path, untracked, contextLines });
 }
 
 /**

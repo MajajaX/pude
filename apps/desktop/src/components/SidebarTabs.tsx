@@ -1,5 +1,6 @@
 import { For, createSignal } from "solid-js";
 import { tabNavigationAction, tabRovingIndex } from "../lib/tab-navigation";
+import { t, translatable } from "../lib/i18n";
 
 export type SidebarView = "explorer" | "git" | "search";
 
@@ -16,9 +17,9 @@ export type SidebarTabsProps = {
 };
 
 const views: readonly { id: SidebarView; label: string; tabId: string; panelId: string }[] = [
-  { id: "explorer", label: "EXPLORER", tabId: SIDEBAR_EXPLORER_TAB_ID, panelId: SIDEBAR_EXPLORER_PANEL_ID },
-  { id: "git", label: "GIT", tabId: SIDEBAR_GIT_TAB_ID, panelId: SIDEBAR_GIT_PANEL_ID },
-  { id: "search", label: "SEARCH", tabId: SIDEBAR_SEARCH_TAB_ID, panelId: SIDEBAR_SEARCH_PANEL_ID },
+  { id: "explorer", label: translatable("EXPLORER"), tabId: SIDEBAR_EXPLORER_TAB_ID, panelId: SIDEBAR_EXPLORER_PANEL_ID },
+  { id: "git", label: translatable("GIT"), tabId: SIDEBAR_GIT_TAB_ID, panelId: SIDEBAR_GIT_PANEL_ID },
+  { id: "search", label: translatable("SEARCH"), tabId: SIDEBAR_SEARCH_TAB_ID, panelId: SIDEBAR_SEARCH_PANEL_ID },
 ];
 
 export function SidebarTabs(props: SidebarTabsProps) {
@@ -81,7 +82,7 @@ export function SidebarTabs(props: SidebarTabsProps) {
       ref={(element) => { tablistElement = element; }}
       class="sidebar-tabs"
       role="tablist"
-      aria-label="Sidebar views"
+      aria-label={t("Sidebar views")}
       aria-orientation="horizontal"
       onFocusIn={rememberFocusedView}
     >
@@ -98,7 +99,7 @@ export function SidebarTabs(props: SidebarTabsProps) {
           onKeyDown={handleTabKeyDown}
           onClick={() => props.onSelect(view.id)}
         >
-          {view.label}
+          {t(view.label)}
         </button>
       )}</For>
     </div>

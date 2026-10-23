@@ -2,6 +2,7 @@ import type { AppSettings } from "../types";
 
 export const defaultSettings = {
   theme: "dark",
+  language: "auto",
   fontSize: 14,
   tabSize: 2,
   insertSpaces: true,
@@ -20,7 +21,7 @@ const ranges: Record<NumericSetting, { min: number; max: number }> = {
   fontSize: { min: 11, max: 24 },
   tabSize: { min: 1, max: 8 },
   sidebarWidth: { min: 215, max: 520 },
-  terminalHeight: { min: 160, max: 600 },
+  terminalHeight: { min: 160, max: 1200 },
 };
 
 export function clampSetting(name: NumericSetting, value: unknown, fallback: number): number {
@@ -34,6 +35,7 @@ export function validateSettings(value: unknown, defaults: AppSettings): AppSett
   const stored = isRecord(value) ? value : {};
   return {
     theme: stored.theme === "light" || stored.theme === "dark" ? stored.theme : defaults.theme,
+    language: stored.language === "auto" || stored.language === "en" || stored.language === "zh-Hant" ? stored.language : defaults.language,
     fontSize: clampSetting("fontSize", stored.fontSize, defaults.fontSize),
     tabSize: clampSetting("tabSize", stored.tabSize, defaults.tabSize),
     insertSpaces: typeof stored.insertSpaces === "boolean" ? stored.insertSpaces : defaults.insertSpaces,
@@ -46,6 +48,8 @@ export function validateSettings(value: unknown, defaults: AppSettings): AppSett
     watcherExcludes: parseWatcherExcludes(stored.watcherExcludes, defaults.watcherExcludes),
   };
 }
+
+export const SETTINGS_STORAGE_KEY = "pude-settings-v1";
 
 export function parseWatcherExcludes(value: unknown, fallback: readonly string[] = []): string[] {
   const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\r\n,]+/) : fallback;
