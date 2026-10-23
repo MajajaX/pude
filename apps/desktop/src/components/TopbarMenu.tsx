@@ -1,6 +1,7 @@
 import { createEffect, Show, type JSX } from "solid-js";
 import { Icon, type IconName } from "./Icons";
 import { nextMenuItemIndex } from "../lib/menu-keyboard";
+import { t } from "../lib/i18n";
 
 const menuItemSelector = '[role="menuitem"]:not([disabled]):not([aria-disabled="true"])';
 const tabCandidateSelector = [
@@ -120,7 +121,7 @@ export function TopbarMenu(props: {
           class="topbar-menu-popover"
           id={menuId}
           role="menu"
-          aria-label={`${props.label} menu`}
+          aria-label={t("{label} menu", { label: props.label })}
           onKeyDown={handleMenuKeyDown}
           onFocusIn={handleMenuFocusIn}
         >

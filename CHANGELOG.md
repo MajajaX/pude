@@ -6,6 +6,45 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-23
+
+### Added
+
+- Drag the top edge of the terminal panel to change its height, or focus the edge
+  and use the Up/Down arrow keys. The height is saved, can go up to 1,200 px and
+  always leaves at least 120 px for the editor.
+- Workspaces: show several folders in one project tab with **File > Add folder to
+  workspace…** and remove them from a folder's right-click menu. **File > Save
+  workspace as…** saves the folders as a `.pdw` file, which **File > Open
+  workspace…** or `pude team.pdw` opens again. Search covers every folder.
+- A new project tab lists **Recent folders** and **Recent workspaces** separately.
+- Right-click pude in the macOS Dock or the Windows taskbar for **New Window** and the
+  recent folders and workspaces. A recent item opens as a new tab in the window you
+  used last.
+- Project search can replace: open **Replace with** from the chevron beside
+  **Text / Files**, then replace every match in the project or in one file. Files
+  with unsaved edits are skipped.
+- The Git view shows a **STASH** tab when the repository has stashes, with each
+  stash's files and diffs and **Apply**, **Pop** and drop actions.
+- Git history loads older commits automatically as you scroll near the end.
+- Traditional Chinese interface. **Settings > Language** chooses **System default**,
+  **English** or **繁體中文**, and switching applies right away. The translation is
+  bundled and only loaded when Traditional Chinese is in use.
+
+### Changed
+
+- Git history refreshes after commits, push, pull, branch and stash operations and
+  after Git changes made outside pude, instead of only when HEAD moves.
+- The Git action groups are always shown instead of collapsing under **Git actions**.
+- Find bar buttons explain themselves on hover, for example **Match whole word** and
+  **Use regular expression**.
+
+### Fixed
+
+- The last terminal row is no longer cut in half, for example after Ctrl+C prints a
+  new prompt at the bottom. The terminal now fits its rows to the space inside the
+  panel padding, and the space under the last row matches the terminal background.
+
 ## [0.1.5] - 2026-10-22
 
 ### Changed

@@ -7,6 +7,9 @@ describe("settings validation", () => {
     expect(clampSetting("fontSize", -2, 14)).toBe(11);
     expect(clampSetting("tabSize", "99", 2)).toBe(8);
     expect(clampSetting("tabSize", "not-a-number", 2)).toBe(2);
+    expect(clampSetting("terminalHeight", 40, 238)).toBe(160);
+    expect(clampSetting("terminalHeight", 900.4, 238)).toBe(900);
+    expect(clampSetting("terminalHeight", 5000, 238)).toBe(1200);
   });
 
   it("rejects invalid stored values while preserving valid settings", () => {

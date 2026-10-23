@@ -20,6 +20,7 @@ This file contains the license and notice texts for the locked desktop app runti
 - 2026-10-21 incremental verification: rustls-webpki@0.103.16 archive matches Cargo.lock; its ISC license text is unchanged from 0.103.15 and reuses the verified full text below. The earlier package row remains for historical releases.
 - 2026-10-22 v0.1.5 preparation: tauri@2.12.3 archive matches Cargo.lock SHA-256 c404ecf956ff241bf6b39dd688614724e1bf1f63255abb4fc46d1c40371672ea; its LICENSE-APACHE-2.0 and LICENSE-MIT match the 2.12.1 texts already included below. Historical rows remain.
 - 2026-10-22 interface fonts: added `@fontsource-variable/inter@5.3.0` and `@fontsource-variable/jetbrains-mono@5.3.0` (OFL-1.1) to the desktop runtime. Both npm archives match their package-lock.json SRI; each bundled LICENSE (font copyright notice plus the full SIL Open Font License 1.1) matches the extracted node_modules copy and is included below. This adds two locked package versions to the npm runtime inventory.
+- 2026-10-23 v0.1.6 preparation: pude now depends directly on `windows@0.62.2` (Windows x64 only) for the taskbar Jump List. Cargo.lock gained no packages: the crate and its dependencies were already in the locked Windows runtime closure and are listed below.
 
 ## Locked runtime package inventory
 

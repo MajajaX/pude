@@ -157,6 +157,7 @@ fn test_webview() -> tauri::WebviewWindow<tauri::test::MockRuntime> {
             get_git_ignored_paths,
             project_search::search_project,
             project_search::cancel_project_search,
+            project_search::replace_in_project,
         ])
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build MockRuntime app with production command handlers");
@@ -235,6 +236,43 @@ fn project_search_ipc_accepts_frontend_options_and_returns_file_locations() {
         json!({ "requestId": "search-ipc-test" }),
     )
     .unwrap();
+}
+
+#[test]
+fn project_replace_ipc_accepts_frontend_options_and_reports_changed_files() {
+    let scratch = ScratchDirectory::new();
+    let target = scratch.0.join("notes.md");
+    fs::write(&target, "搜尋 needle NEEDLE\n").unwrap();
+    let webview = test_webview();
+    let result = invoke(
+        &webview,
+        "replace_in_project",
+        json!({
+            "workspace": wire_path(&scratch.0),
+            "options": {
+                "query": "needle",
+                "replacement": "pin",
+                "caseSensitive": false,
+                "includeIgnored": true,
+                "paths": null,
+                "skipPaths": []
+            }
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        exact_object_keys(&result),
+        vec![
+            "changedFiles",
+            "failedFiles",
+            "replacements",
+            "skippedUnsaved",
+            "truncated"
+        ]
+    );
+    assert_eq!(result["replacements"], 2);
+    assert_eq!(result["changedFiles"].as_array().unwrap().len(), 1);
+    assert_eq!(fs::read_to_string(&target).unwrap(), "搜尋 pin pin\n");
 }
 
 #[test]

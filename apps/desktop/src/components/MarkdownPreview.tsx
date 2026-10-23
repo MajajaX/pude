@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { JSX } from "solid-js";
 import { assignMarkdownHeadingIds } from "../lib/markdown-heading-ids";
+import { t } from "../lib/i18n";
 
 type TableAlignment = "left" | "center" | "right" | undefined;
 
@@ -116,10 +117,10 @@ export function MarkdownPreview(props: {
   };
 
   return (
-    <article class="markdown-preview" aria-label="Markdown preview" on:click={scrollToAnchor}>
+    <article class="markdown-preview" aria-label={t("Markdown preview")} on:click={scrollToAnchor}>
       <Show when={parsed().documentKey === props.documentKey && parsed().truncated}>
         <aside class="markdown-preview-notice" role="status" style={{ "margin": "0 auto 20px", "padding": "8px 10px", "color": "var(--muted)", "font-size": "13px", "border": "1px solid var(--border)", "border-radius": "4px", "background": "var(--panel-raised)" }}>
-          Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.
+          {t("Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.")}
         </aside>
       </Show>
       <For each={parsed().documentKey === props.documentKey ? parsed().blocks : []}>{(block) => <MarkdownBlockView block={block} headingId={headingIds().get(block)} />}</For>
@@ -137,7 +138,7 @@ function MarkdownBlockView(props: { block: MarkdownBlock; headingId?: string }):
   if (block.kind === "table") return <div class="markdown-table-wrap">
     <Show when={block.truncated}>
       <div class="markdown-preview-notice" role="status" style={{ "margin-bottom": "8px", padding: "8px 10px", color: "var(--muted)", "font-size": "13px", border: "1px solid var(--border)", "border-radius": "4px", background: "var(--panel-raised)" }}>
-        Table shortened by preview limits. Showing {block.rows.length} data rows and {block.headers.length} columns.
+        {t("Table shortened by preview limits. Showing {rows} data rows and {columns} columns.", { rows: block.rows.length, columns: block.headers.length })}
       </div>
     </Show>
     <table>

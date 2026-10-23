@@ -131,6 +131,20 @@ export type GitStatusResult = {
   historyRevision?: number;
 };
 
+export type GitStash = {
+  index: number;
+  /** `stash@{N}`; shifts when an older stash is dropped. */
+  reference: string;
+  hash: string;
+  createdAt: string;
+  message: string;
+};
+
+export type GitStashFile = GitCommitFile & {
+  /** Stored in the stash's untracked-files commit (`git stash push --include-untracked`). */
+  untracked: boolean;
+};
+
 export type GitBranch = {
   name: string;
   current: boolean;
@@ -149,6 +163,8 @@ export type GitAction =
   | "pull"
   | "stash"
   | "stash-pop"
+  | "stash-apply"
+  | "stash-drop"
   | "switch"
   | "create-branch"
   | "delete-branch";
@@ -202,6 +218,7 @@ export type DiffResult = {
   truncated?: boolean;
   commit?: string;
   untrackedHint?: boolean;
+  stash?: { hash: string; untracked: boolean };
 };
 
 export type SaveFileResult = {
@@ -261,6 +278,8 @@ export type InstalledPlugin = PluginManifest & {
 
 export type AppSettings = {
   theme: "dark" | "light";
+  /** Interface language; `auto` follows the system. */
+  language: "auto" | "en" | "zh-Hant";
   fontSize: number;
   tabSize: number;
   insertSpaces: boolean;

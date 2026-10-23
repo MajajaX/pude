@@ -28,6 +28,7 @@ import { largeFileModeForSize, serializedDocumentByteLength, updateUtf8ByteLengt
 import { currentEditorSelectionFallback } from "../lib/editor-selection-fallback";
 import type { StateField } from "@codemirror/state";
 import type { AppSettings, EditorEncoding, EditorTab, LineEnding } from "../types";
+import { t } from "../lib/i18n";
 
 export type SearchRequest = {
   query: string;
@@ -1063,5 +1064,5 @@ export function EditorPane(props: EditorPaneProps) {
     documents.clear();
   });
 
-  return <div class="editor-host" ref={host} style={{ "--editor-font-size": `${props.settings.fontSize}px` }} aria-label={props.tab ? `Editing ${props.tab.name}` : "Editor"} />;
+  return <div class="editor-host" ref={host} style={{ "--editor-font-size": `${props.settings.fontSize}px` }} aria-label={props.tab ? t("Editing {name}", { name: props.tab.name }) : t("Editor")} />;
 }

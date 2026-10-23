@@ -4,6 +4,7 @@ import { clampSetting, parseWatcherExcludes } from "../lib/settings";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import type { AppSettings } from "../types";
 import "../styles/settings-dialog.css";
+import { t } from "../lib/i18n";
 
 export function SettingsDialog(props: {
   settings: AppSettings;
@@ -54,23 +55,35 @@ export function SettingsDialog(props: {
       >
         <header class="settings-dialog-heading">
           <div>
-            <span class="settings-dialog-kicker">PREFERENCES</span>
-            <h2 id="settings-dialog-title">Settings</h2>
+            <span class="settings-dialog-kicker">{t("PREFERENCES")}</span>
+            <h2 id="settings-dialog-title">{t("Settings")}</h2>
           </div>
           <button
             ref={(element) => { closeButton = element; }}
             type="button"
             class="icon-button"
             onClick={props.onClose}
-            aria-label="Close settings"
+            aria-label={t("Close settings")}
           >
             <Icon name="close" size={13} />
           </button>
         </header>
 
         <div class="settings-dialog-content">
+          <label class="settings-dialog-row" for="settings-language">
+            <span>{t("Language")}</span>
+            <select
+              id="settings-language"
+              value={props.settings.language}
+              onChange={(event) => props.onChange({ language: event.currentTarget.value as AppSettings["language"] })}
+            >
+              <option value="auto">{t("System default")}</option>
+              <option value="en">{t("English")}</option>
+              <option value="zh-Hant">繁體中文</option>
+            </select>
+          </label>
           <label class="settings-dialog-row" for="settings-font-size">
-            <span>Font size</span>
+            <span>{t("Font size")}</span>
             <input
               id="settings-font-size"
               type="number"
@@ -81,7 +94,7 @@ export function SettingsDialog(props: {
             />
           </label>
           <label class="settings-dialog-row" for="settings-tab-size">
-            <span>Tab size</span>
+            <span>{t("Tab size")}</span>
             <input
               id="settings-tab-size"
               type="number"
@@ -92,7 +105,7 @@ export function SettingsDialog(props: {
             />
           </label>
           <label class="settings-dialog-toggle" for="settings-word-wrap">
-            <span>Word wrap</span>
+            <span>{t("Word wrap")}</span>
             <input
               id="settings-word-wrap"
               type="checkbox"
@@ -101,7 +114,7 @@ export function SettingsDialog(props: {
             />
           </label>
           <label class="settings-dialog-toggle" for="settings-hide-dot-files">
-            <span>Hide dot files in Explorer</span>
+            <span>{t("Hide dot files in Explorer")}</span>
             <input
               id="settings-hide-dot-files"
               type="checkbox"
@@ -110,7 +123,7 @@ export function SettingsDialog(props: {
             />
           </label>
           <label class="settings-dialog-toggle" for="settings-check-for-updates">
-            <span>Check for updates on startup</span>
+            <span>{t("Check for updates on startup")}</span>
             <input
               id="settings-check-for-updates"
               type="checkbox"
@@ -119,7 +132,7 @@ export function SettingsDialog(props: {
             />
           </label>
           <div class="settings-dialog-block">
-            <label for="settings-watcher-excludes">Watcher excluded paths</label>
+            <label for="settings-watcher-excludes">{t("Watcher excluded paths")}</label>
             <textarea
               id="settings-watcher-excludes"
               autocorrect="off"
@@ -132,7 +145,7 @@ export function SettingsDialog(props: {
               onChange={(event) => props.onChange({ watcherExcludes: parseWatcherExcludes(event.currentTarget.value, props.settings.watcherExcludes) })}
             />
             <small id="settings-watcher-excludes-help">
-              Skip change notifications for these paths to reduce background updates. One path per line; relative paths use the workspace, and folders include descendants. Open editor files remain watched.
+              {t("Skip change notifications for these paths to reduce background updates. One path per line; relative paths use the workspace, and folders include descendants. Open editor files remain watched.")}
             </small>
           </div>
         </div>

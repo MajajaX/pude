@@ -1,14 +1,18 @@
-import { For, createSignal } from "solid-js";
+import { For, createSignal, createUniqueId } from "solid-js";
 import { Icon } from "./Icons";
 import type { DirectoryEntry } from "../types";
 import { isImeComposing } from "../lib/keyboard-input";
+import { t } from "../lib/i18n";
 
 type RecentProjectsListProps = {
+  label: string;
+  icon: "folder" | "split";
   entries: DirectoryEntry[];
   onOpen: (entry: DirectoryEntry) => void;
 };
 
 export function RecentProjectsList(props: RecentProjectsListProps) {
+  const headingId = createUniqueId();
   const [focusedPath, setFocusedPath] = createSignal<string>();
   const rows = new Map<string, HTMLDivElement>();
   const activePath = () => props.entries.some((entry) => entry.path === focusedPath())
@@ -40,23 +44,29 @@ export function RecentProjectsList(props: RecentProjectsListProps) {
     if (next) focusEntry(next.path);
   };
 
-  return <For each={props.entries}>{(entry, index) => (
-    <div
-      ref={(element) => rows.set(entry.path, element)}
-      class="tree-row tree-row-directory"
-      role="treeitem"
-      aria-level={1}
-      aria-posinset={index() + 1}
-      aria-setsize={props.entries.length}
-      aria-label={`Open recent project ${entry.name}`}
-      tabIndex={activePath() === entry.path ? 0 : -1}
-      onFocus={() => setFocusedPath(entry.path)}
-      onKeyDown={(event) => handleKeyDown(entry, event)}
-      onDblClick={() => props.onOpen(entry)}
-    >
-      <button class="tree-chevron" tabIndex={-1} aria-label="Open recent project" onClick={() => props.onOpen(entry)}><Icon name="chevron-right" size={13} /></button>
-      <span class="tree-kind"><Icon name="folder" size={15} /></span>
-      <button class="tree-label" tabIndex={-1} onClick={() => props.onOpen(entry)}>{entry.name}</button>
+  return <section class="recent-section">
+    <h2 class="recent-heading" id={headingId}>{props.label}</h2>
+    <div role="tree" aria-labelledby={headingId}>
+      <For each={props.entries}>{(entry, index) => (
+        <div
+          ref={(element) => rows.set(entry.path, element)}
+          class="tree-row tree-row-directory"
+          role="treeitem"
+          aria-level={1}
+          aria-posinset={index() + 1}
+          aria-setsize={props.entries.length}
+          aria-label={t("Open {name}", { name: entry.name })}
+          title={entry.path}
+          tabIndex={activePath() === entry.path ? 0 : -1}
+          onFocus={() => setFocusedPath(entry.path)}
+          onKeyDown={(event) => handleKeyDown(entry, event)}
+          onDblClick={() => props.onOpen(entry)}
+        >
+          <button class="tree-chevron" tabIndex={-1} aria-label={t("Open {name}", { name: entry.name })} onClick={() => props.onOpen(entry)}><Icon name="chevron-right" size={13} /></button>
+          <span class="tree-kind"><Icon name={props.icon} size={15} /></span>
+          <button class="tree-label" tabIndex={-1} onClick={() => props.onOpen(entry)}>{entry.name}</button>
+        </div>
+      )}</For>
     </div>
-  )}</For>;
+  </section>;
 }

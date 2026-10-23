@@ -2952,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "pude"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "cap-std",
  "libc",
@@ -2970,6 +2970,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "uuid",
+ "windows",
 ]
 
 [[package]]

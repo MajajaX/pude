@@ -56,22 +56,33 @@ permission).
 
 - **Project tabs** — open several folders in one window. Each project keeps its own
   files, unsaved edits, undo history, Git view and terminals.
+- **Workspaces** — show several folders in one project tab with **File > Add folder
+  to workspace…**, and save them as a `.pdw` workspace file to reopen later. A new tab
+  lists recent folders and recent workspaces separately; right-click pude in the
+  macOS Dock or the Windows taskbar for a new window or a recent item, which opens as
+  a new tab in the window you used last.
 - **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
   Save As and a wide, readable Markdown source/preview toggle.
 - **Readable interface** — bundled open-source Inter and JetBrains Mono fonts,
-  larger interface text and high-contrast labels in both dark and light themes.
+  larger interface text and high-contrast labels in both dark and light themes, in
+  English or Traditional Chinese (**Settings > Language**, follows the system by
+  default).
 - **Explorer and project search** — **EXPLORER / GIT / SEARCH** sidebar tabs,
   optional Git-ignored grouping, file operations and on-demand text or file-path
   search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
   by default and supports match case. Text results center and highlight the match.
+  Replace changes every match in the project or in one file, skipping files with
+  unsaved edits.
 - **Safe saves** — atomic writes, preserved LF/CRLF line endings, external change
   detection and crash recovery for unsaved work.
-- **Git** — status, staging, commits, branches, stash, push/pull, a commit graph and
-  full-file diffs, using the Git already installed on your system.
+- **Git** — status, staging, commits, branches, stash, push/pull, a commit graph that
+  loads older commits as you scroll and refreshes after every Git change, a stash list
+  with apply, pop, drop and diffs, and full-file diffs, using the Git already
+  installed on your system.
 - **Terminals** — multiple on-demand terminal sessions per project that keep running
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
-  parent directory.
+  parent directory. Drag the panel's top edge to resize it; the height is remembered.
   Ctrl+C interrupts the running program, such as a dev server, and returns to the
   prompt in the same shell, as in the operating system's own terminal. Windows uses
   PowerShell 7 when installed, otherwise Windows PowerShell.

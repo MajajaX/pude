@@ -1,3 +1,4 @@
+import { t, translatable } from "./i18n";
 import type { PluginLspServer, PluginManifest, PluginPermission } from "../types";
 
 export const PLUGIN_AUTHORIZATION_STORAGE_KEY = "pude-plugin-authorizations-v1";
@@ -63,12 +64,15 @@ export function pluginAuthorizationActionLabels(hasCurrentPlugin: boolean, selec
   approve: string;
 } {
   const count = Math.max(0, Math.floor(selectedPermissionCount));
-  const action = hasCurrentPlugin ? "Update" : "Install";
+  if (hasCurrentPlugin) {
+    return {
+      cancel: t("Keep current version"),
+      approve: count === 0 ? t("Update without permissions") : count === 1 ? t("Update with 1 permission") : t("Update with {count} permissions", { count }),
+    };
+  }
   return {
-    cancel: hasCurrentPlugin ? "Keep current version" : "Cancel install",
-    approve: count === 0
-      ? `${action} without permissions`
-      : `${action} with ${count} ${count === 1 ? "permission" : "permissions"}`,
+    cancel: t("Cancel install"),
+    approve: count === 0 ? t("Install without permissions") : count === 1 ? t("Install with 1 permission") : t("Install with {count} permissions", { count }),
   };
 }
 
@@ -120,18 +124,18 @@ const workspaceScopedPermissions = new Set<PluginPermission>([
 ]);
 
 const permissionLabels: Record<PluginPermission, string> = {
-  "editor.read": "Read active editor content",
-  "editor.write": "Edit the active document",
-  "workspace.read": "Read files in the workspace",
-  "workspace.write": "Create or modify workspace files",
-  "commands.register": "Register commands",
-  "ui.notification": "Show notifications",
-  "ui.statusBar": "Add status bar items",
-  "ui.quickPick": "Show quick picks",
-  "git.read": "Read Git status and diffs",
-  "terminal.write": "Write to an existing terminal",
-  network: "Access approved HTTPS domains",
-  "process.spawn:lsp": "Start approved language servers",
+  "editor.read": translatable("Read active editor content"),
+  "editor.write": translatable("Edit the active document"),
+  "workspace.read": translatable("Read files in the workspace"),
+  "workspace.write": translatable("Create or modify workspace files"),
+  "commands.register": translatable("Register commands"),
+  "ui.notification": translatable("Show notifications"),
+  "ui.statusBar": translatable("Add status bar items"),
+  "ui.quickPick": translatable("Show quick picks"),
+  "git.read": translatable("Read Git status and diffs"),
+  "terminal.write": translatable("Write to an existing terminal"),
+  network: translatable("Access approved HTTPS domains"),
+  "process.spawn:lsp": translatable("Start approved language servers"),
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value)
@@ -361,11 +365,11 @@ function manifestServers(manifest: PluginAuthorizationReviewManifest, workspaceR
         args: [...server.args],
         available: Boolean(scopeMatchesWorkspace && hasCanonicalPath),
         unavailableReason: !resolved
-          ? "The host could not resolve this server to a canonical executable path."
+          ? t("The host could not resolve this server to a canonical executable path.")
           : !scopeMatchesWorkspace
-            ? "Resolve this server again for the current canonical workspace."
+            ? t("Resolve this server again for the current canonical workspace.")
             : !hasCanonicalPath
-              ? "The resolved server executable path is not absolute."
+              ? t("The resolved server executable path is not absolute.")
               : undefined,
       };
     });
@@ -421,28 +425,28 @@ export function buildPluginPermissionReview(input: {
         items.push({
           key: `${permission}:${domain}`,
           permission,
-          label: `${permissionLabels[permission]} · ${domain}`,
-          details: [`Workspace: ${grantRequest.workspaceRoot || "No workspace"}`, `HTTPS requests to ${domain} only`],
+          label: `${t(permissionLabels[permission])} · ${domain}`,
+          details: [t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }), t("HTTPS requests to {domain} only", { domain })],
           added: added || domainAdded,
           previouslyGranted,
           requiresFreshApproval: !hasMatchingGrant(existingGrants, grantRequest, proposed.id, true),
           grantRequest,
           available: Boolean(grantRequest.workspaceRoot),
-          unavailableReason: grantRequest.workspaceRoot ? undefined : "Open a workspace before granting network access.",
+          unavailableReason: grantRequest.workspaceRoot ? undefined : t("Open a workspace before granting network access."),
         });
       }
       if (!domains.length) {
         items.push({
           key: permission,
           permission,
-          label: permissionLabels[permission],
+          label: t(permissionLabels[permission]),
           details: [],
           added,
           previouslyGranted: false,
           requiresFreshApproval: true,
           grantRequest: requestFor(proposed, permission, workspaceRoot),
           available: false,
-          unavailableReason: "The manifest does not declare a valid HTTPS domain.",
+          unavailableReason: t("The manifest does not declare a valid HTTPS domain."),
         });
       }
       continue;
@@ -467,8 +471,8 @@ export function buildPluginPermissionReview(input: {
         items.push({
           key: `${permission}:${server.serverId}`,
           permission,
-          label: `${permissionLabels[permission]} · ${server.serverId}`,
-          details: [`Workspace: ${grantRequest.workspaceRoot || "No workspace"}`, server.language, server.executablePath || "Unresolved executable", `Arguments: ${JSON.stringify(server.args)}`],
+          label: `${t(permissionLabels[permission])} · ${server.serverId}`,
+          details: [t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }), server.language, server.executablePath || t("Unresolved executable"), t("Arguments: {args}", { args: JSON.stringify(server.args) })],
           added: added || !matchingServer,
           previouslyGranted,
           requiresFreshApproval: !hasMatchingGrant(existingGrants, grantRequest, proposed.id, true),
@@ -481,14 +485,14 @@ export function buildPluginPermissionReview(input: {
         items.push({
           key: permission,
           permission,
-          label: permissionLabels[permission],
+          label: t(permissionLabels[permission]),
           details: [],
           added,
           previouslyGranted: false,
           requiresFreshApproval: true,
           grantRequest: requestFor(proposed, permission, workspaceRoot),
           available: false,
-          unavailableReason: "The manifest does not declare an absolute language-server executable and exact arguments.",
+          unavailableReason: t("The manifest does not declare an absolute language-server executable and exact arguments."),
         });
       }
       continue;
@@ -500,14 +504,14 @@ export function buildPluginPermissionReview(input: {
     items.push({
       key: permission,
       permission,
-      label: permissionLabels[permission],
-      details: grantRequest.workspaceRoot ? [`Workspace: ${grantRequest.workspaceRoot}`] : [],
+      label: t(permissionLabels[permission]),
+      details: grantRequest.workspaceRoot ? [t("Workspace: {path}", { path: grantRequest.workspaceRoot })] : [],
       added,
       previouslyGranted,
       requiresFreshApproval: !alreadyGrantedForVersion,
       grantRequest,
       available: !requiresWorkspace,
-      unavailableReason: requiresWorkspace ? "Open a workspace before granting this permission." : undefined,
+      unavailableReason: requiresWorkspace ? t("Open a workspace before granting this permission.") : undefined,
     });
   }
   return items;
@@ -686,5 +690,5 @@ export class PluginAuthorizationManager {
 }
 
 export function pluginPermissionLabel(permission: PluginPermission): string {
-  return permissionLabels[permission];
+  return t(permissionLabels[permission]);
 }

@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { Icon } from "./Icons";
 import { GitHistory } from "./GitHistory";
+import { GitStashView } from "./GitStashView";
 import { errorMessage, gitStatusLabel } from "../lib/core";
 import { splitDisplayPath } from "../lib/display-path";
 import { isTauri } from "../lib/bridge";
@@ -15,7 +16,8 @@ import {
   resolveGitStatusFocus,
   type GitStatusRow,
 } from "../lib/git-status-virtualization";
-import type { GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStatusResult } from "../types";
+import type { GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult } from "../types";
+import { t, translatable } from "../lib/i18n";
 
 type GitDialog =
   | { kind: "commit" }
@@ -26,22 +28,25 @@ type GitDialog =
   | { kind: "confirm"; request: GitActionRequest; message: string }
   | { kind: "error"; title: string; message: string };
 
+const actionLabel = (action: GitActionRequest["action"]) => t(actionLabels[action]);
 const actionLabels: Record<GitActionRequest["action"], string> = {
-  add: "Stage all",
-  "stage-file": "Stage file",
-  "unstage-file": "Unstage file",
-  "unstage-all": "Unstage all",
-  "discard-file": "Discard change",
-  "discard-untracked-file": "Discard untracked file",
-  commit: "Commit",
-  "commit-all": "Stage all and commit",
-  push: "Push",
-  pull: "Pull",
-  stash: "Stash",
-  "stash-pop": "Stash pop",
-  switch: "Switch branch",
-  "create-branch": "Create branch",
-  "delete-branch": "Delete branch",
+  add: translatable("Stage all"),
+  "stage-file": translatable("Stage file"),
+  "unstage-file": translatable("Unstage file"),
+  "unstage-all": translatable("Unstage all"),
+  "discard-file": translatable("Discard change"),
+  "discard-untracked-file": translatable("Discard untracked file"),
+  commit: translatable("Commit"),
+  "commit-all": translatable("Stage all and commit"),
+  push: translatable("Push"),
+  pull: translatable("Pull"),
+  stash: translatable("Stash"),
+  "stash-pop": translatable("Stash pop"),
+  "stash-apply": translatable("Apply stash"),
+  "stash-drop": translatable("Drop stash"),
+  switch: translatable("Switch branch"),
+  "create-branch": translatable("Create branch"),
+  "delete-branch": translatable("Delete branch"),
 };
 
 export type GitPanelProps = {
@@ -51,6 +56,8 @@ export type GitPanelProps = {
   historyIncomplete?: string;
   historyHasMore: boolean;
   historyLoadingMore: boolean;
+  /** Increments whenever loaded history is out of date, for example after a commit, push or ref change. */
+  historyRevision: number;
   onLoadMoreHistory: () => void;
   onLoadHistory: () => void;
   onRefreshHistory?: () => void;
@@ -61,11 +68,17 @@ export type GitPanelProps = {
   onLoadCommitFiles: (commit: GitCommit) => Promise<GitCommitFile[]>;
   onAction: (request: GitActionRequest) => Promise<void>;
   onCreateWorktree: (branchName: string, path: string, startPoint?: string) => Promise<void>;
+  stashes?: GitStash[];
+  onLoadStashFiles?: (stash: GitStash) => Promise<GitStashFile[]>;
+  onOpenStashDiff?: (stash: GitStash, file: GitStashFile) => void;
 };
 
 export function GitPanel(props: GitPanelProps) {
-  const [view, setView] = createSignal<"status" | "graph">(props.historyOnly ? "graph" : "status");
-  const [actionsOpen, setActionsOpen] = createSignal(false);
+  const [view, setView] = createSignal<"status" | "graph" | "stash">(props.historyOnly ? "graph" : "status");
+  const stashCount = () => props.stashes?.length ?? 0;
+  createEffect(() => {
+    if (view() === "stash" && !stashCount()) setView("status");
+  });
   const [actionFeedback, setActionFeedback] = createSignal("");
   const [dialog, setDialog] = createSignal<GitDialog>();
   const [commitMessage, setCommitMessage] = createSignal("");
@@ -83,6 +96,7 @@ export function GitPanel(props: GitPanelProps) {
   let commitQueueGeneration = 0;
   let previousRepositoryRoot = "";
   let previousHistoryLoadKey = "";
+  let loadedHistoryRevision = -1;
   let worktreePathEdited = false;
 
   createEffect(() => {
@@ -98,8 +112,10 @@ export function GitPanel(props: GitPanelProps) {
     previousRepositoryRoot = repositoryRoot;
 
     const historyLoadKey = `${repositoryRoot}:${props.status.repositoryState ?? "unknown"}:${props.status.branch ?? ""}:${props.status.headOid ?? ""}`;
-    if (view() === "graph" && historyLoadKey && historyLoadKey !== previousHistoryLoadKey) {
+    const historyRevision = props.historyRevision;
+    if (view() === "graph" && historyLoadKey && (historyLoadKey !== previousHistoryLoadKey || historyRevision !== loadedHistoryRevision)) {
       previousHistoryLoadKey = historyLoadKey;
+      loadedHistoryRevision = historyRevision;
       props.onLoadHistory();
     }
   });
@@ -117,7 +133,7 @@ export function GitPanel(props: GitPanelProps) {
     if (!message || busy() || !hasRepository()) return;
     confirmAction(
       { action: "commit-all", message },
-      "New, modified, and deleted files will all be staged before the commit.",
+      t("New, modified, and deleted files will all be staged before the commit."),
     );
   };
   const run = async (request: GitActionRequest) => {
@@ -126,14 +142,14 @@ export function GitPanel(props: GitPanelProps) {
     setActionFeedback("");
     try {
       await props.onAction(request);
-      setActionFeedback(`${actionLabels[request.action]} completed`);
+      setActionFeedback(t("{action} completed", { action: actionLabel(request.action) }));
       setDialog(undefined);
       setCommitMessage("");
       if (request.action === "commit-all") setQuickCommitMessage("");
       setBranchName("");
       setSelectedBranch("");
     } catch (error) {
-      setDialog({ kind: "error", title: `${actionLabels[request.action]} failed`, message: errorMessage(error, "Git operation failed.") });
+      setDialog({ kind: "error", title: t("{action} failed", { action: actionLabel(request.action) }), message: errorMessage(error, "Git operation failed.") });
     } finally {
       setBusy(false);
     }
@@ -172,7 +188,7 @@ export function GitPanel(props: GitPanelProps) {
     setBusy(true);
     try {
       await props.onCreateWorktree(branchName().trim(), worktreePath().trim(), props.status.headOid ?? undefined);
-      setActionFeedback("Worktree created and opened in a new window");
+      setActionFeedback(t("Worktree created and opened in a new window"));
       setDialog(undefined);
       setBranchName("");
       setWorktreePath("");
@@ -222,66 +238,70 @@ export function GitPanel(props: GitPanelProps) {
 
   return (
     <section classList={{ "git-panel": true, "git-panel-history-only": Boolean(props.historyOnly), "git-panel-history-mode": Boolean(props.historyOnly) || view() === "graph" }}>
-      <Show when={!props.historyOnly}><div class="git-panel-heading sidebar-toolbar">Branch<span class="git-panel-branch"><Icon name="git" size={13} /><span>{repositoryState() === "detached" ? "HEAD detached" : repositoryState() === "unborn" ? `${props.status.branch ?? "unborn"} (unborn)` : props.status.branch ?? "No repository"}</span></span></div></Show>
+      <Show when={!props.historyOnly}><div class="git-panel-heading sidebar-toolbar">{t("Branch")}<span class="git-panel-branch"><Icon name="git" size={13} /><span>{repositoryState() === "detached" ? t("HEAD detached") : repositoryState() === "unborn" ? t("{value} (unborn)", { value: props.status.branch ?? "unborn" }) : props.status.branch ?? t("No repository")}</span></span></div></Show>
       <div classList={{ "git-content": true, "git-content-history-mode": Boolean(props.historyOnly) || view() === "graph" }}>
         <Show when={!props.historyOnly}>
         <form class="git-quick-commit" onSubmit={(event) => {
           event.preventDefault();
           confirmQuickCommit();
         }}>
-          <label for="git-quick-commit-message">Commit message</label>
+          <label for="git-quick-commit-message">{t("Commit message")}</label>
           <div class="git-quick-commit-controls">
-            <input id="git-quick-commit-message" value={quickCommitMessage()} placeholder="Commit message" onInput={(event) => setQuickCommitMessage(event.currentTarget.value)} disabled={busy() || !hasRepository()} />
-            <button type="submit" disabled={busy() || !hasRepository() || !quickCommitMessage().trim()} title="Stage all changes and commit">Commit</button>
+            <input id="git-quick-commit-message" value={quickCommitMessage()} placeholder={t("Commit message")} onInput={(event) => setQuickCommitMessage(event.currentTarget.value)} disabled={busy() || !hasRepository()} />
+            <button type="submit" disabled={busy() || !hasRepository() || !quickCommitMessage().trim()} title={t("Stage all changes and commit")}>{t("Commit")}</button>
           </div>
         </form>
-        <div class="git-action-menu" onKeyDown={(event) => { if (event.key === "Escape") setActionsOpen(false); }}>
-          <button classList={{ "git-action-trigger": true, "git-action-trigger-open": actionsOpen() }} type="button" aria-expanded={actionsOpen()} aria-controls="git-action-options" onClick={() => setActionsOpen((open) => !open)}>
-            <Icon name="git" size={15} />
-            <span>Git actions</span>
-            <span class="git-action-count">10</span>
-            <Icon name="chevron-down" size={12} />
-          </button>
-          <Show when={actionsOpen()}>
-            <div class="git-action-options" id="git-action-options" aria-label="Git operations">
-              <div class="git-action-group-label">Changes</div>
-              <div class="git-action-grid">
-                <GitActionButton label="Stage all" title="Stage all changes" disabled={busy() || !hasRepository()} onClick={() => void run({ action: "add" })} />
-                <GitActionButton label="Commit" title="Commit staged changes" disabled={busy() || !hasRepository()} onClick={openCommitDialog} />
-              </div>
-              <div class="git-action-group-label">Sync</div>
-              <div class="git-action-grid">
-                <GitActionButton label="Push" title="Push current branch" disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "push" }, "Push local commits to the remote branch? Other collaborators may see these changes.")} />
-                <GitActionButton label="Pull" title="Pull current branch" disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "pull" }, "Pull may change local files and create merge conflicts. Continue?")} />
-              </div>
-              <div class="git-action-group-label">Branches</div>
-              <div class="git-action-grid">
-                <GitActionButton label="Switch" title="Switch branch" disabled={busy() || !hasRepository() || !props.branches.length} onClick={openSwitchDialog} />
-                <GitActionButton label="Create" title="Create branch from HEAD" disabled={busy() || !hasRepository()} onClick={() => openCreateBranchDialog()} />
-                <GitActionButton label="Delete" title="Delete a branch" disabled={busy() || !hasRepository() || props.branches.length < 2} onClick={openDeleteBranchDialog} />
-                <GitActionButton label="New worktree" title="Create a branch in a separate worktree" disabled={busy() || !hasRepository() || !isTauri} onClick={openCreateWorktreeDialog} />
-              </div>
-              <div class="git-action-group-label">Stash</div>
-              <div class="git-action-grid">
-                <GitActionButton label="Save stash" title="Stash all changes" disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "stash" }, "Save current changes to a stash and remove them from the working tree?")} />
-                <GitActionButton label="Pop stash" title="Pop the latest stash" disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "stash-pop" }, "Apply and remove the latest stash? This may create conflicts.")} />
-              </div>
-            </div>
-          </Show>
+        <div class="git-action-menu git-action-options" role="group" aria-label={t("Git operations")}>
+          <div class="git-action-group-label">{t("Changes")}</div>
+          <div class="git-action-grid">
+            <GitActionButton label={t("Stage all")} title={t("Stage all changes")} disabled={busy() || !hasRepository()} onClick={() => void run({ action: "add" })} />
+            <GitActionButton label={t("Commit")} title={t("Commit staged changes")} disabled={busy() || !hasRepository()} onClick={openCommitDialog} />
+          </div>
+          <div class="git-action-group-label">{t("Sync")}</div>
+          <div class="git-action-grid">
+            <GitActionButton label={t("Push")} title={t("Push current branch")} disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "push" }, t("Push local commits to the remote branch? Other collaborators may see these changes."))} />
+            <GitActionButton label={t("Pull")} title={t("Pull current branch")} disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "pull" }, t("Pull may change local files and create merge conflicts. Continue?"))} />
+          </div>
+          <div class="git-action-group-label">{t("Branches")}</div>
+          <div class="git-action-grid">
+            <GitActionButton label={t("Switch")} title={t("Switch branch")} disabled={busy() || !hasRepository() || !props.branches.length} onClick={openSwitchDialog} />
+            <GitActionButton label={t("Create")} title={t("Create branch from HEAD")} disabled={busy() || !hasRepository()} onClick={() => openCreateBranchDialog()} />
+            <GitActionButton label={t("Delete")} title={t("Delete a branch")} disabled={busy() || !hasRepository() || props.branches.length < 2} onClick={openDeleteBranchDialog} />
+            <GitActionButton label={t("New worktree")} title={t("Create a branch in a separate worktree")} disabled={busy() || !hasRepository() || !isTauri} onClick={openCreateWorktreeDialog} />
+          </div>
+          <div class="git-action-group-label">{t("Stash")}</div>
+          <div class="git-action-grid">
+            <GitActionButton label={t("Save stash")} title={t("Stash all changes")} disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "stash" }, t("Save current changes to a stash and remove them from the working tree?"))} />
+            <GitActionButton label={t("Pop stash")} title={t("Pop the latest stash")} disabled={busy() || !hasRepository()} onClick={() => confirmAction({ action: "stash-pop" }, t("Apply and remove the latest stash? This may create conflicts."))} />
+          </div>
         </div>
         <Show when={actionFeedback()}><div class="git-action-feedback" role="status"><Icon name="check" size={12} />{actionFeedback()}</div></Show>
-        <div class="git-view-tabs" role="tablist" aria-label="Git views">
-          <button classList={{ "git-view-tab": true, "git-view-tab-active": view() === "status" }} role="tab" aria-selected={view() === "status"} onClick={() => setView("status")}>STATUS</button>
-          <button classList={{ "git-view-tab": true, "git-view-tab-active": view() === "graph" }} role="tab" aria-selected={view() === "graph"} onClick={() => setView("graph")}>HISTORY <span>{props.status.commits.length}</span></button>
+        <div class="git-view-tabs" role="tablist" aria-label={t("Git views")}>
+          <button classList={{ "git-view-tab": true, "git-view-tab-active": view() === "status" }} role="tab" aria-selected={view() === "status"} onClick={() => setView("status")}>{t("STATUS")}</button>
+          <button classList={{ "git-view-tab": true, "git-view-tab-active": view() === "graph" }} role="tab" aria-selected={view() === "graph"} onClick={() => setView("graph")}>{t("HISTORY")} <span>{props.status.commits.length}</span></button>
+          <Show when={stashCount()}>
+            <button classList={{ "git-view-tab": true, "git-view-tab-active": view() === "stash" }} role="tab" aria-selected={view() === "stash"} onClick={() => setView("stash")}>{t("STASH")} <span>{stashCount()}</span></button>
+          </Show>
         </div>
         <Show when={props.status.error}>
           <div class="empty-git git-error-message">{props.status.error}</div>
         </Show>
         <Show when={view() === "status" && repositoryState() !== "unknown" && !props.status.error}>
-          <StatusView status={props.status} busy={busy()} onOpenDiff={props.onOpenDiff} onAction={(request) => void run(request)} onDiscard={(file) => confirmAction({ action: file.worktreeStatus === "?" ? "discard-untracked-file" : "discard-file", value: file.path }, file.worktreeStatus === "?" ? `Delete the untracked file ${file.path}? This cannot be undone.` : `Discard working tree changes in ${file.path}? This cannot be undone.`)} />
+          <StatusView status={props.status} busy={busy()} onOpenDiff={props.onOpenDiff} onAction={(request) => void run(request)} onDiscard={(file) => confirmAction({ action: file.worktreeStatus === "?" ? "discard-untracked-file" : "discard-file", value: file.path }, file.worktreeStatus === "?" ? t("Delete the untracked file {path}? This cannot be undone.", { path: file.path }) : t("Discard working tree changes in {path}? This cannot be undone.", { path: file.path }))} />
         </Show>
         <Show when={view() === "status" && repositoryState() === "unknown" && !props.status.error}>
-          <div class="empty-git">No repository or Git status available</div>
+          <div class="empty-git">{t("No repository or Git status available")}</div>
+        </Show>
+        <Show when={view() === "stash" && props.onLoadStashFiles && props.onOpenStashDiff}>
+          <GitStashView
+            stashes={props.stashes ?? []}
+            busy={busy()}
+            onLoadFiles={(stash) => props.onLoadStashFiles!(stash)}
+            onOpenDiff={(stash, file) => props.onOpenStashDiff!(stash, file)}
+            onApply={(stash) => confirmAction({ action: "stash-apply", value: stash.reference, startPoint: stash.hash }, t("Apply {reference} to the working tree and keep it in the stash list? This may create conflicts.", { reference: stash.reference }))}
+            onPop={(stash) => confirmAction({ action: "stash-pop", value: stash.reference, startPoint: stash.hash }, t("Apply {reference} and remove it from the stash list? This may create conflicts.", { reference: stash.reference }))}
+            onDrop={(stash) => confirmAction({ action: "stash-drop", value: stash.reference, startPoint: stash.hash }, t("Delete {reference} without applying it? Its changes cannot be restored from pude.", { reference: stash.reference }))}
+          />
         </Show>
         </Show>
         <Show when={props.historyOnly || view() === "graph"}>
@@ -508,10 +528,10 @@ function StatusView(props: { status: GitStatusResult; busy: boolean; onOpenDiff:
         </div>
       </Show>
       <Show when={!props.status.files.length}>
-        <div class="empty-git">Working tree clean</div>
+        <div class="empty-git">{t("Working tree clean")}</div>
       </Show>
       <Show when={untracked()}>
-        <div class="git-status-note"><span class="git-badge git-badge-?">?</span> Untracked: Git is not tracking this file yet.</div>
+        <div class="git-status-note"><span class="git-badge git-badge-?">?</span> {t("Untracked: Git is not tracking this file yet.")}</div>
       </Show>
     </>
   );
@@ -588,8 +608,8 @@ function GitStatusFileRow(props: {
 function GitGroupHeader(props: { style: Record<string, string>; rowKey: string; row: Extract<GitStatusRow, { kind: "header" }>; busy: boolean; onAction: (request: GitActionRequest) => void }) {
   return (
     <div class="git-group-label" data-row-key={props.rowKey} style={props.style}>
-      <span>{props.row.label} <span>{props.row.count}</span></span>
-      <button type="button" disabled={props.busy} onClick={() => props.onAction(props.row.group === "staged" ? { action: "unstage-all" } : { action: "add" })} title={props.row.group === "staged" ? "Move all staged files back to Changes" : "Stage all changes"}>{props.row.group === "staged" ? "Unstage all" : "Stage all"}</button>
+      <span>{t(props.row.label)} <span>{props.row.count}</span></span>
+      <button type="button" disabled={props.busy} onClick={() => props.onAction(props.row.group === "staged" ? { action: "unstage-all" } : { action: "add" })} title={props.row.group === "staged" ? t("Move all staged files back to Changes") : t("Stage all changes")}>{props.row.group === "staged" ? t("Unstage all") : t("Stage all")}</button>
     </div>
   );
 }
@@ -602,8 +622,8 @@ function GitRow(props: { style: Record<string, string>; rowKey: string; file: Gi
         <span class="git-path"><span class="git-path-name">{splitDisplayPath(props.file.path).name}</span><span class="git-path-directory">{splitDisplayPath(props.file.path).directory}</span></span>
       </button>
       <div class="git-row-actions">
-        <button type="button" disabled={props.busy} onClick={props.onStage} title={props.staged ? `Unstage ${props.file.path}` : `Stage ${props.file.path}`} aria-label={props.staged ? `Unstage ${props.file.path}` : `Stage ${props.file.path}`}><Icon name={props.staged ? "git-unstage" : "git-stage"} size={16} /></button>
-        <Show when={props.onDiscard}><button type="button" class="git-row-discard" disabled={props.busy} onClick={props.onDiscard} title={`Discard changes in ${props.file.path}`} aria-label={`Discard changes in ${props.file.path}`}><Icon name="git-discard" size={16} /></button></Show>
+        <button type="button" disabled={props.busy} onClick={props.onStage} title={props.staged ? t("Unstage {path}", { path: props.file.path }) : t("Stage {path}", { path: props.file.path })} aria-label={props.staged ? t("Unstage {path}", { path: props.file.path }) : t("Stage {path}", { path: props.file.path })}><Icon name={props.staged ? "git-unstage" : "git-stage"} size={16} /></button>
+        <Show when={props.onDiscard}><button type="button" class="git-row-discard" disabled={props.busy} onClick={props.onDiscard} title={t("Discard changes in {path}", { path: props.file.path })} aria-label={t("Discard changes in {path}", { path: props.file.path })}><Icon name="git-discard" size={16} /></button></Show>
       </div>
     </div>
   );
@@ -659,12 +679,12 @@ function GitDialogView(props: {
   });
 
   const dialogTitle = () => {
-    if (props.dialog.kind === "commit") return "Commit staged changes";
-    if (props.dialog.kind === "switch") return "Switch branch";
-    if (props.dialog.kind === "create-branch") return props.dialog.commit ? `Branch from ${props.dialog.commit.shortHash}` : "Create branch";
-    if (props.dialog.kind === "create-worktree") return "Create worktree";
-    if (props.dialog.kind === "delete-branch") return "Delete branch";
-    if (props.dialog.kind === "confirm") return `Confirm ${actionLabels[props.dialog.request.action]}`;
+    if (props.dialog.kind === "commit") return t("Commit staged changes");
+    if (props.dialog.kind === "switch") return t("Switch branch");
+    if (props.dialog.kind === "create-branch") return props.dialog.commit ? t("Branch from {shortHash}", { shortHash: props.dialog.commit.shortHash }) : t("Create branch");
+    if (props.dialog.kind === "create-worktree") return t("Create worktree");
+    if (props.dialog.kind === "delete-branch") return t("Delete branch");
+    if (props.dialog.kind === "confirm") return t("Confirm {action}", { action: actionLabel(props.dialog.request.action) });
     return props.dialog.title;
   };
   const branchCommit = () => props.dialog.kind === "create-branch" ? props.dialog.commit : undefined;
@@ -674,45 +694,45 @@ function GitDialogView(props: {
     <div class="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !props.busy) props.onClose(); }}>
       <section ref={(element) => { dialogElement = element; }} classList={{ "modal": true, "git-dialog": true, "git-error-dialog": props.dialog.kind === "error" }} role="dialog" aria-modal="true" aria-labelledby="git-dialog-title" tabIndex={-1} onKeyDown={handleDialogKeyDown}>
         <div class="modal-heading">
-          <div><span class="modal-kicker">GIT OPERATION</span><h2 id="git-dialog-title">{dialogTitle()}</h2></div>
-          <button ref={(element) => { closeButton = element; }} class="icon-button" onClick={props.onClose} disabled={props.busy} aria-label="Close dialog"><Icon name="close" size={13} /></button>
+          <div><span class="modal-kicker">{t("GIT OPERATION")}</span><h2 id="git-dialog-title">{dialogTitle()}</h2></div>
+          <button ref={(element) => { closeButton = element; }} class="icon-button" onClick={props.onClose} disabled={props.busy} aria-label={t("Close dialog")}><Icon name="close" size={13} /></button>
         </div>
         <Show when={props.dialog.kind === "commit"}>
-          <div class="git-dialog-body"><label for="git-commit-message">Commit message</label><textarea id="git-commit-message" value={props.commitMessage} rows={5} placeholder="Describe the staged changes" onInput={(event) => props.onCommitMessage(event.currentTarget.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!props.busy) props.onCommit(); } }} /></div>
-          <div class="modal-footer input-dialog-actions"><span class="modal-footnote">Ctrl/Cmd + Enter to commit</span><div><button class="secondary-button git-dialog-cancel" onClick={props.onClose}>Cancel</button><button class="primary-button" disabled={props.busy || !props.commitMessage.trim()} onClick={props.onCommit}>{props.busy ? "Committing…" : "Commit"}</button></div></div>
+          <div class="git-dialog-body"><label for="git-commit-message">{t("Commit message")}</label><textarea id="git-commit-message" value={props.commitMessage} rows={5} placeholder={t("Describe the staged changes")} onInput={(event) => props.onCommitMessage(event.currentTarget.value)} onKeyDown={(event) => { if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); if (!props.busy) props.onCommit(); } }} /></div>
+          <div class="modal-footer input-dialog-actions"><span class="modal-footnote">{t("Ctrl/Cmd + Enter to commit")}</span><div><button class="secondary-button git-dialog-cancel" onClick={props.onClose}>{t("Cancel")}</button><button class="primary-button" disabled={props.busy || !props.commitMessage.trim()} onClick={props.onCommit}>{props.busy ? t("Committing…") : t("Commit")}</button></div></div>
         </Show>
         <Show when={props.dialog.kind === "switch"}>
-          <div class="git-dialog-body"><label for="git-switch-branch">Branch</label><select id="git-switch-branch" value={props.selectedBranch} onChange={(event) => props.onSelectedBranch(event.currentTarget.value)}>{props.branches.map((branch) => <option value={branch.name}>{branch.name}{branch.current ? " (current)" : ""}</option>)}</select><p class="git-dialog-warning">Switching branches may update files in the working tree.</p></div>
-          <GitDialogFooter busy={props.busy} submitLabel="Switch" onClose={props.onClose} onSubmit={props.onSwitch} />
+          <div class="git-dialog-body"><label for="git-switch-branch">{t("Branch")}</label><select id="git-switch-branch" value={props.selectedBranch} onChange={(event) => props.onSelectedBranch(event.currentTarget.value)}>{props.branches.map((branch) => <option value={branch.name}>{branch.name}{branch.current ? t(" (current)") : ""}</option>)}</select><p class="git-dialog-warning">{t("Switching branches may update files in the working tree.")}</p></div>
+          <GitDialogFooter busy={props.busy} submitLabel={t("Switch")} onClose={props.onClose} onSubmit={props.onSwitch} />
         </Show>
         <Show when={props.dialog.kind === "create-branch"}>
-          <div class="git-dialog-body"><label for="git-new-branch">Branch name</label><input id="git-new-branch" autocorrect="off" autocapitalize="off" spellcheck={false} value={props.branchName} placeholder="feature/my-change" onInput={(event) => props.onBranchName(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (!props.busy) props.onCreateBranch(); } }} /><Show when={branchCommit()}>{(commit) => <p class="git-dialog-context">Starting point: {commit().shortHash} {commit().subject}</p>}</Show></div>
-          <GitDialogFooter busy={props.busy} submitLabel={props.busy ? "Creating…" : "Create branch"} disabled={!props.branchName.trim()} onClose={props.onClose} onSubmit={props.onCreateBranch} />
+          <div class="git-dialog-body"><label for="git-new-branch">{t("Branch name")}</label><input id="git-new-branch" autocorrect="off" autocapitalize="off" spellcheck={false} value={props.branchName} placeholder="feature/my-change" onInput={(event) => props.onBranchName(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (!props.busy) props.onCreateBranch(); } }} /><Show when={branchCommit()}>{(commit) => <p class="git-dialog-context">{t("Starting point: {hash} {subject}", { hash: commit().shortHash, subject: commit().subject })}</p>}</Show></div>
+          <GitDialogFooter busy={props.busy} submitLabel={props.busy ? t("Creating…") : t("Create branch")} disabled={!props.branchName.trim()} onClose={props.onClose} onSubmit={props.onCreateBranch} />
         </Show>
         <Show when={props.dialog.kind === "create-worktree"}>
           <div class="git-dialog-body">
-            <label for="git-worktree-branch">Branch name</label>
+            <label for="git-worktree-branch">{t("Branch name")}</label>
             <input id="git-worktree-branch" autocorrect="off" autocapitalize="off" spellcheck={false} value={props.branchName} placeholder="feature/my-change" onInput={(event) => props.onWorktreeBranchName(event.currentTarget.value)} />
-            <label for="git-worktree-path">Worktree path</label>
+            <label for="git-worktree-path">{t("Worktree path")}</label>
             <input id="git-worktree-path" autocorrect="off" autocapitalize="off" spellcheck={false} value={props.worktreePath} onInput={(event) => props.onWorktreePath(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (!props.busy && props.branchName.trim() && props.worktreePath.trim()) props.onCreateWorktree(); } }} />
-            <p class="git-dialog-context">A separate window opens after the worktree is created.</p>
+            <p class="git-dialog-context">{t("A separate window opens after the worktree is created.")}</p>
           </div>
-          <GitDialogFooter busy={props.busy} submitLabel={props.busy ? "Creating…" : "Create worktree"} disabled={!props.branchName.trim() || !props.worktreePath.trim()} onClose={props.onClose} onSubmit={props.onCreateWorktree} />
+          <GitDialogFooter busy={props.busy} submitLabel={props.busy ? t("Creating…") : t("Create worktree")} disabled={!props.branchName.trim() || !props.worktreePath.trim()} onClose={props.onClose} onSubmit={props.onCreateWorktree} />
         </Show>
         <Show when={props.dialog.kind === "delete-branch"}>
-          <div class="git-dialog-body"><label for="git-delete-branch">Branch</label><select id="git-delete-branch" value={props.selectedBranch} onChange={(event) => props.onSelectedBranch(event.currentTarget.value)}>{props.branches.filter((branch) => !branch.current).map((branch) => <option value={branch.name}>{branch.name}</option>)}</select><p class="git-dialog-warning">Delete local branch {props.selectedBranch}? Commits unique to this branch may become hard to recover.</p></div>
-          <GitDialogFooter busy={props.busy} submitLabel="Delete branch" danger={!props.busy} disabled={!props.selectedBranch} onClose={props.onClose} onSubmit={props.onDelete} />
+          <div class="git-dialog-body"><label for="git-delete-branch">{t("Branch")}</label><select id="git-delete-branch" value={props.selectedBranch} onChange={(event) => props.onSelectedBranch(event.currentTarget.value)}>{props.branches.filter((branch) => !branch.current).map((branch) => <option value={branch.name}>{branch.name}</option>)}</select><p class="git-dialog-warning">{t("Delete local branch {branch}? Commits unique to this branch may become hard to recover.", { branch: props.selectedBranch })}</p></div>
+          <GitDialogFooter busy={props.busy} submitLabel={t("Delete branch")} danger={!props.busy} disabled={!props.selectedBranch} onClose={props.onClose} onSubmit={props.onDelete} />
         </Show>
         <Show when={props.dialog.kind === "confirm" ? props.dialog : undefined}>{(confirmation) => <>
           <div class="git-dialog-body">
             <p class="git-dialog-warning">{confirmation().message}</p>
-            <Show when={confirmation().request.action === "commit-all"}><div class="git-quick-commit-confirm-message"><span>Commit message</span><pre>{confirmation().request.message}</pre></div><p>Continue with stage all and commit?</p></Show>
+            <Show when={confirmation().request.action === "commit-all"}><div class="git-quick-commit-confirm-message"><span>{t("Commit message")}</span><pre>{confirmation().request.message}</pre></div><p>{t("Continue with stage all and commit?")}</p></Show>
           </div>
-          <GitDialogFooter busy={props.busy} submitLabel={actionLabels[confirmation().request.action]} danger={!props.busy} onClose={props.onClose} onSubmit={props.onConfirm} />
+          <GitDialogFooter busy={props.busy} submitLabel={actionLabel(confirmation().request.action)} danger={!props.busy} onClose={props.onClose} onSubmit={props.onConfirm} />
         </>}</Show>
         <Show when={props.dialog.kind === "error"}>
           <div class="git-error-body"><p>{errorMessage()}</p></div>
-          <div class="modal-footer input-dialog-actions"><button class="primary-button" onClick={props.onClose}>Close</button></div>
+          <div class="modal-footer input-dialog-actions"><button class="primary-button" onClick={props.onClose}>{t("Close")}</button></div>
         </Show>
       </section>
     </div>
@@ -720,5 +740,5 @@ function GitDialogView(props: {
 }
 
 function GitDialogFooter(props: { busy: boolean; submitLabel: string; disabled?: boolean; danger?: boolean; onClose: () => void; onSubmit: () => void }) {
-  return <div class="modal-footer input-dialog-actions"><button class="secondary-button git-dialog-cancel" onClick={props.onClose}>Cancel</button><button classList={{ "primary-button": true, "danger-button": props.danger }} disabled={props.busy || props.disabled} onClick={props.onSubmit}>{props.submitLabel}</button></div>;
+  return <div class="modal-footer input-dialog-actions"><button class="secondary-button git-dialog-cancel" onClick={props.onClose}>{t("Cancel")}</button><button classList={{ "primary-button": true, "danger-button": props.danger }} disabled={props.busy || props.disabled} onClick={props.onSubmit}>{props.submitLabel}</button></div>;
 }

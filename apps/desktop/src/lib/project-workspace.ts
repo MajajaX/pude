@@ -1,4 +1,4 @@
-import type { DirectoryEntry, DiffResult, EditorTab, GitStatusResult, GitBranch, ReadFileResult } from "../types";
+import type { DirectoryEntry, DiffResult, EditorTab, GitStatusResult, GitBranch, GitStash, ReadFileResult } from "../types";
 import type { PersistedTab, RecoverySnapshot } from "./session-storage-schema";
 import { restorePersistedTab, type RestoreTabReadFailure } from "./session-restore-documents";
 import { markRestoreTabStarted, shouldMergeRestoredTab } from "./restore-state";
@@ -12,7 +12,12 @@ export { createWindowSessionMetadata, compactRecoverySnapshot, recoverySnapshotS
 
 export type ProjectWorkspaceState = {
   id: string;
+  /** The first folder; Git, terminals, plugins and language servers use it. */
   workspace: string;
+  /** Further folders of a multi-folder workspace, in Explorer order. */
+  additionalFolders: string[];
+  /** The `.pdw` file the workspace was opened from or saved to. */
+  workspaceFile?: string;
   root: DirectoryEntry;
   tabIds: string[];
   activeTabId?: string;
@@ -22,6 +27,7 @@ export type ProjectWorkspaceState = {
   diff?: DiffResult;
   git: GitStatusResult;
   gitBranches: GitBranch[];
+  gitStashes: GitStash[];
   sidebarView: SidebarView;
   search: SearchRequest;
   searchOpen: boolean;
@@ -38,9 +44,9 @@ export type ProjectWorkspaceState = {
 
 export function createProject(id: string, workspace: string, root: DirectoryEntry): ProjectWorkspaceState {
   return {
-    id, workspace, root, tabIds: [], viewMode: "editor", historyTabOpen: false, diffReturnToHistory: false,
+    id, workspace, additionalFolders: [], root, tabIds: [], viewMode: "editor", historyTabOpen: false, diffReturnToHistory: false,
     git: { repositoryRoot: "", branch: null, repositoryState: "unknown", headOid: null, files: [], commits: [], error: null },
-    gitBranches: [], sidebarView: "explorer",
+    gitBranches: [], gitStashes: [], sidebarView: "explorer",
     search: { query: "", replace: "", caseSensitive: false, regexp: false, wholeWord: false, action: null, actionId: 0 },
     searchOpen: false, replaceOpen: false, terminalOpen: false, terminalInitialized: false, conflicts: [],
   };
@@ -70,7 +76,10 @@ export function projectSession(project: ProjectWorkspaceState, getTab: (id: stri
     if (retained) return [retained];
     return ids.has(tab.id) ? [session.tabs[loadedIndex++]] : [];
   }) : session.tabs;
-  return { id: project.id, workspace: project.workspace, activeTabId: session.activeTabId ?? project.restoreMetadata?.activeTabId,
+  return { id: project.id, workspace: project.workspace,
+    ...(project.additionalFolders.length ? { folders: [...project.additionalFolders] } : {}),
+    ...(project.workspaceFile ? { workspaceFile: project.workspaceFile } : {}),
+    activeTabId: session.activeTabId ?? project.restoreMetadata?.activeTabId,
     tabs: retainSessionTabs(pending.length ? [...ordered, ...session.tabs.slice(loadedIndex)] : ordered),
     expandedPaths: project.root.loaded || !project.restoreMetadata ? session.expandedPaths : project.restoreMetadata.expandedPaths };
 }

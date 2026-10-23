@@ -2,8 +2,11 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const ENTRY_BUDGET_BYTES = 180_000;
-export const STATIC_BUDGET_BYTES = 225_000;
+// Raised from 180,000 / 225,000 for workspaces, project replace, the Git stash
+// tab, the Dock/Jump List recents and interface translations; language files
+// load on demand and do not count. Keep new startup code minimal.
+export const ENTRY_BUDGET_BYTES = 186_000;
+export const STATIC_BUDGET_BYTES = 245_000;
 
 export async function measureStartupBundle(distDir) {
   const manifest = JSON.parse(await readFile(join(distDir, ".vite", "manifest.json"), "utf8"));

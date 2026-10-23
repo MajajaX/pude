@@ -4,8 +4,10 @@ import type { DirectoryEntry, GitFileStatus } from "../types";
 import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type IndexedVisibleTreeRow } from "../lib/tree-virtualization";
 import { joinWirePath, pathComparisonKey, runtimePathOptions } from "../lib/path-identity";
 import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored";
+import { isWorkspaceRootEntry } from "../lib/workspace-folders";
 import { isImeComposing } from "../lib/keyboard-input";
 import "../styles/explorer-virtualization.css";
+import { t, translateMessage } from "../lib/i18n";
 
 const TREE_ROW_HEIGHT = 30;
 const TREE_OVERSCAN = 8;
@@ -82,7 +84,12 @@ export function Explorer(props: ExplorerProps) {
   const pathOptions = runtimePathOptions();
   const pathKey = (path: string) => pathComparisonKey(path, pathOptions);
   const isIgnored = (path: string) => props.ignoredPaths?.has(pathKey(path)) ?? false;
-  const displayRoot = createMemo(() => props.groupIgnored === false ? props.root : groupIgnoredEntries(props.root, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles));
+  const displayRoot = createMemo(() => {
+    if (props.groupIgnored === false) return props.root;
+    const group = (entry: DirectoryEntry) => groupIgnoredEntries(entry, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles);
+    // Each folder of a multi-folder workspace groups its own ignored entries.
+    return isWorkspaceRootEntry(props.root) ? { ...props.root, children: props.root.children?.map(group) } : group(props.root);
+  });
   const treeModel = new VisibleTreeModel<ExplorerEntry>(pathOptions);
   treeModel.update(displayRoot(), props.hideDotFiles);
   const stableRowCache = new Map<string, StableTreeRow>();
@@ -247,7 +254,7 @@ export function Explorer(props: ExplorerProps) {
   });
 
   return (
-    <div class="explorer-tree" ref={treeHost} role="tree" aria-label="Files" onKeyDown={handleTreeKeyDown} style={{ position: "relative", height: `${window().totalHeight}px` }}>
+    <div class="explorer-tree" ref={treeHost} role="tree" aria-label={t("Files")} onKeyDown={handleTreeKeyDown} style={{ position: "relative", height: `${window().totalHeight}px` }}>
       <For each={renderedRows()}>{(row) => (
         <TreeRow
           row={row}
@@ -268,7 +275,7 @@ export function Explorer(props: ExplorerProps) {
         />
       )}</For>
       <Show when={showRecentEmpty()}>
-        <div class="recent-empty" style={{ position: "absolute", top: `${rows().length * TREE_ROW_HEIGHT}px`, left: "0", right: "0" }}>No recent projects</div>
+        <div class="recent-empty" style={{ position: "absolute", top: `${rows().length * TREE_ROW_HEIGHT}px`, left: "0", right: "0" }}>{t("No recent projects")}</div>
       </Show>
     </div>
   );
@@ -298,9 +305,9 @@ function TreeRow(props: {
   const partialError = () => entry().partialError;
   const scanIssue = () => {
     const error = partialError();
-    if (error) return { label: "partial", message: error.message ?? "Some directory entries could not be read." };
+    if (error) return { label: t("partial"), message: error.message ? translateMessage(error.message) : t("Some directory entries could not be read.") };
     // A collapsed stale directory relists itself when expanded, so only an open one needs attention.
-    if (entry().stale && entry().expanded) return { label: "stale", message: "Directory changed; refresh the scan." };
+    if (entry().stale && entry().expanded) return { label: t("stale"), message: t("Directory changed; refresh the scan.") };
     return undefined;
   };
   const listingLimitIssue = () => {
@@ -308,14 +315,14 @@ function TreeRow(props: {
     if (current.kind !== "directory" || !current.incomplete) return undefined;
     if (current.listingStopReason === "entryLimit") {
       return {
-        label: "entry cap",
-        message: "Directory listing reached the entry cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page.",
+        label: t("entry cap"),
+        message: t("Directory listing reached the entry cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page."),
       };
     }
     if (current.listingStopReason === "byteLimit") {
       return {
-        label: "byte cap",
-        message: "Directory listing reached the byte cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page.",
+        label: t("byte cap"),
+        message: t("Directory listing reached the byte cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page."),
       };
     }
     // A cancelled scan is discarded by the caller and must not be described as a cap.
@@ -323,7 +330,7 @@ function TreeRow(props: {
   };
   const accessibleRowLabel = () => {
     const labels = [entry().name];
-    if (scanIssue()) labels.push("directory scan needs refresh");
+    if (scanIssue()) labels.push(t("directory scan needs refresh"));
     const limit = listingLimitIssue();
     if (limit) labels.push(limit.message);
     return labels.join("; ");
@@ -365,7 +372,7 @@ function TreeRow(props: {
       <button
         tabIndex={-1}
         class="tree-chevron"
-        aria-label={entry().recentProject ? "Open recent project" : entry().kind === "directory" ? (entry().expanded ? "Collapse" : "Expand") : "Open"}
+        aria-label={entry().recentProject ? t("Open recent project") : entry().kind === "directory" ? (entry().expanded ? t("Collapse") : t("Expand")) : t("Open")}
         onClick={(event) => {
           event.currentTarget.parentElement?.focus({ preventScroll: true });
           entry().recentProject ? props.onOpen(entry()) : entry().kind === "directory" ? props.onToggle(entry()) : props.onOpen(entry());
@@ -387,7 +394,7 @@ function TreeRow(props: {
       <button class="tree-label" tabIndex={-1} onClick={(event) => { event.currentTarget.parentElement?.focus({ preventScroll: true }); props.onOpen(entry()); }}>{entry().name}</button>
       <Show when={entry().gitIgnoredGroup}><span class="tree-group-count">{entry().gitIgnoredCount}</span></Show>
       <Show when={statusText()}>
-        <span class={`git-badge git-badge-${statusText()}`} title={statusText() === "?" ? "Untracked file: Git is not tracking this file yet" : `Git ${statusText()}`} aria-label={statusText() === "?" ? "Untracked file" : `Git ${statusText()}`}>{statusText()}</span>
+        <span class={`git-badge git-badge-${statusText()}`} title={statusText() === "?" ? t("Untracked file: Git is not tracking this file yet") : t("Git {statusText}", { statusText: statusText() })} aria-label={statusText() === "?" ? t("Untracked file") : t("Git {statusText}", { statusText: statusText() })}>{statusText()}</span>
       </Show>
       <Show when={listingLimitIssue()}>
         {(issue) => <span class="tree-scan-warning" title={issue().message} aria-hidden="true">{issue().label}</span>}
@@ -395,7 +402,7 @@ function TreeRow(props: {
       <Show when={scanIssue()}>
         {(issue) => <>
           <span class="tree-scan-warning" title={issue().message}>{issue().label}</span>
-          <button class="tree-retry" type="button" onClick={(event) => { event.stopPropagation(); retryScan(); }} aria-label={`Retry scan for ${entry().name}`} title="Retry directory scan">↻</button>
+          <button class="tree-retry" type="button" onClick={(event) => { event.stopPropagation(); retryScan(); }} aria-label={t("Retry scan for {name}", { name: entry().name })} title={t("Retry directory scan")}>↻</button>
         </>}
       </Show>
     </div>

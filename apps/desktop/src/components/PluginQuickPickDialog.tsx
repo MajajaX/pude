@@ -1,6 +1,7 @@
 import { For, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { isImeComposing } from "../lib/keyboard-input";
+import { t } from "../lib/i18n";
 
 export type PluginQuickPickItem = { id: string; label: string; description?: string };
 
@@ -83,17 +84,17 @@ export function PluginQuickPickDialog(props: {
           autocapitalize="off"
           spellcheck={false}
           role="combobox"
-          aria-label={props.placeholder ?? "Filter options"}
+          aria-label={props.placeholder ?? t("Filter options")}
           aria-controls="plugin-quick-pick-list"
           aria-expanded="true"
           aria-autocomplete="list"
           aria-activedescendant={filteredItems()[selectedIndex()] ? optionId(selectedIndex()) : undefined}
           value={query()}
           onInput={(event) => { setQuery(event.currentTarget.value); setSelectedIndex(0); }}
-          placeholder={props.placeholder ?? "Type to filter…"}
+          placeholder={props.placeholder ?? t("Type to filter…")}
         />
         <div ref={(element) => { list = element; }} id="plugin-quick-pick-list" class="command-palette-list" role="listbox">
-          <For each={filteredItems()} fallback={<div class="command-palette-empty">No matching options</div>}>
+          <For each={filteredItems()} fallback={<div class="command-palette-empty">{t("No matching options")}</div>}>
             {(item, index) => (
               <button
                 type="button"
@@ -111,7 +112,7 @@ export function PluginQuickPickDialog(props: {
             )}
           </For>
         </div>
-        <footer class="command-palette-footer"><span>↑ ↓ Navigate</span><span>↵ Select</span><span>Esc Cancel</span></footer>
+        <footer class="command-palette-footer"><span>{t("↑ ↓ Navigate")}</span><span>{t("↵ Select")}</span><span>{t("Esc Cancel")}</span></footer>
       </section>
     </div>
   );

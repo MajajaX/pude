@@ -6,6 +6,8 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 import { markFirstFrameShown, markStartupEvent } from "./lib/startup-timeline";
+import { applyLanguage } from "./lib/i18n";
+import { defaultSettings, SETTINGS_STORAGE_KEY, validateSettings } from "./lib/settings";
 
 const isTauriRuntime =
   typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -27,6 +29,16 @@ if (isTauriRuntime) {
     emitDiagnostic("frontend.rejection", event.reason, report);
   });
 }
+
+// Load the interface language before the first frame so text does not switch after it appears.
+const storedLanguage = (() => {
+  try {
+    return validateSettings(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "null"), defaultSettings).language;
+  } catch {
+    return defaultSettings.language;
+  }
+})();
+await applyLanguage(storedLanguage);
 
 render(() => <App />, document.getElementById("root")!);
 markStartupEvent("render-done");

@@ -1,4 +1,5 @@
 import { For } from "solid-js";
+import { t } from "../lib/i18n";
 
 type WindowAction = "close" | "minimize" | "maximize";
 
@@ -16,7 +17,7 @@ export function WindowControls(props: {
     ? props.onClose() : action === "minimize" ? props.onMinimize() : props.onMaximize();
 
   return (
-    <div class="window-controls" role="group" aria-label="Window controls">
+    <div class="window-controls" role="group" aria-label={t("Window controls")}>
       <For each={actions}>{(action) => (
         <button class={`window-control window-control-${action}`} onClick={() => run(action)} title={label(action)} aria-label={label(action)}>
           <span class={`window-glyph window-glyph-${action}${action === "maximize" && props.maximized ? " window-glyph-restore" : ""}`} />
