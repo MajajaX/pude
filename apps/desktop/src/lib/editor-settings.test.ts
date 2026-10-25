@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { sameEditorSettings } from "./editor-settings";
+import { EDITOR_SETTING_KEYS, pickEditorSettings, sameEditorSettings } from "./editor-settings";
+import { defaultSettings } from "./settings";
 import type { EditorSettings } from "../components/EditorPane";
 
-const settings: EditorSettings = { theme: "dark", fontSize: 14, tabSize: 2, insertSpaces: true, wordWrap: false };
+const settings: EditorSettings = { theme: "dark", fontSize: 14, tabSize: 2, insertSpaces: true, wordWrap: false, lineNumbers: true, showWhitespace: false, autoCloseBrackets: true };
 
 describe("editor settings equality", () => {
   it("ignores object identity when editor fields are unchanged", () => {
@@ -10,14 +11,14 @@ describe("editor settings equality", () => {
   });
 
   it("detects every field that changes editor configuration", () => {
-    for (const key of ["theme", "fontSize", "tabSize", "insertSpaces", "wordWrap"] as const) {
-      const next = { ...settings };
-      if (key === "theme") next.theme = "light";
-      if (key === "fontSize") next.fontSize += 1;
-      if (key === "tabSize") next.tabSize += 1;
-      if (key === "insertSpaces") next.insertSpaces = !next.insertSpaces;
-      if (key === "wordWrap") next.wordWrap = !next.wordWrap;
-      expect(sameEditorSettings(settings, next)).toBe(false);
+    for (const key of EDITOR_SETTING_KEYS) {
+      const value = settings[key];
+      const changed = typeof value === "boolean" ? !value : typeof value === "number" ? value + 1 : "light";
+      expect(sameEditorSettings(settings, { ...settings, [key]: changed })).toBe(false);
     }
+  });
+
+  it("picks only the editor fields from application settings", () => {
+    expect(Object.keys(pickEditorSettings(defaultSettings)).sort()).toEqual([...EDITOR_SETTING_KEYS].sort());
   });
 });

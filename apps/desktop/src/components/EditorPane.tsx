@@ -1,10 +1,11 @@
 import { createEffect, onCleanup, onMount } from "solid-js";
 import { minimalSetup } from "codemirror";
 import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { indentUnit } from "@codemirror/language";
-import { Compartment, EditorState, Text, Transaction } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, scrollPastEnd } from "@codemirror/view";
-import { search, setSearchQuery, SearchQuery, findNext, replaceNext, replaceAll } from "@codemirror/search";
+import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { Compartment, EditorState, Prec, Text, Transaction } from "@codemirror/state";
+import { crosshairCursor, EditorView, highlightActiveLine, highlightActiveLineGutter, highlightTrailingWhitespace, highlightWhitespace, keymap, lineNumbers, rectangularSelection, scrollPastEnd } from "@codemirror/view";
+import { getSearchQuery, highlightSelectionMatches, search, setSearchQuery, SearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectNextOccurrence, selectSelectionMatches } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { fileLanguageForPath, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, normalizeLineEndingMapForLineBreakCount } from "../lib/file-metadata";
 import {
@@ -26,6 +27,9 @@ import { editorContentName } from "../lib/editor-accessibility";
 import { createSearchActionGate } from "../lib/search-action-gate";
 import { largeFileModeForSize, serializedDocumentByteLength, updateUtf8ByteLength, utf8ByteLength } from "../lib/document-size";
 import { currentEditorSelectionFallback } from "../lib/editor-selection-fallback";
+import { runEditorCommand, saveFormattingChanges, type EditorCommandRequest } from "../lib/editor-text-commands";
+import { countSearchMatches, type SearchMatchCount } from "../lib/search-match-count";
+import { clampSetting } from "../lib/settings";
 import type { StateField } from "@codemirror/state";
 import type { AppSettings, EditorEncoding, EditorTab, LineEnding } from "../types";
 import { t } from "../lib/i18n";
@@ -36,13 +40,15 @@ export type SearchRequest = {
   caseSensitive: boolean;
   regexp: boolean;
   wholeWord: boolean;
-  action: "find" | "replace" | "replaceAll" | null;
+  action: "find" | "findPrevious" | "replace" | "replaceAll" | null;
   actionId: number;
 };
 
-export type GoToLineRequest = { line: number; actionId: number; tabId?: string; query?: string; caseSensitive?: boolean };
+export type GoToLineRequest = { line: number; column?: number; actionId: number; tabId?: string; query?: string; caseSensitive?: boolean };
 
-export type EditorSettings = Pick<AppSettings, "theme" | "fontSize" | "tabSize" | "insertSpaces" | "wordWrap">;
+export type EditorSettings = Pick<AppSettings, "theme" | "fontSize" | "tabSize" | "insertSpaces" | "wordWrap" | "lineNumbers" | "showWhitespace" | "autoCloseBrackets">;
+
+export type SaveFormattingOptions = Pick<AppSettings, "trimTrailingWhitespace" | "insertFinalNewline">;
 
 export type EditorDocumentChange = {
   tabId: string;
@@ -105,6 +111,8 @@ export type EditorDocumentHandle = {
   getSelection: () => { anchor: number; head: number; from: number; to: number; text: string } | undefined;
   getCursor: () => { line: number; column: number; offset: number } | undefined;
   applyEdits: (expectedRevision: number, edits: readonly PluginEditorEdit[]) => boolean;
+  /** Apply save formatting to the document shown in the editor; other documents are left as they are. */
+  formatForSave: (options: SaveFormattingOptions) => boolean;
 };
 
 type EditorPaneProps = {
@@ -122,9 +130,12 @@ type EditorPaneProps = {
   onSearchActionConsumed: (tabId: string, actionId: number) => void;
   getCachedDocument: (tabId: string) => EditorDocumentSeed | undefined;
   goToLine?: GoToLineRequest;
+  editorCommand?: EditorCommandRequest;
+  countSearchMatches: boolean;
+  onSearchMatchesChange: (count: SearchMatchCount | undefined) => void;
   onFontSizeChange: (fontSize: number) => void;
   onDocumentChange: (change: EditorDocumentChange) => void;
-  onCursorChange: (tabId: string, line: number, column: number) => void;
+  onCursorChange: (tabId: string, line: number, column: number, selectedCharacters: number) => void;
   onRegisterDocument: (tabId: string, handle: EditorDocumentHandle) => void;
   onUnregisterDocument: (tabId: string, retainedHandle?: EditorDocumentHandle) => void;
 };
@@ -136,7 +147,33 @@ const lightEditorTheme = EditorView.theme({
   ".cm-selectionBackground, .cm-content ::selection": { backgroundColor: "#cddafa" },
   ".cm-gutters": { backgroundColor: "#f8f9fa", color: "#98a0a7", borderRight: "1px solid #d4d9de" },
   ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "#edf1f9" },
+  ".cm-selectionMatch": { backgroundColor: "#e2e8c8" },
+  "&.cm-focused .cm-matchingBracket": { backgroundColor: "#d7e3c2", outline: "1px solid #9fb07a" },
+  ".cm-foldPlaceholder": { backgroundColor: "#e4e8ec", border: "1px solid #c9d0d6", color: "#4a5560" },
 });
+
+// One Dark leaves the active line nearly invisible against its background.
+const darkEditorTheme = [oneDark, EditorView.theme({
+  ".cm-activeLine": { backgroundColor: "#2c313c80" },
+  ".cm-activeLineGutter": { backgroundColor: "#2c313c" },
+}, { dark: true })];
+
+const editorTheme = (theme: EditorSettings["theme"]) => theme === "dark" ? darkEditorTheme : lightEditorTheme;
+
+const editorKeymap = Prec.high(keymap.of([
+  { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
+  { key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true },
+]));
+
+const lineNumberExtensions = (settings: EditorSettings, largeFile: boolean) => settings.lineNumbers
+  ? [lineNumbers(), highlightActiveLineGutter(), ...(largeFile ? [] : [foldGutter()])]
+  : [];
+
+const whitespaceExtensions = (settings: EditorSettings) => settings.showWhitespace ? [highlightWhitespace(), highlightTrailingWhitespace()] : [];
+
+const bracketExtensions = (settings: EditorSettings, largeFile: boolean) => settings.autoCloseBrackets && !largeFile
+  ? [closeBrackets(), keymap.of(closeBracketsKeymap)]
+  : [];
 
 const editorFontSizeTheme = (fontSize: number) => EditorView.theme({
   ".cm-content, .cm-gutters, .cm-line, .cm-gutterElement": {
@@ -189,15 +226,34 @@ export function EditorPane(props: EditorPaneProps) {
   const indentCompartment = new Compartment();
   const tabSizeCompartment = new Compartment();
   const languageCompartment = new Compartment();
+  const gutterCompartment = new Compartment();
+  const whitespaceCompartment = new Compartment();
+  const bracketCompartment = new Compartment();
   const documents = new Map<string, CachedDocument>();
   let searchRevision = 0;
   let languageRevision = 0;
   let usageClock = 0;
   const searchActionGate = createSearchActionGate();
+  let matchCountTimer: number | undefined;
+
+  // Counting runs shortly after typing stops and is skipped in large-file mode.
+  const scheduleMatchCount = () => {
+    window.clearTimeout(matchCountTimer);
+    matchCountTimer = window.setTimeout(() => {
+      const document = documents.get(activeDocumentId);
+      if (!view || !props.countSearchMatches || !document || currentLargeFileModeOf(document)) {
+        props.onSearchMatchesChange(undefined);
+        return;
+      }
+      props.onSearchMatchesChange(countSearchMatches(view.state, getSearchQuery(view.state)));
+    }, 80);
+  };
+
+  const accessibleName = (name: string | undefined) => name ? t("Editing {name}", { name }) : t("Editor");
 
   const updateContentAccessibleName = (name = props.tab?.name) => {
     const content = host.querySelector<HTMLElement>(".cm-content");
-    if (content) content.setAttribute("aria-label", name ? `Editing ${name}` : "Editor");
+    if (content) content.setAttribute("aria-label", accessibleName(name));
   };
 
   const serializedBytes = (value: unknown): number => {
@@ -345,15 +401,17 @@ export function EditorPane(props: EditorPaneProps) {
     if (update.selectionSet) {
       const head = update.state.selection.main.head;
       const line = update.state.doc.lineAt(head);
-      props.onCursorChange(activeDocumentId, line.number, head - line.from + 1);
+      const selected = update.state.selection.ranges.reduce((total, range) => total + range.to - range.from, 0);
+      props.onCursorChange(activeDocumentId, line.number, head - line.from + 1, selected);
     }
+    if ((update.docChanged || update.selectionSet) && props.countSearchMatches && props.searchQuery) scheduleMatchCount();
   });
 
   const handleWheel = (event: WheelEvent) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     const nextSize = props.settings.fontSize + (event.deltaY < 0 ? 1 : -1);
-    props.onFontSizeChange(Math.max(11, Math.min(24, nextSize)));
+    props.onFontSizeChange(clampSetting("fontSize", nextSize, props.settings.fontSize));
   };
 
   const textFromNormalizedString = (content: string) => Text.of(content.split("\n"));
@@ -500,6 +558,14 @@ export function EditorPane(props: EditorPaneProps) {
         currentView.dispatch(transaction);
         return true;
       },
+      formatForSave: (options) => {
+        const currentView = view;
+        if (documents.get(tabId) !== document || tabId !== activeDocumentId || !currentView || currentView.state !== document.state) return false;
+        const changes = saveFormattingChanges(currentView.state, options);
+        if (!changes.length) return false;
+        currentView.dispatch({ changes, userEvent: "input.format" });
+        return true;
+      },
     });
 
   const registerDocument = (tabId: string) => {
@@ -522,17 +588,31 @@ export function EditorPane(props: EditorPaneProps) {
       // bracket closing and other convenience services can be expensive for
       // long documents. Keep line numbers plus editing, undo and the shared
       // search API.
-      lineNumbers(),
       history(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
     ];
+    // Editing aids that only look at nearby text, so they stay cheap and need no project index.
+    const editingAids = [
+      minimalSetup,
+      highlightActiveLine(),
+      highlightSelectionMatches(),
+      bracketMatching(),
+      indentOnInput(),
+      rectangularSelection(),
+      crosshairCursor(),
+      keymap.of(foldKeymap),
+    ];
     const extensions = [
-      ...(largeFile ? largeFileExtensions : [minimalSetup, lineNumbers()]),
+      ...(largeFile ? largeFileExtensions : editingAids),
+      editorKeymap,
       EditorState.allowMultipleSelections.of(true),
       scrollPastEnd(),
-      editorContentName(() => `Editing ${props.tab?.name ?? tab.name}`),
+      editorContentName(() => accessibleName(props.tab?.name ?? tab.name)),
       lineEnding.extension,
-      themeCompartment.of(props.settings.theme === "dark" ? oneDark : lightEditorTheme),
+      gutterCompartment.of(lineNumberExtensions(props.settings, largeFile)),
+      whitespaceCompartment.of(whitespaceExtensions(props.settings)),
+      bracketCompartment.of(bracketExtensions(props.settings, largeFile)),
+      themeCompartment.of(editorTheme(props.settings.theme)),
       fontSizeCompartment.of(editorFontSizeTheme(props.settings.fontSize)),
       wrapCompartment.of(props.settings.wordWrap ? EditorView.lineWrapping : []),
       tabSizeCompartment.of(EditorState.tabSize.of(props.settings.tabSize)),
@@ -769,7 +849,10 @@ export function EditorPane(props: EditorPaneProps) {
   const applySettings = (document: CachedDocument, settings: EditorSettings) => {
     const changed = changedEditorSettings(document.settings, settings);
     const effects = [];
-    if (changed.includes("theme")) effects.push(themeCompartment.reconfigure(settings.theme === "dark" ? oneDark : lightEditorTheme));
+    if (changed.includes("theme")) effects.push(themeCompartment.reconfigure(editorTheme(settings.theme)));
+    if (changed.includes("lineNumbers")) effects.push(gutterCompartment.reconfigure(lineNumberExtensions(settings, document.largeFile)));
+    if (changed.includes("showWhitespace")) effects.push(whitespaceCompartment.reconfigure(whitespaceExtensions(settings)));
+    if (changed.includes("autoCloseBrackets")) effects.push(bracketCompartment.reconfigure(bracketExtensions(settings, document.largeFile)));
     if (changed.includes("fontSize")) effects.push(fontSizeCompartment.reconfigure(editorFontSizeTheme(settings.fontSize)));
     if (changed.includes("wordWrap")) effects.push(wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []));
     if (changed.includes("tabSize")) effects.push(tabSizeCompartment.reconfigure(EditorState.tabSize.of(settings.tabSize)));
@@ -989,6 +1072,7 @@ export function EditorPane(props: EditorPaneProps) {
     const searchAction = props.searchAction;
     const searchActionId = props.searchActionId;
     const searchActionTargetTabId = props.searchActionTargetTabId;
+    void props.countSearchMatches;
     searchActionGate.releaseClosedTabs(props.openTabIds);
     if (!view) return;
     const currentView = view;
@@ -1003,6 +1087,7 @@ export function EditorPane(props: EditorPaneProps) {
         wholeWord: searchWholeWord,
       });
       currentView.dispatch({ effects: setSearchQuery.of(query) });
+      scheduleMatchCount();
       if (!searchAction || searchActionId === 0 || !searchActionTargetTabId) return;
       if (!props.openTabIds.includes(searchActionTargetTabId)) {
         if (searchActionGate.consume(searchActionTargetTabId, searchActionId)) {
@@ -1018,6 +1103,7 @@ export function EditorPane(props: EditorPaneProps) {
         return;
       }
       if (searchAction === "find") findNext(currentView);
+      if (searchAction === "findPrevious") findPrevious(currentView);
       if (searchAction === "replace") replaceNext(currentView);
       if (searchAction === "replaceAll") replaceAll(currentView);
       props.onSearchActionConsumed(searchActionTargetTabId, searchActionId);
@@ -1033,8 +1119,8 @@ export function EditorPane(props: EditorPaneProps) {
     lastNavigationRequest = request;
     const lineNumber = Math.max(1, Math.min(request.line, view.state.doc.lines));
     const line = view.state.doc.line(lineNumber);
-    let anchor = line.from;
-    let head = line.from;
+    let anchor = Math.min(line.to, line.from + Math.max(0, (request.column ?? 1) - 1));
+    let head = anchor;
     if (request.query) {
       const cursor = new SearchQuery({ search: request.query, caseSensitive: request.caseSensitive, literal: true }).getCursor(view.state.doc, line.from, line.to).next();
       if (!cursor.done) { anchor = cursor.value.from; head = cursor.value.to; }
@@ -1043,7 +1129,17 @@ export function EditorPane(props: EditorPaneProps) {
     view.focus();
   });
 
+  let lastEditorCommand: EditorCommandRequest | undefined;
+  createEffect(() => {
+    const request = props.editorCommand;
+    if (!view || !request || request === lastEditorCommand || request.tabId !== props.tab?.id || activeDocumentId !== request.tabId) return;
+    lastEditorCommand = request;
+    runEditorCommand(view, request.command);
+    view.focus();
+  });
+
   onCleanup(() => {
+    window.clearTimeout(matchCountTimer);
     host.removeEventListener("wheel", handleWheel);
     searchRevision += 1;
     languageRevision += 1;
@@ -1064,5 +1160,5 @@ export function EditorPane(props: EditorPaneProps) {
     documents.clear();
   });
 
-  return <div class="editor-host" ref={host} style={{ "--editor-font-size": `${props.settings.fontSize}px` }} aria-label={props.tab ? t("Editing {name}", { name: props.tab.name }) : t("Editor")} />;
+  return <div class="editor-host" ref={host} style={{ "--editor-font-size": `${props.settings.fontSize}px` }} aria-label={accessibleName(props.tab?.name)} />;
 }

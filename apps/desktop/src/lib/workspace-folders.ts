@@ -63,3 +63,15 @@ export function watcherExcludesForFolders(excludes: readonly string[], folders: 
   const relative = excludes.filter((exclude) => !isAbsolute(exclude));
   return [...excludes, ...folders.slice(1).flatMap((folder) => relative.map((exclude) => join(folder, exclude)))];
 }
+
+/** Collapse every folder below the workspace's top-level folders, keeping their loaded children. */
+export function collapseSubfolders(root: DirectoryEntry): DirectoryEntry {
+  const collapse = (entry: DirectoryEntry): DirectoryEntry => {
+    if (entry.kind !== "directory" || !entry.children) return entry;
+    const children = entry.children.map(collapse);
+    const changed = entry.expanded || children.some((child, index) => child !== entry.children![index]);
+    return changed ? { ...entry, expanded: false, children } : entry;
+  };
+  const keepTop = (entry: DirectoryEntry): DirectoryEntry => entry.children ? { ...entry, children: entry.children.map(collapse) } : entry;
+  return isWorkspaceRootEntry(root) ? { ...root, children: root.children?.map(keepTop) } : keepTop(root);
+}

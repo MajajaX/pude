@@ -1,13 +1,15 @@
-import { For, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import type { CommandPaletteItem } from "../lib/plugin-activation";
+import { BUILTIN_COMMANDS } from "../lib/builtin-commands";
+import { formatShortcut, loadRecentCommands, matchesAllWords, orderByRecent, rememberRecentCommand, saveRecentCommands } from "../lib/command-palette-filter";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { isImeComposing } from "../lib/keyboard-input";
 import { t } from "../lib/i18n";
 
-const normalize = (value: string) => value.normalize("NFKD").toLocaleLowerCase();
-
 export function CommandPalette(props: {
-  commands: CommandPaletteItem[];
+  /** Built-in and plugin commands; only the built-in ones before the plugin host loads. */
+  commands?: CommandPaletteItem[];
+  mac: boolean;
   onRun: (command: CommandPaletteItem) => void;
   onClose: () => void;
   returnFocus?: () => HTMLElement | undefined;
@@ -19,15 +21,22 @@ export function CommandPalette(props: {
   let list: HTMLDivElement | undefined;
   let modalFocus: ModalFocusController | undefined;
   const optionId = (index: number) => `command-palette-option-${index}`;
+  const recentIds = loadRecentCommands();
+  const commands = createMemo(() => orderByRecent(props.commands ?? BUILTIN_COMMANDS, recentIds));
   const filteredCommands = createMemo(() => {
-    const needle = normalize(query().trim());
-    if (!needle) return props.commands;
-    return props.commands.filter((command) => normalize(`${t(command.title)} ${command.title} ${command.detail ? t(command.detail) : ""} ${command.detail ?? ""} ${command.id}`).includes(needle));
+    const needle = query().trim();
+    if (!needle) return commands();
+    return commands().filter((command) => matchesAllWords(`${t(command.title)} ${command.title} ${command.detail ? t(command.detail) : ""} ${command.detail ?? ""} ${command.id}`, needle));
   });
+
+  const run = (command: CommandPaletteItem) => {
+    saveRecentCommands(rememberRecentCommand(recentIds, command.id));
+    props.onRun(command);
+  };
 
   const runSelected = () => {
     const command = filteredCommands()[selectedIndex()];
-    if (command) props.onRun(command);
+    if (command) run(command);
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
@@ -112,10 +121,11 @@ export function CommandPalette(props: {
                 aria-selected={selectedIndex() === index()}
                 classList={{ "command-palette-item": true, "command-palette-item-selected": selectedIndex() === index() }}
                 onMouseEnter={() => setSelectedIndex(index())}
-                onClick={() => props.onRun(command)}
+                onClick={() => run(command)}
               >
                 <span class="command-palette-item-title">{t(command.title)}</span>
                 <span class="command-palette-item-detail">{command.detail ? t(command.detail) : command.source === "plugin" ? t("Plugin command") : t("Built-in command")}</span>
+                <Show when={command.shortcut}>{(shortcut) => <kbd class="command-palette-item-shortcut">{formatShortcut(shortcut(), props.mac)}</kbd>}</Show>
               </button>
             )}
           </For>

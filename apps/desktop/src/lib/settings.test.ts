@@ -34,4 +34,9 @@ describe("settings validation", () => {
     expect(validateSettings({ groupGitIgnoredFiles: "false" }, defaultSettings).groupGitIgnoredFiles).toBe(true);
     expect(validateSettings({}, defaultSettings).groupGitIgnoredFiles).toBe(true);
   });
+
+  it("keeps valid editor and save preferences and ignores invalid ones", () => {
+    const settings = validateSettings({ lineNumbers: false, showWhitespace: "yes", trimTrailingWhitespace: true, insertFinalNewline: 1 }, defaultSettings);
+    expect(settings).toMatchObject({ lineNumbers: false, showWhitespace: false, trimTrailingWhitespace: true, insertFinalNewline: false, autoCloseBrackets: true });
+  });
 });

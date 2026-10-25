@@ -10,6 +10,9 @@ const settings = {
   tabSize: 2,
   insertSpaces: true,
   wordWrap: false,
+  lineNumbers: true,
+  showWhitespace: false,
+  autoCloseBrackets: true,
 };
 
 describe("editor cache decisions", () => {

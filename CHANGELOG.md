@@ -6,6 +6,54 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Editing aids: active line, matching bracket and selection-match highlighting,
+  automatic closing brackets and quotes, re-indenting on a closing bracket, code
+  folding from the gutter, column selection with Alt-drag, and **⌘D** / **⌘⇧L**
+  (**Ctrl+D** / **Ctrl+Shift+L**) to add the next or every occurrence to the
+  selection.
+- The find bar shows **N of M** matches, finds the previous match with Shift+Enter
+  or a new button, and starts from the selected text. Enter in the replace field
+  replaces the next match; Cmd/Ctrl+Enter replaces all.
+- Command palette commands to sort lines, change case, trim trailing whitespace,
+  fold and unfold all, toggle comments, duplicate or delete lines, expand the
+  selection, toggle word wrap, line numbers, whitespace, the sidebar and the theme,
+  change the font size, copy the active file's path, reveal it, close all tabs and
+  open Settings. The palette shows shortcuts, matches words in any order and lists
+  recently run commands first.
+- Settings for **Theme**, **Indent with spaces**, **Line numbers**, **Show
+  whitespace**, **Close brackets and quotes automatically**, **Trim trailing
+  whitespace on save** and **End files with a newline on save**, grouped into
+  sections, plus **Restore defaults**.
+- Shortcuts: **⌘,** Settings, **⌘P** go to file, **⌘B** toggle sidebar, **⌘⇧T**
+  reopen closed tab, **⌘=** / **⌘-** / **⌘0** font size, **⌥Z** word wrap and **⌘⇧V**
+  Markdown preview (Ctrl and Alt on Windows).
+- **Collapse folders** in the Explorer **FILES** bar.
+- Tab right-click menu: **Close saved**, **Close all**, **Copy Path**, **Copy
+  Relative Path** and **Reveal in Finder**.
+- Go to line accepts `line:column`, starts at the current line and opens from the
+  **Ln, Col** status item. The status bar shows how many characters are selected.
+
+### Changed
+
+- **Close others**, **Close to right** and the new group closes keep pinned tabs.
+- Reopen closed tab remembers the last ten closed tabs per project instead of one.
+- **⌘⇧F** fills project search with a short selection.
+- The built-in command list and the tab menu load on demand, keeping startup code
+  within its budget.
+
+### Fixed
+
+- Typing a two-digit font size or tab size in Settings no longer snaps to the
+  minimum after the first digit.
+- The status bar shows **Tab Size** instead of **Spaces** when indenting with tabs.
+- Reopening a closed tab whose file is already open switches to it instead of
+  opening a second copy.
+- The light theme's active-line colors are now used, and the editor's screen reader
+  label is translated.
+- The tab right-click menu stays inside the window near the screen edges.
+
 ## [0.1.6] - 2026-10-23
 
 ### Added
