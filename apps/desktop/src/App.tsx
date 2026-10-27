@@ -2781,12 +2781,12 @@ export default function App() {
     }
   };
 
-  const copyEntryPath = async (entry: DirectoryEntry, relative: boolean) => {
+  const copyEntryText = async (entry: DirectoryEntry, kind: "path" | "relative-path" | "name") => {
     closeFileMenu();
     const folder = folderContaining(entry.path, workspaceFolders(), PATH_OPTIONS);
     const relativePath = folder ? relativePathWithinRoot(entry.path, folder) : null;
-    const value = relative ? relativePath : entry.path;
-    const label = relative ? t("relative path") : t("path");
+    const value = kind === "name" ? entry.name : kind === "relative-path" ? relativePath : entry.path;
+    const label = kind === "name" ? t("name") : kind === "relative-path" ? t("relative path") : t("path");
     if (!value) {
       notify(t("Copy Relative Path is only available for items inside the current workspace."));
       return;
@@ -5072,7 +5072,7 @@ export default function App() {
              showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
              onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
              onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
-             onCopyPath={(relative) => void copyEntryPath(menu().entry, relative)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
+             onCopy={(kind) => void copyEntryText(menu().entry, kind)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">
               <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind("find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Find in file")} aria-label={t("Find in file")} /><Show when={search().query}><span class="find-count">{t("local")}</span></Show></div>

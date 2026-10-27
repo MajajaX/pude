@@ -6,6 +6,16 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Explorer's right-click menu has **Copy Name**, which copies the file or folder
+  name.
+
+### Changed
+
+- **New file** and **New folder** are now in the right-click menu of files too;
+  they create the item in the file's folder.
+
 ## [0.1.6] - 2026-10-23
 
 ### Added
