@@ -60,7 +60,7 @@ const en = {
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "Tabs, pinning, find and replace, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
+        desc: "Tabs, pinning, find and replace, plus .env files as an editable table with copy buttons. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
       },
       {
         k: "git",
@@ -335,7 +335,7 @@ const zhHant: Dict = {
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "支援分頁、釘選、尋找與取代，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
+        desc: "支援分頁、釘選、尋找與取代，.env 檔還能以可編輯、可一鍵複製的表格檢視。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
       },
       {
         k: "git",

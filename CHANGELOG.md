@@ -6,6 +6,13 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `.env` files open as a table with a name and value field for each variable and
+  copy buttons for the name, the value or the whole `NAME=value` line. Add, rename,
+  edit and delete variables there; the lower-right **Source / Table** button switches
+  back to the text editor.
+
 ## [0.1.6] - 2026-10-23
 
 ### Added

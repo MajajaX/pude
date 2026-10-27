@@ -37,6 +37,7 @@ import { parseInstalledPlugin } from "./lib/plugin-manifest";
 import type { PluginApiV2Dependencies, PluginApiV2InstalledPlugin, PluginApiV2Permission } from "./lib/plugin-api-v2";
 import type { PluginRun, createPluginHostController } from "./lib/plugin-host";
 import type { PluginEditorRevisionTracker } from "./lib/plugin-editor-revisions";
+import type { PluginEditorEdit } from "./lib/plugin-editor-edits";
 import type { PluginAuthorizationManager, PluginAuthorizationReviewManifest, PluginAuthorizationStore, PluginPermissionGrant, PluginPermissionGrantRequest, PluginPermissionResourceScope } from "./lib/plugin-authorization";
 import { createRestoreIntent, markRestoreTabCancelled, markRestoreTabStarted, markUserOpenedPath, shouldMergeRestoredTab, type RestoreIntent } from "./lib/restore-state";
 import type { DirectoryRestoreOptions, DirectoryRestoreResult } from "./lib/directory-restore";
@@ -138,6 +139,7 @@ let startupWatcherReadyMarked = false;
 const LazyDiffPane = lazy(async () => ({ default: (await import("./components/DiffPane")).DiffPane }));
 const LazyGitPanel = lazy(async () => ({ default: (await import("./components/GitPanel")).GitPanel }));
 const LazyMarkdownPreview = lazy(async () => ({ default: (await import("./components/MarkdownPreview")).MarkdownPreview }));
+const LazyEnvTable = lazy(async () => ({ default: (await import("./components/EnvTable")).EnvTable }));
 const LazyImagePreview = lazy(async () => ({ default: (await import("./components/ImagePreview")).ImagePreview }));
 const LazyPluginModal = lazy(async () => ({ default: (await import("./components/PluginModal")).PluginModal }));
 const LazyPluginAuthorizationDialog = lazy(async () => ({ default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationDialog }));
@@ -364,6 +366,7 @@ export default function App() {
   const [tabMenu, setTabMenu] = createSignal<{ id: string; x: number; y: number }>();
   const [fileMenu, setFileMenu] = createSignal<FileContextMenu>();
   const [markdownPreviewEnabled, setMarkdownPreviewEnabled] = createSignal(false);
+  const [envTableEnabled, setEnvTableEnabled] = createSignal(true);
   const [gitIgnoredExpanded, setGitIgnoredExpanded] = createSignal(false);
   const [gitIgnoredPaths, setGitIgnoredPaths] = createSignal<ReadonlySet<string>>(new Set());
   const [draggedTabId, setDraggedTabId] = createSignal<string>();
@@ -710,7 +713,7 @@ export default function App() {
     id: activeProjectId()!, workspace: workspace(), additionalFolders: additionalFolders(), workspaceFile: workspaceFile(), root: root(), tabIds: [...tabOrder()], activeTabId: activeTabId(),
     viewMode: viewMode(), historyTabOpen: historyTabOpen(), diffReturnToHistory: diffReturnToHistory(), diff: diff(),
     git: git(), gitBranches: gitBranches(), gitStashes: gitStashes(), sidebarView: sidebarView(), search: { ...search(), action: null },
-    searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewEnabled: markdownPreviewEnabled(), gitIgnoredExpanded: gitIgnoredExpanded(), lastClosedTab: lastClosedTab(),
+    searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewEnabled: markdownPreviewEnabled(), envTableEnabled: envTableEnabled(), gitIgnoredExpanded: gitIgnoredExpanded(), lastClosedTab: lastClosedTab(),
     terminalOpen: terminalOpen(), terminalInitialized: terminalInitialized(), restoreMetadata, restoreIntent, conflicts: externalConflicts(),
   });
   const currentProjects = () => projects().map((project) => project.id === activeProjectId() ? captureProject() : project);
@@ -843,6 +846,7 @@ export default function App() {
   });
 
   const isMarkdownPreview = () => activeTab()?.language === "Markdown" && !activeTab()?.largeFile && markdownPreviewEnabled();
+  const isEnvTable = () => activeTab()?.language === "Dotenv" && !activeTab()?.largeFile && envTableEnabled();
   const shortcutModifier = () => isMacPlatform() ? "Cmd" : "Ctrl";
 
   const startWindowDrag = (event: MouseEvent) => {
@@ -2132,6 +2136,7 @@ export default function App() {
       setSearchActionTargetTabId(undefined);
       setGoToLine(undefined);
       setMarkdownPreviewEnabled(project.markdownPreviewEnabled ?? false);
+      setEnvTableEnabled(project.envTableEnabled ?? true);
       setGitIgnoredExpanded(project.gitIgnoredExpanded ?? false);
       setGitIgnoredPaths(new Set<string>());
       setLastClosedTab(project.lastClosedTab);
@@ -2774,6 +2779,7 @@ export default function App() {
       openReadFile(file);
       if (match.line) {
         setMarkdownPreviewEnabled(false);
+        setEnvTableEnabled(false);
         setGoToLine({ line: match.line, tabId: activeTabId(), query: options.query, caseSensitive: options.caseSensitive, actionId: Date.now() });
       }
     } catch (error) {
@@ -2798,6 +2804,25 @@ export default function App() {
     } catch (error) {
       notify(errorMessage(error, t("Unable to copy {label}.", { label })));
     }
+  };
+
+  const copyToClipboard = async (value: string, message: string) => {
+    try {
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) throw new Error("Clipboard is unavailable in this window.");
+      await navigator.clipboard.writeText(value);
+      notify(message);
+      return true;
+    } catch (error) {
+      notify(errorMessage(error, t("Unable to copy to the clipboard.")));
+      return false;
+    }
+  };
+
+  const applyActiveTabEdits = (edits: readonly PluginEditorEdit[]) => {
+    const tab = activeTab();
+    const applied = !!tab && documentController.getActiveHandle(tab.id)?.applyEdits(tab.revision, edits) === true;
+    if (!applied) notify(t("Unable to apply the change. Switch to Source and try again."));
+    return applied;
   };
 
   // With several folders the toolbar creates items in the first folder; the context menu targets any folder.
@@ -3557,6 +3582,7 @@ export default function App() {
     }
     const lineCount = getDocumentText(tabById[tabId]!).split("\n").length;
     const line = Math.min(requestedLine, Math.max(1, lineCount));
+    setEnvTableEnabled(false);
     setGoToLine({ line, tabId, actionId: Date.now() });
   };
 
@@ -5087,15 +5113,17 @@ export default function App() {
           </Show>
           <div class="editor-stage">
             <div class="editor-document-panel" role="tabpanel" id={WORKBENCH_EDITOR_PANEL_ID} aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined} aria-label={!activeTabId() ? t("Editor") : undefined} hidden={viewMode() === "history"}>
-            <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>{(tab) => <div classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() }}>
+            <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>{(tab) => <div classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() || isEnvTable() }}>
               <LazyEditorPane tab={tab()} openTabIds={allLoadedTabs().map((tab) => tab.id)} settings={editorSettings()} searchQuery={search().query} searchReplace={search().replace} searchCaseSensitive={search().caseSensitive} searchRegexp={search().regexp} searchWholeWord={search().wholeWord} searchAction={search().action} searchActionId={search().actionId} searchActionTargetTabId={searchActionTargetTabId()} onSearchActionConsumed={acknowledgeSearchAction} getCachedDocument={documentController.getCachedDocument} goToLine={goToLine()} onFontSizeChange={(fontSize) => updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })} onDocumentChange={handleDocumentChange} onCursorChange={(tabId, line, column) => { updateTab(tabId, { cursorLine: line, cursorColumn: column }); scheduleCursorPersistence(); }} onRegisterDocument={registerDocument} onUnregisterDocument={unregisterDocument} />
             </div>}</Show>
 
             <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? t("Back to history") : undefined} onBack={() => void returnToDiffFile()} />}</Show>
             <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}><LazyMarkdownPreview documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`} revision={activeTab()!.revision} length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length} readRange={(from, to) => { const tab = activeTab(); return tab ? documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to) : ""; }} /></Show>
+            <Show when={activeTab() && viewMode() === "editor" && isEnvTable()}><LazyEnvTable revision={activeTab()!.revision} readText={() => getDocumentText(activeTab())} applyEdits={applyActiveTabEdits} onCopy={copyToClipboard} /></Show>
             <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}><LazyImagePreview path={activeTab()?.path ?? ""} workspace={imageWorkspaceRoot(activeTab()?.path ?? "")} /></Show>
             <Show when={!activeTab() && viewMode() === "editor"}><EmptyEditor onOpenFolder={() => void loadWorkspace()} /></Show>
             <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("Markdown preview is disabled in large file mode") : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? t("Show Markdown source") : t("Show Markdown preview")} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? t("Source") : t("Preview")}</span></button></Show>
+            <Show when={activeTab()?.language === "Dotenv" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isEnvTable() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("The table view is disabled in large file mode") : undefined} onClick={() => setEnvTableEnabled((enabled) => !enabled)} aria-label={isEnvTable() ? t("Show .env source") : t("Show .env as a table")} aria-pressed={isEnvTable()}><span>{isEnvTable() ? t("Source") : t("Table")}</span></button></Show>
             </div>
             <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path })))} /></div></Show>
           </div>

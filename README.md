@@ -62,7 +62,8 @@ permission).
   macOS Dock or the Windows taskbar for a new window or a recent item, which opens as
   a new tab in the window you used last.
 - **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
-  Save As and a wide, readable Markdown source/preview toggle.
+  Save As and a wide, readable Markdown source/preview toggle. `.env` files also open
+  as a table of names and values with copy buttons for a name, a value or a whole line.
 - **Readable interface** — bundled open-source Inter and JetBrains Mono fonts,
   larger interface text and high-contrast labels in both dark and light themes, in
   English or Traditional Chinese (**Settings > Language**, follows the system by
