@@ -34,6 +34,8 @@ All notable changes to `pude` are recorded here. The format follows
   Relative Path** and **Reveal in Finder**.
 - Go to line accepts `line:column`, starts at the current line and opens from the
   **Ln, Col** status item. The status bar shows how many characters are selected.
+- Explorer's right-click menu has **Copy Name**, which copies the file or folder
+  name.
 
 ### Changed
 
@@ -42,6 +44,8 @@ All notable changes to `pude` are recorded here. The format follows
 - **⌘⇧F** fills project search with a short selection.
 - The built-in command list and the tab menu load on demand, keeping startup code
   within its budget.
+- **New file** and **New folder** are now in the right-click menu of files too;
+  they create the item in the file's folder.
 
 ### Fixed
 

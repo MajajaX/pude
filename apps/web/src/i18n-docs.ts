@@ -202,7 +202,7 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Create, rename and delete files and folders. Deleting moves items to the Recycle Bin or Trash — never a permanent delete. The `FILES` bar under the sidebar tabs has `+` for a new file and a folder button for a new folder.",
-              "Right-click for `Copy Path`, `Copy Relative Path`, `Open in Integrated Terminal` and `Reveal in Finder` (`Open in File Explorer` on Windows).",
+              "Right-click a file or folder for `New file`, `New folder`, `Copy Name`, `Copy Path`, `Copy Relative Path`, `Open in Integrated Terminal` and `Reveal in Finder` (`Open in File Explorer` on Windows). On a file, `New file` and `New folder` create the item in that file's folder.",
               "Dot files are shown. Git-ignored items have gray names. The `Git ignored` root group uses a Git icon, divider and count; expand it to browse ignored items. Toggle `Group ignored` beside the footer’s plugin count to show them among normal entries instead. The choice is remembered after restart.",
               "Long folders stay fast: only visible rows are rendered.",
               "The chevron button in the `FILES` bar collapses every open subfolder. `⌘B` (`Ctrl+B`) hides or shows the whole sidebar for the current session.",
@@ -613,7 +613,7 @@ const zhHant: DocsDict = {
             t: "list",
             items: [
               "建立、重新命名與刪除檔案和資料夾。刪除會移到資源回收筒或垃圾桶，絕不永久刪除。側邊欄分頁下方的 `FILES` 列有 `+`（新增檔案）與資料夾按鈕（新增資料夾）。",
-              "右鍵選單提供 `Copy Path`、`Copy Relative Path`、`Open in Integrated Terminal` 與 `Reveal in Finder`（Windows 為 `Open in File Explorer`）。",
+              "對檔案或資料夾按右鍵，可使用 `New file`、`New folder`、`Copy Name`、`Copy Path`、`Copy Relative Path`、`Open in Integrated Terminal` 與 `Reveal in Finder`（Windows 為 `Open in File Explorer`）。在檔案上按右鍵時，`New file` 與 `New folder` 會建立在該檔案所在的資料夾。",
               "會顯示以 `.` 開頭的檔案。被 Git 忽略的項目以灰色顯示；根目錄的 `Git ignored` 群組以 Git 圖示、分隔線與數量標示，展開即可瀏覽。在底部外掛數量旁取消勾選 `Group ignored`，可將項目放回一般列表；重新啟動後也會記住選擇。",
               "很長的資料夾也保持流暢：只渲染看得到的列。",
               "`FILES` 列上的箭頭按鈕會收合所有展開的子資料夾。`⌘B`（`Ctrl+B`）可在本次執行期間隱藏或顯示整個側邊欄。",

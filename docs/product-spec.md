@@ -12,15 +12,16 @@ coverage and no published installer yet.
 - A window can hold multiple project tabs. Each project retains its open files,
   unsaved edits, undo history, Git view and running terminals while inactive.
 - Opening a folder reads its top level. Subfolders load on expansion and long
-  trees render visible rows only. File/folder creation, rename, copy paths and
-  native reveal are available from Explorer. Delete uses recoverable system trash.
+  trees render visible rows only. File/folder creation, rename, copy name, copy
+  paths and native reveal are available from Explorer. Delete uses recoverable system trash.
 - Dot files are visible by default and can be hidden in Settings.
 - Git-ignored names are muted. With **Group ignored** enabled, ignored root items
   appear in a collapsed group identified by a Git icon, divider and item count.
   Expanding it exposes the same file operations as other entries; the final row
   remains fully scrollable. Ignored descendants keep their normal hierarchy.
 - A **FILES** bar under the sidebar tabs holds **New file** (`+`) and **New folder**
-  for the project root. Right-click a folder to create items inside it.
+  for the project root. Right-click a folder to create items inside it, or a file
+  to create items beside it.
 - **Collapse folders** (the chevron in the **FILES** bar, or the command
   **Explorer: Collapse Folders**) closes every expanded subfolder below the
   workspace's top-level folders; loaded listings are kept.
