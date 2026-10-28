@@ -1,6 +1,6 @@
 # pude product specification
 
-Implemented behavior for **0.1.5**. Update this specification in the same change as
+Implemented behavior for **0.1.6** and the unreleased changes listed in the changelog. Update this specification in the same change as
 a feature or behavior change, together with the changelog, README and applicable
 English and Traditional Chinese website copy. User instructions live at
 [pude.dev/docs](https://pude.dev/docs) and [pude.dev/zh/docs](https://pude.dev/zh/docs).
@@ -21,6 +21,12 @@ coverage and no published installer yet.
   remains fully scrollable. Ignored descendants keep their normal hierarchy.
 - A **FILES** bar under the sidebar tabs holds **New file** (`+`) and **New folder**
   for the project root. Right-click a folder to create items inside it.
+- **Collapse folders** (the chevron in the **FILES** bar, or the command
+  **Explorer: Collapse Folders**) closes every expanded subfolder below the
+  workspace's top-level folders; loaded listings are kept.
+- **Cmd+B** / **Ctrl+B**, **View > Hide sidebar** or **View: Toggle Sidebar** hides the
+  sidebar and its resize handle so the editor uses the full width. Opening project
+  search shows it again. The choice lasts for the current window session only.
 - **Group ignored** is a checkbox at the left of the Explorer footer's plugin
   count. It defaults to on, persists locally across restarts, and shows ignored
   items among normal entries when off. It does not change `.gitignore` or search
@@ -81,6 +87,11 @@ coverage and no published installer yet.
 - The sidebar has **EXPLORER / GIT / SEARCH** tabs. **SEARCH** or **Cmd+Shift+F**
   on macOS / **Ctrl+Shift+F** on Windows opens search for the active project.
   Selecting **EXPLORER** or pressing Escape in the search input returns to files.
+  A short single-line editor selection (at most 200 characters) becomes the query
+  when search opens from the shortcut or **Search: Find in Project**.
+- **Cmd+P** / **Ctrl+P**, **Edit > Go to file** or **Go: Go to File…** opens search in
+  **Files** mode with the query selected, to open a file by name or path. It uses the
+  same on-demand search and limits; there is no file index.
 - Results show the file name first, its folder dimmed beside it and a line-number
   badge for text matches; the full relative path is in the row tooltip.
 - **Text** finds literal text in saved UTF-8 files. **Files** matches a filename
@@ -144,9 +155,39 @@ coverage and no published installer yet.
   cursors, undo/redo and indentation. File tabs support reorder, pin, Save As and
   reopening closed tabs.
 - Hovering a find bar button shows what it does: **Match case**, **Match whole
-  word**, **Use regular expression**, **Find next (Enter)**, **Replace next match**,
-  **Replace all matches in this file** and **Close find (Escape)**. Screen readers
-  announce the same names and whether each option is on.
+  word**, **Use regular expression**, **Find previous (Shift+Enter)**, **Find next
+  (Enter)**, **Replace next match**, **Replace all matches in this file** and **Close
+  find (Escape)**. Screen readers announce the same names and whether each option is
+  on.
+- The find bar shows **N of M** when the selection is a match, **M found** otherwise,
+  **No results** or **Invalid pattern**. Counting runs shortly after typing stops,
+  stops at 1,000 matches (shown as `1000+`), runs only while the find bar is open and
+  is skipped in large-file mode. Opening Find with a short single-line selection
+  searches for it. In the replace field Enter replaces the next match, Cmd+Enter /
+  Ctrl+Enter replaces all, and Escape closes the bar.
+- The editor highlights the active line, the bracket matching the one at the cursor
+  and other occurrences of the selected text. It closes brackets and quotes as you
+  type (setting **Close brackets and quotes automatically**, on by default),
+  re-indents a line when a closing bracket is typed, and folds blocks from the
+  gutter or with CodeMirror's fold keys. Alt-drag makes a rectangular selection.
+  **Cmd+D** / **Ctrl+D** adds the next occurrence to the selection and
+  **Cmd+Shift+L** / **Ctrl+Shift+L** selects every occurrence. Large-file mode leaves
+  out folding, auto-closing and the other editing aids.
+- **Go to line** (**Cmd+G** / **Ctrl+G**, or clicking **Ln, Col** in the status bar)
+  starts with the current line and accepts `line` or `line:column`. Values beyond the
+  document are clamped to its last line or the line's end.
+- The status bar shows **Spaces: N** or **Tab Size: N** depending on **Indent with
+  spaces**, and the number of selected characters across all selections.
+- Editing commands in the command palette: **Sort Lines Ascending / Descending**
+  (natural number order; the selected lines, or the whole file without a
+  selection), **Transform to Uppercase / Lowercase** (the selection, or the word at
+  the cursor), **Trim Trailing Whitespace**, **Toggle Line Comment**, **Duplicate
+  Line**, **Delete Line**, **Add Next Occurrence**, **Select All Occurrences**,
+  **Expand Selection**, **Fold All** and **Unfold All**. Each is one undo step.
+- With **Trim trailing whitespace on save** or **End files with a newline on save**
+  turned on (both off by default), saving the file shown in the editor first removes
+  spaces and tabs at line ends or adds a final newline, as an undoable edit. Files
+  saved while not shown, for example by Save All, are written unchanged.
 - `.env` and `.env.*` files use shell syntax highlighting for variable assignments,
   quoted strings, numbers, expansions and comments. The status bar labels them **Dotenv**;
   they follow the same large-file parsing limits as other languages.
@@ -159,6 +200,46 @@ coverage and no published installer yet.
 - UTF-8 and UTF-8 with BOM are accepted. Text files are limited to 20 MiB. Above
   5 MiB, large-file mode disables heavy parsing and Markdown preview while keeping
   editing and file-local search.
+
+## Settings, shortcuts and the command palette
+
+- **Settings** opens from **View > Settings** or **Cmd+,** / **Ctrl+,**. It groups
+  **Interface** (Language, Theme), **Editor** (Font size, Tab size, Indent with
+  spaces, Word wrap, Line numbers, Show whitespace, Close brackets and quotes
+  automatically), **Saving** (Trim trailing whitespace on save, End files with a
+  newline on save), **Explorer** (Hide dot files, Group Git ignored files) and
+  **Updates** (Check for updates on startup, Watcher excluded paths). New settings
+  default to the previous behavior except Close brackets, which is on.
+- Font size and Tab size show their ranges and apply when the field is committed
+  (Enter, Tab or leaving it), so typing a two-digit value no longer jumps through
+  the minimum. Out-of-range values are clamped.
+- **Restore defaults** asks for a second click, then resets every setting except the
+  language. Settings stay in local storage.
+- **Cmd+=** / **Cmd+-** / **Cmd+0** (Ctrl on Windows) change the editor font size by
+  one step or reset it to 14, like Cmd/Ctrl + scroll. **Option+Z** / **Alt+Z** toggles
+  word wrap. **Cmd+Shift+T** / **Ctrl+Shift+T** reopens closed tabs. **Cmd+Shift+V** /
+  **Ctrl+Shift+V** switches a Markdown file between source and preview.
+- The command palette lists more than 40 built-in commands with their shortcuts
+  (**⌘⇧P** on macOS, **Ctrl+Shift+P** elsewhere). Every word typed must match the
+  title, description or id, in any order. The eight commands run most recently are
+  listed first; that list is kept in local storage. The built-in command list loads
+  with the palette instead of at startup.
+- The **File** menu adds **Save All**, **Reopen closed tab** and **Close tab**; **Edit**
+  adds **Go to file** and **Go to line**; **View** adds **Hide sidebar**, **Toggle
+  terminal** and word wrap, and shows the Settings shortcut.
+
+## Tabs
+
+- Right-click a file tab for **Pin**, **Save As…**, **Close**, **Close others**,
+  **Close to right**, **Close saved**, **Close all**, **Copy Path**, **Copy Relative
+  Path** and **Reveal in Finder** (**Open in File Explorer** on Windows). The menu
+  stays inside the window and loads on first use.
+- **Close others**, **Close to right**, **Close saved** and **Close all** keep pinned
+  tabs open; close a pinned tab on its own.
+- Reopening a closed tab restores tabs most recent first. The latest one is saved with
+  the session as before; up to nine older ones are remembered per project while the
+  window is open. Reopening a file that is already open switches to its tab instead
+  of opening a duplicate.
 
 ## Integrated terminals
 

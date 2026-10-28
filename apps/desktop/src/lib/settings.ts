@@ -7,6 +7,11 @@ export const defaultSettings = {
   tabSize: 2,
   insertSpaces: true,
   wordWrap: false,
+  lineNumbers: true,
+  showWhitespace: false,
+  autoCloseBrackets: true,
+  trimTrailingWhitespace: false,
+  insertFinalNewline: false,
   sidebarWidth: 276,
   terminalHeight: 238,
   hideDotFiles: false,
@@ -24,6 +29,8 @@ const ranges: Record<NumericSetting, { min: number; max: number }> = {
   terminalHeight: { min: 160, max: 1200 },
 };
 
+export const settingRange = (name: NumericSetting) => ranges[name];
+
 export function clampSetting(name: NumericSetting, value: unknown, fallback: number): number {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return fallback;
@@ -31,22 +38,29 @@ export function clampSetting(name: NumericSetting, value: unknown, fallback: num
   return Math.min(range.max, Math.max(range.min, Math.round(numeric)));
 }
 
+type BooleanSetting = { [Key in keyof AppSettings]: AppSettings[Key] extends boolean ? Key : never }[keyof AppSettings];
+
+const booleanSettings: readonly BooleanSetting[] = [
+  "insertSpaces", "wordWrap", "lineNumbers", "showWhitespace", "autoCloseBrackets",
+  "trimTrailingWhitespace", "insertFinalNewline", "hideDotFiles", "groupGitIgnoredFiles", "checkForUpdates",
+];
+
 export function validateSettings(value: unknown, defaults: AppSettings): AppSettings {
   const stored = isRecord(value) ? value : {};
-  return {
+  const settings: AppSettings = {
+    ...defaults,
     theme: stored.theme === "light" || stored.theme === "dark" ? stored.theme : defaults.theme,
     language: stored.language === "auto" || stored.language === "en" || stored.language === "zh-Hant" ? stored.language : defaults.language,
     fontSize: clampSetting("fontSize", stored.fontSize, defaults.fontSize),
     tabSize: clampSetting("tabSize", stored.tabSize, defaults.tabSize),
-    insertSpaces: typeof stored.insertSpaces === "boolean" ? stored.insertSpaces : defaults.insertSpaces,
-    wordWrap: typeof stored.wordWrap === "boolean" ? stored.wordWrap : defaults.wordWrap,
     sidebarWidth: clampSetting("sidebarWidth", stored.sidebarWidth, defaults.sidebarWidth),
     terminalHeight: clampSetting("terminalHeight", stored.terminalHeight, defaults.terminalHeight),
-    hideDotFiles: typeof stored.hideDotFiles === "boolean" ? stored.hideDotFiles : defaults.hideDotFiles,
-    groupGitIgnoredFiles: typeof stored.groupGitIgnoredFiles === "boolean" ? stored.groupGitIgnoredFiles : defaults.groupGitIgnoredFiles,
-    checkForUpdates: typeof stored.checkForUpdates === "boolean" ? stored.checkForUpdates : defaults.checkForUpdates,
     watcherExcludes: parseWatcherExcludes(stored.watcherExcludes, defaults.watcherExcludes),
   };
+  for (const name of booleanSettings) {
+    if (typeof stored[name] === "boolean") settings[name] = stored[name];
+  }
+  return settings;
 }
 
 export const SETTINGS_STORAGE_KEY = "pude-settings-v1";

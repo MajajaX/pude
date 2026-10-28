@@ -10,8 +10,12 @@ import { t } from "../lib/i18n";
 
 type ConfirmationRequest = { title: string; message: string; confirmLabel: string; cancelLabel: string; destructive?: boolean };
 
+export type ProjectSearchRequest = { id: number; mode: ProjectSearchOptions["mode"]; query?: string };
+
 export function ProjectSearch(props: {
   folders: string[];
+  /** Switch the search type, and optionally the query, from a shortcut such as Go to File. */
+  request?: ProjectSearchRequest;
   onOpen: (match: ProjectSearchMatch, options: ProjectSearchOptions) => Promise<void>;
   onConfirm: (request: ConfirmationRequest) => Promise<boolean>;
   /** Files with unsaved editor changes; replace never rewrites them. */
@@ -39,6 +43,15 @@ export function ProjectSearch(props: {
   let input!: HTMLInputElement;
   let replaceInput: HTMLInputElement | undefined;
   onMount(() => input.focus());
+
+  createEffect(() => {
+    const request = props.request;
+    if (!request) return;
+    setMode(request.mode);
+    if (request.mode === "files") setReplaceOpen(false);
+    if (request.query) setQuery(request.query);
+    queueMicrotask(() => { input.focus(); input.select(); });
+  });
 
   const resultCount = (result: ProjectSearchResults) => {
     const count = `${result.matches.length}${result.truncated ? "+" : ""}`;
