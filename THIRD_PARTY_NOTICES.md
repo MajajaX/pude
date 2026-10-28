@@ -20,6 +20,8 @@
 
 - 2026-10-22：新增介面字型 `@fontsource-variable/inter` 與 `@fontsource-variable/jetbrains-mono`（皆為 5.3.0，OFL-1.1），字型檔隨 desktop bundle 內建、不從網路載入。兩個 npm archive 與 `package-lock.json` SRI 相符，授權原文（含字型版權聲明與完整 SIL Open Font License 1.1）已收錄於完整授權清冊。
 
+- 2026-10-28 v0.1.7：新增直接依賴 `@codemirror/autocomplete` 6.20.4（用於自動補上括號與引號），`@codemirror/view` 更新為 6.43.15、Tauri 更新為 2.12.4、libc 更新為 0.2.191。四個 archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符，授權文件與前一版完全相同，已記錄於完整清冊。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -28,6 +30,7 @@
 
 | 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
+| `@codemirror/autocomplete` | 6.20.4 | MIT | [repository](https://code.haverbeke.berlin/codemirror/autocomplete) | desktop runtime |
 | `@codemirror/commands` | 6.11.1 | MIT | [repository](https://code.haverbeke.berlin/codemirror/commands) | desktop runtime |
 | `@codemirror/lang-cpp` | 6.0.3 | MIT | [repository](https://github.com/codemirror/lang-cpp) | desktop runtime |
 | `@codemirror/lang-css` | 6.3.1 | MIT | [repository](https://github.com/codemirror/lang-css) | desktop runtime |
@@ -46,7 +49,7 @@
 | `@codemirror/search` | 6.7.2 | MIT | [repository](https://code.haverbeke.berlin/codemirror/search) | desktop runtime |
 | `@codemirror/state` | 6.7.6 | MIT | [repository](https://code.haverbeke.berlin/codemirror/state) | desktop runtime |
 | `@codemirror/theme-one-dark` | 6.1.3 | MIT | [repository](https://github.com/codemirror/theme-one-dark) | desktop runtime |
-| `@codemirror/view` | 6.43.14 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
+| `@codemirror/view` | 6.43.15 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
 | `@fontsource-variable/inter` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled UI font) |
 | `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled code font) |
 | `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
@@ -63,12 +66,12 @@
 | --- | ---: | --- | --- | --- |
 | `@tauri-apps/cli` | 2.12.3 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
-| `fake-indexeddb` | 6.2.5 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
+| `fake-indexeddb` | 6.2.6 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
 | `@types/node` | 26.6.5 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
 | `typescript` | 7.0.2 | Apache-2.0 | [repository](https://github.com/microsoft/TypeScript) | desktop and web build |
 | `vite` | 8.3.4 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
 | `vite-plugin-solid` | 2.11.14 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
-| `vitest` | 5.0.4 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
+| `vitest` | 5.0.5 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
 
 ### npm 核對限制
 
@@ -80,11 +83,11 @@
 
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.3) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.4) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
-| `libc` | 0.2.190 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.190) · [repository](https://github.com/rust-lang/libc) | runtime |
+| `libc` | 0.2.191 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.191) · [repository](https://github.com/rust-lang/libc) | runtime |
 | `notify` | 8.2.0 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.0) · [repository](https://github.com/notify-rs/notify) | runtime |
 | `portable-pty` | 0.9.0 | MIT | [crates.io](https://crates.io/crates/portable-pty/0.9.0) · [repository](https://github.com/wezterm/wezterm) | runtime |
 | `reqwest` | 0.13.5 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/reqwest/0.13.5) · [repository](https://github.com/seanmonstar/reqwest) | runtime |
