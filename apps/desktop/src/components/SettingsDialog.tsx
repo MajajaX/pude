@@ -1,6 +1,6 @@
-import { onCleanup, onMount } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import { Icon } from "./Icons";
-import { clampSetting, parseWatcherExcludes } from "../lib/settings";
+import { clampSetting, defaultSettings, parseWatcherExcludes, settingRange, type NumericSetting } from "../lib/settings";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import type { AppSettings } from "../types";
 import "../styles/settings-dialog.css";
@@ -15,6 +15,17 @@ export function SettingsDialog(props: {
   let dialog: HTMLElement | undefined;
   let closeButton: HTMLButtonElement | undefined;
   let modalFocus: ModalFocusController | undefined;
+  const [confirmingReset, setConfirmingReset] = createSignal(false);
+
+  // Restoring keeps the interface language so the dialog stays readable.
+  const restoreDefaults = () => {
+    if (!confirmingReset()) {
+      setConfirmingReset(true);
+      return;
+    }
+    setConfirmingReset(false);
+    props.onChange({ ...defaultSettings, language: props.settings.language });
+  };
 
   const handleDialogKeyDown = (event: KeyboardEvent) => {
     if (!modalFocus?.isTopmost()) return;
@@ -70,6 +81,7 @@ export function SettingsDialog(props: {
         </header>
 
         <div class="settings-dialog-content">
+          <h3 class="settings-dialog-section">{t("Interface")}</h3>
           <label class="settings-dialog-row" for="settings-language">
             <span>{t("Language")}</span>
             <select
@@ -82,55 +94,37 @@ export function SettingsDialog(props: {
               <option value="zh-Hant">繁體中文</option>
             </select>
           </label>
-          <label class="settings-dialog-row" for="settings-font-size">
-            <span>{t("Font size")}</span>
-            <input
-              id="settings-font-size"
-              type="number"
-              min="11"
-              max="24"
-              value={props.settings.fontSize}
-              onInput={(event) => props.onChange({ fontSize: clampSetting("fontSize", event.currentTarget.value, props.settings.fontSize) })}
-            />
+          <label class="settings-dialog-row" for="settings-theme">
+            <span>{t("Theme")}</span>
+            <select
+              id="settings-theme"
+              value={props.settings.theme}
+              onChange={(event) => props.onChange({ theme: event.currentTarget.value as AppSettings["theme"] })}
+            >
+              <option value="dark">{t("Dark")}</option>
+              <option value="light">{t("Light")}</option>
+            </select>
           </label>
-          <label class="settings-dialog-row" for="settings-tab-size">
-            <span>{t("Tab size")}</span>
-            <input
-              id="settings-tab-size"
-              type="number"
-              min="1"
-              max="8"
-              value={props.settings.tabSize}
-              onInput={(event) => props.onChange({ tabSize: clampSetting("tabSize", event.currentTarget.value, props.settings.tabSize) })}
-            />
-          </label>
-          <label class="settings-dialog-toggle" for="settings-word-wrap">
-            <span>{t("Word wrap")}</span>
-            <input
-              id="settings-word-wrap"
-              type="checkbox"
-              checked={props.settings.wordWrap}
-              onChange={(event) => props.onChange({ wordWrap: event.currentTarget.checked })}
-            />
-          </label>
-          <label class="settings-dialog-toggle" for="settings-hide-dot-files">
-            <span>{t("Hide dot files in Explorer")}</span>
-            <input
-              id="settings-hide-dot-files"
-              type="checkbox"
-              checked={props.settings.hideDotFiles}
-              onChange={(event) => props.onChange({ hideDotFiles: event.currentTarget.checked })}
-            />
-          </label>
-          <label class="settings-dialog-toggle" for="settings-check-for-updates">
-            <span>{t("Check for updates on startup")}</span>
-            <input
-              id="settings-check-for-updates"
-              type="checkbox"
-              checked={props.settings.checkForUpdates}
-              onChange={(event) => props.onChange({ checkForUpdates: event.currentTarget.checked })}
-            />
-          </label>
+
+          <h3 class="settings-dialog-section">{t("Editor")}</h3>
+          <NumberRow name="fontSize" label={t("Font size")} settings={props.settings} onChange={props.onChange} />
+          <NumberRow name="tabSize" label={t("Tab size")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="insertSpaces" label={t("Indent with spaces")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="wordWrap" label={t("Word wrap")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="lineNumbers" label={t("Line numbers")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="showWhitespace" label={t("Show whitespace")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="autoCloseBrackets" label={t("Close brackets and quotes automatically")} settings={props.settings} onChange={props.onChange} />
+
+          <h3 class="settings-dialog-section">{t("Saving")}</h3>
+          <Toggle name="trimTrailingWhitespace" label={t("Trim trailing whitespace on save")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="insertFinalNewline" label={t("End files with a newline on save")} settings={props.settings} onChange={props.onChange} />
+
+          <h3 class="settings-dialog-section">{t("Explorer")}</h3>
+          <Toggle name="hideDotFiles" label={t("Hide dot files")} settings={props.settings} onChange={props.onChange} />
+          <Toggle name="groupGitIgnoredFiles" label={t("Group Git ignored files")} settings={props.settings} onChange={props.onChange} />
+
+          <h3 class="settings-dialog-section">{t("Updates")}</h3>
+          <Toggle name="checkForUpdates" label={t("Check for updates on startup")} settings={props.settings} onChange={props.onChange} />
           <div class="settings-dialog-block">
             <label for="settings-watcher-excludes">{t("Watcher excluded paths")}</label>
             <textarea
@@ -148,8 +142,55 @@ export function SettingsDialog(props: {
               {t("Skip change notifications for these paths to reduce background updates. One path per line; relative paths use the workspace, and folders include descendants. Open editor files remain watched.")}
             </small>
           </div>
+          <footer class="settings-dialog-footer">
+            <button type="button" class="settings-dialog-reset" onClick={restoreDefaults}>
+              {confirmingReset() ? t("Click again to restore defaults") : t("Restore defaults")}
+            </button>
+          </footer>
         </div>
       </section>
     </div>
+  );
+}
+
+type SettingProps<Name> = {
+  name: Name;
+  label: string;
+  settings: AppSettings;
+  onChange: (changes: Partial<AppSettings>) => void;
+};
+
+type BooleanSettingName = "insertSpaces" | "wordWrap" | "lineNumbers" | "showWhitespace" | "autoCloseBrackets" | "trimTrailingWhitespace" | "insertFinalNewline" | "hideDotFiles" | "groupGitIgnoredFiles" | "checkForUpdates";
+
+function Toggle(props: SettingProps<BooleanSettingName>) {
+  const id = `settings-${props.name}`;
+  return (
+    <label class="settings-dialog-toggle" for={id}>
+      <span>{props.label}</span>
+      <input id={id} type="checkbox" checked={props.settings[props.name]} onChange={(event) => props.onChange({ [props.name]: event.currentTarget.checked })} />
+    </label>
+  );
+}
+
+// The value is applied when the field is committed, so typing "16" never passes through 11.
+function NumberRow(props: SettingProps<Extract<NumericSetting, "fontSize" | "tabSize">>) {
+  const id = `settings-${props.name}`;
+  const range = settingRange(props.name);
+  return (
+    <label class="settings-dialog-row" for={id}>
+      <span>{props.label} <small class="settings-dialog-range">{range.min}–{range.max}</small></span>
+      <input
+        id={id}
+        type="number"
+        min={range.min}
+        max={range.max}
+        value={props.settings[props.name]}
+        onChange={(event) => {
+          const value = clampSetting(props.name, event.currentTarget.value, props.settings[props.name]);
+          event.currentTarget.value = String(value);
+          props.onChange({ [props.name]: value });
+        }}
+      />
+    </label>
   );
 }

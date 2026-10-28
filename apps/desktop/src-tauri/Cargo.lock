@@ -2116,9 +2116,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.190"
+version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
+checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
 
 [[package]]
 name = "libloading"
@@ -3940,9 +3940,9 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tauri"
-version = "2.12.3"
+version = "2.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c404ecf956ff241bf6b39dd688614724e1bf1f63255abb4fc46d1c40371672ea"
+checksum = "f316751027fc2644221d1a448564d519efb07067fda584879d9cda966391d212"
 dependencies = [
  "anyhow",
  "bytes",

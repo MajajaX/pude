@@ -74,6 +74,48 @@
   border-radius: 3px;
 }
 
+.settings-dialog-section {
+  margin: 14px 0 2px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.settings-dialog-section:first-child {
+  margin-top: 4px;
+}
+
+.settings-dialog-range {
+  margin-left: 6px;
+  color: var(--faint);
+  font: 11px var(--font-mono);
+}
+
+.settings-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.settings-dialog-reset {
+  padding: 6px 10px;
+  color: var(--muted);
+  font: 12px var(--font-ui);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.settings-dialog-reset:hover,
+.settings-dialog-reset:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  outline: none;
+}
+
 .settings-dialog-toggle input[type="checkbox"] {
   accent-color: var(--accent);
 }

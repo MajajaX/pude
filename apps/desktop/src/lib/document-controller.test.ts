@@ -71,6 +71,7 @@ const handle = (
     getSelection: () => undefined,
     getCursor: () => undefined,
     applyEdits: () => false,
+    formatForSave: () => false,
   };
 };
 

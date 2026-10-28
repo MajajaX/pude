@@ -2,6 +2,10 @@ import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, laz
 import type { TerminalOpenRequest } from "./components/TerminalPane";
 import type { ProjectSearchMatch, ProjectSearchOptions } from "./lib/project-search";
 import type { EditorDocumentChange, EditorSettings, GoToLineRequest, SearchRequest } from "./components/EditorPane";
+import type { EditorCommandName, EditorCommandRequest } from "./lib/editor-text-commands";
+import type { SearchMatchCount } from "./lib/search-match-count";
+import type { ProjectSearchRequest } from "./components/ProjectSearch";
+import type { TabMenuAction } from "./components/TabContextMenu";
 import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
 import { SidebarTabs, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/SidebarTabs";
 import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
@@ -9,7 +13,7 @@ import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
 import type { ProjectWorkspaceState } from "./lib/project-workspace";
 import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./lib/project-tabs";
-import { folderContaining, isWorkspaceFilePath, isWorkspaceRootEntry, makeWorkspaceRoot, watcherExcludesForFolders, workspaceFileName, workspaceLabel, workspaceRootFolders } from "./lib/workspace-folders";
+import { collapseSubfolders, folderContaining, isWorkspaceFilePath, isWorkspaceRootEntry, makeWorkspaceRoot, watcherExcludesForFolders, workspaceFileName, workspaceLabel, workspaceRootFolders } from "./lib/workspace-folders";
 import { WindowControls } from "./components/WindowControls";
 import { version as appVersion } from "../package.json";
 import { checkForUpdates, updateStatus } from "./lib/app-update";
@@ -25,13 +29,12 @@ import { pathComparisonKey, samePath as samePathIdentity, isSameOrDescendantPath
 import { utf8ByteLength, serializedDocumentByteLength } from "./lib/document-size";
 import { isImeComposing } from "./lib/keyboard-input";
 import { isMissingFileReadError } from "./lib/file-read-errors";
-import { sameEditorSettings } from "./lib/editor-settings";
+import { pickEditorSettings, sameEditorSettings } from "./lib/editor-settings";
 import { advanceOpenFolderChord, relativePathWithinRoot, type OpenFolderChordState } from "./lib/explorer-actions";
 import { deleteConfirmationMessage, trashLocationLabel } from "./lib/delete-confirmation";
 import { fileLanguageForPath, isImagePath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeLineEndingMap, sameTextMetadata } from "./lib/file-metadata";
 import { clampSetting, validateSettings } from "./lib/settings";
 import { allGitDirtyState, classifyGitChanges, emptyGitDirtyState, gitRefreshDelay, hasGitDirtyState, mergeGitDirtyState, type GitDirtyState } from "./lib/git-scheduler";
-import { BUILTIN_COMMANDS } from "./lib/builtin-commands";
 import type { CommandPaletteItem } from "./lib/plugin-activation";
 import { parseInstalledPlugin } from "./lib/plugin-manifest";
 import type { PluginApiV2Dependencies, PluginApiV2InstalledPlugin, PluginApiV2Permission } from "./lib/plugin-api-v2";
@@ -129,6 +132,7 @@ const LazyEditorPane = lazy(async () => {
   return { default: module.EditorPane };
 });
 const LazyProjectSearch = lazy(async () => ({ default: (await import("./components/ProjectSearch")).ProjectSearch }));
+const LazyTabContextMenu = lazy(async () => ({ default: (await import("./components/TabContextMenu")).TabContextMenu }));
 const LazyFileContextMenu = lazy(async () => ({ default: (await import("./components/FileContextMenu")).FileContextMenu }));
 const LazyExplorer = lazy(async () => ({ default: (await import("./components/Explorer")).Explorer }));
 const LazyRecentProjectsList = lazy(async () => ({ default: (await import("./components/RecentProjectsList")).RecentProjectsList }));
@@ -348,7 +352,7 @@ export default function App() {
   // at startup); the list upgrades reactively once the chunk arrives.
   const commandPaletteItems = createMemo(() => {
     const host = pluginHostModules();
-    return host ? host.collectCommandPaletteItems(plugins()) : BUILTIN_COMMANDS;
+    return host ? host.collectCommandPaletteItems(plugins()) : undefined;
   });
   const [diff, setDiff] = createSignal<DiffResult>();
   const [toast, setToast] = createSignal<string>();
@@ -357,6 +361,11 @@ export default function App() {
   const [search, setSearch] = createSignal<SearchRequest>({ query: "", replace: "", caseSensitive: false, regexp: false, wholeWord: false, action: null, actionId: 0 });
   const [searchActionTargetTabId, setSearchActionTargetTabId] = createSignal<string>();
   const [goToLine, setGoToLine] = createSignal<GoToLineRequest>();
+  const [editorCommand, setEditorCommand] = createSignal<EditorCommandRequest>();
+  const [searchMatches, setSearchMatches] = createSignal<SearchMatchCount>();
+  const [selection, setSelection] = createSignal<{ tabId: string; characters: number }>();
+  const [sidebarHidden, setSidebarHidden] = createSignal(false);
+  const [projectSearchRequest, setProjectSearchRequest] = createSignal<ProjectSearchRequest>();
   const [externalConflicts, setExternalConflicts] = createSignal<EditorTab[]>([]);
   const [settings, setSettings] = createSignal<AppSettings>(loadSettings());
   const [lastClosedTab, setLastClosedTab] = createSignal<EditorTab>();
@@ -757,7 +766,9 @@ export default function App() {
       && snapshot.revision === right[index]?.revision
       && snapshot.contentVersion === right[index]?.contentVersion);
   const updateSettings = (changes: Partial<AppSettings>) => setSettings((current) => ({ ...current, ...changes }));
-  const editorSettings = createMemo<EditorSettings>(() => ({ theme: settings().theme, fontSize: settings().fontSize, tabSize: settings().tabSize, insertSpaces: settings().insertSpaces, wordWrap: settings().wordWrap }), { theme: settings().theme, fontSize: settings().fontSize, tabSize: settings().tabSize, insertSpaces: settings().insertSpaces, wordWrap: settings().wordWrap }, { equals: sameEditorSettings });
+  const editorSettings = createMemo<EditorSettings>(() => pickEditorSettings(settings()), pickEditorSettings(settings()), { equals: sameEditorSettings });
+  const zoomEditor = (delta: number) => updateSettings({ fontSize: delta ? clampSetting("fontSize", settings().fontSize + delta, settings().fontSize) : defaultSettings.fontSize });
+  const toggleSetting = (name: "wordWrap" | "lineNumbers" | "showWhitespace") => updateSettings({ [name]: !settings()[name] });
   const getDocumentRevision = documentController.getRevision;
   let documentCacheTimer: number | undefined;
   let documentCacheWarningShown = false;
@@ -2904,6 +2915,8 @@ export default function App() {
 
   const saveTab = async (tab = activeTab()): Promise<boolean> => {
     if (!tab || tab.language === "Image") return false;
+    const { trimTrailingWhitespace, insertFinalNewline } = settings();
+    if (trimTrailingWhitespace || insertFinalNewline) documentController.getHandle(tab.id)?.formatForSave({ trimTrailingWhitespace, insertFinalNewline });
     const liveSnapshot = documentController.getHandle(tab.id)?.getSnapshot();
     const content = liveSnapshot?.content ?? normalizeDocumentContent(getDocumentText(tab));
     const lineEndings = liveSnapshot?.lineEndings ?? normalizeLineEndingMap(content, tab.lineEndings, tab.lineEnding);
@@ -3313,7 +3326,7 @@ export default function App() {
     const items = tabs();
     const index = items.findIndex((tab) => tab.id === id);
     const remaining = items.filter((tab) => tab.id !== id);
-    setLastClosedTab(closedSnapshot);
+    rememberClosedTab(closedSnapshot);
     setTabs(remaining);
     clearRecovery(id);
     documentController.release(id);
@@ -3343,15 +3356,25 @@ export default function App() {
     }
   };
 
+  // The most recent closed tab is saved with the session; older ones are kept for this run only.
+  const olderClosedTabs = new Map<string, EditorTab[]>();
+  const rememberClosedTab = (tab: EditorTab) => {
+    const previous = lastClosedTab();
+    const projectId = activeProjectId() ?? "";
+    if (previous) olderClosedTabs.set(projectId, [...(olderClosedTabs.get(projectId) ?? []), previous].slice(-9));
+    setLastClosedTab(tab);
+  };
+
   const reopenClosedTab = () => {
     const tab = lastClosedTab();
     if (!tab) return;
+    setLastClosedTab(olderClosedTabs.get(activeProjectId() ?? "")?.pop());
+    const open = tabs().find((item) => samePath(item.path, tab.path));
     markUserOpenedRestorePath(tab.path);
-    setTabs((items) => [...items, tab]);
-    if (tab.dirty) scheduleRecovery(tab.id);
+    if (!open) setTabs((items) => [...items, tab]);
+    if (!open && tab.dirty) scheduleRecovery(tab.id);
     markSessionDirty();
-    setActiveTab(tab.id);
-    setLastClosedTab(undefined);
+    setActiveTab(open?.id ?? tab.id);
     syncExternalWatchParents();
     setDiffReturnToHistory(false);
     setViewMode("editor");
@@ -3513,10 +3536,41 @@ export default function App() {
       setSearch((current) => ({ ...current, action: null }));
     }
   });
+  // Short single-line selections seed Find and project search, as in most editors.
+  const selectedSearchText = () => {
+    const id = activeTabId();
+    const text = id && viewMode() === "editor" ? documentController.getHandle(id)?.getSelection()?.text : undefined;
+    return text && !text.includes("\n") && text.length <= 200 ? text : undefined;
+  };
   const showFind = (replace = false) => {
+    const selected = selectedSearchText();
+    if (selected) updateSearch({ query: selected });
     setSearchOpen(true);
     setReplaceOpen(replace);
-    window.setTimeout(() => document.querySelector<HTMLInputElement>(".find-input")?.focus(), 0);
+    window.setTimeout(() => document.querySelector<HTMLInputElement>(".find-input")?.select(), 0);
+  };
+  const matchCountLabel = () => {
+    const count = searchMatches();
+    if (!count) return "";
+    if (count.invalid) return t("Invalid pattern");
+    if (!count.total) return t("No results");
+    const total = `${count.total}${count.capped ? "+" : ""}`;
+    return count.current ? t("{current} of {total}", { current: count.current, total }) : t("{total} found", { total });
+  };
+  const runEditorCommand = (command: EditorCommandName) => {
+    const tabId = activeTabId();
+    if (tabId && viewMode() === "editor" && !isMarkdownPreview()) setEditorCommand({ command, tabId, actionId: Date.now() });
+  };
+  const openProjectSearch = (mode: ProjectSearchRequest["mode"]) => {
+    if (!workspace()) return;
+    const query = mode === "content" ? selectedSearchText() : undefined;
+    setSidebarHidden(false);
+    setSidebarView("search");
+    setProjectSearchRequest({ id: Date.now(), mode, query });
+  };
+  const collapseExplorer = () => {
+    setRoot((current) => collapseSubfolders(current));
+    markSessionDirty();
   };
 
   const focusHistorySearch = () => {
@@ -3544,20 +3598,19 @@ export default function App() {
     if (!tabId || !tab) return;
     const generation = workspaceGeneration;
     const snapshot = captureTabOperation(tab);
-    const value = await requestInput({ title: t("Go to line"), label: t("Line number"), initialValue: "1", placeholder: "1", submitLabel: t("Go") });
+    const value = await requestInput({ title: t("Go to line"), label: t("Line number, optionally followed by :column"), initialValue: String(tab.cursorLine), placeholder: "12:5", submitLabel: t("Go") });
     if (value === null) return;
     if (generation !== workspaceGeneration || activeTabId() !== tabId || !tabOperationIsCurrent(snapshot) || confirmedOperationInProgress() || appQuitPrepared()) {
       notify(t("The active file changed while Go to line was open."));
       return;
     }
-    const requestedLine = Number(value);
-    if (!Number.isSafeInteger(requestedLine) || requestedLine < 1) {
+    const [line, column] = value.trim().split(/\s*[:,]\s*/).map(Number);
+    if (!Number.isSafeInteger(line) || line < 1 || column !== undefined && (!Number.isSafeInteger(column) || column < 1)) {
       notify(t("Enter a positive whole line number."));
       return;
     }
-    const lineCount = getDocumentText(tabById[tabId]!).split("\n").length;
-    const line = Math.min(requestedLine, Math.max(1, lineCount));
-    setGoToLine({ line, tabId, actionId: Date.now() });
+    // The editor clamps the line and column to the document.
+    setGoToLine({ line, column, tabId, actionId: Date.now() });
   };
 
   const renameOpenTabs = (from: string, to: string) => {
@@ -4176,6 +4229,28 @@ export default function App() {
       case "pude.builtin.replace": showFind(true); break;
       case "pude.builtin.toggleTerminal": toggleTerminal(); break;
       case "pude.builtin.managePlugins": setPluginsOpen(true); break;
+      case "pude.builtin.saveAll": void saveAll(); break;
+      case "pude.builtin.closeEditor": runTabMenuAction(activeTabId() ?? "", "close"); break;
+      case "pude.builtin.closeAllEditors": void closeAll(); break;
+      case "pude.builtin.reopenClosedTab": reopenClosedTab(); break;
+      case "pude.builtin.copyPath": runTabMenuAction(activeTabId() ?? "", "copy-path"); break;
+      case "pude.builtin.copyRelativePath": runTabMenuAction(activeTabId() ?? "", "copy-relative-path"); break;
+      case "pude.builtin.revealActiveFile": runTabMenuAction(activeTabId() ?? "", "reveal"); break;
+      case "pude.builtin.goToFile": openProjectSearch("files"); break;
+      case "pude.builtin.goToLine": void goToLineAction(); break;
+      case "pude.builtin.searchProject": openProjectSearch("content"); break;
+      case "pude.builtin.toggleSidebar": setSidebarHidden((hidden) => !hidden); break;
+      case "pude.builtin.collapseExplorer": collapseExplorer(); break;
+      case "pude.builtin.toggleWordWrap": toggleSetting("wordWrap"); break;
+      case "pude.builtin.toggleLineNumbers": toggleSetting("lineNumbers"); break;
+      case "pude.builtin.toggleWhitespace": toggleSetting("showWhitespace"); break;
+      case "pude.builtin.toggleTheme": updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" }); break;
+      case "pude.builtin.zoomIn": zoomEditor(1); break;
+      case "pude.builtin.zoomOut": zoomEditor(-1); break;
+      case "pude.builtin.resetZoom": zoomEditor(0); break;
+      case "pude.builtin.toggleMarkdownPreview": if (activeTab()?.language === "Markdown") setMarkdownPreviewEnabled((enabled) => !enabled); break;
+      case "pude.builtin.openSettings": setSettingsOpen(true); break;
+      default: if (command.id.startsWith("pude.builtin.editor.")) runEditorCommand(command.id.slice("pude.builtin.editor.".length) as EditorCommandName);
     }
   };
 
@@ -4777,8 +4852,13 @@ export default function App() {
     if (modifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === "f" && workspace()) {
       event.preventDefault();
       openFolderChord = null;
-      setSidebarView("search");
-      queueMicrotask(() => document.querySelector<HTMLInputElement>(".project-search-input input")?.focus());
+      openProjectSearch("content");
+      return;
+    }
+    if (modifier && !event.shiftKey && !event.altKey && event.key === ",") {
+      event.preventDefault();
+      openFolderChord = null;
+      setSettingsOpen(true);
       return;
     }
     if (historyViewActive() && modifier && !event.altKey) {
@@ -4803,6 +4883,7 @@ export default function App() {
       if (chord.action === "open") void loadWorkspace();
       return;
     }
+    if (!modifier && event.altKey && !event.shiftKey && event.code === "KeyZ") { event.preventDefault(); toggleSetting("wordWrap"); return; }
     if (!modifier) return;
     const key = event.key.toLowerCase();
     if (key === "s") { event.preventDefault(); void (event.shiftKey ? saveTabAs() : event.altKey ? saveAll() : saveTab()); }
@@ -4813,6 +4894,14 @@ export default function App() {
     if (key === "h" && !isMacPlatform() && !event.altKey) { event.preventDefault(); showFind(true); }
     if (key === "g") { event.preventDefault(); void goToLineAction(); }
     if (event.key === "Tab") { event.preventDefault(); cycleTab(event.shiftKey ? -1 : 1); }
+    if (event.altKey) return;
+    if (key === "t" && event.shiftKey) { event.preventDefault(); reopenClosedTab(); }
+    if (key === "b" && !event.shiftKey) { event.preventDefault(); setSidebarHidden((hidden) => !hidden); }
+    if (key === "p" && !event.shiftKey) { event.preventDefault(); openProjectSearch("files"); }
+    if (key === "v" && event.shiftKey && activeTab()?.language === "Markdown") { event.preventDefault(); setMarkdownPreviewEnabled((enabled) => !enabled); }
+    if (key === "=" || key === "+") { event.preventDefault(); zoomEditor(1); }
+    if (key === "-" && !event.shiftKey) { event.preventDefault(); zoomEditor(-1); }
+    if (key === "0" && !event.shiftKey) { event.preventDefault(); zoomEditor(0); }
   };
 
   const handleTerminalShortcut = (event: KeyboardEvent) => {
@@ -4902,7 +4991,7 @@ export default function App() {
     }
     if (requestGeneration !== workspaceGeneration || !tabOperationsAreCurrent(snapshots)) return;
     const remaining = tabs().filter((tab) => !ids.includes(tab.id));
-    targets.forEach((tab) => setLastClosedTab({ ...tab, content: getDocumentText(tab) }));
+    targets.forEach((tab) => rememberClosedTab({ ...tab, content: getDocumentText(tab) }));
     setTabs(remaining);
     for (const tab of targets) {
       clearRecovery(tab.id);
@@ -4915,10 +5004,29 @@ export default function App() {
     setTabMenu(undefined);
   };
 
-  const closeOthers = (id: string) => closeTabGroup(tabs().filter((tab) => tab.id !== id).map((tab) => tab.id));
+  // Group closes keep pinned tabs open; close a pinned tab on its own.
+  const closeUnpinned = (items: EditorTab[]) => closeTabGroup(items.filter((tab) => !tab.pinned).map((tab) => tab.id));
+  const closeOthers = (id: string) => closeUnpinned(tabs().filter((tab) => tab.id !== id));
   const closeToRight = (id: string) => {
     const index = tabs().findIndex((tab) => tab.id === id);
-    closeTabGroup(index < 0 ? [] : tabs().slice(index + 1).map((tab) => tab.id));
+    closeUnpinned(index < 0 ? [] : tabs().slice(index + 1));
+  };
+  const closeSaved = () => closeUnpinned(tabs().filter((tab) => !tab.dirty));
+  const closeAll = () => closeUnpinned(tabs());
+  const runTabMenuAction = (id: string, action: TabMenuAction) => {
+    const target = tabById[id];
+    closeTabMenu();
+    if (!target) return;
+    const entry: DirectoryEntry = { name: target.name, path: target.path, kind: "file" };
+    if (action === "pin") toggleTabPinned(id);
+    if (action === "save-as") void saveTabAs(target);
+    if (action === "close") void closeTab(id);
+    if (action === "close-others") void closeOthers(id);
+    if (action === "close-right") void closeToRight(id);
+    if (action === "close-saved") void closeSaved();
+    if (action === "close-all") void closeAll();
+    if (action === "copy-path" || action === "copy-relative-path") void copyEntryText(entry, action === "copy-relative-path" ? "relative-path" : "path");
+    if (action === "reveal") void openInFileExplorer(entry);
   };
 
   const reorderTab = (targetId: string) => {
@@ -4982,15 +5090,25 @@ export default function App() {
             <div class="topbar-menu-divider" />
             <TopbarMenuItem icon="save" label={t("Save")} shortcut={`${shortcutModifier()}+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTab(); })} />
             <TopbarMenuItem icon="save" label={t("Save As")} shortcut={`${shortcutModifier()}+Shift+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTabAs(); })} />
+            <TopbarMenuItem icon="save" label={t("Save All")} shortcut={`${shortcutModifier()}+${isMacPlatform() ? "Option" : "Alt"}+S`} onSelect={() => selectTopbarAction(() => void saveAll())} />
+            <div class="topbar-menu-divider" />
+            <TopbarMenuItem icon="arrow-up" label={t("Reopen closed tab")} shortcut={`${shortcutModifier()}+Shift+T`} onSelect={() => selectTopbarAction(reopenClosedTab)} />
+            <TopbarMenuItem icon="close" label={t("Close tab")} shortcut={`${shortcutModifier()}+W`} onSelect={() => selectTopbarAction(() => runTabMenuAction(activeTabId() ?? "", "close"))} />
           </TopbarMenu>
           <TopbarMenu label={t("Edit")} triggerRef={(element) => { editMenuTrigger = element; }} open={topbarMenu() === "edit"} onToggle={() => setTopbarMenu((current) => current === "edit" ? undefined : "edit")}>
           <TopbarMenuItem icon="search" label={t("Find")} shortcut={`${shortcutModifier()}+F`} onSelect={() => selectTopbarAction(findAction)} />
           <TopbarMenuItem icon="search" label={t("Replace")} shortcut={isMacPlatform() ? "Cmd+Option+F" : "Ctrl+H"} onSelect={() => selectTopbarAction(() => showFind(true))} />
+            <TopbarMenuItem icon="file" label={t("Go to file")} shortcut={`${shortcutModifier()}+P`} onSelect={() => selectTopbarAction(() => openProjectSearch("files"))} />
+            <TopbarMenuItem icon="arrow-down" label={t("Go to line")} shortcut={`${shortcutModifier()}+G`} onSelect={() => selectTopbarAction(() => void goToLineAction())} />
             <TopbarMenuItem icon="command" label={t("Commands")} shortcut={`${shortcutModifier()}+Shift+P`} onSelect={() => selectTopbarAction(() => setCommandPaletteOpen(true))} />
           </TopbarMenu>
           <TopbarMenu label={t("View")} triggerRef={(element) => { viewMenuTrigger = element; }} open={topbarMenu() === "view"} onToggle={() => setTopbarMenu((current) => current === "view" ? undefined : "view")}>
+            <TopbarMenuItem icon="split" label={sidebarHidden() ? t("Show sidebar") : t("Hide sidebar")} shortcut={`${shortcutModifier()}+B`} onSelect={() => selectTopbarAction(() => setSidebarHidden((hidden) => !hidden))} />
+            <TopbarMenuItem icon="terminal" label={t("Toggle terminal")} shortcut={`${shortcutModifier()}+\``} onSelect={() => selectTopbarAction(toggleTerminal)} />
+            <TopbarMenuItem icon="file" label={settings().wordWrap ? t("Turn off word wrap") : t("Turn on word wrap")} shortcut={isMacPlatform() ? "Option+Z" : "Alt+Z"} onSelect={() => selectTopbarAction(() => toggleSetting("wordWrap"))} />
+            <div class="topbar-menu-divider" />
             <TopbarMenuItem icon="plugin" label={t("Plugins")} onSelect={() => selectTopbarAction(() => setPluginsOpen(true))} />
-            <TopbarMenuItem icon="settings" label={t("Settings")} onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
+            <TopbarMenuItem icon="settings" label={t("Settings")} shortcut={`${shortcutModifier()}+,`} onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
           </TopbarMenu>
           <TopbarMenu label={t("Help")} open={topbarMenu() === "help"} triggerRef={(element) => { helpMenuTrigger = element; }} onToggle={() => setTopbarMenu((current) => current === "help" ? undefined : "help")}>
             <TopbarMenuItem icon="external" label={["available", "downloading", "ready"].includes(updateStatus().phase) ? t("About pude · Update available") : t("About pude")} onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
@@ -5013,7 +5131,7 @@ export default function App() {
         />
       </Show>
 
-      <div class="main-layout" id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
+      <div classList={{ "main-layout": true, "sidebar-hidden": sidebarHidden() }} id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
         <aside class="sidebar">
            <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /></div>
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
@@ -5032,7 +5150,7 @@ export default function App() {
                  </Show>
                  </div>
                }>
-                 <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button></div></div>
+                 <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button><button class="icon-button" onClick={collapseExplorer} title={t("Collapse folders")} aria-label={t("Collapse folders")}><Icon name="chevron-right" size={14} /></button></div></div>
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
                      <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
@@ -5047,7 +5165,7 @@ export default function App() {
            <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
              <Show when={sidebarView() === "search"}>
                  <Suspense fallback={<div aria-busy="true" aria-label={t("Loading project search")} />}>
-                   <LazyProjectSearch folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
+                   <LazyProjectSearch request={projectSearchRequest()} folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
                  </Suspense>
              </Show>
            </div>
@@ -5067,7 +5185,7 @@ export default function App() {
               <button class="icon-button tabbar-action" onClick={toggleTerminal} title={t("Toggle terminal")}><Icon name="terminal" size={14} /></button>
             </div>
           </div>
-           <Show when={tabMenu()}>{(menu) => <div class="tab-context-menu" style={{ left: `${menu().x}px`, top: `${menu().y}px` }} onClick={(event) => event.stopPropagation()}><button onClick={() => toggleTabPinned(menu().id)}><Icon name="lock" size={13} /> {tabById[menu().id]?.pinned ? t("Unpin") : t("Pin")}</button><Show when={tabById[menu().id]?.language !== "Image"}><button onClick={() => { const target = tabById[menu().id]; closeTabMenu(); if (target) void saveTabAs(target); }}><Icon name="save" size={13} /> {t("Save As…")}</button></Show><button onClick={() => { void closeTab(menu().id); closeTabMenu(); }}><Icon name="close" size={13} /> {t("Close")}</button><button onClick={() => { void closeOthers(menu().id); closeTabMenu(); }}><Icon name="split" size={13} /> {t("Close others")}</button><button onClick={() => { void closeToRight(menu().id); closeTabMenu(); }}><Icon name="arrow-down" size={13} /> {t("Close to right")}</button></div>}</Show>
+           <Show when={tabMenu()}>{(menu) => <LazyTabContextMenu x={menu().x} y={menu().y} pinned={tabById[menu().id]?.pinned === true} canSaveAs={tabById[menu().id]?.language !== "Image"} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")} onAction={(action) => runTabMenuAction(menu().id, action)} />}</Show>
            <Show when={fileMenu()}>{(menu) => <LazyFileContextMenu entry={menu().entry} x={menu().x} y={menu().y}
              showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
              onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
@@ -5075,11 +5193,12 @@ export default function App() {
              onCopy={(kind) => void copyEntryText(menu().entry, kind)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">
-              <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind("find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Find in file")} aria-label={t("Find in file")} /><Show when={search().query}><span class="find-count">{t("local")}</span></Show></div>
-              <Show when={replaceOpen()}><input ref={(element) => { replaceInputRef = element; }} class="replace-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().replace} onInput={(event) => updateSearch({ replace: event.currentTarget.value })} placeholder={t("Replace")} aria-label={t("Replace")} /></Show>
+              <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind(event.shiftKey ? "findPrevious" : "find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Find in file")} aria-label={t("Find in file")} /><Show when={search().query}><span class="find-count" aria-live="polite">{matchCountLabel()}</span></Show></div>
+              <Show when={replaceOpen()}><input ref={(element) => { replaceInputRef = element; }} class="replace-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().replace} onInput={(event) => updateSearch({ replace: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind(event.metaKey || event.ctrlKey ? "replaceAll" : "replace"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Replace")} aria-label={t("Replace")} /></Show>
               <button classList={{ "find-option": true, "find-option-active": search().caseSensitive }} onClick={() => updateSearch({ caseSensitive: !search().caseSensitive })} title={t("Match case")} aria-label={t("Match case")} aria-pressed={search().caseSensitive}>Aa</button>
               <button classList={{ "find-option": true, "find-option-active": search().wholeWord }} onClick={() => updateSearch({ wholeWord: !search().wholeWord })} title={t("Match whole word")} aria-label={t("Match whole word")} aria-pressed={search().wholeWord}>ab</button>
               <button classList={{ "find-option": true, "find-option-active": search().regexp }} onClick={() => updateSearch({ regexp: !search().regexp })} title={t("Use regular expression")} aria-label={t("Use regular expression")} aria-pressed={search().regexp}>.*</button>
+              <button class="find-action" onClick={() => requestFind("findPrevious")} title={t("Find previous (Shift+Enter)")} aria-label={t("Find previous")}><Icon name="arrow-up" size={14} /></button>
               <button class="find-action" onClick={() => requestFind("find")} title={t("Find next (Enter)")} aria-label={t("Find next")}><Icon name="arrow-down" size={14} /></button>
               <Show when={replaceOpen()}><button class="find-action" onClick={() => requestFind("replace")} title={t("Replace next match")} aria-label={t("Replace next match")}><Icon name="replace" size={14} /></button><button class="find-action" onClick={() => requestFind("replaceAll")} title={t("Replace all matches in this file")} aria-label={t("Replace all matches in this file")}><span class="replace-all-label">{t("All")}</span></button></Show>
               <button class="find-action" onClick={() => setSearchOpen(false)} title={t("Close find (Escape)")} aria-label={t("Close find")}><Icon name="close" size={14} /></button>
@@ -5088,7 +5207,7 @@ export default function App() {
           <div class="editor-stage">
             <div class="editor-document-panel" role="tabpanel" id={WORKBENCH_EDITOR_PANEL_ID} aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined} aria-label={!activeTabId() ? t("Editor") : undefined} hidden={viewMode() === "history"}>
             <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>{(tab) => <div classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() }}>
-              <LazyEditorPane tab={tab()} openTabIds={allLoadedTabs().map((tab) => tab.id)} settings={editorSettings()} searchQuery={search().query} searchReplace={search().replace} searchCaseSensitive={search().caseSensitive} searchRegexp={search().regexp} searchWholeWord={search().wholeWord} searchAction={search().action} searchActionId={search().actionId} searchActionTargetTabId={searchActionTargetTabId()} onSearchActionConsumed={acknowledgeSearchAction} getCachedDocument={documentController.getCachedDocument} goToLine={goToLine()} onFontSizeChange={(fontSize) => updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })} onDocumentChange={handleDocumentChange} onCursorChange={(tabId, line, column) => { updateTab(tabId, { cursorLine: line, cursorColumn: column }); scheduleCursorPersistence(); }} onRegisterDocument={registerDocument} onUnregisterDocument={unregisterDocument} />
+              <LazyEditorPane tab={tab()} openTabIds={allLoadedTabs().map((tab) => tab.id)} settings={editorSettings()} searchQuery={search().query} searchReplace={search().replace} searchCaseSensitive={search().caseSensitive} searchRegexp={search().regexp} searchWholeWord={search().wholeWord} searchAction={search().action} searchActionId={search().actionId} searchActionTargetTabId={searchActionTargetTabId()} onSearchActionConsumed={acknowledgeSearchAction} getCachedDocument={documentController.getCachedDocument} goToLine={goToLine()} editorCommand={editorCommand()} countSearchMatches={searchOpen()} onSearchMatchesChange={setSearchMatches} onFontSizeChange={(fontSize) => updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })} onDocumentChange={handleDocumentChange} onCursorChange={(tabId, line, column, characters) => { updateTab(tabId, { cursorLine: line, cursorColumn: column }); setSelection({ tabId, characters }); scheduleCursorPersistence(); }} onRegisterDocument={registerDocument} onUnregisterDocument={unregisterDocument} />
             </div>}</Show>
 
             <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? t("Back to history") : undefined} onBack={() => void returnToDiffFile()} />}</Show>
@@ -5122,8 +5241,8 @@ export default function App() {
         <div class="status-right">
           <Show when={statusTab()} fallback={<span>{t("Ready")}</span>}>{(tab) =>
             <Show when={tab().language === "Image"} fallback={<>
-              <span>{t("Ln {line}, Col {column}", { line: tab().cursorLine, column: tab().cursorColumn })}</span>
-              <span>{t("Spaces: {size}", { size: settings().tabSize })}</span>
+              <span><button class="status-button" onClick={() => void goToLineAction()} title={t("Go to line")}>{t("Ln {line}, Col {column}", { line: tab().cursorLine, column: tab().cursorColumn })}{selection()?.tabId === tab().id && selection()!.characters ? t(" ({count} selected)", { count: selection()!.characters }) : ""}</button></span>
+              <span>{settings().insertSpaces ? t("Spaces: {size}", { size: settings().tabSize }) : t("Tab Size: {size}", { size: settings().tabSize })}</span>
               <span>{tab().encoding}</span><span>{tab().lineEnding.toUpperCase()}</span><span>{tab().language}</span>
             </>}><span>{t("Image preview")}</span><span>{tab().name}</span></Show>
           }</Show>
@@ -5131,7 +5250,7 @@ export default function App() {
         </div>
       </footer>
       <Show when={toast()}><div class="toast" role="status"><Icon name="check" size={14} />{toast()}</div></Show>
-      <Show when={commandPaletteOpen()}><LazyCommandPalette commands={commandPaletteItems()} onRun={runPaletteCommand} onClose={() => setCommandPaletteOpen(false)} returnFocus={() => editMenuTrigger} /></Show>
+      <Show when={commandPaletteOpen()}><LazyCommandPalette mac={isMacPlatform()} commands={commandPaletteItems()} onRun={runPaletteCommand} onClose={() => setCommandPaletteOpen(false)} returnFocus={() => editMenuTrigger} /></Show>
       <Show when={activePluginQuickPick()}>{(request) => (
         <LazyPluginQuickPickDialog
           title={request().title}

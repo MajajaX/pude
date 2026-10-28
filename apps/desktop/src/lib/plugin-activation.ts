@@ -16,6 +16,8 @@ export type CommandPaletteItem = {
   detail?: string;
   pluginId?: string;
   commandId?: string;
+  /** Keyboard shortcut with `Mod` for Cmd on macOS and Ctrl elsewhere. */
+  shortcut?: string;
 };
 
 export const LSP_RUNTIME_EVENTS = ["lsp.message", "lsp.state", "lsp.stderr"] as const;

@@ -60,7 +60,7 @@ const en = {
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "Tabs, pinning, find and replace, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
+        desc: "Tabs, pinning, find and replace with a match count, bracket matching and folding, plus .env highlighting. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
       },
       {
         k: "git",
@@ -234,12 +234,16 @@ const en = {
       { keys: ["⌘", "K", "⌘", "O"], label: "Open folder" },
       { keys: ["⌘", "F"], label: "Find" },
       { keys: ["⌘", "⇧", "F"], label: "Search project" },
+      { keys: ["⌘", "P"], label: "Go to file" },
       { keys: ["⌘", "⌥", "F"], label: "Replace" },
       { keys: ["⌘", "G"], label: "Go to line" },
       { keys: ["⌘", "W"], label: "Close tab" },
       { keys: ["⌃", "⇥"], label: "Next tab" },
       { keys: ["⌘", "`"], label: "Terminal" },
       { keys: ["⌘", "⇧", "P"], label: "Commands" },
+      { keys: ["⌘", "⇧", "T"], label: "Reopen tab" },
+      { keys: ["⌘", "B"], label: "Sidebar" },
+      { keys: ["⌘", ","], label: "Settings" },
     ],
   },
   cta: {
@@ -335,7 +339,7 @@ const zhHant: Dict = {
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "支援分頁、釘選、尋找與取代，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
+        desc: "支援分頁、釘選、顯示符合數量的尋找與取代、括號配對與程式碼摺疊，以及 .env 語法高亮。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
       },
       {
         k: "git",
@@ -509,12 +513,16 @@ const zhHant: Dict = {
       { keys: ["⌘", "K", "⌘", "O"], label: "開啟資料夾" },
       { keys: ["⌘", "F"], label: "尋找" },
       { keys: ["⌘", "⇧", "F"], label: "專案搜尋" },
+      { keys: ["⌘", "P"], label: "跳至檔案" },
       { keys: ["⌘", "⌥", "F"], label: "取代" },
       { keys: ["⌘", "G"], label: "跳至行號" },
       { keys: ["⌘", "W"], label: "關閉分頁" },
       { keys: ["⌃", "⇥"], label: "下一個分頁" },
       { keys: ["⌘", "`"], label: "終端機" },
       { keys: ["⌘", "⇧", "P"], label: "命令面板" },
+      { keys: ["⌘", "⇧", "T"], label: "重新開啟分頁" },
+      { keys: ["⌘", "B"], label: "側邊欄" },
+      { keys: ["⌘", ","], label: "設定" },
     ],
   },
   cta: {
