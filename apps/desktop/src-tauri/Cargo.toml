@@ -28,7 +28,7 @@ tauri = { version = "=2.12.4", default-features = false, features = ["wry", "com
 tauri-plugin-single-instance = "=2.5.4"
 tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 cap-std = "=4.0.3"
-libc = "=0.2.190"
+libc = "=0.2.191"
 memchr = "=2.8.3"
 notify = "=8.2.0"
 portable-pty = "=0.9.0"
