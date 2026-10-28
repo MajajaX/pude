@@ -33,6 +33,7 @@ export type ProjectWorkspaceState = {
   searchOpen: boolean;
   replaceOpen: boolean;
   markdownPreviewEnabled?: boolean;
+  envTableEnabled?: boolean;
   gitIgnoredExpanded?: boolean;
   lastClosedTab?: EditorTab;
   terminalOpen: boolean;

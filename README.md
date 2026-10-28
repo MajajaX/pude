@@ -65,6 +65,8 @@ permission).
   replace with a match count, bracket matching, auto-closing brackets, code folding,
   multiple selections, pinned tabs, Save As and a wide, readable Markdown
   source/preview toggle. Optional trim-trailing-whitespace and final-newline on save.
+  `.env` files also open as a table of names and values with copy buttons for a name,
+  a value or a whole line.
 - **Command palette** — `⌘⇧P` / `Ctrl+Shift+P` lists 40+ commands with their shortcuts,
   such as sort lines, change case, toggle word wrap and go to file (`⌘P` / `Ctrl+P`),
   with recently used commands first.

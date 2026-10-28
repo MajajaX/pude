@@ -142,6 +142,7 @@ test("dotenv files highlight assignments, values and comments in both themes", a
   await page.getByRole("textbox", { name: "File name", exact: true }).fill(".env.local");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.getByRole("treeitem", { name: ".env.local", exact: true }).getByRole("button", { name: ".env.local", exact: true }).click();
+  await page.getByRole("button", { name: "Show .env source", exact: true }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
   await page.keyboard.insertText('# Local configuration\nexport APP_NAME="pude"\nPORT=5173\nAPI_URL=${BASE_URL}/api');
@@ -157,6 +158,32 @@ test("dotenv files highlight assignments, values and comments in both themes", a
     expect(colors.tokens.every((color) => color !== colors.base)).toBe(true);
   }
   await page.screenshot({ path: "/tmp/pude-qa/dotenv-light.png" });
+});
+
+test("dotenv table adds, skips blank and edits variables in the source", async ({ page }) => {
+  await openProject(page);
+  await page.getByRole("button", { name: "New file", exact: true }).click();
+  await page.getByRole("textbox", { name: "File name", exact: true }).fill(".env.test");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("treeitem", { name: ".env.test", exact: true }).getByRole("button", { name: ".env.test", exact: true }).click();
+  const table = page.locator(".env-table");
+  await expect(table).toContainText("No variables yet.");
+
+  const addVariable = table.getByRole("button", { name: "Add variable", exact: true });
+  await addVariable.click();
+  await expect(table.getByRole("textbox", { name: "Variable name", exact: true })).toBeFocused();
+  await table.locator(".env-count").click();
+  await expect(table).toContainText("No variables yet.");
+
+  await addVariable.click();
+  await table.getByRole("textbox", { name: "Variable name", exact: true }).fill("API KEY");
+  await table.getByRole("textbox", { name: "Value", exact: true }).fill("secret");
+  await table.locator(".env-count").click();
+  await expect(table.locator(".env-count")).toHaveText("1 variable");
+  await table.getByRole("textbox", { name: "Value of APIKEY", exact: true }).fill("two words ");
+
+  await page.getByRole("button", { name: "Show .env source", exact: true }).click();
+  await expect(page.locator(".cm-content")).toHaveText('APIKEY="two words "');
 });
 
 test("Markdown preview uses available width and readable text in both themes", async ({ page }) => {

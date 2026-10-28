@@ -192,6 +192,20 @@ coverage and no published installer yet.
 - `.env` and `.env.*` files use shell syntax highlighting for variable assignments,
   quoted strings, numbers, expansions and comments. The status bar labels them **Dotenv**;
   they follow the same large-file parsing limits as other languages.
+- `.env` and `.env.*` files open in a table view: each variable has its own name and
+  value field, and comment lines show as section labels. Beside each field a copy
+  button copies the name or the value (without quotes), and **Line** copies the
+  `NAME=value` text as written in the file, without `export` or a trailing comment.
+  **Add variable** opens an empty row at the end; it is written to the file when focus
+  leaves the row, and discarded if both fields are still blank. The trash button
+  deletes a variable's lines. Names that appear more than once are marked **Duplicate**.
+- Table edits change the same document as the source editor, so undo, dirty state,
+  saving and recovery work as usual. Only the edited name or value changes; quotes,
+  `export`, spacing and comments stay. A value that needs quoting (leading or
+  trailing spaces, ` #`, a leading quote or a line break) is written in double quotes.
+- The lower-right **Source / Table** control switches views. The choice follows
+  `.env` files in that project. Search results and **Go to line** switch to source.
+  The table is off in large-file mode and for files over 512 KiB.
 - Markdown starts in source mode. The lower-right **Source / Preview** control
   switches the project's Markdown files to a rendered view. The choice follows
   Markdown files in that project, including after switching file types or diffs.

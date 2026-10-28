@@ -45,6 +45,14 @@ const demoFileSeeds: Record<string, Omit<ReadFileResult, "lineEndings" | "bom" |
     modifiedAt: Date.now(),
     size: 118,
   },
+  "pude-demo/.env": {
+    path: "pude-demo/.env",
+    content: `# App\nAPP_NAME=pude-demo\nAPP_URL=http://localhost:5173\n\n# Database\nDATABASE_URL="postgres://demo:demo@localhost:5432/pude"\nexport API_TOKEN='demo-token-123' # not a real token\n`,
+    encoding: "utf-8",
+    lineEnding: "lf",
+    modifiedAt: Date.now(),
+    size: 176,
+  },
 };
 
 export const demoFiles: Record<string, ReadFileResult> = Object.fromEntries(Object.entries(demoFileSeeds).map(([path, file]) => [path, {
@@ -83,6 +91,7 @@ export const demoTree: DirectoryEntry = {
       loaded: true,
       children: [{ name: "pude-logo.webp", path: "pude-demo/assets/pude-logo.webp", kind: "file" }],
     },
+    { name: ".env", path: "pude-demo/.env", kind: "file", size: 176 },
     { name: "README.md", path: "pude-demo/README.md", kind: "file", size: 155 },
     { name: "package.json", path: "pude-demo/package.json", kind: "file", size: 118 },
   ],

@@ -36,6 +36,10 @@ All notable changes to `pude` are recorded here. The format follows
   **Ln, Col** status item. The status bar shows how many characters are selected.
 - Explorer's right-click menu has **Copy Name**, which copies the file or folder
   name.
+- `.env` files open as a table with a name and value field for each variable and
+  copy buttons for the name, the value or the whole `NAME=value` line. Add, rename,
+  edit and delete variables there; the lower-right **Source / Table** button switches
+  back to the text editor.
 
 ### Changed
 
