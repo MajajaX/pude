@@ -6,6 +6,8 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-28
+
 ### Added
 
 - Editing aids: active line, matching bracket and selection-match highlighting,

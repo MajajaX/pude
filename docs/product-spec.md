@@ -1,6 +1,6 @@
 # pude product specification
 
-Implemented behavior for **0.1.6** and the unreleased changes listed in the changelog. Update this specification in the same change as
+Implemented behavior for **0.1.7** and the unreleased changes listed in the changelog. Update this specification in the same change as
 a feature or behavior change, together with the changelog, README and applicable
 English and Traditional Chinese website copy. User instructions live at
 [pude.dev/docs](https://pude.dev/docs) and [pude.dev/zh/docs](https://pude.dev/zh/docs).
