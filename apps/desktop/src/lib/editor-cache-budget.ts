@@ -1,3 +1,4 @@
+import { EDITOR_SETTING_KEYS } from "./editor-settings";
 import type { LineEndingMap } from "./line-ending-state";
 
 export const EDITOR_CACHE_MAX_STATES = 24;
@@ -45,6 +46,9 @@ export type EditorSettingsSnapshot = {
   tabSize: number;
   insertSpaces: boolean;
   wordWrap: boolean;
+  lineNumbers: boolean;
+  showWhitespace: boolean;
+  autoCloseBrackets: boolean;
 };
 
 export type EditorSettingsChange = keyof EditorSettingsSnapshot;
@@ -53,15 +57,7 @@ export function changedEditorSettings(
   previous: EditorSettingsSnapshot | undefined,
   next: EditorSettingsSnapshot,
 ): EditorSettingsChange[] {
-  if (!previous) return ["theme", "fontSize", "tabSize", "insertSpaces", "wordWrap"];
-
-  const changed: EditorSettingsChange[] = [];
-  if (previous.theme !== next.theme) changed.push("theme");
-  if (previous.fontSize !== next.fontSize) changed.push("fontSize");
-  if (previous.tabSize !== next.tabSize) changed.push("tabSize");
-  if (previous.insertSpaces !== next.insertSpaces) changed.push("insertSpaces");
-  if (previous.wordWrap !== next.wordWrap) changed.push("wordWrap");
-  return changed;
+  return EDITOR_SETTING_KEYS.filter((name) => !previous || previous[name] !== next[name]);
 }
 
 export type EditorCacheEntry = {

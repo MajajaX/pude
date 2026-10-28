@@ -61,9 +61,15 @@ permission).
   lists recent folders and recent workspaces separately; right-click pude in the
   macOS Dock or the Windows taskbar for a new window or a recent item, which opens as
   a new tab in the window you used last.
-- **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and replace, pinned tabs,
-  Save As and a wide, readable Markdown source/preview toggle. `.env` files also open
-  as a table of names and values with copy buttons for a name, a value or a whole line.
+- **Editor** — CodeMirror 6 with syntax highlighting including `.env` / `.env.*`, find and
+  replace with a match count, bracket matching, auto-closing brackets, code folding,
+  multiple selections, pinned tabs, Save As and a wide, readable Markdown
+  source/preview toggle. Optional trim-trailing-whitespace and final-newline on save.
+  `.env` files also open as a table of names and values with copy buttons for a name,
+  a value or a whole line.
+- **Command palette** — `⌘⇧P` / `Ctrl+Shift+P` lists 40+ commands with their shortcuts,
+  such as sort lines, change case, toggle word wrap and go to file (`⌘P` / `Ctrl+P`),
+  with recently used commands first.
 - **Readable interface** — bundled open-source Inter and JetBrains Mono fonts,
   larger interface text and high-contrast labels in both dark and light themes, in
   English or Traditional Chinese (**Settings > Language**, follows the system by

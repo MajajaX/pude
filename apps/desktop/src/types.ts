@@ -284,6 +284,11 @@ export type AppSettings = {
   tabSize: number;
   insertSpaces: boolean;
   wordWrap: boolean;
+  lineNumbers: boolean;
+  showWhitespace: boolean;
+  autoCloseBrackets: boolean;
+  trimTrailingWhitespace: boolean;
+  insertFinalNewline: boolean;
   sidebarWidth: number;
   terminalHeight: number;
   hideDotFiles: boolean;
