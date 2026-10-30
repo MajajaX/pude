@@ -52,6 +52,10 @@ pude, then reproduce the launch and memory numbers on your Mac with
 `node scripts/benchmark/compare-vscode.mjs` (the terminal needs the Screen Recording
 permission).
 
+These numbers were measured with pude 0.1.2. Later releases are larger: the 0.1.7
+installers are 5.6 MB (macOS) and 4.3 MB (Windows), per the GitHub release assets.
+Launch time, memory and size on disk have not been re-measured since 0.1.2.
+
 ## Features
 
 - **Project tabs** — open several folders in one window. Each project keeps its own
@@ -92,7 +96,11 @@ permission).
   parent directory. Drag the panel's top edge to resize it; the height is remembered.
   Ctrl+C interrupts the running program, such as a dev server, and returns to the
   prompt in the same shell, as in the operating system's own terminal. Windows uses
-  PowerShell 7 when installed, otherwise Windows PowerShell.
+  PowerShell 7 when installed, otherwise Windows PowerShell. A project's Python
+  virtual environment (`.venv`, `venv` or `env`) is not activated automatically, since
+  a cloned repository could put its own executables first on `PATH`: the terminal
+  says it found one, and **Terminal: Trust Python Environment** in the command
+  palette activates it for that folder from then on.
 - **Plugins** — install local plugins with permission review. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).

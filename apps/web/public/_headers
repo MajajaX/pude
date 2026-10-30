@@ -1,4 +1,8 @@
+# Cloudflare applies every rule whose path matches, so /* holds the security headers
+# and the narrower rules below only add caching.
 /*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-VmEf2BGdqVUwcvyhTyarJo/bY7DNqS2+T2sz4IO/kbw='; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -7,3 +11,13 @@
 # Vite fingerprints everything under /assets, so it can be cached forever.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# These files keep their names between releases: revalidate daily, serve stale meanwhile.
+/shots/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/og-image.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/pude-favicon.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+/pude-logo.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800

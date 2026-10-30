@@ -1,6 +1,6 @@
 import { locale, type Locale } from "./i18n-runtime";
 import { HOME_COPY } from "./site";
-import { BENCHMARK, formatSeconds, type SizeKey } from "./benchmark";
+import { BENCHMARK, formatSeconds, LATER_RELEASE, type SizeKey } from "./benchmark";
 
 export { locale, localeHref } from "./i18n-runtime";
 export type { Locale } from "./i18n-runtime";
@@ -196,7 +196,7 @@ const en = {
       ready: "Launch until ready",
       times: (ratio: string) => `${ratio}×`,
     },
-    method: `pude ${BENCHMARK.pudeVersion} and Visual Studio Code ${BENCHMARK.vscodeVersion}, measured on ${BENCHMARK.date} on ${BENCHMARK.machine}. Both open the pude repository; VS Code uses a fresh profile with no extensions added. Installer sizes are the official downloads. Launch time runs until the window stops changing and memory is the physical footprint of the app and all its helper processes 15 seconds after launch, each the median of ${BENCHMARK.runs} runs. Reproduce it with scripts/benchmark/compare-vscode.mjs.`,
+    method: `pude ${BENCHMARK.pudeVersion} and Visual Studio Code ${BENCHMARK.vscodeVersion}, measured on ${BENCHMARK.date} on ${BENCHMARK.machine}. Both open the pude repository; VS Code uses a fresh profile with no extensions added. Installer sizes are the official downloads. Launch time runs until the window stops changing and memory is the physical footprint of the app and all its helper processes 15 seconds after launch, each the median of ${BENCHMARK.runs} runs. Reproduce it with scripts/benchmark/compare-vscode.mjs. These figures are for pude ${BENCHMARK.pudeVersion}: newer releases are larger, with the ${LATER_RELEASE.version} installers at ${LATER_RELEASE.installerMacos} MB (macOS) and ${LATER_RELEASE.installerWindows} MB (Windows), and launch time, memory and size on disk have not been re-measured.`,
   },
   languages: {
     eyebrow: "Syntax",
@@ -226,7 +226,7 @@ const en = {
   shortcuts: {
     eyebrow: "Keyboard-first",
     title: "Your hands never leave the keys.",
-    sub: "A small, memorable set covers the whole daily flow. On Windows, use Ctrl in place of ⌘ — Replace is Ctrl H.",
+    sub: "A small, memorable set covers the whole daily flow. On Windows, use Ctrl in place of ⌘ and Alt in place of ⌥ — Replace is Ctrl H.",
     items: [
       { keys: ["⌘", "S"], label: "Save" },
       { keys: ["⌘", "⇧", "S"], label: "Save as" },
@@ -237,12 +237,16 @@ const en = {
       { keys: ["⌘", "P"], label: "Go to file" },
       { keys: ["⌘", "⌥", "F"], label: "Replace" },
       { keys: ["⌘", "G"], label: "Go to line" },
+      { keys: ["⌘", "D"], label: "Add next match" },
+      { keys: ["⌘", "⇧", "L"], label: "Select all matches" },
       { keys: ["⌘", "W"], label: "Close tab" },
       { keys: ["⌃", "⇥"], label: "Next tab" },
       { keys: ["⌘", "`"], label: "Terminal" },
       { keys: ["⌘", "⇧", "P"], label: "Commands" },
       { keys: ["⌘", "⇧", "T"], label: "Reopen tab" },
       { keys: ["⌘", "B"], label: "Sidebar" },
+      { keys: ["⌥", "Z"], label: "Word wrap" },
+      { keys: ["⌘", "⇧", "V"], label: "Markdown preview" },
       { keys: ["⌘", ","], label: "Settings" },
     ],
   },
@@ -475,7 +479,7 @@ const zhHant: Dict = {
       ready: "從啟動到可用",
       times: (ratio) => `${ratio} 倍`,
     },
-    method: `pude ${BENCHMARK.pudeVersion} 與 Visual Studio Code ${BENCHMARK.vscodeVersion}，${BENCHMARK.date} 於 ${BENCHMARK.machine} 實測。兩者都開啟 pude 原始碼資料夾；VS Code 使用全新設定檔、未額外安裝擴充套件。安裝檔大小取自官方下載。啟動時間計算到視窗畫面不再變化為止；記憶體為啟動 15 秒後，程式與所有輔助程序的實體記憶體佔用（physical footprint）總和。兩者皆取 ${BENCHMARK.runs} 次的中位數。可用 scripts/benchmark/compare-vscode.mjs 重現。`,
+    method: `pude ${BENCHMARK.pudeVersion} 與 Visual Studio Code ${BENCHMARK.vscodeVersion}，${BENCHMARK.date} 於 ${BENCHMARK.machine} 實測。兩者都開啟 pude 原始碼資料夾；VS Code 使用全新設定檔、未額外安裝擴充套件。安裝檔大小取自官方下載。啟動時間計算到視窗畫面不再變化為止；記憶體為啟動 15 秒後，程式與所有輔助程序的實體記憶體佔用（physical footprint）總和。兩者皆取 ${BENCHMARK.runs} 次的中位數。可用 scripts/benchmark/compare-vscode.mjs 重現。以上數字為 pude ${BENCHMARK.pudeVersion} 的實測：較新的版本檔案較大，${LATER_RELEASE.version} 的安裝檔為 ${LATER_RELEASE.installerMacos} MB（macOS）與 ${LATER_RELEASE.installerWindows} MB（Windows），啟動時間、記憶體與磁碟用量尚未重新量測。`,
   },
   languages: {
     eyebrow: "語法突顯",
@@ -505,7 +509,7 @@ const zhHant: Dict = {
   shortcuts: {
     eyebrow: "鍵盤優先",
     title: "雙手不必離開鍵盤。",
-    sub: "一小組好記的快捷鍵，涵蓋每天的完整流程。Windows 請以 Ctrl 取代 ⌘，取代功能為 Ctrl H。",
+    sub: "一小組好記的快捷鍵，涵蓋每天的完整流程。Windows 請以 Ctrl 取代 ⌘、以 Alt 取代 ⌥，取代功能為 Ctrl H。",
     items: [
       { keys: ["⌘", "S"], label: "儲存" },
       { keys: ["⌘", "⇧", "S"], label: "另存新檔" },
@@ -516,12 +520,16 @@ const zhHant: Dict = {
       { keys: ["⌘", "P"], label: "跳至檔案" },
       { keys: ["⌘", "⌥", "F"], label: "取代" },
       { keys: ["⌘", "G"], label: "跳至行號" },
+      { keys: ["⌘", "D"], label: "加入下一個相符項目" },
+      { keys: ["⌘", "⇧", "L"], label: "選取所有相符項目" },
       { keys: ["⌘", "W"], label: "關閉分頁" },
       { keys: ["⌃", "⇥"], label: "下一個分頁" },
       { keys: ["⌘", "`"], label: "終端機" },
       { keys: ["⌘", "⇧", "P"], label: "命令面板" },
       { keys: ["⌘", "⇧", "T"], label: "重新開啟分頁" },
       { keys: ["⌘", "B"], label: "側邊欄" },
+      { keys: ["⌥", "Z"], label: "自動換行" },
+      { keys: ["⌘", "⇧", "V"], label: "Markdown 預覽" },
       { keys: ["⌘", ","], label: "設定" },
     ],
   },

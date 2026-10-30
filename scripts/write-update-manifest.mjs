@@ -1,20 +1,18 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { parseSemver } from "./semver.mjs";
+import { parseSemver } from "../shared/semver.mjs";
+import { updatePackages } from "./update-packages.mjs";
 
-const [releaseDirectoryArgument, tag, notesFileArgument] = process.argv.slice(2);
+const [releaseDirectoryArgument, tag, notesFileArgument, ...options] = process.argv.slice(2);
 const version = tag?.startsWith("v") ? parseSemver(tag.slice(1)) : undefined;
-if (!releaseDirectoryArgument || !version || !notesFileArgument) {
-  throw new Error("usage: write-update-manifest.mjs <release-directory> <vX.Y.Z> <notes-file>");
+const allowPartial = options.length === 1 && options[0] === "--allow-partial";
+if (!releaseDirectoryArgument || !version || !notesFileArgument || (options.length > 0 && !allowPartial)) {
+  throw new Error("usage: write-update-manifest.mjs <release-directory> <vX.Y.Z> <notes-file> [--allow-partial]");
 }
 if (version.prerelease) throw new Error(`${tag} is a prerelease; update manifests are written for stable releases only`);
 
 const releaseDirectory = resolve(releaseDirectoryArgument);
 const downloadBase = `https://github.com/MajajaX/pude/releases/download/${encodeURIComponent(tag)}`;
-const updatePackages = {
-  "darwin-aarch64": "pude-macos-arm64.app.tar.gz",
-  "windows-x86_64": "pude-windows-x64-setup.exe",
-};
 
 const platforms = {};
 for (const [target, packageName] of Object.entries(updatePackages)) {
@@ -22,8 +20,9 @@ for (const [target, packageName] of Object.entries(updatePackages)) {
   try {
     signature = (await readFile(join(releaseDirectory, `${packageName}.sig`), "utf8")).trim();
   } catch (error) {
-    if (error?.code === "ENOENT") continue;
-    throw error;
+    if (error?.code !== "ENOENT") throw error;
+    if (allowPartial) continue;
+    throw new Error(`${packageName}.sig is missing; pass --allow-partial to publish a single-platform manifest`);
   }
   if (!signature) throw new Error(`${packageName}.sig is empty`);
   platforms[target] = { signature, url: `${downloadBase}/${packageName}` };

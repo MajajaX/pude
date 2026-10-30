@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The frontend sources are not in the rust filter: the web job builds and tests
+      # them on every pull request, and Rust only embeds the built output.
       - id: filter
         if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -39,7 +41,11 @@ jobs:
               - 'apps/desktop/src-tauri/**'
               - 'examples/plugins/**'
               - 'scripts/run-rust-tests.mjs'
+              - 'scripts/kill-process-tree.ps1'
               - 'rust-toolchain.toml'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'apps/desktop/package.json'
               - '.github/workflows/ci.yml'
             workflows:
               - '.github/**'
@@ -62,7 +68,21 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm run check
+      # Node 24 runs everything. The other supported engines run what can behave
+      # differently between Node versions: the version and bundle-budget scripts,
+      # the unit tests, type checks and the production website build.
+      - name: Full check
+        if: matrix.node == 24
+        run: npm run check
+      - name: Engine compatibility check
+        if: matrix.node != 24
+        run: |
+          npm run release:version:check
+          node --test scripts/check-bundle-budget.test.mjs
+          npm run desktop:test
+          npm run test --workspace @pude/web
+          npm run typecheck --workspace @pude/web
+          npm run web:build
       - if: matrix.node == 24
         run: npm run release:tooling:self-test
 
@@ -141,9 +161,9 @@ jobs:
       # Tauri embeds the built frontend at compile time.
       - run: npm run desktop:build
       - name: Rust lints
-        # Windows and Linux lints are reported but do not fail the run until
-        # their platform-specific code has a clean baseline.
-        continue-on-error: ${{ runner.os != 'macOS' }}
+        # Windows lints are advisory until its platform-specific code has a
+        # verified clean baseline; macOS and Linux lints must pass.
+        continue-on-error: ${{ runner.os == 'Windows' }}
         run: cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
       # Runs each test in its own process so process-group tests cannot disturb each other.
       - run: node scripts/run-rust-tests.mjs
@@ -163,6 +183,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Dependabot's github-actions ecosystem skips `docker://` references, so this
+      # digest is bumped by hand when actionlint releases a new version.
       - uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
         with:
           args: -color

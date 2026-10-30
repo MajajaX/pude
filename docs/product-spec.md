@@ -278,8 +278,15 @@ coverage and no published installer yet.
   PowerShell, matching Windows Terminal; `ComSpec` is no longer used. The shell runs
   behind a small bootstrap process that survives Ctrl+C and Ctrl+Break, so an
   interrupt reaches the shell and its jobs without ending the terminal. Unix uses `SHELL` as a login
-  shell, falling back to `/bin/sh`. A project `.venv`, `venv` or `env` is activated
-  for new terminals when present. Scrollback holds 5,000 lines.
+  shell, falling back to `/bin/sh`. Scrollback holds 5,000 lines.
+- A project's Python virtual environment (`.venv`, `venv` or `env`) is not activated
+  automatically, because a cloned repository could otherwise put its own executables
+  first on `PATH`. When one is found, the terminal prints `Python environment found:
+  <name> (not activated). Run "Trust Python environment" from the command palette to
+  activate it.` The palette commands **Terminal: Trust Python Environment** (activate
+  it for that project folder from then on and restart the terminal) and **Terminal:
+  Stop Trusting Python Environment** (revert) control it. The choice is remembered per
+  project folder on this machine, in the app's local storage.
 - Terminals run with the user's account and can access the network and files
   outside the project. Windows assigns processes to a Job before releasing the
   shell bootstrap. Linux cleanup requires kernel 5.1+, permitted pidfd signals and

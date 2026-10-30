@@ -19,6 +19,17 @@ export function getReleaseUrlForVersion(value: string | undefined, version: stri
   return releaseUrl.slice(VERSIONED_RELEASE_PREFIX.length) === `v${version}` ? releaseUrl : undefined;
 }
 
+/**
+ * What the site may claim about the version it shows. Only the tagged release page
+ * of that exact version proves it is published; /releases/latest may still serve an
+ * older release, so it neither enables downloads nor claims publication.
+ */
+export function getSiteRelease(value: string | undefined, version: string): { releaseUrl?: string; stage: ReleaseStage } {
+  const releaseUrl = getReleaseUrlForVersion(value, version);
+  const taggedReleaseUrl = releaseUrl?.startsWith(VERSIONED_RELEASE_PREFIX) ? releaseUrl : undefined;
+  return { releaseUrl: taggedReleaseUrl, stage: getReleaseStage(version, taggedReleaseUrl) };
+}
+
 export const MACOS_INSTALLER = "pude-macos-arm64.dmg";
 export const WINDOWS_INSTALLER = "pude-windows-x64-setup.exe";
 export const INSTALLERS = { windows: WINDOWS_INSTALLER, macos: MACOS_INSTALLER } as const;

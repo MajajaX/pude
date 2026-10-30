@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 const routes = [
@@ -6,6 +7,7 @@ const routes = [
     file: "dist/index.html",
     canonical: "https://pude.dev/",
     locale: "en",
+    publishedLabel: "Published release",
     anchors: ["top", "showcase", "features", "architecture", "compare", "philosophy", "shortcuts", "download"],
     alternate: "/zh/",
     navigation: "/docs",
@@ -14,6 +16,7 @@ const routes = [
     file: "dist/zh/index.html",
     canonical: "https://pude.dev/zh/",
     locale: "zh-Hant",
+    publishedLabel: "已發布版本",
     anchors: ["top", "showcase", "features", "architecture", "compare", "philosophy", "shortcuts", "download"],
     alternate: "/",
     navigation: "/zh/docs",
@@ -22,6 +25,7 @@ const routes = [
     file: "dist/docs.html",
     canonical: "https://pude.dev/docs",
     locale: "en",
+    publishedLabel: "Published release",
     anchors: ["overview", "releases", "usage", "git", "terminal", "settings", "shortcuts", "plugins", "installation"],
     alternate: "/zh/docs",
     navigation: "/",
@@ -30,6 +34,7 @@ const routes = [
     file: "dist/zh/docs.html",
     canonical: "https://pude.dev/zh/docs",
     locale: "zh-Hant",
+    publishedLabel: "已發布版本",
     anchors: ["overview", "releases", "usage", "git", "terminal", "settings", "shortcuts", "plugins", "installation"],
     alternate: "/docs",
     navigation: "/zh/",
@@ -37,6 +42,13 @@ const routes = [
 ];
 
 const packageInfo = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+// Only the tagged release page of the shown version may make the site claim a published release.
+const taggedReleaseUrl = `https://github.com/MajajaX/pude/releases/tag/v${packageInfo.version}`;
+const configuredReleaseUrl = process.env.VITE_RELEASE_URL;
+if (configuredReleaseUrl) {
+  assert.equal(configuredReleaseUrl, taggedReleaseUrl, `VITE_RELEASE_URL must be ${taggedReleaseUrl}: /releases/latest cannot prove which version it serves`);
+}
+const claimsPublishedRelease = configuredReleaseUrl === taggedReleaseUrl;
 const redirectSource = await readFile(new URL("../public/_redirects", import.meta.url), "utf8");
 assert.equal(await readFile(new URL("../dist/_redirects", import.meta.url), "utf8"), redirectSource, "the deployment should include the redirect rules");
 const redirects = new Map();
@@ -54,6 +66,31 @@ for (const suffix of ["", ".html", "/"]) {
   assert.equal(redirects.get(`/index.zh-Hant${suffix}`), "/zh/");
   assert.equal(redirects.get(`/docs.zh-Hant${suffix}`), "/zh/docs");
 }
+const headersSource = await readFile(new URL("../public/_headers", import.meta.url), "utf8");
+assert.equal(await readFile(new URL("../dist/_headers", import.meta.url), "utf8"), headersSource, "the deployment should include the header rules");
+const headerRules = new Map();
+let headerRule;
+for (const line of headersSource.split("\n")) {
+  if (!line.trim() || line.trim().startsWith("#")) continue;
+  if (!/^\s/.test(line)) {
+    assert.ok(line.startsWith("/") && !headerRules.has(line), `${line} should be a unique path rule`);
+    headerRule = new Map();
+    headerRules.set(line, headerRule);
+    continue;
+  }
+  const header = line.trim().match(/^([A-Za-z][A-Za-z-]*): (\S.*)$/);
+  assert.ok(header && headerRule && !headerRule.has(header[1]), `${line.trim()} should be a unique "Name: value" header inside a path rule`);
+  headerRule.set(header[1], header[2]);
+}
+for (const name of ["Content-Security-Policy", "Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"]) {
+  assert.ok(headerRules.get("/*")?.has(name), `/* should send ${name}`);
+}
+assert.match(headerRules.get("/assets/*")?.get("Cache-Control") ?? "", /immutable/, "fingerprinted assets should be cached immutably");
+const scriptSources = new Map(headerRules.get("/*").get("Content-Security-Policy").split(";").map((directive) => {
+  const [name, ...sources] = directive.trim().split(/\s+/);
+  return [name, sources];
+}));
+assert.ok(!scriptSources.get("script-src").some((source) => source === "'unsafe-inline'" || source === "'unsafe-eval'"), "script-src should not allow unsafe scripts");
 const sitemap = await readFile(new URL("../dist/sitemap.xml", import.meta.url), "utf8");
 const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
 assert.deepEqual(sitemapUrls.sort(), routes.map((route) => route.canonical).sort(), "sitemap should contain exactly the four canonical pages");
@@ -68,6 +105,8 @@ for (const route of routes) {
   const roots = html.match(/<div id="root">/g) ?? [];
   assert.equal(roots.length, 1, `${route.file} should have one hydration root`);
   assert.match(html, new RegExp(`<html lang="${route.locale}">`), `${route.file} should declare its locale`);
+  assert.equal(html.includes(route.publishedLabel), claimsPublishedRelease, `${route.file} should show the published stage only for a verified tagged release`);
+  assert.equal(html.includes(`/releases/download/v${packageInfo.version}/`), claimsPublishedRelease && route.file.includes("index"), `${route.file} should link installers only for a verified tagged release`);
   assert.ok(html.includes(`<h1`), `${route.file} should render its primary heading`);
   const heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1].replace(/<[^>]+>/g, "").trim();
   assert.ok(heading, `${route.file} should render a non-empty primary heading`);
@@ -78,6 +117,14 @@ for (const route of routes) {
   assert.ok(html.includes(`<link rel="canonical" href="${route.canonical}"`), `${route.file} should declare its canonical URL`);
   assert.ok(html.includes(`<meta property="og:url" content="${route.canonical}"`), `${route.file} should share its canonical URL`);
   assert.ok(html.includes(`<meta property="og:image" content="https://pude.dev/og-image.png"`), `${route.file} should include the social preview image`);
+
+  const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  assert.ok(inlineScripts.length > 0, `${route.file} should include the hydration bootstrap`);
+  for (const script of inlineScripts) {
+    const hash = `'sha256-${createHash("sha256").update(script).digest("base64")}'`;
+    assert.ok(scriptSources.get("script-src").includes(hash), `${route.file} inline script needs ${hash} in the Content-Security-Policy script-src`);
+  }
+  assert.ok(!/<[a-z][^>]*\son[a-z]+=/i.test(html), `${route.file} should not use inline event handlers`);
 
   const head = html.match(/<head>([\s\S]*?)<\/head>/)?.[1] ?? "";
   const title = unescapeHtml(head.match(/<title>([^<]+)<\/title>/)?.[1] ?? "");
@@ -135,4 +182,4 @@ for (const [canonical, html] of pages) {
   }
 }
 
-console.log(`Verified ${routes.length} localized pages, metadata, structured data, sitemap, internal links and ${redirects.size} permanent redirects.`);
+console.log(`Verified ${routes.length} localized pages, metadata, structured data, sitemap, security headers, internal links and ${redirects.size} permanent redirects.`);

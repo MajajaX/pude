@@ -15,7 +15,7 @@
 <!-- List exact commands and relevant manual checks. -->
 
 - `npm run check`:
-- `cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml`:
+- `node scripts/run-rust-tests.mjs` (each Rust test in its own process, as CI runs it):
 - Native/manual checks:
 
 ## Platform and data impact

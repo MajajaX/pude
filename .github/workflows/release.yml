@@ -161,21 +161,50 @@ jobs:
         run: |
           cp LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md release/
           node scripts/write-update-manifest.mjs release "$GITHUB_REF_NAME" release-notes.md
+
+      # Installed copies trust only plugins.updater.pubkey, so nothing is uploaded
+      # until every update package verifies against it.
+      - name: Verify updater signatures
+        run: node scripts/verify-update-signatures.mjs release
+
+      - name: Write checksums
+        run: |
           cd release
           node ../scripts/write-checksums.mjs create SHA256SUMS.txt \
-            pude-windows-x64-setup.exe pude-macos-arm64.dmg \
-            LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
+            pude-windows-x64-setup.exe pude-windows-x64-setup.exe.sig \
+            pude-macos-arm64.dmg pude-macos-arm64.app.tar.gz pude-macos-arm64.app.tar.gz.sig \
+            latest.json LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
 
-      - name: Publish GitHub Release
+      # A draft is invisible at releases/latest, so a failed check below never
+      # leaves the updater serving a broken latest.json.
+      - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" release/* \
+            --draft \
             --title "pude $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag
+
+      - name: Verify draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:verify-url -- "https://github.com/MajajaX/pude/releases/tag/$GITHUB_REF_NAME" --draft
+
+      - name: Publish verified release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
 
       - name: Verify published release
         env:
           GH_TOKEN: ${{ github.token }}
         run: npm run release:verify-url -- "https://github.com/MajajaX/pude/releases/tag/$GITHUB_REF_NAME"
+
+      - name: Withdraw release that failed public verification
+        if: failure() && steps.publish.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=true

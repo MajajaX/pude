@@ -84,7 +84,7 @@ Run these from the repository root:
 | `npm run build` | Build the desktop frontend. |
 | `npm run web:build` | Build the website. |
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. |
-| `cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml` | Run the Rust test suite without changing `Cargo.lock`. |
+| `node scripts/run-rust-tests.mjs` | Run the Rust test suite exactly as CI does: each test in its own process, with `Cargo.lock` unchanged. Plain `cargo test` shares one process and can disagree on process-group tests. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
 | `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
 | `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo. |

@@ -21,7 +21,7 @@
   "description": "pude official website — pure code editor",
   "scripts": {
     "dev": "vite",
-    "test": "node --test scripts/download-platform.test.mjs",
+    "test": "node --test scripts/download-platform.test.mjs scripts/release-info.test.mjs",
     "build": "vite build && node scripts/verify-prerender.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview"
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@types/node": "26.6.5",
     "typescript": "7.0.2",
-    "vite": "8.3.4",
+    "vite": "8.3.5",
     "vite-plugin-solid": "2.11.14"
   }
 }

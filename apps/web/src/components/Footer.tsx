@@ -3,12 +3,11 @@ import { t } from "../i18n";
 import { reveal } from "../lib/reveal";
 import { scroll } from "../lib/scroll-progress";
 import packageInfo from "../../package.json";
-import { getAssetDownloadUrl, getReleaseUrlForVersion, getReleaseStage, INSTALLERS, REPOSITORY_URL, type InstallerPlatform } from "../release-info";
+import { getAssetDownloadUrl, getSiteRelease, INSTALLERS, REPOSITORY_URL, type InstallerPlatform } from "../release-info";
 import { detectDownloadRecommendation, recommendInstaller, NO_RECOMMENDATION } from "../lib/download-platform";
 import BrandMark from "./BrandMark";
 
-const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-const releaseStage = getReleaseStage(packageInfo.version, releaseUrl);
+const { releaseUrl, stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
 const releaseAvailable = releaseStage === "published";
 
 export default function Footer() {

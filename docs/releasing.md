@@ -30,9 +30,34 @@ git push origin main v0.1.0
 The workflow checks the tag, runs the same jobs as CI (`npm run check`, the release
 tooling self-test, the browser smoke test, Rust formatting, lints and tests on all three
 platforms), builds the signed and
-notarized macOS DMG and the Windows installer in parallel, writes `latest.json` and
-`SHA256SUMS.txt`, publishes the release with the changelog section as notes, and
-verifies it. Continue with step 5 when it finishes.
+notarized macOS DMG and the Windows installer in parallel, then runs the publish job:
+
+1. It writes `latest.json` and checks every update package against
+   `plugins.updater.pubkey` in `tauri.conf.json` (see [Update signatures](#update-signatures)).
+   Nothing is uploaded if a signature does not verify.
+2. It writes `SHA256SUMS.txt`, covering every other release file: both installers,
+   the update package, both `.sig` files, `latest.json` and the three legal files.
+3. It creates the release as a **draft** with the changelog section as notes. A
+   draft is not served at `releases/latest`, so installed copies cannot see it yet.
+4. It verifies the draft: the exact asset set, repository and tag, and that
+   `SHA256SUMS.txt` lists every download.
+5. It publishes the draft (`gh release edit --draft=false --latest`) and verifies
+   the public release again. If that last check fails, the release is turned back
+   into a draft so `latest.json` stops being served.
+
+Continue with step 5 (website downloads) when it finishes. If the job fails before
+publication, a draft release may remain; delete it from the Releases page before
+re-running the workflow.
+
+### Update signatures
+
+`node scripts/verify-update-signatures.mjs release` reads `latest.json` and, for each
+platform, checks the minisign signature that Tauri produced with the release key
+(prehashed Ed25519, key id, and the signature over the trusted comment). It also
+checks that the signature in `latest.json` equals the package's `.sig` file and that
+the version Tauri signed matches the manifest version. Both platforms must be present;
+`write-update-manifest.mjs` and the verifier take `--allow-partial` to publish a
+single-platform manifest on purpose.
 
 Publication downloads only the `release-macos` and `release-windows` build
 artifacts. CI diagnostics remain attached to the Actions run, including after a
@@ -74,7 +99,7 @@ npm run release:version:sync -- 0.1.0
 npm ci
 npm run check
 npm run release:tooling:self-test
-cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+node scripts/run-rust-tests.mjs
 ```
 
 `release:version:sync` updates every npm manifest, `package-lock.json`, `Cargo.toml`,
@@ -134,44 +159,72 @@ signing certificate's thumbprint. It expects the version in `tauri.conf.json`.
 ## 4. Publish
 
 Put both platforms' files and the three legal files in one directory, write the
-update manifest from the changelog notes, and create one `SHA256SUMS.txt` covering
-both installers and the legal files:
+update manifest from the changelog notes, verify the update signatures, and create one
+`SHA256SUMS.txt` covering every other file (it must come after `latest.json`, which it
+lists):
 
 ```bash
 node scripts/write-update-manifest.mjs release-files v0.1.0 release-notes.md
+node scripts/verify-update-signatures.mjs release-files
 cd release-files
 node ../scripts/write-checksums.mjs create SHA256SUMS.txt \
-  pude-windows-x64-setup.exe pude-macos-arm64.dmg \
-  LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
+  pude-windows-x64-setup.exe pude-windows-x64-setup.exe.sig \
+  pude-macos-arm64.dmg pude-macos-arm64.app.tar.gz pude-macos-arm64.app.tar.gz.sig \
+  latest.json LICENSE THIRD_PARTY_NOTICES.md THIRD_PARTY_LICENSES.md
 ```
 
-Upload these ten files to a GitHub Release for the tag and publish it (not as a
-draft or prerelease): both installers, `pude-macos-arm64.app.tar.gz`, the two `.sig`
-files, `latest.json`, `SHA256SUMS.txt` and the three legal files. Then verify it:
+Create the release as a draft with these ten files (both installers,
+`pude-macos-arm64.app.tar.gz`, the two `.sig` files, `latest.json`, `SHA256SUMS.txt`
+and the three legal files), verify the draft, and only then publish it as the latest
+release (not a prerelease):
 
 ```bash
-npm run release:verify-url -- 'https://github.com/MajajaX/pude/releases/latest'
+gh release create v0.1.0 release-files/* --draft --title 'pude v0.1.0' --notes-file release-notes.md --verify-tag
+npm run release:verify-url -- 'https://github.com/MajajaX/pude/releases/tag/v0.1.0' --draft
+gh release edit v0.1.0 --draft=false --latest
+npm run release:verify-url -- 'https://github.com/MajajaX/pude/releases/tag/v0.1.0'
 ```
 
-Add `--platform macos` or `--platform windows` when only one installer is published.
+Each check is strict by default: a draft is accepted only with `--draft`, and a
+published release only without it. The draft check lists releases through the API
+because the tag endpoint never returns drafts, then compares the draft's asset records
+and `SHA256SUMS.txt` against the required files. If the final check fails, run
+`gh release edit v0.1.0 --draft=true` so the updater stops serving `latest.json`.
+Add `--platform macos` or `--platform windows` when only one installer is published
+(and `--allow-partial` to the manifest commands).
 
 ## 5. Enable website downloads
 
 The website at https://pude.dev is deployed to Cloudflare Workers from
-[wrangler.jsonc](../wrangler.jsonc). It shows its download button only when it is
-built with a verified release URL. In the Cloudflare dashboard, add this build
-variable to the `pude-web` Worker and redeploy:
+[wrangler.jsonc](../wrangler.jsonc). It shows its download buttons, and the
+"Published release" label next to the version, only when it is built with the tagged
+release URL of the version in `package.json`. `releases/latest` is deliberately not
+accepted: it can still serve an older release, so it cannot show that this version is
+out. A build without the variable shows the version as a release candidate with
+downloads disabled, and `npm run web:build` fails when `VITE_RELEASE_URL` is set to
+anything other than the tagged URL of the current version.
+
+After the release is published and verified, set this build variable on the `pude-web`
+Worker in the Cloudflare dashboard (changing the version on every release) and
+redeploy:
 
 ```text
-VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/latest
+VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/tag/v0.1.0
 ```
 
-To build and deploy from a local checkout instead:
+To build and deploy from a local checkout instead (`npx` runs the exact `wrangler`
+version pinned in the root `package.json` after `npm ci`):
 
 ```bash
-VITE_RELEASE_URL='https://github.com/MajajaX/pude/releases/latest' npm run web:build
+VITE_RELEASE_URL='https://github.com/MajajaX/pude/releases/tag/v0.1.0' npm run web:build
 npx wrangler deploy
 ```
+
+`apps/web/public/_headers` sets the Content-Security-Policy, HSTS and cache headers.
+The CSP allows exactly one inline script, the Solid hydration bootstrap, by its
+SHA-256 hash; `npm run web:build` fails if the built pages contain an inline script
+whose hash is missing from the policy, so update the hash in `_headers` when it
+reports one (for example after upgrading `solid-js`).
 
 The English pages use `/` and `/docs`; Traditional Chinese uses `/zh/` and
 `/zh/docs`. The website build generates canonical URLs, language alternates and

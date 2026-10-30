@@ -28,6 +28,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
+  # Does not see the `docker://rhysd/actionlint` digest in ci.yml; update it by hand.
   - package-ecosystem: github-actions
     directory: /
     schedule:

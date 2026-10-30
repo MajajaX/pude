@@ -92,6 +92,23 @@ hooks, and commands entered there can read or modify data outside the open works
 The terminal is a command console rather than a security boundary or a secret manager;
 do not paste passwords, tokens, private keys, or recovery material into it.
 
+A project's Python virtual environment (`.venv`, `venv` or `env`) is not activated
+automatically, because a cloned repository could otherwise put its own executables
+first on `PATH`. The terminal reports that it found one and activates it only after
+you run **Terminal: Trust Python Environment** for that project folder. The choice is
+remembered per folder on this machine and **Terminal: Stop Trusting Python
+Environment** reverts it. Shell startup files and commands you type still run
+unrestricted, so this limits only what pude does for you.
+
+### File access
+
+The file commands (read, save, save as, rename, delete and list directory) act on any
+path the logged-in OS user can reach; they are not confined to the open workspace.
+The frontend that calls them is the application's own, loaded from the app bundle
+under a strict production Content-Security-Policy that allows no remote scripts and
+connects only to the app's own IPC, and it is trusted. Only the workspace image preview is restricted
+to the open workspace.
+
 ### Git and repositories
 
 Git operations use the external Git installation and repository configuration. A

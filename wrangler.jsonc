@@ -1,5 +1,5 @@
 // Cloudflare Workers config for the pude.dev website (static assets only).
-// Build with `npm run web:build`, then deploy with `npx wrangler deploy`.
+// Build with `npm run web:build`, then deploy with `npx wrangler deploy` (the version pinned in package.json).
 {
   "name": "pude-web",
   "compatibility_date": "2026-10-01",
