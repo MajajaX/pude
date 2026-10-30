@@ -62,8 +62,60 @@ describe("dotenv editing", () => {
   });
 
   it("appends a new variable on its own line", () => {
-    expect(applyEdit("A=1", dotenvAppendEdit("A=1", "B", "two words "))).toBe("A=1\nB=\"two words \"");
-    expect(applyEdit("A=1\n", dotenvAppendEdit("A=1\n", "B", ""))).toBe("A=1\nB=\n");
-    expect(applyEdit("", dotenvAppendEdit("", "", "x"))).toBe("=x\n");
+    expect(applyEdit("A=1", dotenvAppendEdit("A=1", "B", "two words ")!)).toBe("A=1\nB=\"two words \"");
+    expect(applyEdit("A=1\n", dotenvAppendEdit("A=1\n", "B", "")!)).toBe("A=1\nB=\n");
+  });
+
+  it("does not append a variable without a name", () => {
+    expect(dotenvAppendEdit("A=1", "", "x")).toBeUndefined();
+    expect(dotenvAppendEdit("A=1", " = ", "x")).toBeUndefined();
+    expect(dotenvAppendEdit("", "#", "x")).toBeUndefined();
+    expect(applyEdit("", dotenvAppendEdit("", "B C", "x")!)).toBe("BC=x\n");
+  });
+});
+
+describe("dotenv value edits keep the original representation", () => {
+  const editValue = (text: string, value: string, index = 0) => applyEdit(text, dotenvValueEdit(variables(text)[index], value));
+
+  it("leaves untouched lines and unchanged values byte-identical", () => {
+    const text = "# c\r\nexport A='$HOME\\n' # note\r\nB=\"x\\ny\"\r\nC=`t`\r\nD=plain\r\n";
+    for (const [index, variable] of variables(text).entries()) expect(editValue(text, variable.value, index)).toBe(text);
+  });
+
+  it("keeps physical newlines inside a multi-line double-quoted value", () => {
+    const text = "KEY=\"one\ntwo\"\nNEXT=1\n";
+    expect(variables(text)[0].multiline).toBe(true);
+    expect(editValue(text, "one\ntwo\nthree")).toBe("KEY=\"one\ntwo\nthree\"\nNEXT=1\n");
+    expect(editValue(text, "say \"hi\"\nbye")).toBe("KEY=\"say \\\"hi\\\"\nbye\"\nNEXT=1\n");
+  });
+
+  it("keeps escaped newlines in a single-line double-quoted value", () => {
+    const text = "KEY=\"one\\ntwo\"\n";
+    expect(variables(text)[0].multiline).toBe(false);
+    expect(editValue(text, "one\ntwo\nthree")).toBe("KEY=\"one\\ntwo\\nthree\"\n");
+  });
+
+  it("keeps single quotes with literal $ and backslash-n", () => {
+    const text = "A='cost $5 \\n'\n";
+    expect(editValue(text, "cost $6 \\n")).toBe("A='cost $6 \\n'\n");
+    expect(editValue(text, "it's")).toBe("A=\"it's\"\n");
+  });
+
+  it("keeps physical newlines inside single quotes and backticks", () => {
+    expect(editValue("A='a\nb'\n", "a\nb\nc")).toBe("A='a\nb\nc'\n");
+    expect(editValue("A=`x`\n", "y\nz")).toBe("A=`y\nz`\n");
+    expect(editValue("A=`x`\n", "it's `ticked`")).toBe("A=\"it's `ticked`\"\n");
+  });
+
+  it("keeps the export prefix and inline comment", () => {
+    expect(editValue("export A='x' # why\n", "y")).toBe("export A='y' # why\n");
+    expect(editValue("export A=\"x\" # why\n", "y z")).toBe("export A=\"y z\" # why\n");
+    expect(editValue("export A=x # why\n", "y")).toBe("export A=y # why\n");
+  });
+
+  it("keeps CRLF line endings around an edited value", () => {
+    expect(editValue("A=x\r\nB=y\r\n", "z")).toBe("A=z\r\nB=y\r\n");
+    expect(editValue("A='x'\r\nB=y\r\n", "z")).toBe("A='z'\r\nB=y\r\n");
+    expect(editValue("A=\"x\r\ny\"\r\nB=y\r\n", "p\r\nq")).toBe("A=\"p\r\nq\"\r\nB=y\r\n");
   });
 });

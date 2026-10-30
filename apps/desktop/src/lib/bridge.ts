@@ -458,11 +458,11 @@ export async function stopWatcher(sessionId?: string): Promise<void> {
  * `terminal-output` is delivered over a per-session channel owned
  * by the terminal session, so only this WebView receives its stream.
  */
-export async function startTerminal(workspace: string, rows: number, cols: number, onOutput: (payload: TerminalOutputPayload) => void, workingDirectory?: string): Promise<string> {
+export async function startTerminal(workspace: string, rows: number, cols: number, onOutput: (payload: TerminalOutputPayload) => void, workingDirectory?: string, activatePythonEnvironment = false): Promise<string> {
   if (isTauri) {
     const channel = new Channel<TerminalOutputPayload>();
     channel.onmessage = onOutput;
-    return invoke<string>("terminal_start", { workspace, workingDirectory, rows, cols, events: channel });
+    return invoke<string>("terminal_start", { workspace, workingDirectory, activatePythonEnvironment, rows, cols, events: channel });
   }
   return "browser-terminal";
 }

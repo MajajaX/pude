@@ -39,6 +39,8 @@ export const BUILTIN_COMMANDS: CommandPaletteItem[] = [
   { id: "pude.builtin.toggleSidebar", title: translatable("View: Toggle Sidebar"), source: "builtin", detail: translatable("Show or hide the sidebar"), shortcut: "Mod+B" },
   { id: "pude.builtin.collapseExplorer", title: translatable("Explorer: Collapse Folders"), source: "builtin", detail: translatable("Close every expanded subfolder") },
   { id: "pude.builtin.toggleTerminal", title: translatable("Terminal: Toggle Panel"), source: "builtin", detail: translatable("Show or hide the terminal"), shortcut: "Mod+`" },
+  { id: "pude.builtin.trustPythonEnvironment", title: translatable("Terminal: Trust Python Environment"), source: "builtin", detail: translatable("Let terminals in this folder activate its .venv, venv or env") },
+  { id: "pude.builtin.stopTrustingPythonEnvironment", title: translatable("Terminal: Stop Trusting Python Environment"), source: "builtin", detail: translatable("Stop terminals in this folder from activating its Python environment") },
   { id: "pude.builtin.toggleWordWrap", title: translatable("View: Toggle Word Wrap"), source: "builtin", detail: translatable("Wrap long lines in the editor"), shortcut: "Alt+Z" },
   { id: "pude.builtin.toggleLineNumbers", title: translatable("View: Toggle Line Numbers"), source: "builtin", detail: translatable("Show or hide the line number gutter") },
   { id: "pude.builtin.toggleWhitespace", title: translatable("View: Toggle Whitespace"), source: "builtin", detail: translatable("Show spaces, tabs and trailing whitespace") },

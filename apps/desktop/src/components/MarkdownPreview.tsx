@@ -573,7 +573,8 @@ function tokenizeInline(text: string, maxTokens: number): InlineToken[] | undefi
 }
 
 function isSafeLink(href: string) {
-  return href.startsWith("https://") || href.startsWith("http://") || href.startsWith("/") || href.startsWith("#");
+  const isProtocolRelative = /^[/\\]{2}/.test(href);
+  return href.startsWith("https://") || href.startsWith("http://") || href.startsWith("#") || (href.startsWith("/") && !isProtocolRelative);
 }
 
 function isHighSurrogate(codeUnit: number | undefined): boolean {

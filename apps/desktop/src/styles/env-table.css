@@ -14,6 +14,7 @@
 .env-input::placeholder { color: var(--faint); }
 .env-key { color: var(--accent-strong); }
 .env-key-duplicate { border-color: color-mix(in srgb, var(--yellow) 60%, var(--border)); }
+.env-key-invalid { border-color: color-mix(in srgb, var(--red) 70%, var(--border)); }
 .env-row-actions { justify-content: flex-end; }
 .env-copy-line { width: auto; padding: 0 7px; font-size: 12px; }
 .env-copy-done, .env-copy-done:hover { color: var(--green); }

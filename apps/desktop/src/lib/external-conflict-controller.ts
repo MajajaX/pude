@@ -1,4 +1,6 @@
 import type { EditorTab, ReadFileResult } from "../types";
+import { adoptDiskVersionChanges } from "./disk-metadata";
+import { t } from "./i18n";
 
 export type ExternalConflictState = {
   queued: () => EditorTab[];
@@ -56,11 +58,10 @@ export function createExternalConflictController(state: ExternalConflictState, h
       const file = await hooks.readFile(conflict.path).then(hooks.normalizeReadFile);
       const current = hooks.getTab(conflict.id);
       if (generation !== hooks.getWorkspaceGeneration() || !current || !hooks.samePath(current.path, conflict.path) || current.revision !== revision) return;
-      const nextRevision = current.revision + 1;
-      hooks.updateTab(conflict.id, { content: file.content, savedContent: file.content, dirty: false, orphaned: false, lineEnding: file.lineEnding, lineEndings: file.lineEndings, savedLineEndings: file.lineEndings, bom: file.bom, savedBom: file.bom, encoding: file.encoding === "utf-8-bom" ? "UTF-8 BOM" : "UTF-8", revision: nextRevision, savedRevision: nextRevision, contentVersion: current.contentVersion + 1, diskModifiedAt: file.modifiedAt, diskSize: file.size, diskFingerprint: file.fingerprint, largeFile: file.size > 5 * 1024 * 1024 });
+      hooks.updateTab(conflict.id, adoptDiskVersionChanges(current, file));
       hooks.bumpDocumentContentRevision(conflict.id);
       dismiss(conflict.id);
-      hooks.notify(`Reloaded ${conflict.name}`);
+      hooks.notify(t("Reloaded {name}", { name: conflict.name }));
     } catch (error) {
       hooks.notify(hooks.errorMessage(error, "Unable to reload changed file."));
     }

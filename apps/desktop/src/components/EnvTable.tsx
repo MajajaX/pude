@@ -32,7 +32,7 @@ export function EnvTable(props: EnvTableProps) {
   let copiedTimer: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(copiedTimer));
 
-  // A new variable stays on screen only until focus leaves its row; it is written to the file only if it has a name or value.
+  // A new variable stays on screen until focus leaves its row with a name, which writes it to the file, or with nothing typed, which discards it.
   const [draft, setDraft] = createSignal<DraftVariable>();
   let draftRow: HTMLDivElement | undefined;
   let draftKeyInput: HTMLInputElement | undefined;
@@ -48,13 +48,19 @@ export function EnvTable(props: EnvTableProps) {
     copiedTimer = setTimeout(() => setCopied(undefined), 1200);
   };
 
-  const editKey = (variable: DotenvVariable, input: HTMLInputElement) => {
+  const sanitizeKeyInput = (input: HTMLInputElement) => {
     const key = sanitizeDotenvKey(input.value);
     if (key !== input.value) input.value = key;
+    return key;
+  };
+
+  // Cells write to the document when they lose focus or Enter is pressed, not on every keystroke.
+  const commitKey = (variable: DotenvVariable, input: HTMLInputElement) => {
+    const key = sanitizeKeyInput(input);
     if (key !== variable.key && !props.applyEdits([dotenvKeyEdit(variable, key)])) input.value = variable.key;
   };
 
-  const editValue = (variable: DotenvVariable, input: HTMLInputElement | HTMLTextAreaElement) => {
+  const commitValue = (variable: DotenvVariable, input: HTMLInputElement | HTMLTextAreaElement) => {
     if (input.value !== variable.value && !props.applyEdits([dotenvValueEdit(variable, input.value)])) input.value = variable.value;
   };
 
@@ -64,18 +70,18 @@ export function EnvTable(props: EnvTableProps) {
     draftKeyInput?.focus();
   };
 
-  const editDraftKey = (input: HTMLInputElement) => {
-    const key = sanitizeDotenvKey(input.value);
-    if (key !== input.value) input.value = key;
-    setDraft((current) => current && { ...current, key });
-  };
+  const draftNeedsName = () => !draft()?.key && !!draft()?.value.trim();
 
+  // A draft with a value but no name stays open instead of writing a nameless `=value` line.
   const finishDraft = (event: FocusEvent) => {
     if (draftRow?.contains(event.relatedTarget as Node | null)) return;
     const current = draft();
-    setDraft(undefined);
-    if (!current || (!current.key && !current.value.trim())) return;
-    if (!props.applyEdits([dotenvAppendEdit(text(), current.key, current.value)])) setDraft(current);
+    if (!current || (!current.key && !current.value.trim())) {
+      setDraft(undefined);
+      return;
+    }
+    const edit = dotenvAppendEdit(text(), current.key, current.value);
+    if (edit && props.applyEdits([edit])) setDraft(undefined);
   };
 
   const deleteEntry = (entry: DotenvEntry) => props.applyEdits([dotenvDeleteEdit(text(), entry)]);
@@ -90,14 +96,14 @@ export function EnvTable(props: EnvTableProps) {
   const variableRow = (variable: () => DotenvVariable, index: number) => (
     <div class="env-row" role="row">
       <div class="env-cell" role="cell">
-        <input class="env-input env-key" classList={{ "env-key-duplicate": variable().duplicate }} value={variable().key} placeholder={t("NAME")} spellcheck={false} autocomplete="off" aria-label={t("Variable name")} onInput={(event) => editKey(variable(), event.currentTarget)} />
+        <input class="env-input env-key" classList={{ "env-key-duplicate": variable().duplicate }} value={variable().key} placeholder={t("NAME")} spellcheck={false} autocomplete="off" aria-label={t("Variable name")} onInput={(event) => sanitizeKeyInput(event.currentTarget)} onChange={(event) => commitKey(variable(), event.currentTarget)} />
         {copyButton(variable, index, "name", t("Copy name"))}
       </div>
       <div class="env-cell" role="cell">
         <Show when={variable().value.includes("\n")} fallback={
-          <input class="env-input env-value" value={variable().value} placeholder={t("value")} spellcheck={false} autocomplete="off" aria-label={t("Value of {key}", { key: variable().key })} onInput={(event) => editValue(variable(), event.currentTarget)} />
+          <input class="env-input env-value" value={variable().value} placeholder={t("value")} spellcheck={false} autocomplete="off" aria-label={t("Value of {key}", { key: variable().key })} onChange={(event) => commitValue(variable(), event.currentTarget)} />
         }>
-          <textarea class="env-input env-value" rows={Math.min(variable().value.split("\n").length, 8)} value={variable().value} spellcheck={false} aria-label={t("Value of {key}", { key: variable().key })} onInput={(event) => editValue(variable(), event.currentTarget)} />
+          <textarea class="env-input env-value" rows={Math.min(variable().value.split("\n").length, 8)} value={variable().value} spellcheck={false} aria-label={t("Value of {key}", { key: variable().key })} onChange={(event) => commitValue(variable(), event.currentTarget)} />
         </Show>
         {copyButton(variable, index, "value", t("Copy value"))}
       </div>
@@ -112,7 +118,7 @@ export function EnvTable(props: EnvTableProps) {
   const draftRowView = () => (
     <div class="env-row env-draft" role="row" ref={draftRow} onFocusOut={finishDraft}>
       <div class="env-cell" role="cell">
-        <input ref={draftKeyInput} class="env-input env-key" value={draft()?.key ?? ""} placeholder={t("NAME")} spellcheck={false} autocomplete="off" aria-label={t("Variable name")} onInput={(event) => editDraftKey(event.currentTarget)} />
+        <input ref={draftKeyInput} class="env-input env-key" classList={{ "env-key-invalid": draftNeedsName() }} value={draft()?.key ?? ""} placeholder={t("NAME")} spellcheck={false} autocomplete="off" aria-label={t("Variable name")} aria-invalid={draftNeedsName()} onInput={(event) => { const key = sanitizeKeyInput(event.currentTarget); setDraft((current) => current && { ...current, key }); }} />
       </div>
       <div class="env-cell" role="cell">
         <input class="env-input env-value" value={draft()?.value ?? ""} placeholder={t("value")} spellcheck={false} autocomplete="off" aria-label={t("Value")} onInput={(event) => setDraft((current) => current && { ...current, value: event.currentTarget.value })} />

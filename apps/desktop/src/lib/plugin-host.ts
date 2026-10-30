@@ -48,6 +48,7 @@ export {
 
 import type { InstalledPlugin } from "../types";
 import { errorMessage } from "./core";
+import { t } from "./i18n";
 import { PLUGIN_SANDBOX_FLAGS, createPluginSandboxDocument, createPluginWorkerSource, createPluginWorkerV2Source } from "./plugin-sandbox";
 import { createPluginApiV2Host, type PluginApiV2Dependencies } from "./plugin-api-v2";
 import { PluginEditorRevisionTracker } from "./plugin-editor-revisions";
@@ -176,7 +177,7 @@ export function createPluginHostController(options: PluginHostOptions) {
 
   const runPlugin = async (plugin: InstalledPlugin, activationEvent: string, activationPayload: unknown, activationCommand?: string) => {
     if (!pluginsRecovered()) {
-      notify("Plugin state is still being verified; plugins are temporarily unavailable.");
+      notify(t("Plugin state is still being verified; plugins are temporarily unavailable."));
       return;
     }
     if (!plugin.enabled) return;
@@ -193,7 +194,7 @@ export function createPluginHostController(options: PluginHostOptions) {
     if (!plugin.rootPath) {
       if (isCurrent()) {
         setPluginStatus(plugin.id, "failed");
-        notify("Plugin entry path is unavailable.");
+        notify(t("Plugin entry path is unavailable."));
       }
       return;
     }
@@ -262,7 +263,7 @@ export function createPluginHostController(options: PluginHostOptions) {
         run.frame.contentWindow?.postMessage({ ...message, token }, "*");
       } catch {
         finishPlugin("failed");
-        notify(`${plugin.name}: plugin sandbox is unavailable.`);
+        notify(t("{name}: plugin sandbox is unavailable.", { name: plugin.name }));
       }
     };
     const finishPlugin = (status: "inactive" | "failed") => {
@@ -282,7 +283,7 @@ export function createPluginHostController(options: PluginHostOptions) {
     const handleWorkerMessage = (data: any, source: unknown, messageToken: unknown) => {
       if (data?.type !== "api-request" && !messageGate.allow(data)) {
         finishPlugin("failed");
-        notify(`${plugin.name}: plugin exceeded its host message limits.`);
+        notify(t("{name}: plugin exceeded its host message limits.", { name: plugin.name }));
         return;
       }
       if (data?.type === "api-request" && apiHost) {
@@ -295,7 +296,7 @@ export function createPluginHostController(options: PluginHostOptions) {
         const accepted = host.parsePluginEventSubscriptions(plugin, data.events);
         if (accepted === null) {
           finishPlugin("failed");
-          notify(`${plugin.name}: attempted to subscribe to an unavailable event.`);
+          notify(t("{name}: attempted to subscribe to an unavailable event.", { name: plugin.name }));
           return;
         }
         run.hadSubscriptions ||= accepted.length > 0;
@@ -326,13 +327,13 @@ export function createPluginHostController(options: PluginHostOptions) {
         return;
       }
       if (data?.type === "status") {
-        const statusAction = host.pluginWorkerStatusAction(plugin.apiVersion, canNotify || canUseStatusBar, data.text);
+        const statusAction = host.pluginWorkerStatusAction(plugin.apiVersion, canNotify || canUseStatusBar, data.text, plugin.name);
         if (statusAction.kind === "reject") {
           finishPlugin("failed");
-          if (statusAction.notification) notify(`${plugin.name}: ${statusAction.notification}`);
+          if (statusAction.notification) notify(statusAction.notification);
           return;
         }
-        notify(`${plugin.name}: ${statusAction.text}`);
+        notify(t("{name}: {message}", { name: plugin.name, message: statusAction.text }));
         return;
       }
       if (data?.type === "error") {
@@ -352,7 +353,7 @@ export function createPluginHostController(options: PluginHostOptions) {
       }
       if (message.type === "sandbox-error") {
         finishPlugin("failed");
-        notify(`${plugin.name}: plugin sandbox could not enforce an isolated origin.`);
+        notify(t("{name}: plugin sandbox could not enforce an isolated origin.", { name: plugin.name }));
         return;
       }
       if (message.type === "worker-message") {
@@ -361,12 +362,12 @@ export function createPluginHostController(options: PluginHostOptions) {
       }
       if (message.type === "worker-start-error") {
         finishPlugin("failed");
-        notify(`${plugin.name}: unable to start its isolated worker.`);
+        notify(t("{name}: unable to start its isolated worker.", { name: plugin.name }));
         return;
       }
       if (message.type === "worker-error") {
         finishPlugin("failed");
-        notify(`${plugin.name}: plugin failed and was isolated from the editor.`);
+        notify(t("{name}: plugin failed and was isolated from the editor.", { name: plugin.name }));
       }
     };
     run = {
@@ -418,12 +419,12 @@ export function createPluginHostController(options: PluginHostOptions) {
     run.timeout = window.setTimeout(() => {
       if (!isLive()) return;
       finishPlugin("failed");
-      notify(`${plugin.name}: activation timed out.`);
+      notify(t("{name}: activation timed out.", { name: plugin.name }));
     }, 5000);
     frame.onerror = () => {
       if (!isLive()) return;
       finishPlugin("failed");
-      notify(`${plugin.name}: plugin sandbox could not be loaded.`);
+      notify(t("{name}: plugin sandbox could not be loaded.", { name: plugin.name }));
     };
     document.body.append(frame);
   };

@@ -11,6 +11,8 @@ import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_AC
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
 import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, TERMINAL_FONT_FAMILY } from "../lib/terminal-vt";
 import { t } from "../lib/i18n";
+import { runtimePathOptions, samePath } from "../lib/path-identity";
+import { isPythonEnvironmentTrusted, onPythonEnvironmentTrustChange } from "../lib/python-environment-trust";
 
 type TerminalTab = { id: number; label: string; directory?: string };
 export type TerminalOpenRequest = { id: number; directory: string };
@@ -136,10 +138,11 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     (callback) => requestAnimationFrame(callback),
     (handle) => cancelAnimationFrame(handle),
   );
+  const startFolder = () => props.workingDirectory ?? props.workspace;
   const lifecycle = new TerminalLifecycle({
     // Every start creates a fresh per-session output channel via
     // `startTerminal`, so a restart automatically rebinds the stream.
-    start: (workspace) => startTerminal(workspace, terminal?.rows ?? 24, terminal?.cols ?? 80, handleOutputPayload, props.workingDirectory),
+    start: (workspace) => startTerminal(workspace, terminal?.rows ?? 24, terminal?.cols ?? 80, handleOutputPayload, props.workingDirectory, isPythonEnvironmentTrusted(startFolder())),
     stop: killTerminal,
   });
 
@@ -408,6 +411,10 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     });
   };
 
+  onCleanup(onPythonEnvironmentTrustChange((folder) => {
+    if (isTauri && props.visible && samePath(folder, startFolder(), runtimePathOptions())) restartSession();
+  }));
+
   onMount(() => {
     void (async () => {
       try {
@@ -449,8 +456,12 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
           : new ResizeObserver(() => { if (props.visible) scheduleFit(); });
         resizeObserver?.observe(hostRef);
 
-        unlistenExit = await listenForTerminalExit(finishSession);
-        if (disposed) return;
+        const unlisten = await listenForTerminalExit(finishSession);
+        if (disposed) {
+          unlisten();
+          return;
+        }
+        unlistenExit = unlisten;
 
         listenersReady = true;
         paneInitialized = true;
