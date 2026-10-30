@@ -284,9 +284,11 @@ coverage and no published installer yet.
   first on `PATH`. When one is found, the terminal prints `Python environment found:
   <name> (not activated). Run "Trust Python environment" from the command palette to
   activate it.` The palette commands **Terminal: Trust Python Environment** (activate
-  it for that project folder from then on and restart the terminal) and **Terminal:
-  Stop Trusting Python Environment** (revert) control it. The choice is remembered per
-  project folder on this machine, in the app's local storage.
+  it for the project's folder from then on and restart the visible terminal; other
+  open terminals pick it up when they restart) and **Terminal: Stop Trusting Python
+  Environment** (revert) control it. The choice is remembered per folder on this
+  machine, in the app's local storage. It covers the project's main folder; a terminal
+  opened in a subfolder or an added workspace folder is not trusted by it.
 - Terminals run with the user's account and can access the network and files
   outside the project. Windows assigns processes to a Job before releasing the
   shell bootstrap. Linux cleanup requires kernel 5.1+, permitted pidfd signals and
