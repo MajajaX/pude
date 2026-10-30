@@ -435,6 +435,7 @@ struct TerminalProcessTree {
 pub(crate) async fn terminal_start(
     workspace: String,
     working_directory: Option<String>,
+    activate_python_environment: Option<bool>,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -455,6 +456,7 @@ pub(crate) async fn terminal_start(
             terminal_start_sync(
                 workspace,
                 working_directory,
+                activate_python_environment.unwrap_or(false),
                 rows,
                 cols,
                 events,
@@ -472,6 +474,7 @@ pub(crate) async fn terminal_start(
 fn terminal_start_sync(
     workspace: String,
     working_directory: Option<String>,
+    activate_python_environment: bool,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -534,8 +537,11 @@ fn terminal_start_sync(
     command.cwd(&working_directory);
     command.env("TERM", "xterm-256color");
     command.env("COLORTERM", "truecolor");
-    let python_environment =
-        python_environment::activate_project_environment(&mut command, &working_directory);
+    let python_environment_notice = python_environment::configure_project_environment(
+        &mut command,
+        &working_directory,
+        activate_python_environment,
+    );
     #[cfg(target_os = "linux")]
     super::process_group::LinuxTerminalSession::check_supported()
         .map_err(|error| format!("Unable to prepare terminal process cleanup. {error}"))?;
@@ -774,12 +780,7 @@ fn terminal_start_sync(
             &id, &terminals, &terminal, &lifecycle, message,
         ));
     }
-    if let Some(environment) = python_environment {
-        let label = environment
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy();
-        let message = format!("Python environment active: {label}\r\n");
+    if let Some(message) = python_environment_notice {
         let seq = terminal.output_flow.alloc(message.len());
         let generation = terminal.output_flow.generation();
         let bytes = message.len();

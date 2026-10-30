@@ -519,10 +519,24 @@ pub async fn plugin_network_authorize(
     workspace: String,
     domain: String,
 ) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        authorize_network_domain(&app, plugin_id, plugin_version, &workspace, domain)
+    })
+    .await
+    .map_err(|error| format!("Unable to authorize the plugin network request. {error}"))?
+}
+
+fn authorize_network_domain(
+    app: &AppHandle,
+    plugin_id: String,
+    plugin_version: String,
+    workspace: &str,
+    domain: String,
+) -> Result<String, String> {
     let _gate = network_gate()
         .lock()
         .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
-    let manifest = installed_plugin_manifest(&app, &plugin_id, &plugin_version)?;
+    let manifest = installed_plugin_manifest(app, &plugin_id, &plugin_version)?;
     if !is_canonical_network_domain(&domain)
         || !manifest
             .network_domains
@@ -531,7 +545,7 @@ pub async fn plugin_network_authorize(
     {
         return Err("Plugin has not declared this HTTPS domain.".to_string());
     }
-    let workspace = canonical_workspace(&workspace)?;
+    let workspace = canonical_workspace(workspace)?;
     let token = Uuid::new_v4().to_string();
     let mut authorizations = authorization_store()
         .lock()
@@ -615,38 +629,11 @@ pub async fn plugin_network_request(
         headers,
         body,
     };
-    let (task, permit) = {
-        let _gate = network_gate()
-            .lock()
-            .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
-        let grant = {
-            let mut authorizations = authorization_store()
-                .lock()
-                .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
-            take_authorization(&mut authorizations, &authorization_token, Instant::now())?
-        };
-        if canonical_workspace(&workspace)? != grant.workspace {
-            return Err(
-                "Plugin network authorization belongs to a different workspace.".to_string(),
-            );
-        }
-        let manifest = installed_plugin_manifest(&app, &grant.plugin_id, &grant.plugin_version)?;
-        if !manifest
-            .network_domains
-            .iter()
-            .any(|declared| declared == &grant.domain)
-        {
-            return Err("Plugin network domain approval is no longer valid.".to_string());
-        }
-        let permit =
-            acquire_network_permit(&grant.plugin_id, &grant.workspace, &authorization_token)?;
-        let task = tokio::spawn(async move { perform_network_request(request, grant).await });
-        if let Err(error) = attach_network_abort_handle(&permit.request_id, task.abort_handle()) {
-            task.abort();
-            return Err(error);
-        }
-        (task, permit)
-    };
+    let (task, permit) = tauri::async_runtime::spawn_blocking(move || {
+        start_network_request(&app, &workspace, &authorization_token, request)
+    })
+    .await
+    .map_err(|error| format!("Unable to start the plugin network request. {error}"))??;
     let response = match task.await {
         Ok(response) => response,
         Err(error) if error.is_cancelled() => {
@@ -656,6 +643,47 @@ pub async fn plugin_network_request(
     };
     drop(permit);
     response
+}
+
+fn start_network_request(
+    app: &AppHandle,
+    workspace: &str,
+    authorization_token: &str,
+    request: PluginNetworkRequest,
+) -> Result<
+    (
+        tokio::task::JoinHandle<Result<PluginNetworkResponse, String>>,
+        NetworkRequestPermit,
+    ),
+    String,
+> {
+    let _gate = network_gate()
+        .lock()
+        .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
+    let grant = {
+        let mut authorizations = authorization_store()
+            .lock()
+            .map_err(|_| "Plugin network authorization is unavailable.".to_string())?;
+        take_authorization(&mut authorizations, authorization_token, Instant::now())?
+    };
+    if canonical_workspace(workspace)? != grant.workspace {
+        return Err("Plugin network authorization belongs to a different workspace.".to_string());
+    }
+    let manifest = installed_plugin_manifest(app, &grant.plugin_id, &grant.plugin_version)?;
+    if !manifest
+        .network_domains
+        .iter()
+        .any(|declared| declared == &grant.domain)
+    {
+        return Err("Plugin network domain approval is no longer valid.".to_string());
+    }
+    let permit = acquire_network_permit(&grant.plugin_id, &grant.workspace, authorization_token)?;
+    let task = tokio::spawn(async move { perform_network_request(request, grant).await });
+    if let Err(error) = attach_network_abort_handle(&permit.request_id, task.abort_handle()) {
+        task.abort();
+        return Err(error);
+    }
+    Ok((task, permit))
 }
 
 fn validate_request_method(method: &str) -> Result<Method, String> {
@@ -756,8 +784,7 @@ fn is_public_ip(ip: IpAddr) -> bool {
                 || octets[0] == 0
                 || (octets[0] == 100 && (64..=127).contains(&octets[1]))
                 || (octets[0] == 192
-                    && (octets[1] == 0
-                        || (octets[1] == 0 && octets[2] == 2)
+                    && ((octets[1] == 0 && (octets[2] == 0 || octets[2] == 2))
                         || (octets[1] == 88 && octets[2] == 99)))
                 || (octets[0] == 198 && (18..=19).contains(&octets[1]))
                 || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100)
@@ -832,6 +859,7 @@ async fn perform_network_request(
     }
     let headers = validate_request_headers(&request.headers)?;
     let deadline = Instant::now() + NETWORK_REQUEST_TIMEOUT;
+    let mut pinned_client: Option<(Vec<SocketAddr>, reqwest::Client)> = None;
 
     for redirect_count in 0..=MAX_NETWORK_REDIRECTS {
         let remaining = deadline.saturating_duration_since(Instant::now());
@@ -846,15 +874,22 @@ async fn perform_network_request(
             return Err("Plugin network redirect left the approved domain.".to_string());
         }
         let addresses = resolve_public_addresses(&domain, remaining).await?;
-        let client = reqwest::Client::builder()
-            .https_only(true)
-            .no_proxy()
-            .redirect(Policy::none())
-            .timeout(remaining)
-            .resolve_to_addrs(&domain, &addresses)
-            .user_agent("pude-plugin-network/1")
-            .build()
-            .map_err(|_| "Unable to create the plugin network client.".to_string())?;
+        let client = match &pinned_client {
+            Some((pinned_addresses, client)) if *pinned_addresses == addresses => client.clone(),
+            _ => {
+                let client = reqwest::Client::builder()
+                    .https_only(true)
+                    .no_proxy()
+                    .redirect(Policy::none())
+                    .timeout(NETWORK_REQUEST_TIMEOUT)
+                    .resolve_to_addrs(&domain, &addresses)
+                    .user_agent("pude-plugin-network/1")
+                    .build()
+                    .map_err(|_| "Unable to create the plugin network client.".to_string())?;
+                pinned_client = Some((addresses, client.clone()));
+                client
+            }
+        };
         let mut builder = client
             .request(method.clone(), url.clone())
             .headers(headers.clone());
@@ -1104,7 +1139,9 @@ mod tests {
             "10.1.2.3",
             "169.254.169.254",
             "100.64.0.1",
+            "192.0.0.1",
             "192.0.2.1",
+            "192.88.99.1",
             "198.18.0.1",
             "198.51.100.2",
             "224.0.0.1",
@@ -1123,12 +1160,29 @@ mod tests {
                 "{blocked}"
             );
         }
-        for allowed in ["1.1.1.1", "8.8.8.8", "2606:4700:4700::1111"] {
+        for allowed in [
+            "1.1.1.1",
+            "8.8.8.8",
+            "192.0.3.1",
+            "192.0.78.1",
+            "2606:4700:4700::1111",
+        ] {
             assert!(
                 is_public_ip(IpAddr::from_str(allowed).unwrap()),
                 "{allowed}"
             );
         }
+    }
+
+    #[test]
+    fn network_tasks_can_be_spawned_from_the_blocking_pool() {
+        let value = tauri::async_runtime::block_on(async {
+            let task = tauri::async_runtime::spawn_blocking(|| tokio::spawn(async { 7 }))
+                .await
+                .unwrap();
+            task.await.unwrap()
+        });
+        assert_eq!(value, 7);
     }
 
     #[test]

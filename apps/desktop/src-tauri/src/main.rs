@@ -2228,19 +2228,20 @@ async fn git_operation<R: tauri::Runtime>(
         "stash-pop" => vec!["stash".to_string(), "pop".to_string()],
         "switch" => {
             require_git_value(&value, "branch")?;
-            vec!["switch".to_string(), value]
+            vec!["switch".to_string(), "--end-of-options".to_string(), value]
         }
         "create-branch" => {
             require_git_value(&value, "branch")?;
-            let mut args = vec!["switch".to_string(), "-c".to_string(), value];
-            if !start_point.is_empty() {
-                args.push(start_point);
-            }
-            args
+            vec!["switch".to_string(), "-c".to_string(), value]
         }
         "delete-branch" => {
             require_git_value(&value, "branch")?;
-            vec!["branch".to_string(), "-d".to_string(), value]
+            vec![
+                "branch".to_string(),
+                "-d".to_string(),
+                "--end-of-options".to_string(),
+                value,
+            ]
         }
         _ => {
             return Err(git_error_info(
@@ -2317,7 +2318,17 @@ async fn git_operation<R: tauri::Runtime>(
                 };
             }
         }
-        let arguments = args.into_iter().map(OsString::from).collect();
+        let mut arguments: Vec<OsString> = args.into_iter().map(OsString::from).collect();
+        if action == "create-branch" {
+            let start_point = resolve_start_point_commit(
+                &start_point,
+                "branch",
+                &repository_root,
+                &runtime,
+                &request,
+            )?;
+            arguments.extend(start_point);
+        }
         let write_root = require_same_git_repository(
             &workspace,
             &repository_roots,
@@ -2447,8 +2458,9 @@ fn validate_worktree_branch(
     }
 }
 
-fn resolve_worktree_start_point(
+fn resolve_start_point_commit(
     start_point: &str,
+    purpose: &str,
     repository_root: &Path,
     runtime: &GitCoordinator,
     request: &RequestHandle,
@@ -2474,7 +2486,7 @@ fn resolve_worktree_start_point(
         return Err(git_error_info(
             GitErrorKind::Failed,
             format!(
-                "The worktree start point must name an existing commit. {}",
+                "The {purpose} start point must name an existing commit. {}",
                 git_runtime_output_error(&output).message
             ),
         ));
@@ -2483,7 +2495,7 @@ fn resolve_worktree_start_point(
     if object_id.is_empty() || !object_id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(git_error_info(
             GitErrorKind::Internal,
-            "Git returned an invalid commit ID for the worktree start point.",
+            format!("Git returned an invalid commit ID for the {purpose} start point."),
         ));
     }
     Ok(Some(OsString::from(object_id)))
@@ -2523,8 +2535,13 @@ async fn create_git_worktree(
         let repository = cached_git_repository(&workspace, &repository_roots, &runtime, &request)?;
         let repository_root = repository.root.clone();
         validate_worktree_branch(&branch_name, &repository_root, &runtime, &request)?;
-        let start_point =
-            resolve_worktree_start_point(&start_point, &repository_root, &runtime, &request)?;
+        let start_point = resolve_start_point_commit(
+            &start_point,
+            "worktree",
+            &repository_root,
+            &runtime,
+            &request,
+        )?;
         let destination = git_worktree_destination(&repository_root, &path)?;
         let mut arguments = vec![
             OsString::from("worktree"),
@@ -2622,7 +2639,7 @@ mod git_worktree_start_point_tests {
         fn resolve_start_point(&self, start_point: &str) -> Result<Option<OsString>, GitErrorInfo> {
             let runtime = GitCoordinator::new();
             let request = runtime.begin_request(self.path(), None);
-            resolve_worktree_start_point(start_point, self.path(), &runtime, &request)
+            resolve_start_point_commit(start_point, "worktree", self.path(), &runtime, &request)
         }
     }
 
@@ -3012,6 +3029,7 @@ fn git_commit_files_sync(
     runtime: &GitCoordinator,
     request: &RequestHandle,
 ) -> Result<Vec<GitCommitFile>, GitErrorInfo> {
+    let commit = git_diff::require_commit_object_id(&commit)?;
     let output = git_read_shared(
         runtime,
         &repository_root,
@@ -3022,6 +3040,7 @@ fn git_commit_files_sync(
             OsString::from("--name-status"),
             OsString::from("--find-renames"),
             OsString::from("-z"),
+            OsString::from("--end-of-options"),
             OsString::from(commit),
         ],
         request,
@@ -3344,24 +3363,24 @@ async fn reveal_in_file_manager(path: String) -> Result<(), String> {
 
 fn reveal_in_file_manager_sync(path: String) -> Result<(), String> {
     let target = decode_wire_path(&path);
-    if cfg!(windows) {
-        Command::new("explorer")
-            .arg("/select,")
-            .arg(&target)
-            .spawn()
-            .map_err(|error| error.to_string())?;
+    let mut file_manager = if cfg!(windows) {
+        let mut command = Command::new("explorer");
+        command.arg("/select,").arg(&target);
+        command
     } else if cfg!(target_os = "macos") {
-        Command::new("open")
-            .arg("-R")
-            .arg(&target)
-            .spawn()
-            .map_err(|error| error.to_string())?;
+        let mut command = Command::new("open");
+        command.arg("-R").arg(&target);
+        command
     } else {
-        Command::new("xdg-open")
-            .arg(target.parent().unwrap_or(&target))
-            .spawn()
-            .map_err(|error| error.to_string())?;
+        let mut command = Command::new("xdg-open");
+        command.arg(target.parent().unwrap_or(&target));
+        command
     }
+    .spawn()
+    .map_err(|error| error.to_string())?;
+    thread::spawn(move || {
+        let _ = file_manager.wait();
+    });
     Ok(())
 }
 
@@ -3919,9 +3938,39 @@ fn atomic_replace(temporary: &Path, destination: &Path, replace_existing: bool) 
     }
     #[cfg(not(target_os = "macos"))]
     {
-        fs::hard_link(temporary, destination)?;
+        match fs::hard_link(temporary, destination) {
+            Ok(()) => {}
+            Err(error) if hard_links_unsupported(&error) => {
+                copy_into_new_file(temporary, destination)?
+            }
+            Err(error) => return Err(error),
+        }
         fs::remove_file(temporary)
     }
+}
+
+/// Filesystems such as FAT, exFAT and some network shares cannot hard link.
+pub(crate) fn hard_links_unsupported(error: &io::Error) -> bool {
+    #[cfg(unix)]
+    let platform_code = matches!(error.raw_os_error(), Some(libc::EPERM));
+    // ERROR_INVALID_FUNCTION and ERROR_NOT_SUPPORTED.
+    #[cfg(windows)]
+    let platform_code = matches!(error.raw_os_error(), Some(1 | 50));
+    error.kind() == io::ErrorKind::Unsupported || platform_code
+}
+
+#[cfg(all(not(windows), not(target_os = "macos")))]
+fn copy_into_new_file(source: &Path, destination: &Path) -> io::Result<()> {
+    let mut source = File::open(source)?;
+    let mut new_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)?;
+    let copied = io::copy(&mut source, &mut new_file).and_then(|_| new_file.sync_all());
+    if copied.is_err() {
+        let _ = fs::remove_file(destination);
+    }
+    copied
 }
 
 #[cfg(windows)]

@@ -1082,7 +1082,7 @@ fn plugin_workspace_write_sync(
             })
         }
         None => {
-            if let Err(error) = parent.hard_link(&temporary_path, &parent, &name) {
+            if let Err(error) = publish_new_file(&parent, &temporary_path, Path::new(&name)) {
                 let _ = parent.remove_file(&temporary_path);
                 if error.kind() == io::ErrorKind::AlreadyExists {
                     return Err("Unable to write plugin workspace file. A file appeared at the destination; read it before replacing it.".to_string());
@@ -1814,6 +1814,41 @@ fn read_file_from_directory(
     ))
 }
 
+fn publish_new_file(parent: &Dir, temporary_path: &Path, name: &Path) -> io::Result<()> {
+    publish_new_file_with(
+        parent,
+        temporary_path,
+        name,
+        |parent, temporary_path, name| parent.hard_link(temporary_path, parent, name),
+    )
+}
+
+fn publish_new_file_with(
+    parent: &Dir,
+    temporary_path: &Path,
+    name: &Path,
+    link: impl FnOnce(&Dir, &Path, &Path) -> io::Result<()>,
+) -> io::Result<()> {
+    match link(parent, temporary_path, name) {
+        Err(error) if super::hard_links_unsupported(&error) => {
+            copy_into_new_file(parent, temporary_path, name)
+        }
+        result => result,
+    }
+}
+
+fn copy_into_new_file(parent: &Dir, source: &Path, destination: &Path) -> io::Result<()> {
+    let mut source = parent.open(source)?;
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    let mut new_file = parent.open_with(destination, &options)?;
+    let copied = io::copy(&mut source, &mut new_file).and_then(|_| new_file.sync_all());
+    if copied.is_err() {
+        let _ = parent.remove_file(destination);
+    }
+    copied
+}
+
 fn create_temporary_file(parent: &Dir) -> Result<(PathBuf, cap_std::fs::File), String> {
     for _ in 0..16 {
         let path = PathBuf::from(format!(".pude-tmp-{}.tmp", Uuid::new_v4()));
@@ -1981,13 +2016,20 @@ mod tests {
     };
     #[cfg(unix)]
     use super::{
-        create_temporary_file, open_parent_directory, open_workspace, read_workspace_file_bytes,
+        create_temporary_file, open_parent_directory, open_workspace, publish_new_file_with,
+        read_workspace_file_bytes,
     };
+    #[cfg(unix)]
+    use cap_std::fs::Dir;
     use std::cell::Cell;
     use std::collections::HashMap;
     use std::fs;
     #[cfg(unix)]
+    use std::io;
+    #[cfg(unix)]
     use std::io::Write;
+    #[cfg(unix)]
+    use std::path::Path;
     use std::path::PathBuf;
     use std::process::Command;
     use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -2837,6 +2879,37 @@ mod tests {
         );
         let _ = fs::remove_dir_all(root);
         let _ = fs::remove_dir_all(outside);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn filesystems_without_hard_links_still_create_new_files_exclusively() {
+        let root = temporary_directory();
+        let (_, capability) = open_workspace(&root.to_string_lossy()).unwrap();
+        let unsupported =
+            |_: &Dir, _: &Path, _: &Path| Err(io::Error::from(io::ErrorKind::Unsupported));
+
+        let (staged, mut file) = create_temporary_file(&capability).unwrap();
+        file.write_all(b"new contents").unwrap();
+        drop(file);
+        publish_new_file_with(&capability, &staged, Path::new("created.txt"), unsupported).unwrap();
+        assert_eq!(fs::read(root.join("created.txt")).unwrap(), b"new contents");
+
+        fs::write(root.join("existing.txt"), b"keep me").unwrap();
+        let error =
+            publish_new_file_with(&capability, &staged, Path::new("existing.txt"), unsupported)
+                .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read(root.join("existing.txt")).unwrap(), b"keep me");
+
+        let denied =
+            publish_new_file_with(&capability, &staged, Path::new("other.txt"), |_, _, _| {
+                Err(io::Error::from(io::ErrorKind::NotFound))
+            })
+            .unwrap_err();
+        assert_eq!(denied.kind(), io::ErrorKind::NotFound);
+        assert!(!root.join("other.txt").exists());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[cfg(unix)]

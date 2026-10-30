@@ -6,6 +6,69 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Terminal: Trust Python Environment** and **Terminal: Stop Trusting Python
+  Environment** in the command palette. The choice is remembered for each project
+  folder on this machine.
+- The homepage shortcut list adds **Add next match**, **Select all matches**,
+  **Word wrap** and **Markdown preview**.
+- Releases verify the update signatures against the configured public key before
+  anything is uploaded, and `SHA256SUMS.txt` also covers the update package, both
+  signatures and `latest.json`.
+
+### Changed
+
+- Terminals no longer activate a project's `.venv`, `venv` or `env` by themselves,
+  because a cloned repository could otherwise put its own programs ahead of the
+  system ones. The terminal prints a one-line hint until you trust the folder.
+- `.env` table cells save when you leave the field or press Enter instead of on every
+  keystroke. A variable needs a name before it is written, and editing a value keeps
+  its quote style and multi-line layout.
+- The GitHub Release is created as a draft, verified, published and checked again. It
+  returns to a draft if the public check fails, so a broken `latest.json` is never
+  served.
+- `latest.json` needs both platforms unless `--allow-partial` is passed.
+- The website shows **Published release** and the download buttons only when the
+  build is given the tagged release URL of the version it shows.
+- The website sends security and cache headers, and the build checks that every inline
+  script is covered by the content security policy.
+- The README and website state that the VS Code comparison was measured with pude
+  0.1.2. The 0.1.7 installers are 5.6 MB on macOS and 4.3 MB on Windows.
+- Directory listings measure their size without building every entry twice, plugin
+  network requests reuse their connection while a redirect stays on the same
+  addresses and do their file checks off the async runtime, and slow Git operations
+  poll less often.
+- Rust tests run with `node scripts/run-rust-tests.mjs`, as in CI. Linux and macOS
+  Clippy now block the build; only Windows stays advisory.
+- Desktop dependencies are pinned to exact versions, including `vite` 8.3.5 and
+  `@tauri-apps/cli` 2.12.4, and `wrangler` is pinned as a development dependency.
+
+### Fixed
+
+- Git commit diffs and file lists accept only full commit IDs, and creating,
+  switching to or deleting a branch no longer treats a typed name or start point as a
+  Git option. A branch start point must now name an existing commit.
+- Plugins can reach public addresses in `192.0.0.0/16` outside the reserved
+  `192.0.0.0/24` and `192.0.2.0/24` ranges; they were blocked by mistake.
+- Plugins can create files, and Save As can create new files on Linux, on FAT, exFAT
+  and network volumes that do not support hard links.
+- **Reveal in Finder** no longer leaves a finished helper process behind on macOS and
+  Linux.
+- Git no longer signals a process group after its leader has been reaped, which could
+  hit an unrelated process that reused the ID.
+- **Save all** (**⌘⌥S**) and **Replace** (**⌘⌥F**) now work on macOS, where Option
+  changes the typed character.
+- **Retry scan** in the Explorer lists a partly read folder again and keeps it open.
+- **Reload** after an external change adopts the disk version like the background
+  reload does, so the file is no longer read a second time on focus.
+- Closing a terminal while it is starting no longer leaves its exit listener behind.
+- The Markdown preview no longer makes `//host/path` links clickable.
+- Plugin and file notifications, such as **Created** and **Reloaded**, are translated
+  in Traditional Chinese.
+- Removed a duplicated sentence from `THIRD_PARTY_LICENSES.md`, a duplicate social
+  preview image and three unused website images.
+
 ## [0.1.7] - 2026-10-28
 
 ### Added

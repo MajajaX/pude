@@ -27,6 +27,7 @@ pub const DEFAULT_STDOUT_LIMIT: usize = 16 * 1024 * 1024;
 pub const DEFAULT_STDERR_LIMIT: usize = 512 * 1024;
 pub const MAX_STDIN_BYTES: usize = 1024 * 1024;
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const SPOOLED_POLL_INTERVAL_CEILING: Duration = Duration::from_millis(50);
 const FLIGHT_WAIT_INTERVAL: Duration = Duration::from_millis(20);
 const SPOOL_CREATE_ATTEMPTS: usize = 32;
 const MAX_CACHE_ENTRIES_PER_REPOSITORY: usize = 16;
@@ -1641,6 +1642,66 @@ fn wait_for_unix_process_group(process_group: u32, deadline: Instant) -> Result<
     }
 }
 
+#[cfg(unix)]
+fn exit_is_pending_reap(process_id: u32, wait_for_exit: bool) -> io::Result<bool> {
+    let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+    let mut options = libc::WEXITED | libc::WNOWAIT;
+    if !wait_for_exit {
+        options |= libc::WNOHANG;
+    }
+    loop {
+        let result =
+            unsafe { libc::waitid(libc::P_PID, process_id as libc::id_t, &mut info, options) };
+        if result == 0 {
+            return Ok(info.si_signo != 0);
+        }
+        let error = io::Error::last_os_error();
+        if error.kind() != io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+}
+
+/// The group is killed while the unreaped leader still reserves its ID, because
+/// once the leader is reaped the ID can be reused by an unrelated process group.
+#[cfg(unix)]
+fn stop_process_group_then_reap(
+    child: &mut Child,
+    process_tree: &ProcessTreeGuard,
+) -> io::Result<std::process::ExitStatus> {
+    terminate_process_tree_guard_only(process_tree);
+    child.wait()
+}
+
+#[cfg(unix)]
+fn wait_for_exit_stopping_process_group(
+    child: &mut Child,
+    process_tree: &ProcessTreeGuard,
+) -> io::Result<std::process::ExitStatus> {
+    exit_is_pending_reap(child.id(), true)?;
+    stop_process_group_then_reap(child, process_tree)
+}
+
+#[cfg(unix)]
+fn try_exit_stopping_process_group(
+    child: &mut Child,
+    process_tree: &ProcessTreeGuard,
+) -> io::Result<Option<std::process::ExitStatus>> {
+    if exit_is_pending_reap(child.id(), false)? {
+        stop_process_group_then_reap(child, process_tree).map(Some)
+    } else {
+        Ok(None)
+    }
+}
+
+#[cfg(windows)]
+fn try_exit_stopping_process_group(
+    child: &mut Child,
+    _process_tree: &ProcessTreeGuard,
+) -> io::Result<Option<std::process::ExitStatus>> {
+    child.try_wait()
+}
+
 #[cfg(test)]
 static FORCE_SPOOL_PATH: AtomicBool = AtomicBool::new(false);
 
@@ -1762,6 +1823,8 @@ fn execute_process_spooled(
     };
 
     let started = Instant::now();
+    let mut poll_interval = wait_slice(&spec);
+    let poll_interval_ceiling = poll_interval.max(SPOOLED_POLL_INTERVAL_CEILING);
     let mut termination_reason = None;
     let status = loop {
         if token.is_cancelled() {
@@ -1797,18 +1860,17 @@ fn execute_process_spooled(
                 break wait_for_terminated_child(&mut child, &process_tree);
             }
         }
-        match child.try_wait() {
+        match try_exit_stopping_process_group(&mut child, &process_tree) {
             Ok(Some(status)) => break Ok(status),
             Ok(None) if started.elapsed() >= spec.timeout => {
                 termination_reason = Some(GitRuntimeError::timed_out(spec.timeout));
                 terminate_process_tree(&mut child, &process_tree);
                 break wait_for_terminated_child(&mut child, &process_tree);
             }
-            Ok(None) => thread::sleep(
-                spec.poll_interval
-                    .max(PROCESS_POLL_INTERVAL)
-                    .min(Duration::from_millis(100)),
-            ),
+            Ok(None) => {
+                thread::sleep(poll_interval);
+                poll_interval = (poll_interval * 2).min(poll_interval_ceiling);
+            }
             Err(error) => {
                 termination_reason = Some(GitRuntimeError::io("monitor Git command", error));
                 terminate_process_tree(&mut child, &process_tree);
@@ -1818,6 +1880,9 @@ fn execute_process_spooled(
     };
 
     let status = status?;
+    #[cfg(unix)]
+    wait_for_process_tree_to_empty(&process_tree);
+    #[cfg(windows)]
     terminate_process_tree_after_exit(&mut child, &process_tree);
     let stdout = read_spool(&stdout_spool.path, spec.stdout_limit, "stdout");
     let stderr = read_spool(&stderr_spool.path, spec.stderr_limit, "stderr");
@@ -2000,7 +2065,7 @@ impl WindowsOverflowSignal {
 struct PipedCommand {
     _stdin_spool: Option<OutputSpool>,
     child: Option<Child>,
-    process_tree: ProcessTreeGuard,
+    process_tree: Arc<ProcessTreeGuard>,
     stdout_collector: Arc<Mutex<CollectorState>>,
     stderr_collector: Arc<Mutex<CollectorState>>,
     readers: Vec<thread::JoinHandle<()>>,
@@ -2129,7 +2194,7 @@ fn spawn_piped_command(spec: &GitCommandSpec) -> Result<PipedCommand, GitRuntime
     Ok(PipedCommand {
         _stdin_spool: stdin_spool,
         child: Some(child),
-        process_tree,
+        process_tree: Arc::new(process_tree),
         stdout_collector,
         stderr_collector,
         readers,
@@ -2238,8 +2303,10 @@ fn wait_piped(
         .expect("piped wait receiver must exist");
     let mut wait_child = command.child.take().expect("piped child must exist");
     let wait_events = command.event_sender.clone();
+    let wait_process_tree = Arc::clone(&command.process_tree);
     thread::spawn(move || {
-        let event = match wait_child.wait() {
+        let event = match wait_for_exit_stopping_process_group(&mut wait_child, &wait_process_tree)
+        {
             Ok(status) => ChildWaitEvent::Exited(status),
             Err(error) => ChildWaitEvent::WaitError(error),
         };
@@ -2420,13 +2487,7 @@ fn terminate_process_tree_guard_only(process_tree: &ProcessTreeGuard) {
 
 #[cfg(unix)]
 fn terminate_tree_after_exit(command: &mut PipedCommand) {
-    terminate_process_tree_guard_only(&command.process_tree);
-    if let Err(error) = command
-        .process_tree
-        .wait_until_empty(command.process_tree.cleanup_deadline())
-    {
-        command.process_tree.mark_cleanup_failed(error);
-    }
+    wait_for_process_tree_to_empty(&command.process_tree);
 }
 
 #[cfg(windows)]
@@ -2600,8 +2661,13 @@ fn terminate_process_tree(child: &mut Child, process_tree: &ProcessTreeGuard) {
     terminate_process_tree_inner(child, process_tree);
 }
 
+#[cfg(windows)]
 fn terminate_process_tree_after_exit(child: &mut Child, process_tree: &ProcessTreeGuard) {
     terminate_process_tree_inner(child, process_tree);
+    wait_for_process_tree_to_empty(process_tree);
+}
+
+fn wait_for_process_tree_to_empty(process_tree: &ProcessTreeGuard) {
     if let Err(error) = process_tree.wait_until_empty(process_tree.cleanup_deadline()) {
         process_tree.mark_cleanup_failed(error);
     }
@@ -3217,6 +3283,42 @@ mod tests {
                 thread::sleep(PROCESS_POLL_INTERVAL);
             }
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exit_is_observed_without_reaping_and_the_group_is_stopped_before_the_reap() {
+        use std::os::unix::process::CommandExt;
+
+        let mut running = Command::new("sleep")
+            .arg("30")
+            .process_group(0)
+            .spawn()
+            .expect("running fixture");
+        assert!(!exit_is_pending_reap(running.id(), false).unwrap());
+        let _ = running.kill();
+        let _ = running.wait();
+
+        let mut leader = Command::new("sh")
+            .args(["-c", "sleep 30 & exit 3"])
+            .process_group(0)
+            .spawn()
+            .expect("group leader fixture");
+        let process_tree = ProcessTreeGuard::attach(&leader);
+        let _group = TestProcessGroup(leader.id() as i32);
+        assert!(exit_is_pending_reap(leader.id(), true).unwrap());
+        assert!(
+            exit_is_pending_reap(leader.id(), false).unwrap(),
+            "observing an exit must not reap the leader"
+        );
+        assert!(probe_process_group(leader.id() as i32).unwrap());
+
+        let status = stop_process_group_then_reap(&mut leader, &process_tree).unwrap();
+        assert_eq!(status.code(), Some(3));
+        wait_for_process_tree_to_empty(&process_tree);
+        assert_eq!(process_tree.cleanup_error(), None);
+        assert!(!probe_process_group(leader.id() as i32).unwrap());
+        process_tree.disarm_cleanup();
     }
 
     #[test]
