@@ -115,6 +115,9 @@ export function SettingsDialog(props: {
           <Toggle name="showWhitespace" label={t("Show whitespace")} settings={props.settings} onChange={props.onChange} />
           <Toggle name="autoCloseBrackets" label={t("Close brackets and quotes automatically")} settings={props.settings} onChange={props.onChange} />
 
+          <h3 class="settings-dialog-section">{t("Terminal")}</h3>
+          <NumberRow name="terminalFontSize" label={t("Terminal font size")} settings={props.settings} onChange={props.onChange} />
+
           <h3 class="settings-dialog-section">{t("Saving")}</h3>
           <Toggle name="trimTrailingWhitespace" label={t("Trim trailing whitespace on save")} settings={props.settings} onChange={props.onChange} />
           <Toggle name="insertFinalNewline" label={t("End files with a newline on save")} settings={props.settings} onChange={props.onChange} />
@@ -173,7 +176,7 @@ function Toggle(props: SettingProps<BooleanSettingName>) {
 }
 
 // The value is applied when the field is committed, so typing "16" never passes through 11.
-function NumberRow(props: SettingProps<Extract<NumericSetting, "fontSize" | "tabSize">>) {
+function NumberRow(props: SettingProps<Extract<NumericSetting, "fontSize" | "tabSize" | "terminalFontSize">>) {
   const id = `settings-${props.name}`;
   const range = settingRange(props.name);
   return (

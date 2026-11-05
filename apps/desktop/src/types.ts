@@ -123,6 +123,9 @@ export type GitStatusResult = {
   branch: string | null;
   repositoryState?: "normal" | "detached" | "unborn" | "unknown";
   headOid?: string | null;
+  upstream?: string | null;
+  ahead?: number | null;
+  behind?: number | null;
   files: GitFileStatus[];
   commits: GitCommit[];
   error?: string | null;
@@ -291,6 +294,7 @@ export type AppSettings = {
   insertFinalNewline: boolean;
   sidebarWidth: number;
   terminalHeight: number;
+  terminalFontSize: number;
   hideDotFiles: boolean;
   groupGitIgnoredFiles: boolean;
   checkForUpdates: boolean;

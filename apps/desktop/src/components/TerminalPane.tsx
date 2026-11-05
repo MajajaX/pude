@@ -2,7 +2,7 @@ import { For, createEffect, createMemo, createSignal, on, onCleanup, onMount } f
 import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { Icon } from "./Icons";
-import { isTauri, ackTerminalOutput, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalExitPayload, type TerminalOutputPayload } from "../lib/bridge";
+import { isTauri, ackTerminalOutput, getTerminalShell, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalExitPayload, type TerminalOutputPayload } from "../lib/bridge";
 import { errorMessage } from "../lib/core";
 import { clampSetting } from "../lib/settings";
 import { fitVisibleTerminal } from "../lib/terminal-fit";
@@ -19,10 +19,15 @@ type EarlyOutputChunk = { seq: number; generation: number; data: string; bytes: 
 
 const MIN_EDITOR_HEIGHT = 120;
 
-export function TerminalPane(props: { workspace: string; height: number; visible: boolean; openRequest?: TerminalOpenRequest; onSettingsChange: (changes: { terminalHeight: number }) => void; onHide: () => void; onClose: () => void }) {
+export function TerminalPane(props: { workspace: string; height: number; fontSize: number; visible: boolean; openRequest?: TerminalOpenRequest; onSettingsChange: (changes: { terminalHeight: number }) => void; onHide: () => void; onClose: () => void }) {
   let paneRef!: HTMLElement;
   const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: t("Terminal {number}", { number: 1 }), directory: props.openRequest?.directory }]);
   const [activeTabId, setActiveTabId] = createSignal(1);
+  const [shell, setShell] = createSignal(isTauri ? t("Shell") : t("Demo"));
+  onMount(() => { if (isTauri) void getTerminalShell().then((path) => setShell(path.split(/[\\/]/).filter(Boolean).pop() || t("Shell"))).catch(() => undefined); });
+  const [renaming, setRenaming] = createSignal<number>();
+  const [tabLabels, setTabLabels] = createSignal<Record<number, string>>({});
+  const tabLabel = (tab: TerminalTab) => tabLabels()[tab.id] ?? tab.label;
   let lastOpenRequestId = props.openRequest?.id;
   let nextTabId = 2;
   const addTab = (directory?: string) => {
@@ -87,8 +92,8 @@ export function TerminalPane(props: { workspace: string; height: number; visible
       <div class="terminal-toolbar">
         <div class="terminal-tabs" role="tablist" aria-label={t("Terminal sessions")}>
           <For each={tabs()}>{(tab) => <div classList={{ "terminal-tab": true, "terminal-tab-active": activeTabId() === tab.id }}>
-            <button type="button" role="tab" aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)}><Icon name="terminal" size={13} />{tab.label}</button>
-            <button type="button" class="terminal-tab-close" title={t("Kill {label}", { label: tab.label })} aria-label={t("Kill {label}", { label: tab.label })} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
+            {renaming() === tab.id ? <input aria-label={t("Rename terminal")} value={tabLabel(tab)} autofocus onBlur={(event) => { const label = event.currentTarget.value.trim(); if (label && renaming() === tab.id) setTabLabels((current) => ({ ...current, [tab.id]: label })); setRenaming(undefined); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setRenaming(undefined); } }} /> : <button type="button" role="tab" aria-label={tabLabel(tab)} title={`${shell()} · ${tab.directory ?? props.workspace}`} aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)} onDblClick={() => setRenaming(tab.id)}><Icon name="terminal" size={13} />{tabLabel(tab)}<small>{shell()} · {(tab.directory ?? props.workspace).split(/[\\/]/).filter(Boolean).pop()}</small></button>}
+            <button type="button" class="terminal-tab-close" title={t("Kill {label}", { label: tabLabel(tab) })} aria-label={t("Kill {label}", { label: tabLabel(tab) })} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
           </div>}</For>
           <button class="icon-button terminal-add-tab" type="button" title={t("New terminal")} aria-label={t("New terminal")} onClick={() => addTab()}><Icon name="plus" size={14} /></button>
         </div>
@@ -99,14 +104,20 @@ export function TerminalPane(props: { workspace: string; height: number; visible
       </div>
       <For each={tabs()}>{(tab) => {
         const visible = createMemo(() => props.visible && activeTabId() === tab.id);
-        return <TerminalSession workspace={props.workspace} workingDirectory={tab.directory} visible={visible()} />;
+        return <TerminalSession workspace={props.workspace} workingDirectory={tab.directory} visible={visible()} fontSize={props.fontSize} />;
       }}</For>
     </section>
   );
 }
 
-function TerminalSession(props: { workspace: string; workingDirectory?: string; visible: boolean }) {
+function TerminalSession(props: { workspace: string; workingDirectory?: string; visible: boolean; fontSize: number }) {
   const sessionWorkspace = createMemo(() => props.workspace);
+  const [status, setStatus] = createSignal<"Starting" | "Ready" | "Exited" | "Failed">("Starting");
+  const [searchOpen, setSearchOpen] = createSignal(false);
+  const [query, setQuery] = createSignal("");
+  const [menu, setMenu] = createSignal<{ x: number; y: number }>();
+  const [actionError, setActionError] = createSignal("");
+  let searchAddon: import("@xterm/addon-search").SearchAddon | undefined;
   const [sessionId, setSessionId] = createSignal<string>();
   const [sessionEnded, setSessionEnded] = createSignal(isTauri);
   let hostRef!: HTMLDivElement;
@@ -152,6 +163,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     ackScheduler.reset();
     disposePluginTerminalWriter?.();
     disposePluginTerminalWriter = undefined;
+    setStatus("Failed");
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
@@ -260,6 +272,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     writeQueue = pendingWrite.catch((error) => {
       if (signal?.aborted) return;
       if (disposed || id !== activeId || sessionEnded()) return;
+      setStatus("Failed");
       setSessionEnded(true);
       disposePluginTerminalWriter?.();
       disposePluginTerminalWriter = undefined;
@@ -338,11 +351,13 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
+    setStatus("Exited");
     appendStatus(payload.status ? t("terminal exited: {status}", { status: payload.status }) : t("terminal exited"));
   };
 
   const startSession = async (workspace: string) => {
     if (!isTauri || disposed || !listenersReady || !shouldRun || activeId || capturingStartupOutput) return;
+    setStatus("Starting");
     const version = ++startupVersion;
     const isCurrentStart = () => !disposed && shouldRun && version === startupVersion && workspace === props.workspace;
     writeQueue = Promise.resolve();
@@ -373,6 +388,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
       outputReady = true;
       setSessionId(id);
       setSessionEnded(false);
+      setStatus("Ready");
       const exitedBeforeAttach = earlyExit.get(id);
       earlyExit.delete(id);
       if (exitedBeforeAttach) {
@@ -387,6 +403,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     } catch (error) {
       if (!isCurrentStart()) return;
       shouldRun = false;
+      setStatus("Failed");
       setSessionEnded(true);
       if (terminal) terminal.options.disableStdin = true;
       appendStatus(errorMessage(error, "Unable to start terminal."));
@@ -411,9 +428,10 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   onMount(() => {
     void (async () => {
       try {
-        const [{ Terminal: XtermTerminal }, { FitAddon }] = await Promise.all([
+        const [{ Terminal: XtermTerminal }, { FitAddon }, { SearchAddon }] = await Promise.all([
           import("@xterm/xterm"),
           import("@xterm/addon-fit"),
+          import("@xterm/addon-search"),
           document.fonts?.load(`13px ${TERMINAL_FONT_FAMILY}`).catch(() => undefined),
         ]);
         if (disposed) return;
@@ -423,7 +441,11 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         const fit = new FitAddon();
         fitAddon = fit;
         instance.loadAddon(fit);
+        searchAddon = new SearchAddon();
+        instance.loadAddon(searchAddon);
+        instance.options.fontSize = props.fontSize;
         instance.open(hostRef);
+        instance.attachCustomKeyEventHandler((event) => event.type !== "keydown" || !handleShortcut(event));
         instance.write("pude terminal\r\n");
         instance.options.disableStdin = isTauri;
 
@@ -440,6 +462,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
           const subscription = instance.onData(handleBrowserInput);
           disposeTerminalInput = () => subscription.dispose();
           instance.options.disableStdin = false;
+          setStatus("Ready");
           instance.write("browser demo: help, clear, pwd, git status\r\npude$ ");
           if (props.visible) instance.focus();
         }
@@ -467,6 +490,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         resizeObserver = undefined;
         disposeTerminalInput?.();
         disposeTerminalInput = undefined;
+        setStatus("Failed");
         setSessionEnded(true);
         if (terminal) terminal.options.disableStdin = true;
         if (terminal) appendStatus(errorMessage(error, "Unable to start terminal."));
@@ -544,5 +568,52 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     terminal = undefined;
   });
 
-  return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }}><div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")} /><button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> {t("Restart terminal")}</button></div>;
+  createEffect(() => {
+    const size = props.fontSize;
+    if (terminal) { terminal.options.fontSize = size; scheduleFit(); }
+  });
+
+  const clipboardAction = async (action: "copy" | "paste") => {
+    try {
+      if (!navigator.clipboard) throw new Error(t("Clipboard is unavailable."));
+      if (action === "copy") await navigator.clipboard.writeText(terminal?.getSelection() ?? "");
+      else terminal?.paste(await navigator.clipboard.readText());
+      setActionError("");
+    } catch (error) { setActionError(errorMessage(error, t("Clipboard is unavailable."))); }
+    terminal?.focus();
+  };
+  const runAction = (action: "copy" | "paste" | "select" | "clear") => {
+    setMenu(undefined);
+    if (action === "copy" || action === "paste") void clipboardAction(action);
+    else if (action === "select") terminal?.selectAll();
+    else terminal?.clear();
+    if (action === "select" || action === "clear") terminal?.focus();
+  };
+  /** Returns true when xterm must not handle the key itself. */
+  const handleShortcut = (event: KeyboardEvent) => {
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+    const modifier = mac ? event.metaKey : event.ctrlKey && event.shiftKey;
+    if (!modifier) return false;
+    const key = event.key.toLowerCase();
+    // The webview's own paste event reaches xterm's textarea without a clipboard permission prompt.
+    if (key === "v") return true;
+    if (key === "c") { event.preventDefault(); event.stopPropagation(); runAction("copy"); return true; }
+    if (key === "f") { event.preventDefault(); event.stopPropagation(); setSearchOpen(true); return true; }
+    return false;
+  };
+  let menuRef: HTMLDivElement | undefined;
+  createEffect(() => {
+    if (!menu()) return;
+    const dismiss = (event: PointerEvent) => { if (!menuRef?.contains(event.target as Node)) setMenu(undefined); };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { setMenu(undefined); terminal?.focus(); } };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    onCleanup(() => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); });
+  });
+  return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }} onContextMenu={(event) => { if (!(event.target instanceof Element) || !event.target.closest(".terminal-vt-host")) return; event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY }); }}>
+    <div class="terminal-session-status" role="status">{t(status())}{actionError() && ` · ${actionError()}`}</div>
+    {searchOpen() && <div class="terminal-search"><input ref={(element) => queueMicrotask(() => element.focus())} aria-label={t("Search terminal")} placeholder={t("Search terminal")} value={query()} onInput={(event) => setQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.shiftKey ? searchAddon?.findPrevious(query()) : searchAddon?.findNext(query()); } if (event.key === "Escape") { setSearchOpen(false); terminal?.focus(); } }} /><button type="button" onClick={() => searchAddon?.findPrevious(query())}>{t("Previous")}</button><button type="button" onClick={() => searchAddon?.findNext(query())}>{t("Next")}</button><button type="button" aria-label={t("Close search")} onClick={() => { setSearchOpen(false); terminal?.focus(); }}>×</button></div>}
+    <div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")} />
+    {menu() && <div ref={(element) => { menuRef = element; queueMicrotask(() => { if (!element.isConnected) return; const bounds = element.getBoundingClientRect(); element.style.left = `${Math.max(0, Math.min(menu()!.x, window.innerWidth - bounds.width))}px`; element.style.top = `${Math.max(0, Math.min(menu()!.y, window.innerHeight - bounds.height))}px`; element.querySelector<HTMLButtonElement>("button")?.focus(); }); }} class="terminal-context-menu" role="menu" style={{ left: `${menu()!.x}px`, top: `${menu()!.y}px` }}><button type="button" role="menuitem" onClick={() => runAction("copy")}>{t("Copy")}</button><button type="button" role="menuitem" onClick={() => runAction("paste")}>{t("Paste")}</button><button type="button" role="menuitem" onClick={() => runAction("select")}>{t("Select all")}</button><button type="button" role="menuitem" onClick={() => runAction("clear")}>{t("Clear terminal")}</button></div>}
+    <button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> {t("Restart terminal")}</button></div>;
 }

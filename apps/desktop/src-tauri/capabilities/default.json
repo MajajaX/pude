@@ -53,6 +53,7 @@
     "allow-git-stash-diff",
     "allow-watch-workspace",
     "allow-stop-watcher",
+    "allow-terminal-shell",
     "allow-terminal-start",
     "allow-terminal-write",
     "allow-terminal-kill",

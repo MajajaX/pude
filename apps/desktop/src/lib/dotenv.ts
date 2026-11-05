@@ -123,6 +123,16 @@ export function dotenvDeleteEdit(text: string, entry: DotenvEntry): PluginEditor
 /** Append a `KEY=value` line at the end of the file. */
 export function dotenvAppendEdit(text: string, key: string, value: string): PluginEditorEdit {
   const line = `${sanitizeDotenvKey(key)}=${encodeDotenvValue(value, "")}`;
-  const insert = text === "" || text.endsWith("\n") ? `${line}\n` : `\n${line}`;
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  const insert = text === "" || text.endsWith("\n") ? `${line}${newline}` : `${newline}${line}`;
   return { from: text.length, to: text.length, insert };
+}
+
+/** Insert a variable immediately before or after an existing entry. */
+export function dotenvInsertEdit(text: string, entry: DotenvEntry, side: "above" | "below", key: string, value: string): PluginEditorEdit {
+  const line = `${sanitizeDotenvKey(key)}=${encodeDotenvValue(value, "")}`;
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  if (side === "above") return { from: entry.from, to: entry.from, insert: line + newline };
+  if (entry.to < text.length) return { from: entry.to + 1, to: entry.to + 1, insert: line + newline };
+  return { from: entry.to, to: entry.to, insert: newline + line };
 }

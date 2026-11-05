@@ -17,6 +17,15 @@ describe("createPluginEditorEditTransaction", () => {
     expect(undone.doc.toString()).toBe("hello");
   });
 
+  it("isolates discrete edits from adjacent history while leaving default edits groupable", () => {
+    const state = EditorState.create({ doc: "A=old", extensions: [history()] });
+    const inserted = createPluginEditorEditTransaction(state, 0, 0, [{ from: 5, to: 5, insert: "\nB=old" }], true)!.state;
+    const generated = createPluginEditorEditTransaction(inserted, 1, 1, [{ from: 8, to: 11, insert: "secret" }], true)!.state;
+    let undone = generated;
+    expect(undo({ state: generated, dispatch: (next) => { undone = next.state; } })).toBe(true);
+    expect(undone.doc.toString()).toBe("A=old\nB=old");
+  });
+
   it("rejects stale revisions, out-of-range offsets, and overlapping edits", () => {
     const state = EditorState.create({ doc: "hello" });
     expect(createPluginEditorEditTransaction(state, 2, 3, [{ from: 0, to: 1, insert: "H" }])).toBeUndefined();

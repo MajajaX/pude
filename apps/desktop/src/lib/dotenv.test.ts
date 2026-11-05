@@ -67,3 +67,15 @@ describe("dotenv editing", () => {
     expect(applyEdit("", dotenvAppendEdit("", "", "x"))).toBe("=x\n");
   });
 });
+
+describe("inserting variables", () => {
+  it("preserves CRLF, multiline values, comments and trailing content", async () => {
+    const { dotenvInsertEdit, parseDotenv } = await import("./dotenv");
+    const text = '# heading\r\nA="first\r\nsecond" # note\r\n\r\n# tail\r\n';
+    const entry = parseDotenv(text).find((item) => item.kind === "variable")!;
+    const edit = dotenvInsertEdit(text, entry, "below", "B", "x y");
+    expect(text.slice(0, edit.from) + edit.insert + text.slice(edit.to)).toBe('# heading\r\nA="first\r\nsecond" # note\r\nB=x y\r\n\r\n# tail\r\n');
+    const before = dotenvInsertEdit(text, entry, "above", "B", "x");
+    expect(text.slice(0, before.from) + before.insert + text.slice(before.to)).toContain('# heading\r\nB=x\r\nA=');
+  });
+});

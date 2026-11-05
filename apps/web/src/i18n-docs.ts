@@ -178,7 +178,7 @@ const en: DocsDict = {
           {
             t: "list",
             items: [
-              "Each project tab keeps its own files, unsaved edits, undo history, search, Git view and terminals while it is in the background. Drag project tabs to reorder them; they reopen in that order.",
+              "Each project tab keeps its own files, unsaved edits, undo history, search, Git view and terminals while it is in the background. Right-click blank space and choose `Refresh` to update listings, open files and Git without interrupting those projects or terminals. Drag project tabs to reorder them; they reopen in that order.",
               "`+` in the header adds an empty project tab. `File › New window` opens a separate window with its own projects.",
               "On Windows, right-click a folder and choose `Open with pude`.",
               "Right-click pude in the macOS Dock, or on the Windows taskbar or Start, for `New Window` and your recent folders and workspaces. A recent item opens as a new project tab in the pude window you used last, or switches to the tab that already shows it; only with no window open does it open a new one.",
@@ -223,7 +223,7 @@ const en: DocsDict = {
               "Multiple cursors, undo and redo, and indentation come from CodeMirror 6. The editor highlights the current line, matching brackets and other copies of the selected text, closes brackets and quotes as you type, re-indents closing brackets, and folds blocks from the gutter. `⌘D` (`Ctrl+D`) adds the next match to the selection, `⌘⇧L` selects every match, and Alt-drag makes a column selection. Large-file mode leaves out folding and auto-closing.",
               "The command palette (`⌘⇧P`) shows each command's shortcut, matches words in any order and lists the commands you ran recently first. It includes editing commands such as `Sort Lines Ascending`, `Transform to Uppercase`, `Trim Trailing Whitespace`, `Fold All`, `Toggle Line Comment` and `Duplicate Line`, and view commands such as `Toggle Word Wrap` (`⌥Z`, `Alt+Z`), `Toggle Line Numbers` and `Toggle Whitespace`.",
               "`.env` and `.env.*` files have shell syntax highlighting for assignments, quoted strings, numbers, expansions and comments, and show `Dotenv` in the status bar. The same large-file limits apply.",
-              "`.env` files open as a table: each variable has a name field and a value field, each with a copy button, and `Line` copies the whole `NAME=value` line. Add, rename, edit or delete variables there; only the changed text is rewritten, and a value is quoted when it needs to be. The `Source / Table` button in the lower-right corner switches views, and every `.env` file in the project follows that choice. The table is off for files over 512 KiB.",
+              "`.env` files open as a table: each variable has a name field and a value field, each with a copy button, and `Line` copies the whole `NAME=value` line. Use `Add variable` in the toolbar or below the table to add a row after the last variable, before trailing comments. Right-click a row or use its actions menu to insert above or below. Rename, edit or delete variables, and generate random values in Hex, Base64URL, Base64, alphanumeric or UUIDv4 format. The default is 32-byte Base64URL; lengths range from 1 to 1,024 bytes or characters, with 16, 32 and 64 presets. Open it from the value button or row actions; the preview shows its character count. Preview, regenerate, apply or cancel; format and length are saved locally, not the generated value. Outside a draft row or generator, Cmd/Ctrl+Z undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation are separate undo steps. Only the changed text is rewritten, and a value is quoted when it needs to be. The `Source / Table` button in the lower-right corner switches views, and every `.env` file in the project follows that choice. The table is off for files over 512 KiB.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor, or press `⌘=` / `⌘-` (`Ctrl+=` / `Ctrl+-`), to set the font size between 11 and 24; `⌘0` (`Ctrl+0`) returns to 14.",
               "The interface uses the open-source Inter typeface; the editor, terminals and diffs use JetBrains Mono. Both are bundled with pude, so they look the same offline and on every platform. Chinese text falls back to the system font.",
               "Markdown opens as source. The `Source / Preview` button in the lower-right corner of the editor switches to a rendered preview, and every Markdown file in the project follows that choice. Preview uses the available editor width with smaller side margins and clear body text in both themes.",
@@ -276,7 +276,7 @@ const en: DocsDict = {
           },
           {
             t: "note",
-            text: "The panel refreshes from events — saves, file changes and Git actions — never from background polling. Full rebase and merge-resolution interfaces are not included yet.",
+            text: "Sync shows counts against the locally stored upstream ref when available: Push is green for a nonzero ahead count and Pull is blue for a nonzero behind count. Without an upstream, neither is accented. Git operations show progress per project. The panel refreshes from events — saves, file changes and Git actions — never from background polling. Full rebase and merge-resolution interfaces are not included yet.",
           },
         ],
       },
@@ -294,6 +294,8 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Right-click a folder in Explorer and choose `Open in Integrated Terminal` to create a new tab in that directory. For a file, it starts in the file’s parent directory. Existing terminal tabs keep their current directories.",
+              "Tabs show the native shell executable and starting directory names (hover for the full path), and Starting, Ready, Exited or Failed status. The browser labels the shell Demo. Double-click a tab to rename it for this session. Exited or failed sessions offer restart. Settings saves terminal font size locally (8–32 px, default 13).",
+              "Right-click for Copy, Paste, Select all or Clear terminal; Escape dismisses the menu. Copy/paste use Cmd+C/V on macOS and Ctrl+Shift+C/V elsewhere; Ctrl+C interrupts. Clipboard access may be unavailable or denied. Cmd+F on macOS or Ctrl+Shift+F elsewhere opens terminal search; Enter and Shift+Enter find next and previous, Escape closes it. The browser uses a demo terminal.",
               "Every project has its own terminals. Hiding the panel or switching to another project keeps them running; closing a terminal tab, the project or the window stops that terminal's process tree.",
               "Drag the top edge of the terminal panel to resize it, or focus the edge and press the Up/Down arrow keys. The height is saved and used for every project; the editor always keeps at least 120 px.",
               "Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows PowerShell, like Windows Terminal. macOS and Linux start `SHELL` as a login shell, falling back to `/bin/sh`, so the terminal sees the same `PATH` as your usual terminal app.",
@@ -590,7 +592,7 @@ const zhHant: DocsDict = {
           {
             t: "list",
             items: [
-              "每個專案分頁在背景時都保留自己的檔案、未儲存的修改、復原紀錄、搜尋、Git 檢視與終端機。專案分頁可以拖曳排序，下次會依相同順序開啟。",
+              "每個專案分頁在背景時都保留自己的檔案、未儲存的修改、復原紀錄、搜尋、Git 檢視與終端機。在空白處按右鍵選擇 `重新整理`，可更新目錄清單、已開啟的檔案與 Git，且不會中斷專案或終端機。專案分頁可以拖曳排序，下次會依相同順序開啟。",
               "標題列的 `+` 會新增空白專案分頁；`File › New window` 會開啟另一個擁有自己專案的視窗。",
               "在 Windows 上，可以對資料夾按右鍵選擇 `Open with pude`。",
               "在 macOS 的 Dock，或 Windows 的工作列與開始功能表對 pude 按右鍵，可選 `New Window` 以及最近的資料夾和工作區。選擇最近項目會在你最後使用的 pude 視窗開成新的專案分頁，若已經開著則切換到該分頁；只有沒有任何視窗時才會開新視窗。",
@@ -635,7 +637,7 @@ const zhHant: DocsDict = {
               "多游標、復原與重做、縮排由 CodeMirror 6 提供。編輯器會標示目前所在行、對應的括號以及與選取內容相同的文字，輸入時自動補上右括號與引號，輸入右括號時自動調整縮排，並可從行號欄摺疊區塊。`⌘D`（`Ctrl+D`）將下一個相符項目加入選取，`⌘⇧L` 選取所有相符項目，按住 Alt 拖曳可進行欄選取。大型檔案模式不提供摺疊與自動補括號。",
               "命令面板（`⌘⇧P`）會顯示每個指令的快捷鍵，關鍵字可不分順序比對，最近執行過的指令排在最前面。面板中包含 `Sort Lines Ascending`、`Transform to Uppercase`、`Trim Trailing Whitespace`、`Fold All`、`Toggle Line Comment`、`Duplicate Line` 等編輯指令，以及 `Toggle Word Wrap`（`⌥Z`、`Alt+Z`）、`Toggle Line Numbers`、`Toggle Whitespace` 等檢視指令。",
               "`.env` 與 `.env.*` 支援 shell 語法高亮，包括變數賦值、引號、數字、變數展開與註解，狀態列顯示 `Dotenv`；沿用相同的大型檔案限制。",
-              "`.env` 檔會以表格開啟：每個變數都有名稱與值兩個輸入框，各自附有複製按鈕，`整行` 則複製整行 `NAME=value`。可以在表格中新增、改名、修改或刪除變數；只會改寫變動的文字，值需要時會自動加上引號。編輯器右下角的 `原始碼 / 表格` 按鈕可切換檢視，同一個專案裡的 `.env` 檔都會沿用這個選擇。超過 512 KiB 的檔案不提供表格檢視。",
+              "`.env` 檔會以表格開啟：每個變數都有名稱與值兩個輸入框，各自附有複製按鈕，`整行` 則複製整行 `NAME=value`。工具列或表格下方的 `新增變數` 會在最後一個變數之後、結尾註解之前新增一列。對列按右鍵或開啟列操作選單，可在上方或下方插入。可以改名、修改或刪除變數，並產生 Hex、Base64URL、Base64、英數字或 UUIDv4 格式的隨機值。預設為 32 位元組的 Base64URL；長度可設定為 1 至 1,024 位元組或字元，並提供 16、32、64 預設值。可從值旁的按鈕或列操作開啟，預覽會顯示字元數。可預覽、重新產生、套用或取消；格式和長度會儲存在本機，產生的值不會作為偏好設定儲存。不在草稿列或產生器中時，Cmd/Ctrl+Z 可復原，Shift+Cmd/Ctrl+Z 或 Ctrl+Y 可重做；插入、刪除與產生各自是獨立的復原步驟。只會改寫變動的文字，值需要時會自動加上引號。編輯器右下角的 `原始碼 / 表格` 按鈕可切換檢視，同一個專案裡的 `.env` 檔都會沿用這個選擇。超過 512 KiB 的檔案不提供表格檢視。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，或按 `⌘=` / `⌘-`（`Ctrl+=` / `Ctrl+-`），可將字體大小調整為 11 到 24；`⌘0`（`Ctrl+0`）還原為 14。",
               "介面使用開源字型 Inter，編輯器、終端機與差異檢視使用 JetBrains Mono。兩者都隨 pude 內建，離線與各平台顯示一致；中文會使用系統字型。",
               "Markdown 預設顯示原始碼；編輯器右下角的 `Source / Preview` 按鈕可切換為渲染預覽，同一個專案裡的 Markdown 檔都會沿用這個選擇。預覽會使用編輯區可用寬度，縮小兩側留白，並在深淺主題使用清晰的內文字色。",
@@ -688,7 +690,7 @@ const zhHant: DocsDict = {
           },
           {
             t: "note",
-            text: "面板由事件觸發更新——儲存、檔案變更與 Git 操作——從不在背景輪詢。目前尚未提供完整的 rebase 與合併衝突解決介面。",
+            text: "同步區域會在可取得時顯示與本機儲存的上游參照相比的數量：領先數量非零時 Push 顯示綠色，落後數量非零時 Pull 顯示藍色；沒有上游時兩者都不加強調色。Git 操作會依專案顯示進度。面板由事件觸發更新——儲存、檔案變更與 Git 操作——從不在背景輪詢。目前尚未提供完整的 rebase 與合併衝突解決介面。",
           },
         ],
       },
@@ -706,6 +708,8 @@ const zhHant: DocsDict = {
             t: "list",
             items: [
               "在檔案總管對資料夾按右鍵，選擇 `Open in Integrated Terminal`，會在該目錄建立新的終端機分頁；對檔案使用時則開在檔案所在的資料夾。既有終端機分頁的目錄不會改變。",
+              "分頁顯示原生 shell 執行檔與起始目錄的名稱（將游標移上可查看完整路徑），以及啟動中、就緒、已結束或失敗狀態。瀏覽器的 shell 標示為「示範」。按兩下分頁可在本次工作階段重新命名；結束或失敗時可重新啟動。設定會在本機儲存終端機字型大小（8–32 px，預設 13）。",
+              "按右鍵可複製、貼上、全選或清除終端機；按 Escape 可關閉選單。macOS 使用 Cmd+C/V，其他平台使用 Ctrl+Shift+C/V；Ctrl+C 仍用於中斷。剪貼簿可能無法使用或存取遭拒。macOS 按 Cmd+F、其他平台按 Ctrl+Shift+F 開啟終端機搜尋；Enter 與 Shift+Enter 找下一個與上一個結果，Escape 關閉。瀏覽器使用示範終端機。",
               "每個專案都有自己的終端機。隱藏面板或切換到其他專案時仍會繼續執行；關閉終端機分頁、關閉專案或關閉視窗，才會停止該終端機的程序樹。",
               "拖曳終端機面板的上緣即可調整高度，也可以聚焦上緣後按上／下方向鍵調整。高度會被記住並套用到所有專案，編輯器至少保留 120 px。",
               "Windows 優先啟動 PowerShell 7（`pwsh.exe`，需在 `PATH` 中），否則使用 Windows PowerShell，與 Windows Terminal 一致；macOS 與 Linux 以登入 shell 啟動 `SHELL`，未設定時改用 `/bin/sh`，因此終端機看到的 `PATH` 與你平常用的終端機相同。",

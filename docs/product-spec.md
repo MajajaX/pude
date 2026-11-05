@@ -14,6 +14,10 @@ coverage and no published installer yet.
 - Opening a folder reads its top level. Subfolders load on expansion and long
   trees render visible rows only. File/folder creation, rename, copy name, copy
   paths and native reveal are available from Explorer. Delete uses recoverable system trash.
+- Right-click blank space for **Refresh** to update directory listings, open files
+  and Git without reloading the renderer or interrupting projects, unsaved edits or
+  terminals. Editable fields and selected text keep the native menu. Reloading the renderer restores all checkpointed projects; a window
+  consumes its startup launch request only once.
 - Dot files are visible by default and can be hidden in Settings.
 - Git-ignored names are muted. With **Group ignored** enabled, ignored root items
   appear in a collapsed group identified by a Git icon, divider and item count.
@@ -196,11 +200,21 @@ coverage and no published installer yet.
   value field, and comment lines show as section labels. Beside each field a copy
   button copies the name or the value (without quotes), and **Line** copies the
   `NAME=value` text as written in the file, without `export` or a trailing comment.
-  **Add variable** opens an empty row at the end; it is written to the file when focus
-  leaves the row, and discarded if both fields are still blank. The trash button
-  deletes a variable's lines. Names that appear more than once are marked **Duplicate**.
+  **Add variable** in the toolbar or below the table opens an empty row after the last
+  variable, before any trailing comments; it is written when focus leaves the row and
+  discarded if both fields are blank. The trash button deletes a variable's lines.
+  Right-click a row or open its actions menu to insert above or below it. Names that
+  appear more than once are marked **Duplicate**.
+- Random values are generated with the system's secure random source in Hex,
+  Base64URL, Base64, alphanumeric or UUIDv4 format. The default is Base64URL with
+  32 bytes; byte or character lengths range from 1 to 1,024, with presets of 16, 32
+  and 64. Open the generator from the value's ✦ button or the row actions; the preview
+  reports its character count and can be regenerated, applied or cancelled. Format and
+  length are saved locally; generated values are never saved as preferences.
 - Table edits change the same document as the source editor, so undo, dirty state,
-  saving and recovery work as usual. Only the edited name or value changes; quotes,
+  saving and recovery work as usual. Outside a draft row or generator, Cmd/Ctrl+Z
+  undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation
+  are separate undo steps. Only the edited name or value changes; quotes,
   `export`, spacing and comments stay. A value that needs quoting (leading or
   trailing spaces, ` #`, a leading quote or a line break) is written in double quotes.
 - The lower-right **Source / Table** control switches views. The choice follows
@@ -260,6 +274,18 @@ coverage and no published installer yet.
 
 - The panel opens with **Cmd+`** / **Ctrl+`**. A normal new terminal uses the project
   root; xterm.js and a PTY start only when a terminal first appears.
+- Tabs show the native shell executable basename and starting directory basename, with
+  the full path in the title; the browser labels its shell **Demo**. Double-click
+  to rename a tab for the session. Status shows Starting, Ready, Exited or Failed;
+  exited or failed sessions offer restart. Settings saves terminal font size locally
+  (8–32 px, default 13).
+- Right-click for Copy, Paste, Select all and Clear terminal. Copy/paste use Cmd+C/V
+  on macOS and Ctrl+Shift+C/V elsewhere; Ctrl+C interrupts. Escape dismisses the
+  context menu. Copy and the menu's Paste use the Web Clipboard API, which may be
+  unavailable or denied (macOS may ask to confirm a menu Paste); keyboard paste uses
+  the webview's own paste. Cmd+F on macOS or Ctrl+Shift+F elsewhere opens terminal
+  search; Enter and Shift+Enter find the next or previous match, and Escape closes it.
+  The browser uses a demo terminal.
 - Drag the panel's top edge to change its height, or focus the edge and press the
   Up/Down arrow keys to change it by 16 px. The height ranges from 160 px to
   1,200 px, always leaves at least 120 px for the editor, and is saved with the
@@ -293,6 +319,10 @@ coverage and no published installer yet.
 - Git operations use system Git, update from events, and include status, history,
   diffs, staging, commits, branches, stash, push/pull and worktrees. Destructive
   operations require explicit confirmation. Full merge/rebase editing is planned.
+- Git sync accents Push green when the ahead count is nonzero and Pull blue when the
+  behind count is nonzero, displaying the corresponding count; without an upstream
+  neither is accented. Counts compare with the locally stored upstream ref (no fetch),
+  and can be unavailable. The busy state of a Git action is scoped to its project.
 - The Git view always shows its action groups (**Changes**, **Sync**, **Branches**,
   **Stash**); they no longer collapse.
 - History loads 60 commits at a time. Scrolling near the end loads the next page

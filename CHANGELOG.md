@@ -6,6 +6,22 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Generate random `.env` values in Hex, Base64URL, Base64, alphanumeric or UUID format,
+  and insert variables above or below an existing row.
+- Git sync shows upstream ahead and behind counts and per-project operation progress.
+- Terminal tabs show their starting directory and status, and can be renamed for the
+  session. Terminal search, clipboard and clear actions, and a persistent terminal
+  font-size setting are available.
+
+### Fixed
+
+- Refreshing the workspace updates file listings and Git without reloading the
+  application or interrupting open projects, unsaved edits or terminals.
+- Reloading restores all checkpointed projects, and a window consumes its startup
+  launch request only once.
+
 ## [0.1.7] - 2026-10-28
 
 ### Added

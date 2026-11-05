@@ -14,19 +14,21 @@ export const defaultSettings = {
   insertFinalNewline: false,
   sidebarWidth: 276,
   terminalHeight: 238,
+  terminalFontSize: 13,
   hideDotFiles: false,
   groupGitIgnoredFiles: true,
   checkForUpdates: true,
   watcherExcludes: [],
 } satisfies AppSettings;
 
-type NumericSetting = "fontSize" | "tabSize" | "sidebarWidth" | "terminalHeight";
+type NumericSetting = "fontSize" | "tabSize" | "sidebarWidth" | "terminalHeight" | "terminalFontSize";
 
 const ranges: Record<NumericSetting, { min: number; max: number }> = {
   fontSize: { min: 11, max: 24 },
   tabSize: { min: 1, max: 8 },
   sidebarWidth: { min: 215, max: 520 },
   terminalHeight: { min: 160, max: 1200 },
+  terminalFontSize: { min: 8, max: 32 },
 };
 
 export const settingRange = (name: NumericSetting) => ranges[name];
@@ -54,6 +56,7 @@ export function validateSettings(value: unknown, defaults: AppSettings): AppSett
     fontSize: clampSetting("fontSize", stored.fontSize, defaults.fontSize),
     tabSize: clampSetting("tabSize", stored.tabSize, defaults.tabSize),
     sidebarWidth: clampSetting("sidebarWidth", stored.sidebarWidth, defaults.sidebarWidth),
+    terminalFontSize: clampSetting("terminalFontSize", stored.terminalFontSize, defaults.terminalFontSize),
     terminalHeight: clampSetting("terminalHeight", stored.terminalHeight, defaults.terminalHeight),
     watcherExcludes: parseWatcherExcludes(stored.watcherExcludes, defaults.watcherExcludes),
   };
