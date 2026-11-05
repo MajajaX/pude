@@ -22,6 +22,8 @@
 
 - 2026-10-28 v0.1.7：新增直接依賴 `@codemirror/autocomplete` 6.20.4（用於自動補上括號與引號），`@codemirror/view` 更新為 6.43.15、Tauri 更新為 2.12.4、libc 更新為 0.2.191。四個 archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符，授權文件與前一版完全相同，已記錄於完整清冊。
 
+- 2026-11-05 v0.1.8：新增直接依賴 `@xterm/addon-search` 0.16.0（MIT，用於終端機搜尋）；`tauri-plugin-single-instance` 更新為 2.5.5、`tauri-plugin-updater` 更新為 2.14.1，建置工具 `@tauri-apps/cli` 更新為 2.12.4、`vite` 更新為 8.3.5。新增與更新的 runtime archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符；兩個 Tauri 外掛的授權文件與前一版逐位元組相同，`@xterm/addon-search` 的 LICENSE 已收錄於完整清冊。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -54,6 +56,7 @@
 | `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled code font) |
 | `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
 | `@xterm/addon-fit` | 0.11.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit) | desktop runtime |
+| `@xterm/addon-search` | 0.16.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-search) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
 | `codemirror` | 6.0.2 | MIT | [repository](https://github.com/codemirror/basic-setup) | desktop runtime |
 | `solid-js` | 1.9.17 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
@@ -64,12 +67,12 @@
 
 | 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
-| `@tauri-apps/cli` | 2.12.3 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
+| `@tauri-apps/cli` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
 | `fake-indexeddb` | 6.2.6 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
 | `@types/node` | 26.6.5 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
 | `typescript` | 7.0.2 | Apache-2.0 | [repository](https://github.com/microsoft/TypeScript) | desktop and web build |
-| `vite` | 8.3.4 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
+| `vite` | 8.3.5 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
 | `vite-plugin-solid` | 2.11.14 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
 | `vitest` | 5.0.5 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
 
@@ -84,7 +87,7 @@
 | crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
 | --- | ---: | --- | --- | --- |
 | `tauri` | 2.12.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.4) · [repository](https://github.com/tauri-apps/tauri) | runtime |
-| `tauri-plugin-single-instance` | 2.5.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.4) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
+| `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
 | `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
 | `libc` | 0.2.191 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.191) · [repository](https://github.com/rust-lang/libc) | runtime |
