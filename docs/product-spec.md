@@ -283,7 +283,8 @@ coverage and no published installer yet.
   on macOS and Ctrl+Shift+C/V elsewhere; Ctrl+C interrupts. Escape dismisses the
   context menu. Copy and the menu's Paste use the Web Clipboard API, which may be
   unavailable or denied (macOS may ask to confirm a menu Paste); keyboard paste uses
-  the webview's own paste. Cmd+F on macOS or Ctrl+Shift+F elsewhere opens terminal
+  the webview's own paste. Copying with nothing selected leaves the clipboard unchanged.
+  Cmd+F on macOS or Ctrl+Shift+F elsewhere opens terminal
   search; Enter and Shift+Enter find the next or previous match, and Escape closes it.
   The browser uses a demo terminal.
 - Drag the panel's top edge to change its height, or focus the edge and press the

@@ -59,3 +59,38 @@ test("terminal tabs, search, clear and interrupts remain usable", async ({ page 
   await expect(page.locator("vite-error-overlay")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("terminal copy writes the selection and keeps the clipboard when nothing is selected", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await expect(async () => {
+    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+  await page.keyboard.press("Control+Backquote");
+  const session = page.locator(".terminal-session:visible");
+  await expect(session.getByRole("status")).toContainText("Ready");
+  const input = session.locator("textarea");
+  const copy = process.platform === "darwin" ? "Meta+c" : "Control+Shift+c";
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+
+  await page.evaluate(() => navigator.clipboard.writeText("kept"));
+  await input.press(copy);
+  await expect.poll(clipboard).toBe("kept");
+
+  await input.pressSequentially("copy-marker");
+  await input.press("Enter");
+  await input.press(process.platform === "darwin" ? "Meta+f" : "Control+Shift+f");
+  const search = session.getByRole("textbox", { name: "Search terminal" });
+  await search.fill("copy-marker");
+  await search.press("Enter");
+  await page.evaluate(() => window.addEventListener("keydown", (event) => { document.body.dataset.escapePrevented = String(event.defaultPrevented); }, { once: true }));
+  await search.press("Escape");
+  // WebKit would otherwise deliver the Escape to the shell once focus returns to xterm.
+  await expect(page.locator("body")).toHaveAttribute("data-escape-prevented", "true");
+  await input.press(copy);
+  await expect.poll(clipboard).toBe("copy-marker");
+
+  await input.pressSequentially("abc");
+  await expect(session.locator(".xterm-rows")).toContainText("abc");
+});

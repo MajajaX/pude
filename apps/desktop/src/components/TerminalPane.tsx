@@ -576,8 +576,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   const clipboardAction = async (action: "copy" | "paste") => {
     try {
       if (!navigator.clipboard) throw new Error(t("Clipboard is unavailable."));
-      if (action === "copy") await navigator.clipboard.writeText(terminal?.getSelection() ?? "");
-      else terminal?.paste(await navigator.clipboard.readText());
+      if (action === "paste") terminal?.paste(await navigator.clipboard.readText());
+      // Copying with nothing selected must not wipe what is already on the clipboard.
+      else if (terminal?.hasSelection()) await navigator.clipboard.writeText(terminal.getSelection());
       setActionError("");
     } catch (error) { setActionError(errorMessage(error, t("Clipboard is unavailable."))); }
     terminal?.focus();
@@ -588,6 +589,13 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     else if (action === "select") terminal?.selectAll();
     else terminal?.clear();
     if (action === "select" || action === "clear") terminal?.focus();
+  };
+  // WebKit fires keypress for Escape: without preventDefault it reaches xterm once focus
+  // moves there, sending ESC to the shell, clearing the selection and eating the next key.
+  const closeSearchWithEscape = (event: KeyboardEvent) => {
+    event.preventDefault();
+    setSearchOpen(false);
+    terminal?.focus();
   };
   /** Returns true when xterm must not handle the key itself. */
   const handleShortcut = (event: KeyboardEvent) => {
@@ -605,14 +613,14 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   createEffect(() => {
     if (!menu()) return;
     const dismiss = (event: PointerEvent) => { if (!menuRef?.contains(event.target as Node)) setMenu(undefined); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { setMenu(undefined); terminal?.focus(); } };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); setMenu(undefined); terminal?.focus(); } };
     document.addEventListener("pointerdown", dismiss);
     document.addEventListener("keydown", escape);
     onCleanup(() => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); });
   });
   return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }} onContextMenu={(event) => { if (!(event.target instanceof Element) || !event.target.closest(".terminal-vt-host")) return; event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY }); }}>
     <div class="terminal-session-status" role="status">{t(status())}{actionError() && ` · ${actionError()}`}</div>
-    {searchOpen() && <div class="terminal-search"><input ref={(element) => queueMicrotask(() => element.focus())} aria-label={t("Search terminal")} placeholder={t("Search terminal")} value={query()} onInput={(event) => setQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.shiftKey ? searchAddon?.findPrevious(query()) : searchAddon?.findNext(query()); } if (event.key === "Escape") { setSearchOpen(false); terminal?.focus(); } }} /><button type="button" onClick={() => searchAddon?.findPrevious(query())}>{t("Previous")}</button><button type="button" onClick={() => searchAddon?.findNext(query())}>{t("Next")}</button><button type="button" aria-label={t("Close search")} onClick={() => { setSearchOpen(false); terminal?.focus(); }}>×</button></div>}
+    {searchOpen() && <div class="terminal-search"><input ref={(element) => queueMicrotask(() => element.focus())} aria-label={t("Search terminal")} placeholder={t("Search terminal")} value={query()} onInput={(event) => setQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.shiftKey ? searchAddon?.findPrevious(query()) : searchAddon?.findNext(query()); } if (event.key === "Escape") { closeSearchWithEscape(event); } }} /><button type="button" onClick={() => searchAddon?.findPrevious(query())}>{t("Previous")}</button><button type="button" onClick={() => searchAddon?.findNext(query())}>{t("Next")}</button><button type="button" aria-label={t("Close search")} onClick={() => { setSearchOpen(false); terminal?.focus(); }}>×</button></div>}
     <div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")} />
     {menu() && <div ref={(element) => { menuRef = element; queueMicrotask(() => { if (!element.isConnected) return; const bounds = element.getBoundingClientRect(); element.style.left = `${Math.max(0, Math.min(menu()!.x, window.innerWidth - bounds.width))}px`; element.style.top = `${Math.max(0, Math.min(menu()!.y, window.innerHeight - bounds.height))}px`; element.querySelector<HTMLButtonElement>("button")?.focus(); }); }} class="terminal-context-menu" role="menu" style={{ left: `${menu()!.x}px`, top: `${menu()!.y}px` }}><button type="button" role="menuitem" onClick={() => runAction("copy")}>{t("Copy")}</button><button type="button" role="menuitem" onClick={() => runAction("paste")}>{t("Paste")}</button><button type="button" role="menuitem" onClick={() => runAction("select")}>{t("Select all")}</button><button type="button" role="menuitem" onClick={() => runAction("clear")}>{t("Clear terminal")}</button></div>}
     <button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> {t("Restart terminal")}</button></div>;
