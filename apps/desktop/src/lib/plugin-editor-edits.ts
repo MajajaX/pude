@@ -1,3 +1,4 @@
+import { isolateHistory } from "@codemirror/commands";
 import type { EditorState, Transaction } from "@codemirror/state";
 import { normalizeDocumentContent } from "./file-metadata";
 
@@ -13,6 +14,7 @@ export function createPluginEditorEditTransaction(
   expectedRevision: number,
   currentRevision: number,
   edits: readonly PluginEditorEdit[],
+  isolated = false,
 ): Transaction | undefined {
   if (expectedRevision !== currentRevision) return undefined;
   let previousEnd = -1;
@@ -31,5 +33,5 @@ export function createPluginEditorEditTransaction(
   // Editor documents always store LF-normalized text; plugin inserts must
   // not introduce raw carriage returns or the line-ending map would no
   // longer describe every separator in the document.
-  return state.update({ changes: edits.map((edit) => ({ from: edit.from, to: edit.to, insert: normalizeDocumentContent(edit.insert) })) });
+  return state.update({ changes: edits.map((edit) => ({ from: edit.from, to: edit.to, insert: normalizeDocumentContent(edit.insert) })), annotations: isolated ? isolateHistory.of("full") : undefined });
 }

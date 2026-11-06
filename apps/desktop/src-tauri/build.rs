@@ -43,6 +43,7 @@ fn main() {
         "git_stash_diff",
         "watch_workspace",
         "stop_watcher",
+        "terminal_shell",
         "terminal_start",
         "terminal_write",
         "terminal_kill",

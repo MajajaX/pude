@@ -477,6 +477,11 @@ export async function killTerminal(sessionId: string): Promise<void> {
   if (isTauri) await invoke("terminal_kill", { sessionId });
 }
 
+/** Path of the shell a new terminal starts. */
+export function getTerminalShell(): Promise<string> {
+  return invoke<string>("terminal_shell");
+}
+
 export async function resizeTerminal(sessionId: string, rows: number, cols: number): Promise<void> {
   if (isTauri) await invoke("terminal_resize", { sessionId, rows, cols });
 }

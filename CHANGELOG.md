@@ -6,6 +6,29 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-05
+
+### Added
+
+- Generate random `.env` values in Hex, Base64URL, Base64, alphanumeric or UUID format,
+  and insert variables above or below an existing row.
+- Git sync shows upstream ahead and behind counts and per-project operation progress.
+- Terminal tabs show their starting directory and status, and can be renamed for the
+  session. Terminal search, clipboard and clear actions, and a persistent terminal
+  font-size setting are available.
+
+### Changed
+
+- Dependency updates: tauri-plugin-single-instance 2.5.5, tauri-plugin-updater 2.14.1,
+  Vite 8.3.5 and Tauri CLI 2.12.4.
+
+### Fixed
+
+- Refreshing the workspace updates file listings and Git without reloading the
+  application or interrupting open projects, unsaved edits or terminals.
+- Reloading restores all checkpointed projects, and a window consumes its startup
+  launch request only once.
+
 ## [0.1.7] - 2026-10-28
 
 ### Added

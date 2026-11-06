@@ -51,7 +51,6 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   await page.getByRole("textbox", { name: "Search project files" }).fill("src/editor");
   await expect(result).toHaveCount(1);
   await expect(result).toHaveAttribute("title", "src/editor.ts");
-  await page.screenshot({ path: "/tmp/pude-project-search.png" });
   await result.click();
   await expect(page.locator(".cm-content")).toContainText("openDocument");
   await page.getByRole("tab", { name: "EXPLORER", exact: true }).click();
@@ -157,7 +156,6 @@ test("dotenv files highlight assignments, values and comments in both themes", a
     expect(colors.tokens.length).toBeGreaterThanOrEqual(3);
     expect(colors.tokens.every((color) => color !== colors.base)).toBe(true);
   }
-  await page.screenshot({ path: "/tmp/pude-qa/dotenv-light.png" });
 });
 
 test("dotenv table adds, skips blank and edits variables in the source", async ({ page }) => {
@@ -169,7 +167,7 @@ test("dotenv table adds, skips blank and edits variables in the source", async (
   const table = page.locator(".env-table");
   await expect(table).toContainText("No variables yet.");
 
-  const addVariable = table.getByRole("button", { name: "Add variable", exact: true });
+  const addVariable = table.getByRole("button", { name: "Add variable", exact: true }).first();
   await addVariable.click();
   await expect(table.getByRole("textbox", { name: "Variable name", exact: true })).toBeFocused();
   await table.locator(".env-count").click();
@@ -201,7 +199,6 @@ test("Markdown preview uses available width and readable text in both themes", a
   expect(measured.available - measured.width).toBeLessThanOrEqual(64);
   expect(measured.width).toBeGreaterThan(840);
   expect(measured.color).toBe(measured.text);
-  await page.screenshot({ path: "/tmp/pude-markdown-wide.png" });
   await page.getByRole("button", { name: "Switch to light theme" }).click();
   measured = await metrics();
   expect(measured.color).toBe(measured.text);

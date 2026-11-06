@@ -66,7 +66,7 @@ permission).
   multiple selections, pinned tabs, Save As and a wide, readable Markdown
   source/preview toggle. Optional trim-trailing-whitespace and final-newline on save.
   `.env` files also open as a table of names and values with copy buttons for a name,
-  a value or a whole line.
+  a value or a whole line, random value generation and insertion above or below a row.
 - **Command palette** — `⌘⇧P` / `Ctrl+Shift+P` lists 40+ commands with their shortcuts,
   such as sort lines, change case, toggle word wrap and go to file (`⌘P` / `Ctrl+P`),
   with recently used commands first.
@@ -85,11 +85,13 @@ permission).
 - **Git** — status, staging, commits, branches, stash, push/pull, a commit graph that
   loads older commits as you scroll and refreshes after every Git change, a stash list
   with apply, pop, drop and diffs, and full-file diffs, using the Git already
-  installed on your system.
+  installed on your system. Upstream ahead/behind counts appear beside sync actions.
 - **Terminals** — multiple on-demand terminal sessions per project that keep running
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
-  parent directory. Drag the panel's top edge to resize it; the height is remembered.
+  parent directory. Tabs show their shell and starting directory and can be renamed by double-clicking.
+  Search terminal output, or use the context menu to copy, paste, select all and clear.
+  Drag the panel's top edge to resize it; the height and terminal font size are remembered.
   Ctrl+C interrupts the running program, such as a dev server, and returns to the
   prompt in the same shell, as in the operating system's own terminal. Windows uses
   PowerShell 7 when installed, otherwise Windows PowerShell.

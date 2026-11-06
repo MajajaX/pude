@@ -19,3 +19,17 @@
 .env-copy-done, .env-copy-done:hover { color: var(--green); }
 .env-delete:hover { color: var(--red); }
 .env-duplicate { padding: 1px 6px; color: var(--yellow); font-size: 11px; border: 1px solid color-mix(in srgb, var(--yellow) 45%, var(--border)); border-radius: 9px; }
+.env-add-bottom { margin-top: 12px; }
+.env-menu-wrap { position: relative; }
+.env-popup { position: fixed; z-index: 20; padding: 8px; color: var(--text); background: var(--panel-raised); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 5px 20px #0004; }
+.env-menu { min-width: 180px; display: grid; }
+.env-menu button { justify-content: flex-start; border-color: transparent; }
+.env-generator { width: min(340px, 75vw); display: grid; gap: 10px; }
+.env-generator label { display: grid; gap: 4px; }
+.env-generator input, .env-generator select, .env-generator textarea { width: 100%; padding: 6px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; }
+.env-generator textarea { resize: vertical; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.env-generator-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.env-presets { display: flex; gap: 6px; }
+.env-output-length { color: var(--muted); font-size: 12px; }
+.env-generator .primary-button { color: var(--bg); }

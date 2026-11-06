@@ -116,6 +116,9 @@
     "branch": null,
     "repositoryState": "detached",
     "headOid": null,
+    "upstream": null,
+    "ahead": null,
+    "behind": null,
     "files": [],
     "commits": [],
     "error": null

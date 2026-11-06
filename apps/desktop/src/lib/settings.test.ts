@@ -24,6 +24,12 @@ describe("settings validation", () => {
     });
   });
 
+  it("migrates and clamps terminal font size", () => {
+    expect(validateSettings({}, defaultSettings).terminalFontSize).toBe(13);
+    expect(validateSettings({ terminalFontSize: 99 }, defaultSettings).terminalFontSize).toBe(32);
+    expect(validateSettings({ terminalFontSize: 17 }, defaultSettings).terminalFontSize).toBe(17);
+  });
+
   it("normalizes watcher excludes from stored and editable values", () => {
     expect(parseWatcherExcludes(" node_modules, dist\n.cache, node_modules ")).toEqual(["node_modules", "dist", ".cache"]);
     expect(validateSettings({ watcherExcludes: ["dist", "", 4, "dist", "x".repeat(513)] }, defaultSettings).watcherExcludes).toEqual(["dist"]);

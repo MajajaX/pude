@@ -374,6 +374,7 @@ export default function App() {
   const [hydrated, setHydrated] = createSignal(false);
   const [tabMenu, setTabMenu] = createSignal<{ id: string; x: number; y: number }>();
   const [fileMenu, setFileMenu] = createSignal<FileContextMenu>();
+  const [refreshMenu, setRefreshMenu] = createSignal<{ x: number; y: number }>();
   const [markdownPreviewEnabled, setMarkdownPreviewEnabled] = createSignal(false);
   const [envTableEnabled, setEnvTableEnabled] = createSignal(true);
   const [gitIgnoredExpanded, setGitIgnoredExpanded] = createSignal(false);
@@ -480,6 +481,7 @@ export default function App() {
   let disposed = false;
   let dialogRequestInFlight = false;
   let gitMutationInFlight = false;
+  const [gitOperations, setGitOperations] = createSignal<Record<string, { action: string; running: boolean; message?: string; error?: boolean }>>({});
   let gitDirtyState: GitDirtyState = allGitDirtyState();
   let sessionStorageWarningShown = false;
   let recoveryStorageWarningShown = false;
@@ -2691,9 +2693,25 @@ export default function App() {
     return request.promise;
   };
 
-  const runGitAction = async (request: GitActionRequest) => {
-    if (gitMutationInFlight) throw new Error("Another Git operation is already running.");
+  const runGitOperation = async (action: string, operation: (path: string) => Promise<string>) => {
+    const path = workspace();
+    const generation = workspaceGeneration;
+    if (gitOperations()[path]?.running) throw new Error("Another Git operation is already running.");
+    setGitOperations((current) => ({ ...current, [path]: { action, running: true } }));
     gitMutationInFlight = true;
+    try {
+      const output = await operation(path);
+      setGitOperations((current) => ({ ...current, [path]: { action, running: false, message: output || t("{action} completed.", { action }) } }));
+      if (workspaceGeneration === generation && workspace() === path) notify(output || t("{action} completed.", { action }));
+    } catch (error) {
+      setGitOperations((current) => ({ ...current, [path]: { action, running: false, message: errorMessage(error, "Git operation failed."), error: true } }));
+      throw error;
+    } finally {
+      gitMutationInFlight = Object.values(gitOperations()).some((item) => item.running);
+    }
+  };
+
+  const runGitAction = (request: GitActionRequest) => runGitOperation(request.action, async (path) => {
     const changesRefs = !GIT_WORKING_TREE_ACTIONS.has(request.action);
     gitStatusRevision += 1;
     if (changesRefs) {
@@ -2701,18 +2719,20 @@ export default function App() {
       gitBranchesRevision += 1;
     }
     try {
-      const result = await performGitAction(workspace(), request);
-      notify(result.output || t("{action} completed.", { action: request.action }));
+      return (await performGitAction(path, request)).output;
     } finally {
-      if (changesRefs) invalidateGitHistory();
-      try {
-        await refreshGit(false);
+      if (workspace() === path) {
+        if (changesRefs) invalidateGitHistory();
+        await refreshGit(false, path);
         await waitForGitRefreshSettled();
-      } finally {
-        gitMutationInFlight = false;
       }
     }
-  };
+  });
+
+  const runGitWorktree = (branch: string, path: string, startPoint?: string) => runGitOperation("create-worktree", async (origin) => {
+    const result = await createGitWorktree(origin, branch, path, startPoint);
+    return t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path });
+  });
 
   const toggleDirectory = async (entry: DirectoryEntry) => {
     if (entry.kind !== "directory" || confirmedOperationInProgress() || appQuitPrepared()) return;
@@ -2829,9 +2849,9 @@ export default function App() {
     }
   };
 
-  const applyActiveTabEdits = (edits: readonly PluginEditorEdit[]) => {
+  const applyActiveTabEdits = (edits: readonly PluginEditorEdit[], isolated = false) => {
     const tab = activeTab();
-    const applied = !!tab && documentController.getActiveHandle(tab.id)?.applyEdits(tab.revision, edits) === true;
+    const applied = !!tab && documentController.getActiveHandle(tab.id)?.applyEdits(tab.revision, edits, isolated) === true;
     if (!applied) notify(t("Unable to apply the change. Switch to Source and try again."));
     return applied;
   };
@@ -4854,7 +4874,7 @@ export default function App() {
       openFolderChord = null;
       return;
     }
-    if (event.key === "Escape" && (tabMenu() || fileMenu())) {
+    if (event.key === "Escape" && (tabMenu() || fileMenu() || refreshMenu())) {
       event.preventDefault();
       openFolderChord = null;
       const focusTarget = contextMenuFocusTarget;
@@ -4952,7 +4972,20 @@ export default function App() {
     closeTabMenu();
     closeFileMenu();
     setTopbarMenu(undefined);
+    setRefreshMenu(undefined);
   };
+  const showBlankContextMenu = (event: MouseEvent) => {
+    // Selected text keeps the native menu so it can still be copied.
+    if (event.defaultPrevented || !(event.target instanceof Element) || !window.getSelection()?.isCollapsed) return;
+    if (event.target.closest("input, textarea, select, [contenteditable], .cm-editor, .terminal-pane, .modal, .settings-dialog, .settings-dialog-backdrop, .command-palette, button, a, [role=menu], [role=treeitem], [role=tab]")) return;
+    event.preventDefault();
+    closeContextMenus();
+    contextMenuFocusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    setRefreshMenu({ x: Math.min(event.clientX, window.innerWidth - 210), y: Math.min(event.clientY, window.innerHeight - 48) });
+    queueMicrotask(() => document.querySelector<HTMLElement>(".refresh-context-menu [role=menuitem]")?.focus());
+  };
+  onMount(() => window.addEventListener("contextmenu", showBlankContextMenu));
+  onCleanup(() => window.removeEventListener("contextmenu", showBlankContextMenu));
   onMount(() => window.addEventListener("click", closeContextMenus));
   onCleanup(() => window.removeEventListener("click", closeContextMenus));
 
@@ -5186,7 +5219,7 @@ export default function App() {
              </Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_GIT_PANEL_ID} aria-labelledby={SIDEBAR_GIT_TAB_ID} hidden={sidebarView() !== "git"}>
-             <Show when={sidebarView() === "git"}><LazyGitPanel status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path })))} stashes={gitStashes()} onLoadStashFiles={(stash) => getGitStashFiles(workspace(), stash.hash)} onOpenStashDiff={(stash, file) => void openStashDiff(stash, file)} /></Show>
+             <Show when={sidebarView() === "git"}><LazyGitPanel workspaceKey={`${activeProjectId()}:${workspace()}`} operation={gitOperations()[workspace()]} status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={runGitWorktree} stashes={gitStashes()} onLoadStashFiles={(stash) => getGitStashFiles(workspace(), stash.hash)} onOpenStashDiff={(stash, file) => void openStashDiff(stash, file)} /></Show>
            </div>
            <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
              <Show when={sidebarView() === "search"}>
@@ -5211,6 +5244,9 @@ export default function App() {
               <button class="icon-button tabbar-action" onClick={toggleTerminal} title={t("Toggle terminal")}><Icon name="terminal" size={14} /></button>
             </div>
           </div>
+           <Show when={refreshMenu()}>{(menu) => <div class="tab-context-menu refresh-context-menu" role="menu" style={{ left: `${Math.max(8, menu().x)}px`, top: `${Math.max(8, menu().y)}px` }}>
+             <button role="menuitem" onClick={() => { setRefreshMenu(undefined); relistAllDirectories(); verifyOpenFiles(); scheduleGitRefresh(allGitDirtyState()); }}>{t("Refresh")}</button>
+           </div>}</Show>
            <Show when={tabMenu()}>{(menu) => <LazyTabContextMenu x={menu().x} y={menu().y} pinned={tabById[menu().id]?.pinned === true} canSaveAs={tabById[menu().id]?.language !== "Image"} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")} onAction={(action) => runTabMenuAction(menu().id, action)} />}</Show>
            <Show when={fileMenu()}>{(menu) => <LazyFileContextMenu entry={menu().entry} x={menu().x} y={menu().y}
              showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
@@ -5238,20 +5274,20 @@ export default function App() {
 
             <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? t("Back to history") : undefined} onBack={() => void returnToDiffFile()} />}</Show>
             <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}><LazyMarkdownPreview documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`} revision={activeTab()!.revision} length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length} readRange={(from, to) => { const tab = activeTab(); return tab ? documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to) : ""; }} /></Show>
-            <Show when={activeTab() && viewMode() === "editor" && isEnvTable()}><LazyEnvTable revision={activeTab()!.revision} readText={() => getDocumentText(activeTab())} applyEdits={applyActiveTabEdits} onCopy={copyToClipboard} /></Show>
+            <Show when={activeTab() && viewMode() === "editor" && isEnvTable()}><LazyEnvTable revision={activeTab()!.revision} readText={() => getDocumentText(activeTab())} applyEdits={applyActiveTabEdits} onHistory={(direction) => { const tab = activeTab(); if (tab) documentController.getActiveHandle(tab.id)?.history?.(direction); }} onCopy={copyToClipboard} /></Show>
             <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}><LazyImagePreview path={activeTab()?.path ?? ""} workspace={imageWorkspaceRoot(activeTab()?.path ?? "")} /></Show>
             <Show when={!activeTab() && viewMode() === "editor"}><EmptyEditor onOpenFolder={() => void loadWorkspace()} /></Show>
             <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("Markdown preview is disabled in large file mode") : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? t("Show Markdown source") : t("Show Markdown preview")} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? t("Source") : t("Preview")}</span></button></Show>
             <Show when={activeTab()?.language === "Dotenv" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isEnvTable() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("The table view is disabled in large file mode") : undefined} onClick={() => setEnvTableEnabled((enabled) => !enabled)} aria-label={isEnvTable() ? t("Show .env source") : t("Show .env as a table")} aria-pressed={isEnvTable()}><span>{isEnvTable() ? t("Source") : t("Table")}</span></button></Show>
             </div>
-            <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={(branchName, path, startPoint) => createGitWorktree(workspace(), branchName, path, startPoint).then((result) => notify(t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path })))} /></div></Show>
+            <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly workspaceKey={`${activeProjectId()}:${workspace()}`} operation={gitOperations()[workspace()]} status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={runGitWorktree} /></div></Show>
           </div>
            <For each={projects().map((project) => project.id)}>{(id) => {
              const project = () => projects().find((item) => item.id === id)!;
              const selected = () => activeProjectId() === id;
              const terminalWorkspace = createMemo(() => selected() ? workspace() : project().workspace);
              return <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
-               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} visible={selected() && terminalOpen()} onSettingsChange={updateSettings} onHide={hideTerminal} onClose={hideTerminal} />
+               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} fontSize={settings().terminalFontSize} visible={selected() && terminalOpen()} onSettingsChange={updateSettings} onHide={hideTerminal} onClose={hideTerminal} />
              </Show>;
            }}</For>
         </main>
@@ -5259,7 +5295,7 @@ export default function App() {
 
       <footer class="statusbar">
         <div class="status-left">
-          <span class="status-branch"><Icon name="git" size={12} /> {git().branch ?? t("local")}</span>
+          <span class="status-branch" title={git().upstream ? t("Compared with locally stored {upstream}: ↑{ahead} ↓{behind}", { upstream: git().upstream!, ahead: git().ahead ?? "?", behind: git().behind ?? "?" }) : t(git().repositoryState === "normal" || git().repositoryState === "unborn" ? "No upstream configured" : "Upstream status unavailable")}><Icon name="git" size={12} /> {git().branch ?? t("local")}<Show when={(git().ahead ?? 0) > 0}> ↑{git().ahead}</Show><Show when={(git().behind ?? 0) > 0}> ↓{git().behind}</Show></span>
           <Show when={["available", "downloading", "ready"].includes(updateStatus().phase)}>
             <LazyStatusUpdateButton onError={() => setAboutOpen(true)} />
           </Show>

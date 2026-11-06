@@ -1,6 +1,6 @@
 import { createEffect, onCleanup, onMount } from "solid-js";
 import { minimalSetup } from "codemirror";
-import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyField, historyKeymap, indentWithTab, undo, redo } from "@codemirror/commands";
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { Compartment, EditorState, Prec, Text, Transaction } from "@codemirror/state";
@@ -110,7 +110,8 @@ export type EditorDocumentHandle = {
   getDetachedDocument: () => EditorDocumentSeed | undefined;
   getSelection: () => { anchor: number; head: number; from: number; to: number; text: string } | undefined;
   getCursor: () => { line: number; column: number; offset: number } | undefined;
-  applyEdits: (expectedRevision: number, edits: readonly PluginEditorEdit[]) => boolean;
+  applyEdits: (expectedRevision: number, edits: readonly PluginEditorEdit[], isolated?: boolean) => boolean;
+  history?: (direction: "undo" | "redo") => boolean;
   /** Apply save formatting to the document shown in the editor; other documents are left as they are. */
   formatForSave: (options: SaveFormattingOptions) => boolean;
 };
@@ -545,7 +546,7 @@ export function EditorPane(props: EditorPaneProps) {
         const line = state.doc.lineAt(offset);
         return { line: line.number, column: offset - line.from + 1, offset };
       },
-      applyEdits: (expectedRevision, edits) => {
+      applyEdits: (expectedRevision, edits, isolated) => {
         const currentView = view;
         if (documents.get(tabId) !== document || tabId !== activeDocumentId || !document.state || !currentView || currentView.state !== document.state) return false;
         const transaction = createPluginEditorEditTransaction(
@@ -553,10 +554,16 @@ export function EditorPane(props: EditorPaneProps) {
           expectedRevision,
           document.revision,
           edits,
+          isolated,
         );
         if (!transaction) return false;
         currentView.dispatch(transaction);
         return true;
+      },
+      history: (direction) => {
+        const currentView = view;
+        if (documents.get(tabId) !== document || tabId !== activeDocumentId || !currentView || currentView.state !== document.state) return false;
+        return (direction === "undo" ? undo : redo)(currentView);
       },
       formatForSave: (options) => {
         const currentView = view;

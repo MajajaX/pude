@@ -794,6 +794,18 @@ fn terminal_start_sync(
     Ok(id)
 }
 
+#[tauri::command]
+pub(crate) fn terminal_shell() -> String {
+    #[cfg(windows)]
+    {
+        windows_shell()
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
+    }
+}
+
 /// PowerShell 7 when installed, otherwise the Windows PowerShell shipped with Windows,
 /// matching Windows Terminal's defaults.
 #[cfg(windows)]

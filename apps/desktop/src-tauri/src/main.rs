@@ -115,6 +115,9 @@ struct GitStatusResult {
     branch: Option<String>,
     repository_state: String,
     head_oid: Option<String>,
+    upstream: Option<String>,
+    ahead: Option<u64>,
+    behind: Option<u64>,
     files: Vec<GitFileStatus>,
     commits: Vec<GitCommit>,
     error: Option<String>,
@@ -190,6 +193,7 @@ struct AppState {
     save_locks: Arc<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>>,
     git_repository_roots: Arc<RepositoryRootCache>,
     git_runtime: GitCoordinator,
+    startup_folder_consumed: Mutex<HashSet<String>>,
 }
 
 #[derive(Default)]
@@ -1478,6 +1482,9 @@ struct ParsedGitStatus {
     branch: Option<String>,
     repository_state: GitRepositoryState,
     head_oid: Option<String>,
+    upstream: Option<String>,
+    ahead: Option<u64>,
+    behind: Option<u64>,
     files: Vec<GitFileStatus>,
 }
 
@@ -1964,6 +1971,9 @@ fn git_status_sync(
         branch: parsed.branch,
         repository_state: parsed.repository_state.as_str().to_string(),
         head_oid: parsed.head_oid,
+        upstream: parsed.upstream,
+        ahead: parsed.ahead,
+        behind: parsed.behind,
         files: parsed.files,
         commits: Vec::new(),
         error: None,
@@ -4077,6 +4087,24 @@ fn parse_git_status(bytes: &[u8]) -> ParsedGitStatus {
             branch_oid = Some(String::from_utf8_lossy(value).into_owned());
             continue;
         }
+        if let Some(value) = entry.strip_prefix(b"# branch.upstream ") {
+            parsed.upstream = Some(String::from_utf8_lossy(value).into_owned());
+            continue;
+        }
+        if let Some(value) = entry.strip_prefix(b"# branch.ab ") {
+            if let Ok(value) = std::str::from_utf8(value) {
+                let mut counts = value.split_whitespace();
+                parsed.ahead = counts
+                    .next()
+                    .and_then(|count| count.strip_prefix('+'))
+                    .and_then(|count| count.parse().ok());
+                parsed.behind = counts
+                    .next()
+                    .and_then(|count| count.strip_prefix('-'))
+                    .and_then(|count| count.parse().ok());
+            }
+            continue;
+        }
         if entry.starts_with(b"# ") {
             continue;
         }
@@ -4547,8 +4575,21 @@ mod window_cleanup_tests {
     }
 }
 
+fn consume_startup_folder(consumed: &Mutex<HashSet<String>>, label: &str) -> bool {
+    consumed
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(label.to_string())
+}
+
 #[tauri::command(async)]
 async fn startup_folder(window: tauri::WebviewWindow) -> Option<String> {
+    if !consume_startup_folder(
+        &window.state::<AppState>().startup_folder_consumed,
+        window.label(),
+    ) {
+        return None;
+    }
     let window_url = window.url().ok();
     let has_workspace_query = window_url
         .as_ref()
@@ -4901,6 +4942,7 @@ fn main() {
                     git_stash::git_stash_diff,
                     watch_workspace,
                     watcher::stop_watcher,
+                    terminal::terminal_shell,
                     terminal::terminal_start,
                     terminal::terminal_write,
                     terminal::terminal_kill,
@@ -4991,6 +5033,11 @@ fn main() {
             ..
         } => {
             window_visibility_registry().remove(&label);
+            app.state::<AppState>()
+                .startup_folder_consumed
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .remove(&label);
             let quit_gate = app.state::<QuitGateState>();
             quit_gate.remove_window(&label);
             let should_start_cleanup = quit_gate.start_window_cleanup(&label);
@@ -5516,5 +5563,38 @@ mod save_lock_tests {
         assert!(Arc::ptr_eq(&owner, &waiter));
         drop(waiter);
         drop(owner);
+    }
+}
+
+#[cfg(test)]
+mod startup_folder_tests {
+    use super::*;
+
+    #[test]
+    fn launch_path_is_consumed_once_per_window_and_can_be_reused_after_destroy() {
+        let consumed = Mutex::new(HashSet::new());
+        assert!(consume_startup_folder(&consumed, "main"));
+        assert!(!consume_startup_folder(&consumed, "main"));
+        assert!(consume_startup_folder(&consumed, "other"));
+        consumed.lock().unwrap().remove("main");
+        assert!(consume_startup_folder(&consumed, "main"));
+    }
+}
+
+#[cfg(test)]
+mod git_upstream_status_tests {
+    use super::parse_git_status;
+
+    #[test]
+    fn parses_locally_known_upstream_counts_and_missing_counts() {
+        let status = parse_git_status(b"# branch.oid 1234\0# branch.head main\0# branch.upstream origin/main\0# branch.ab +3 -2\0");
+        assert_eq!(status.upstream.as_deref(), Some("origin/main"));
+        assert_eq!((status.ahead, status.behind), (Some(3), Some(2)));
+        let gone = parse_git_status(b"# branch.head main\0# branch.upstream origin/gone\0");
+        assert_eq!(gone.upstream.as_deref(), Some("origin/gone"));
+        assert_eq!((gone.ahead, gone.behind), (None, None));
+        let untracked = parse_git_status(b"# branch.head main\0");
+        assert!(untracked.upstream.is_none());
+        assert_eq!((untracked.ahead, untracked.behind), (None, None));
     }
 }
