@@ -91,6 +91,11 @@ test("terminal copy writes the selection and keeps the clipboard when nothing is
   await input.press(copy);
   await expect.poll(clipboard).toBe("copy-marker");
 
+  await input.press(process.platform === "darwin" ? "Meta+f" : "Control+Shift+f");
+  await search.pressSequentially("abc");
+  await expect(search).toHaveValue("abc");
+  await search.press("Escape");
+
   await input.pressSequentially("abc");
   await expect(session.locator(".xterm-rows")).toContainText("abc");
 });
