@@ -244,11 +244,11 @@
 | `apps/web/public/pude-favicon.webp` | 64x128 px | `eacb594b8934317d3ad92705f3e1e49e8eeb78b1dd44437a6e070afe5f36203d` | Website dist (Vite public). |
 | `apps/web/public/pude-logo.png` | 512x512 px | `9352f34917525fa299e00fa0a401ef9f931149447cc1fc1fc370d546fbcfa8fa` | Website dist (Vite public). |
 | `apps/web/public/pude-logo.webp` | 320x512 px | `0783ee19a1f1efee47437c5bfe49750781147095e20516a0b72cfccfc75482ad` | Website dist (Vite public). |
-| `apps/web/public/shots/diff.webp` | 1708x979 px | `7c0e5c4de19c52b40e6db2a3bcd220174a8746f8d822603b30775a8bd19e1a1c` | Website dist (Vite public). |
-| `apps/web/public/shots/editor.webp` | 1708x979 px | `3653af86a8def38605c52e79f0dba4480db48649ce3e31de327a96b8ea96ea3a` | Website dist (Vite public). |
-| `apps/web/public/shots/git.webp` | 1708x979 px | `7a880ce1018c458dd5b7cae8f3ca594f5ab88894d7a3d18ac4c52d7fbafd89c3` | Website dist (Vite public). |
-| `apps/web/public/shots/markdown.webp` | 1708x979 px | `be3af827e05ab69989baf28db2fb48583d76fea74386f6d23df41ad1f2397219` | Website dist (Vite public). |
-| `apps/web/public/shots/terminal.webp` | 1708x979 px | `a756a859a29f972c175f3577abbaf28ecb6bc2e263fe247a6d6651e215552131` | Website dist (Vite public). |
+| `apps/web/public/shots/diff.webp` | 1708x979 px | `5ec20c82517ddaa4692af8260db31f33aef28c677e15c31fa7ed290d745e0aaa` | Website dist (Vite public). |
+| `apps/web/public/shots/editor.webp` | 1708x979 px | `5412fca28e32bf76222a43ff7a09843c436aae714f2f01bdb1fb0e7f6952b834` | Website dist (Vite public). |
+| `apps/web/public/shots/git.webp` | 1708x979 px | `f0e570e1e553417f762b01a83138e6d299ae9d8fe1fdc879d9e30d2d2127025b` | Website dist (Vite public). |
+| `apps/web/public/shots/markdown.webp` | 1708x979 px | `dd448428a4686f922d8be0a438a07feb4265e0ea76e2812f5227b6f1bbd23871` | Website dist (Vite public). |
+| `apps/web/public/shots/terminal.webp` | 1708x979 px | `142743751c3b3071bf608bb6477c0c482b7cb0d0f6ffcddd554dbed69786dcb1` | Website dist (Vite public). |
 
 ### 後續更新
 
