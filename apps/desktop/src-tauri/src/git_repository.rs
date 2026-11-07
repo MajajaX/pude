@@ -1,14 +1,13 @@
+use crate::git_error_info as error;
 use crate::git_runtime::{
     GitCommandSpec, GitCoordinator, GitDirtyScope, GitErrorInfo, GitErrorKind, RequestHandle,
 };
+use crate::path_from_bytes;
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-
-#[cfg(unix)]
-use std::os::unix::ffi::OsStringExt;
 
 /// A worktree root and the on-disk identity of its Git administrative data.
 ///
@@ -140,11 +139,14 @@ impl RepositoryRootCache {
     /// nearest root without requiring a child process on the async executor.
     pub fn resource_key(&self, workspace: impl AsRef<Path>) -> PathBuf {
         let workspace = canonical_or_original(workspace.as_ref());
-        if let Ok(entries) = self.entries.lock() {
-            if let Some(cached) = entries.get(&workspace) {
-                if identity_is_current(&workspace, cached) {
-                    return cached.root.clone();
-                }
+        let cached = self
+            .entries
+            .lock()
+            .ok()
+            .and_then(|entries| entries.get(&workspace).cloned());
+        if let Some(cached) = cached {
+            if identity_is_current(&workspace, &cached) {
+                return cached.root;
             }
         }
         filesystem_repository_root(&workspace).unwrap_or(workspace)
@@ -269,9 +271,6 @@ fn capture_identity(
 }
 
 fn identity_is_current(workspace: &Path, cached: &ResolvedGitRepository) -> bool {
-    if filesystem_repository_root(workspace).as_deref() != Some(cached.root.as_path()) {
-        return false;
-    }
     capture_identity(
         workspace,
         &cached.root,
@@ -288,25 +287,23 @@ impl RepositoryIdentity {
 }
 
 fn marker_identity(path: &Path) -> Result<PathMarkerIdentity, GitErrorInfo> {
-    let metadata = fs::symlink_metadata(path).map_err(|error| GitErrorInfo {
-        kind: GitErrorKind::Failed,
-        message: format!(
-            "Unable to inspect Git repository identity at {}. {error}",
-            path.display()
-        ),
-        exit_code: None,
-        stream: None,
-        limit: None,
+    let metadata = fs::symlink_metadata(path).map_err(|cause| {
+        error(
+            GitErrorKind::Failed,
+            format!(
+                "Unable to inspect Git repository identity at {}. {cause}",
+                path.display()
+            ),
+        )
     })?;
-    let identity = crate::path_file_identity(path, &metadata).map_err(|error| GitErrorInfo {
-        kind: GitErrorKind::Failed,
-        message: format!(
-            "Unable to read Git repository identity at {}. {error}",
-            path.display()
-        ),
-        exit_code: None,
-        stream: None,
-        limit: None,
+    let identity = crate::path_file_identity(path, &metadata).map_err(|cause| {
+        error(
+            GitErrorKind::Failed,
+            format!(
+                "Unable to read Git repository identity at {}. {cause}",
+                path.display()
+            ),
+        )
     })?;
     // Directory mtime changes during normal ref/index updates, so directory
     // identity uses its stable filesystem ID. Worktree gitfiles also include
@@ -323,15 +320,14 @@ fn marker_identity(path: &Path) -> Result<PathMarkerIdentity, GitErrorInfo> {
     };
     let gitfile_contents =
         if path.file_name().is_some_and(|name| name == ".git") && metadata.is_file() {
-            Some(fs::read(path).map_err(|error| GitErrorInfo {
-                kind: GitErrorKind::Failed,
-                message: format!(
-                    "Unable to read Git worktree marker at {}. {error}",
-                    path.display()
-                ),
-                exit_code: None,
-                stream: None,
-                limit: None,
+            Some(fs::read(path).map_err(|cause| {
+                error(
+                    GitErrorKind::Failed,
+                    format!(
+                        "Unable to read Git worktree marker at {}. {cause}",
+                        path.display()
+                    ),
+                )
             })?)
         } else {
             None
@@ -366,27 +362,6 @@ pub fn filesystem_repository_root(path: &Path) -> Option<PathBuf> {
 
 fn canonical_or_original(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-fn path_from_bytes(bytes: &[u8]) -> PathBuf {
-    #[cfg(unix)]
-    {
-        PathBuf::from(OsString::from_vec(bytes.to_vec()))
-    }
-    #[cfg(not(unix))]
-    {
-        PathBuf::from(String::from_utf8_lossy(bytes).into_owned())
-    }
-}
-
-fn error(kind: GitErrorKind, message: impl Into<String>) -> GitErrorInfo {
-    GitErrorInfo {
-        kind,
-        message: message.into(),
-        exit_code: None,
-        stream: None,
-        limit: None,
-    }
 }
 
 #[cfg(test)]

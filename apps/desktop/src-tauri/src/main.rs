@@ -1622,7 +1622,15 @@ fn path_from_bytes(bytes: &[u8]) -> PathBuf {
 }
 
 fn wire_path_bytes(bytes: &[u8]) -> String {
-    wire_path(&path_from_bytes(bytes))
+    #[cfg(unix)]
+    {
+        wire_path(Path::new(std::ffi::OsStr::from_bytes(bytes)))
+    }
+
+    #[cfg(not(unix))]
+    {
+        wire_path(&path_from_bytes(bytes))
+    }
 }
 
 async fn run_blocking<T, F>(label: &'static str, class: BlockingClass, task: F) -> Result<T, String>
@@ -1909,11 +1917,8 @@ fn git_ignored_paths_sync(
         .split(|byte| *byte == 0)
         .filter(|path| !path.is_empty())
         .map(|path| {
-            #[cfg(unix)]
-            let path = PathBuf::from(OsString::from_vec(path.to_vec()));
-            #[cfg(not(unix))]
-            let path = PathBuf::from(String::from_utf8_lossy(path).into_owned());
-            checked_wire_path(&path).map_err(|error| git_error_info(GitErrorKind::Failed, error))
+            checked_wire_path(&path_from_bytes(path))
+                .map_err(|error| git_error_info(GitErrorKind::Failed, error))
         })
         .collect()
 }

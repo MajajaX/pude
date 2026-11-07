@@ -1,3 +1,4 @@
+use crate::git_error_info as error;
 use crate::git_repository::RepositoryIdentity;
 use crate::git_runtime::{
     GitCommandOutput, GitCommandSpec, GitCoordinator, GitErrorInfo, GitErrorKind, RequestHandle,
@@ -723,8 +724,7 @@ fn commit_page_into_state<'a>(
     state: &mut HistoryCursor,
     commits: impl Iterator<Item = &'a GitCommit>,
 ) {
-    let commits: Vec<&GitCommit> = commits.collect();
-    for commit in &commits {
+    for commit in commits {
         state.seen_oids.insert(commit.hash.clone());
     }
     state
@@ -743,9 +743,9 @@ fn short_ref_name(reference: &str) -> String {
 }
 
 fn parse_git_commits(bytes: &[u8]) -> Vec<GitCommit> {
-    let fields: Vec<String> = bytes
+    let fields: Vec<_> = bytes
         .split(|byte| *byte == 0)
-        .map(|field| String::from_utf8_lossy(field).into_owned())
+        .map(String::from_utf8_lossy)
         .collect();
     fields
         .as_chunks::<HISTORY_FIELDS_PER_COMMIT>()
@@ -753,11 +753,7 @@ fn parse_git_commits(bytes: &[u8]) -> Vec<GitCommit> {
         .iter()
         .map(|fields| GitCommit {
             hash: fields[0].to_string(),
-            parents: fields[1]
-                .split_whitespace()
-                .filter(|parent| !parent.is_empty())
-                .map(str::to_string)
-                .collect(),
+            parents: fields[1].split_whitespace().map(str::to_string).collect(),
             short_hash: fields[2].to_string(),
             author: fields[3].to_string(),
             date: fields[4].to_string(),
@@ -792,7 +788,7 @@ fn order_git_commits_topologically(commits: Vec<GitCommit>) -> Vec<GitCommit> {
     let mut ready = BinaryHeap::new();
     for (index, commit) in commits.iter().enumerate() {
         if remaining_children[index] == 0 {
-            ready.push((commit.authored_at.clone(), commit.hash.clone(), index));
+            ready.push((commit.authored_at.as_str(), commit.hash.as_str(), index));
         }
     }
 
@@ -807,8 +803,8 @@ fn order_git_commits_topologically(commits: Vec<GitCommit>) -> Vec<GitCommit> {
             if remaining_children[parent_index] == 0 {
                 let parent = &commits[parent_index];
                 ready.push((
-                    parent.authored_at.clone(),
-                    parent.hash.clone(),
+                    parent.authored_at.as_str(),
+                    parent.hash.as_str(),
                     parent_index,
                 ));
             }
@@ -931,16 +927,6 @@ fn cursor_store_bytes(store: &HistoryCursorStore) -> usize {
         .map(HistoryCursor::estimated_bytes)
         .sum();
     cursor_bytes.saturating_add(store.active.values().copied().sum::<usize>())
-}
-
-fn error(kind: GitErrorKind, message: impl Into<String>) -> GitErrorInfo {
-    GitErrorInfo {
-        kind,
-        message: message.into(),
-        exit_code: None,
-        stream: None,
-        limit: None,
-    }
 }
 
 #[cfg(test)]

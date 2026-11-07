@@ -257,10 +257,8 @@ pub(super) async fn plugin_workspace_list(
                     .and_then(|value| super::timestamp(value.into_std())),
             });
         }
-        entries.sort_by(|left, right| {
-            let left_rank = if left.kind == "directory" { 0 } else { 1 };
-            let right_rank = if right.kind == "directory" { 0 } else { 1 };
-            (left_rank, left.name.to_lowercase()).cmp(&(right_rank, right.name.to_lowercase()))
+        entries.sort_by_cached_key(|entry| {
+            (u8::from(entry.kind != "directory"), entry.name.to_lowercase())
         });
         Ok(PluginWorkspaceListResult { entries })
     })

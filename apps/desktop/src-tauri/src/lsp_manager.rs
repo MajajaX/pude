@@ -3079,9 +3079,8 @@ fn read_bounded_header_line(
             return Err("LSP frame header exceeds the size limit.".to_string());
         }
         let has_newline = available.get(length.saturating_sub(1)) == Some(&b'\n');
-        let bytes = available[..length].to_vec();
+        line.extend_from_slice(&available[..length]);
         reader.consume(length);
-        line.extend_from_slice(&bytes);
         if has_newline {
             return Ok(Some(line));
         }

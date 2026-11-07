@@ -923,14 +923,11 @@ fn git_scopes(path: &Path, source: Option<WatchRootKind>, config: &WatcherConfig
             let relative = metadata_root
                 .and_then(|root| path.strip_prefix(root).ok())
                 .unwrap_or(path);
-            let components: Vec<String> = relative
-                .components()
-                .filter_map(|component| match component {
-                    Component::Normal(name) => Some(name.to_string_lossy().to_ascii_lowercase()),
-                    _ => None,
-                })
-                .collect();
-            match components.first().map(String::as_str) {
+            let first_component = relative.components().find_map(|component| match component {
+                Component::Normal(name) => Some(name.to_string_lossy().to_ascii_lowercase()),
+                _ => None,
+            });
+            match first_component.as_deref() {
                 Some("head") => scopes.push(GitScope::Head),
                 Some(value) if value == "index" || value.starts_with("index.") => {
                     scopes.push(GitScope::Index)
@@ -1026,21 +1023,11 @@ fn make_file_change(
     old_path_input: Option<&Path>,
     config: &WatcherConfig,
 ) -> Option<FileChange> {
-    let wire = checked_wire_path(path).ok()?;
-    let source = watch_source(path, config)?;
     if is_watcher_noise(path, config) {
         return None;
     }
-    let old_path_is_noise =
-        old_path_input.is_some_and(|old_path| is_watcher_noise(old_path, config));
-    let kind = if old_path_is_noise && kind == FileChangeKind::Rename {
-        FileChangeKind::Create
-    } else {
-        kind
-    };
-    let old_path = old_path_input
-        .filter(|path| !is_watcher_noise(path, config))
-        .map(wire_path);
+    let wire = checked_wire_path(path).ok()?;
+    let source = watch_source(path, config)?;
     let is_directory = fs::metadata(path)
         .ok()
         .or_else(|| old_path_input.and_then(|old_path| fs::metadata(old_path).ok()))
@@ -1048,7 +1035,8 @@ fn make_file_change(
     Some(FileChange {
         kind,
         path: wire,
-        old_path,
+        // classify_rename_pair only passes an old path that is not noise.
+        old_path: old_path_input.map(wire_path),
         is_directory,
         git_scopes: git_scopes(path, Some(source), config),
         source: Some(source),
@@ -1110,13 +1098,6 @@ fn is_watcher_noise(path: &Path, config: &WatcherConfig) -> bool {
     {
         return true;
     }
-    let components: Vec<String> = path
-        .components()
-        .filter_map(|component| match component {
-            Component::Normal(name) => Some(name.to_string_lossy().to_ascii_lowercase()),
-            _ => None,
-        })
-        .collect();
     let is_git_object = [config.git_dir.as_deref(), config.common_dir.as_deref()]
         .into_iter()
         .flatten()
@@ -1134,20 +1115,18 @@ fn is_watcher_noise(path: &Path, config: &WatcherConfig) -> bool {
     if is_git_object {
         return true;
     }
-    if components
-        .windows(2)
-        .any(|window| matches!(window[0].as_str(), ".git") && window[1] == "objects")
-    {
+    if path.iter().zip(path.iter().skip(1)).any(|(name, next)| {
+        name.eq_ignore_ascii_case(".git") && next.eq_ignore_ascii_case("objects")
+    }) {
         return true;
     }
-    let file_name = path
-        .file_name()
-        .map(|name| name.to_string_lossy().to_ascii_lowercase())
-        .unwrap_or_default();
-    if file_name.starts_with(".pude-tmp-") || file_name == ".tspude-tmp" {
-        return true;
-    }
-    false
+    const TEMP_FILE_PREFIX: &str = ".pude-tmp-";
+    path.file_name().is_some_and(|name| {
+        let name = name.to_string_lossy();
+        name.get(..TEMP_FILE_PREFIX.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(TEMP_FILE_PREFIX))
+            || name.eq_ignore_ascii_case(".tspude-tmp")
+    })
 }
 
 #[cfg(test)]
@@ -1347,6 +1326,52 @@ mod watcher_tests {
         let changes = classify_notify_event(&event, &config);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, "workspace/ignored/open.txt");
+    }
+
+    #[test]
+    fn git_objects_and_editor_temp_files_are_noise() {
+        let config = config();
+        for path in [
+            "workspace/.git/objects/ab/cd",
+            "shared-git/objects/pack/pack-1.idx",
+            "other/.git/objects/ab/cd",
+            "other/.GIT/Objects/ab/cd",
+            "workspace/.PUDE-TMP-1234",
+            "workspace/nested/.tspude-tmp",
+        ] {
+            assert!(is_watcher_noise(Path::new(path), &config), "{path}");
+        }
+        for path in [
+            "workspace/.git/refs/heads/main",
+            "workspace/.git/index",
+            "workspace/src/objects/ab",
+            "workspace/.git",
+            "workspace/.pude-tmp",
+        ] {
+            assert!(!is_watcher_noise(Path::new(path), &config), "{path}");
+        }
+    }
+
+    #[test]
+    fn renames_across_noise_become_a_create_or_a_remove() {
+        let config = config();
+        let visible = Path::new("workspace/a.txt");
+        let renamed = Path::new("workspace/b.txt");
+        let noise = Path::new("workspace/.pude-tmp-1");
+
+        let create = classify_rename_pair(noise, visible, &config).unwrap();
+        assert_eq!(create.kind, FileChangeKind::Create);
+        assert_eq!(create.old_path, None);
+
+        let remove = classify_rename_pair(visible, noise, &config).unwrap();
+        assert_eq!(remove.kind, FileChangeKind::Remove);
+        assert_eq!(remove.old_path, None);
+
+        let rename = classify_rename_pair(visible, renamed, &config).unwrap();
+        assert_eq!(rename.kind, FileChangeKind::Rename);
+        assert_eq!(rename.old_path.as_deref(), Some("workspace/a.txt"));
+
+        assert!(classify_rename_pair(noise, noise, &config).is_none());
     }
 
     #[test]

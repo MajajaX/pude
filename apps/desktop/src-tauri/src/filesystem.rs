@@ -48,7 +48,7 @@ mod performance_tests;
 struct DirectoryEntry {
     name: String,
     path: String,
-    kind: String,
+    kind: &'static str,
     size: Option<u64>,
     modified_at: Option<u128>,
 }
@@ -138,6 +138,7 @@ fn list_directory_sync_with_path_encoder(
     const RESPONSE_ENVELOPE_RESERVE: usize = 8 * 1024;
     let entries_byte_budget = MAX_DIRECTORY_LISTING_BYTES - RESPONSE_ENVELOPE_RESERVE;
     let mut entries_bytes = 2_usize; // opening and closing brackets for `entries`
+    let mut encoded_entry = Vec::new();
     if cancellation.is_some_and(|token| token.load(Ordering::Relaxed)) {
         return Ok(DirectoryListingResult {
             entries,
@@ -225,7 +226,6 @@ fn list_directory_sync_with_path_encoder(
         #[cfg(not(windows))]
         let (size, modified_at) = (None, None);
         let name = item.file_name().to_string_lossy().to_string();
-        let kind = kind.to_string();
         let entry = DirectoryEntry {
             name,
             path: wire_item_path,
@@ -233,9 +233,10 @@ fn list_directory_sync_with_path_encoder(
             size,
             modified_at,
         };
-        let entry_bytes = serde_json::to_vec(&entry)
-            .map_err(|error| format!("Unable to encode directory entry. {error}"))?
-            .len();
+        encoded_entry.clear();
+        serde_json::to_writer(&mut encoded_entry, &entry)
+            .map_err(|error| format!("Unable to encode directory entry. {error}"))?;
+        let entry_bytes = encoded_entry.len();
         let separator_bytes = usize::from(!entries.is_empty());
         let next_entries_bytes = entries_bytes
             .saturating_add(separator_bytes)
