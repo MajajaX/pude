@@ -425,10 +425,6 @@ function updatePortableHistory(
   return previous;
 }
 
-export function markerForLineEndingCount(preferred: "lf" | "crlf"): string {
-  return preferred === "crlf" ? "c" : "l";
-}
-
 export function createLineEndingMapExtension(
   initialMap: string | LineEndingMap,
   preferred: "lf" | "crlf",

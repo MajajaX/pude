@@ -380,24 +380,6 @@
 .git-history:not(.git-history-full) .git-history-details-heading { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
 .git-history:not(.git-history-full) .git-history-detail-actions { justify-content: flex-end; }
 
-.git-history-detail-fields {
-  display: grid;
-  grid-template-columns: 55px minmax(0, 1fr);
-  gap: 4px 6px;
-  min-width: 0;
-  margin-top: 7px;
-  font: 13px/1.4 var(--font-mono);
-}
-
-.git-history-detail-fields > span:nth-child(odd) { color: var(--faint); letter-spacing: .04em; }
-.git-history-detail-fields code,
-.git-history-detail-refs,
-.git-history-parent-list { min-width: 0; overflow-wrap: anywhere; color: var(--muted); font: inherit; }
-.git-history-root-label { color: var(--green); }
-.git-history-parent-list { display: grid; gap: 2px; }
-.git-history-parent-missing { color: var(--yellow); }
-.git-history-parent-missing > span { color: var(--faint); }
-.git-history-body { margin: 7px 0; overflow-wrap: anywhere; color: var(--muted); font: 13px/1.5 var(--font-mono); white-space: pre-wrap; }
 .git-history-files-heading { display: flex; align-items: center; gap: 5px; margin: 8px 0 2px; color: var(--faint); font: 12px var(--font-mono); letter-spacing: .08em; }
 .git-history-files-heading > span:last-child { color: var(--muted); }
 .git-history-files { display: grid; min-width: 0; }
@@ -457,7 +439,6 @@
 .git-history-full .git-history-details-title strong { font-size: 13px; }
 .git-history-full .git-history-details-title > span { font-size: 11px; }
 .git-history-full .git-history-detail-actions button { height: 26px; font-size: 11px; }
-.git-history-full .git-history-detail-fields { grid-template-columns: 55px minmax(0, 1fr); font-size: 13px; }
 .git-history-full .git-history-files-heading { font-size: 13px; }
 .git-history-full .git-history-file { height: 28px; font-size: 13px; }
 

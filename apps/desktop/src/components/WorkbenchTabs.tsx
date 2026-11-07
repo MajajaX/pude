@@ -192,7 +192,7 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
               </span>
               <span>{tab.name}</span>
               <Show when={tab.pinned}><Icon name="lock" size={11} /></Show>
-              <Show when={tab.dirty}><span class="dirty-dot" /></Show>
+              <Show when={tab.dirty}><span class="dirty-dot" role="img" aria-label={t("Unsaved changes")} /></Show>
             </button>
             <button
               class="tab-close"

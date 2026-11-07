@@ -30,6 +30,7 @@ import {
   MAX_RECOVERY_TOTAL_BYTES,
   type SessionMetadata,
 } from "./session-storage";
+import { parseSessionValue } from "./session-storage-schema";
 import type { DirectoryEntry, EditorTab } from "../types";
 
 const tab: EditorTab = {
@@ -930,6 +931,26 @@ describe("multi-project window recovery", () => {
     const { session } = multiProjectSession();
     session.projects![1].tabs[0].id = tab.id;
     expect(parseSession(JSON.stringify(session))).toBeNull();
+  });
+
+  it("parses a session object exactly as it parses the same session's JSON", () => {
+    const { session } = multiProjectSession();
+    session.projects![0] = { ...session.projects![0], folders: ["/api", "/api", 42 as unknown as string], workspaceFile: "/work/team.pdw" };
+    const duplicateIds = multiProjectSession().session;
+    duplicateIds.projects![1].tabs[0].id = tab.id;
+    const candidates: unknown[] = [
+      session,
+      { ...dirtySession(3), version: 2 },
+      duplicateIds,
+      { ...dirtySession(3), version: 99 },
+      { version: 3, workspace: 42, tabs: [] },
+      { version: 3, workspace: "/workspace", tabs: [null, { id: "missing-path" }, { ...dirtySession(3).tabs[0], diskSize: 1.5 }] },
+      null,
+    ];
+    expect(parseSessionValue(session)).not.toBeNull();
+    for (const candidate of candidates) {
+      expect(parseSessionValue(candidate)).toStrictEqual(parseSession(JSON.stringify(candidate)));
+    }
   });
 
   it("protects all projects with one lease and preserves their recovery after closing", async () => {

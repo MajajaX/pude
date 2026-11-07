@@ -1,7 +1,5 @@
-import type { FileChange, FileChangeSource, GitDirtyScope, WatchRoot } from "../types";
+import type { FileChange, GitDirtyScope, WatchRoot } from "../types";
 import { isSameOrDescendantPath, pathComparisonKey, runtimePathOptions } from "./path-identity";
-
-export type GitQueryScope = "status" | "branches" | "history";
 
 export type GitDirtyState = {
   status: boolean;
@@ -34,14 +32,6 @@ export function mergeGitDirtyState(current: GitDirtyState, next: GitDirtyState):
 
 export function hasGitDirtyState(state: GitDirtyState): boolean {
   return state.status || state.branches || state.history;
-}
-
-export function queryScopesForGitDirtyState(state: GitDirtyState): GitQueryScope[] {
-  const scopes: GitQueryScope[] = [];
-  if (state.status) scopes.push("status");
-  if (state.branches) scopes.push("branches");
-  if (state.history) scopes.push("history");
-  return scopes;
 }
 
 export function classifyGitChanges(changes: readonly FileChange[], repositoryRoot: string, watchRoots: readonly WatchRoot[] = []): GitDirtyState {

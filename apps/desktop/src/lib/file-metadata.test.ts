@@ -3,7 +3,7 @@ import { EditorState, Compartment } from "@codemirror/state";
 import { ensureSyntaxTree, language } from "@codemirror/language";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import { loadEditorLanguageSupport, shouldLoadEditorLanguage } from "./editor-languages";
-import { fileLanguageForPath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, reconcileLineEndingMap, serializeDocumentBytes } from "./file-metadata";
+import { fileLanguageForPath, isImagePath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, serializeDocumentBytes } from "./file-metadata";
 
 describe("file metadata", () => {
   it("normalizes editor documents to LF", () => {
@@ -56,41 +56,12 @@ describe("file metadata", () => {
     });
   });
 
-  it("keeps mixed separators for unchanged lines and uses the preceding line for inserted lines", () => {
-    const original = "alpha\nbeta\ngamma";
-    const originalMap = "cl";
-    expect(reconcileLineEndingMap(original, "alpha!\nbeta\ngamma", originalMap, "lf")).toBe("cl");
-    expect(reconcileLineEndingMap(original, "alpha\ninserted\nbeta\ngamma", originalMap, "lf")).toBe("ccl");
-    expect(reconcileLineEndingMap(original, "alpha\ngamma", originalMap, "lf")).toBe("c");
-  });
-
-  it("preserves separators for edits at the start, middle, end, and across repeated edits", () => {
-    const original = "one\ntwo\nthree\nfour";
-    const map = "clc";
-    const atStart = reconcileLineEndingMap(original, "ONE\ntwo\nthree\nfour", map, "lf");
-    const atMiddle = reconcileLineEndingMap("ONE\ntwo\nthree\nfour", "ONE\nTWO\nthree\nfour", atStart, "lf");
-    const atEnd = reconcileLineEndingMap("ONE\nTWO\nthree\nfour", "ONE\nTWO\nthree\nFOUR", atMiddle, "lf");
-    expect(atStart).toBe(map);
-    expect(atMiddle).toBe(map);
-    expect(atEnd).toBe(map);
-  });
-
-  it("uses the closest existing ending for lines added before or after a mixed-ending document", () => {
-    const original = "alpha\nbeta\ngamma";
-    const map = "lc";
-    expect(reconcileLineEndingMap(original, "prefix\nalpha\nbeta\ngamma", map, "lf")).toBe("llc");
-    expect(reconcileLineEndingMap(original, "alpha\nbeta\ngamma\nsuffix", map, "lf")).toBe("lcc");
-  });
-
-  it("handles BOM-only and unterminated documents without inventing separators", () => {
+  it("handles BOM-only documents without inventing separators", () => {
     expect(normalizeLineEndingMap("", "", "crlf")).toBe("");
-    expect(reconcileLineEndingMap("", "text", "", "crlf")).toBe("");
-    expect(reconcileLineEndingMap("text", "text\n", "", "crlf")).toBe("c");
   });
 
   it("uses the preferred ending when a new document has no neighbouring line", () => {
     expect(lineEndingMapForContent("one\ntwo", "crlf")).toBe("c");
-    expect(reconcileLineEndingMap("", "one\ntwo", "", "crlf")).toBe("c");
     expect(lineEndingFromMap("clc", "lf")).toBe("crlf");
     expect(normalizeLineEndingMap("one\ntwo", undefined, "crlf")).toBe("c");
   });
@@ -120,6 +91,18 @@ describe("file metadata", () => {
     expect(fileLanguageForPath("src/view.tsx")).toMatchObject({ label: "TSX", key: "javascript", typescript: true, jsx: true });
     expect(fileLanguageForPath("src/view.jsx")).toMatchObject({ label: "JSX", key: "javascript", jsx: true });
     expect(fileLanguageForPath("README").label).toBe("Plain Text");
+  });
+
+  it.each(["bin/go", "src/c", "C:\\tools\\sql", "docs/md", "Dockerfile", "Makefile", "repo.go/Makefile"])("does not treat the extensionless name %s as an extension", (path) => {
+    expect(fileLanguageForPath(path).label).toBe("Plain Text");
+  });
+
+  it("recognizes image files by extension only", () => {
+    expect(isImagePath("a/photo.PNG")).toBe(true);
+    expect(isImagePath("C:\\images\\logo.webp")).toBe(true);
+    expect(isImagePath("assets/png")).toBe(false);
+    expect(isImagePath("png")).toBe(false);
+    expect(isImagePath("photo.png/notes")).toBe(false);
   });
 
   it.each([

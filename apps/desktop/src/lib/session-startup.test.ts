@@ -2,14 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RecoverableSessionCandidate, SessionCheckpoint, SessionCheckpointMetadata, SessionMetadata, SessionWindowLease } from "./session-storage";
 
 const storage = vi.hoisted(() => ({
-  metadata: vi.fn(), status: vi.fn(), candidates: vi.fn(), claim: vi.fn(), load: vi.fn(), close: vi.fn(),
+  metadata: vi.fn(), candidates: vi.fn(), claim: vi.fn(), load: vi.fn(), close: vi.fn(),
   metadataResult: vi.fn(), loadResult: vi.fn(),
   registry: vi.fn(), readStorage: vi.fn(),
 }));
 vi.mock("./session-storage", async (original) => ({
   ...await original<typeof import("./session-storage")>(),
-  readLatestSessionCheckpointMetadata: storage.metadata,
-  readLatestSessionCheckpointStatus: storage.status,
   listRecoverableSessionCheckpointCandidates: storage.candidates,
   claimRecoverableSessionCandidate: storage.claim,
   loadSessionCheckpoint: storage.load,
@@ -34,7 +32,6 @@ describe("startup recovery selects metadata before loading bodies", () => {
   beforeEach(() => {
     for (const mock of Object.values(storage)) mock.mockReset();
     storage.metadata.mockResolvedValue(null);
-    storage.status.mockResolvedValue(null);
     storage.candidates.mockResolvedValue([]);
     storage.close.mockResolvedValue({ ok: true });
     storage.readStorage.mockReturnValue(null);

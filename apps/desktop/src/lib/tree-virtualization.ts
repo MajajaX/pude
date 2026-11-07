@@ -272,7 +272,7 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
 
     if (!wasExpanded && isExpanded) {
       const newChildren = this.visibleChildren(next, hideDotFiles);
-      const inserted = this.flattenChildren(newChildren, index, row.depth + 1, 0, newChildren.length, hideDotFiles);
+      const inserted = this.flattenChildren(newChildren, row.depth + 1, 0, newChildren.length, hideDotFiles);
       this.replaceFlatRange(index, index + 1, index + 1, inserted);
       this.setDirectChildSemantics(index, newChildren);
       return;
@@ -339,7 +339,6 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
     const insertedChildren = newChildren.slice(prefixLength, newChildren.length - suffixLength);
     const insertedRows = this.flattenChildren(
       insertedChildren,
-      index,
       row.depth + 1,
       prefixLength,
       newChildren.length,
@@ -388,7 +387,6 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
 
   private flattenChildren(
     children: readonly T[],
-    parentIndex: number,
     depth: number,
     firstSiblingIndex: number,
     siblingCount: number,

@@ -83,30 +83,8 @@ export function activateModalFocus(dialog: HTMLElement, options: ModalFocusOptio
   return controller;
 }
 
-/** Compatibility helpers for callers being migrated to activateModalFocus. */
 export function isTopmostModal(dialog: HTMLElement | undefined): boolean {
   return Boolean(dialog && getTopmostModal() === dialog);
-}
-
-export function rememberModalFocus(dialog: HTMLElement | undefined, focusTarget: HTMLElement | null): void {
-  if (!dialog) return;
-  modalOrigins.set(dialog, {
-    target: focusTarget,
-    containingModal: focusTarget?.closest<HTMLElement>(modalSelector) ?? null,
-    fallbackTarget: null,
-    fallbackContainingModal: null,
-  });
-}
-
-export function restoreFocusAfterModalClose(dialog: HTMLElement | undefined, focusTarget: HTMLElement | null): void {
-  if (!dialog) return;
-  const origin = modalOrigins.get(dialog) ?? {
-    target: focusTarget,
-    containingModal: focusTarget?.closest<HTMLElement>(modalSelector) ?? null,
-    fallbackTarget: null,
-    fallbackContainingModal: null,
-  };
-  window.setTimeout(() => restoreFocusAfterModal({ ...origin, target: focusTarget ?? origin.target }), 0);
 }
 
 export function getModalFocusableElements(dialog: HTMLElement): HTMLElement[] {

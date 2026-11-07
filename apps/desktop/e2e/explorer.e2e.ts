@@ -206,3 +206,34 @@ test("Markdown preview uses available width and readable text in both themes", a
   await expect(preview).toBeVisible();
   expect(await preview.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
+
+test("Retry scan relists a partially read folder instead of collapsing it", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Instruments Vite development modules to simulate a partial directory listing.");
+  await page.route("**/src/lib/bridge.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      "return { entries: demoTree.children ?? [] };",
+      'return { entries: demoTree.children.map((entry) => entry.name === "src" ? { ...entry, partialError: { kind: "metadata", message: "Some entries could not be read." } } : entry) };',
+    );
+    await route.fulfill({ response, body });
+  });
+  await openProject(page);
+  const folder = page.getByRole("treeitem", { name: /^src/ });
+  const retry = folder.getByRole("button", { name: "Retry scan for src" });
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await retry.click();
+  await expect(retry).toHaveCount(0);
+  await expect(folder).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("treeitem", { name: "main.ts", exact: true })).toBeVisible();
+});
+
+test("an unsaved file is announced on its tab and its project tab", async ({ page }) => {
+  await openProject(page);
+  await page.getByRole("treeitem", { name: "README.md", exact: true }).getByRole("button", { name: "README.md", exact: true }).click();
+  const unsaved = { name: "Unsaved changes", exact: true };
+  await expect(page.locator(".tabbar-tabs").getByRole("img", unsaved)).toHaveCount(0);
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("x");
+  await expect(page.locator(".tabbar-tabs").getByRole("img", unsaved)).toBeVisible();
+  await expect(page.locator(".project-tabs").getByRole("img", unsaved)).toBeVisible();
+});

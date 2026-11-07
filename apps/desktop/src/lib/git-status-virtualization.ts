@@ -25,6 +25,17 @@ export function buildGitStatusRows(files: readonly GitFileStatus[]): GitStatusRo
   return rows;
 }
 
+export function sameGitStatusFiles(left: readonly GitFileStatus[], right: readonly GitFileStatus[]): boolean {
+  return left.length === right.length && left.every((file, index) => {
+    const other = right[index];
+    return file.path === other.path
+      && file.indexStatus === other.indexStatus
+      && file.worktreeStatus === other.worktreeStatus
+      && file.originalPath === other.originalPath
+      && file.conflict === other.conflict;
+  });
+}
+
 export function gitStatusRowHeight(row: GitStatusRow): number {
   return row.kind === "header" ? GIT_STATUS_HEADER_HEIGHT : GIT_STATUS_FILE_ROW_HEIGHT;
 }

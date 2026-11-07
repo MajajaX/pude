@@ -4,6 +4,7 @@ import type { DirectoryEntry, GitFileStatus } from "../types";
 import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type IndexedVisibleTreeRow } from "../lib/tree-virtualization";
 import { joinWirePath, pathComparisonKey, runtimePathOptions } from "../lib/path-identity";
 import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored";
+import { sameGitStatusFiles } from "../lib/git-status-virtualization";
 import { isWorkspaceRootEntry } from "../lib/workspace-folders";
 import { isImeComposing } from "../lib/keyboard-input";
 import "../styles/explorer-virtualization.css";
@@ -97,10 +98,11 @@ export function Explorer(props: ExplorerProps) {
   for (const row of treeModel.lastChange.changedRows) stableRowCache.set(row.pathKey, createStableTreeRow(row));
   const [treeVersion, setTreeVersion] = createSignal(treeModel.version);
 
+  const gitFiles = createMemo(() => props.gitFiles, undefined, { equals: sameGitStatusFiles });
   const statusByPath = createMemo(() => {
     const rootPath = props.repositoryRoot || props.root.path;
     const map = new Map<string, GitFileStatus>();
-    for (const file of props.gitFiles) {
+    for (const file of gitFiles()) {
       map.set(pathKey(file.path), file);
       map.set(pathKey(joinWirePath(rootPath, file.path, pathOptions)), file);
     }

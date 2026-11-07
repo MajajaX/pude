@@ -78,7 +78,7 @@ export class TerminalAckTracker {
 
 /**
  * Batches the decision of when to send an acknowledgment. Output below
- * `flushBytes` waits for the next animation frame so bursty output collapses
+ * `TERMINAL_ACK_FLUSH_BYTES` waits for the next animation frame so bursty output collapses
  * into one `terminal_ack_output` per frame; a large backlog flushes
  * immediately so the credit window keeps releasing credit.
  */
@@ -88,7 +88,6 @@ export class TerminalAckScheduler {
   constructor(
     private readonly requestFrame: (callback: () => void) => number,
     private readonly cancelFrame: (handle: number) => void,
-    private readonly flushBytes: number = TERMINAL_ACK_FLUSH_BYTES,
   ) {}
 
   /** Runs `flush` now and cancels any frame scheduled earlier. */

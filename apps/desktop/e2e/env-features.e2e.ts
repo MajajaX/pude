@@ -1,11 +1,12 @@
 import { expect, test } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 test("inserts variables and generates an undoable value with persistent options", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page).toHaveTitle(/pude/i);
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
   const table = page.locator(".env-table");
   await table.getByRole("textbox", { name: "Variable name" }).first().click({ button: "right" });
@@ -30,8 +31,7 @@ test("inserts variables and generates an undoable value with persistent options"
   await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+z" : "Control+Shift+z");
   await expect(table.getByRole("textbox", { name: "Value of SECRET" })).toHaveValue(generated);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Open folder", exact: true }).first()).toBeVisible();
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
   await table.getByRole("button", { name: "Generate random value for APP_NAME" }).click();
   await expect(dialog.getByRole("combobox", { name: "Format" })).toHaveValue("hex");
@@ -44,7 +44,7 @@ test("inserts variables and generates an undoable value with persistent options"
 test("the toolbar generates a key for a new variable, also from an empty file", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
   const table = page.locator(".env-table");
   const dialog = page.getByRole("dialog", { name: "Generate random value" });

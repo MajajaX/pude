@@ -1,9 +1,5 @@
 import { translateMessage } from "./i18n";
 
-export function hasUnsavedChanges(content: string, savedContent: string): boolean {
-  return content !== savedContent;
-}
-
 /** Keep pinned tabs to the left while preserving order within each group. */
 export function orderTabsByPinned<T extends { pinned?: boolean }>(tabs: readonly T[]): T[] {
   return tabs.filter((tab) => tab.pinned === true).concat(tabs.filter((tab) => tab.pinned !== true));

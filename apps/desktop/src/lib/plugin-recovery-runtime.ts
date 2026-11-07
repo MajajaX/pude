@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { InstalledPlugin, PluginManifest } from "../types";
+import type { PluginManifest } from "../types";
 import type { PluginStartupRecoveryResult } from "./bridge";
 
 export async function recoverPluginUpdates(ids: string[]): Promise<PluginStartupRecoveryResult> {

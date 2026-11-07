@@ -8,7 +8,7 @@ import type { ProjectSearchRequest } from "./components/ProjectSearch";
 import type { TabMenuAction } from "./components/TabContextMenu";
 import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
 import { ActivityBar, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/ActivityBar";
-import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
+import { Icon } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
 import type { ProjectWorkspaceState } from "./lib/project-workspace";
@@ -26,15 +26,15 @@ import { emitDiagnostic } from "./lib/diagnostics";
 import { contentFingerprint } from "./lib/fingerprint";
 import { windowTitleForWorkspace } from "./lib/window-title";
 import { pathComparisonKey, samePath as samePathIdentity, isSameOrDescendantPath as isDescendantIdentity, runtimePathOptions, wireBasename, wireParentPath, joinWirePath } from "./lib/path-identity";
-import { utf8ByteLength, serializedDocumentByteLength } from "./lib/document-size";
+import { utf8ByteLength } from "./lib/document-size";
 import { isImeComposing } from "./lib/keyboard-input";
 import { isMissingFileReadError } from "./lib/file-read-errors";
 import { pickEditorSettings, sameEditorSettings } from "./lib/editor-settings";
 import { advanceOpenFolderChord, relativePathWithinRoot, type OpenFolderChordState } from "./lib/explorer-actions";
 import { deleteConfirmationMessage, trashLocationLabel } from "./lib/delete-confirmation";
-import { fileLanguageForPath, isImagePath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeLineEndingMap, sameTextMetadata } from "./lib/file-metadata";
+import { fileLanguageForPath, isImagePath, lineEndingFromMap, normalizeDocumentContent, normalizeLineEndingMap, sameTextMetadata } from "./lib/file-metadata";
 import { clampSetting, validateSettings } from "./lib/settings";
-import { allGitDirtyState, classifyGitChanges, emptyGitDirtyState, gitRefreshDelay, hasGitDirtyState, mergeGitDirtyState, type GitDirtyState } from "./lib/git-scheduler";
+import { allGitDirtyState, classifyGitChanges, gitRefreshDelay, hasGitDirtyState, mergeGitDirtyState, type GitDirtyState } from "./lib/git-scheduler";
 import type { CommandPaletteItem } from "./lib/plugin-activation";
 import { parseInstalledPlugin } from "./lib/plugin-manifest";
 import type { PluginApiV2Dependencies, PluginApiV2InstalledPlugin, PluginApiV2Permission } from "./lib/plugin-api-v2";
@@ -48,12 +48,12 @@ import type { SaveController, SaveSnapshot } from "./lib/save-controller";
 import { savedTabChanges } from "./lib/saved-tab-state";
 import { diskMetadataChanged } from "./lib/disk-metadata";
 import { markStartupEvent } from "./lib/startup-timeline";
-import { limitIo, IoLimiter, IoStaleGenerationError, withBusyRetry } from "./lib/io-limiter";
+import { IoLimiter, IoStaleGenerationError, withBusyRetry } from "./lib/io-limiter";
 import { createExternalConflictController } from "./lib/external-conflict-controller";
 import { createDocumentController } from "./lib/document-controller";
 import { createEditorSelectionFallback, editorSelectionFallbackAfterUpdate } from "./lib/editor-selection-fallback";
 import { createWatcherEventBuffer, watcherRetryDelay } from "./lib/watcher-state";
-import { attachSessionWindow, claimSessionWindow, closeSessionWindow, collectExpandedPaths, commitSessionCheckpoint, CURSOR_STORAGE_KEY, flushSessionPersistence, listRecoverableSessionCheckpoints, MAX_RECOVERY_BYTES, readLatestSessionCheckpoint, readLatestSessionCheckpointStatus, readSessionRegistry, recoveryStorageKey, readStorage, removeRecoveryStorage, scopedStorageKey, serializeCursorPositions, SESSION_STORAGE_KEY, SESSION_WINDOW_LEASE_MS, heartbeatSessionWindow, writeStorage, removeStorage, type CursorPosition, type PersistedTab, type ProjectSessionMetadata, type RecoveryBaseline, type RecoverySnapshot, type SessionCheckpoint, type SessionMetadata, type SessionWindowLease } from "./lib/session-storage";
+import { attachSessionWindow, closeSessionWindow, collectExpandedPaths, commitSessionCheckpoint, CURSOR_STORAGE_KEY, flushSessionPersistence, MAX_RECOVERY_BYTES, recoveryStorageKey, readStorage, scopedStorageKey, serializeCursorPositions, heartbeatSessionWindow, writeStorage, type CursorPosition, type PersistedTab, type ProjectSessionMetadata, type RecoveryBaseline, type RecoverySnapshot, type SessionMetadata, type SessionWindowLease } from "./lib/session-storage";
 import type { StartupSessionSelection } from "./lib/session-startup";
 import { createSessionLeaseReleaseQueue } from "./lib/session-lease-release";
 import { setRecoveryDatabaseBlockedHandler } from "./lib/recovery-database-status";
@@ -65,7 +65,7 @@ import { createExpandedPathsCache } from "./lib/expanded-paths";
 import type { RestoredTabRecord, RestoredTabResult } from "./lib/session-restore-documents";
 import { reconcile, createStore } from "solid-js/store";
 import type { WorkspaceActions } from "./lib/workspace-actions";
-import type { AppSettings, DirectoryEntry, DiffResult, DirectoryListResult, EditorTab, FileChange, FileChangedEvent, GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult, InstalledPlugin, PluginLspServer, ReadFileResult, WatchRoot } from "./types";
+import type { AppSettings, DirectoryEntry, DiffResult, DirectoryListResult, EditorTab, FileChange, FileChangedEvent, GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult, InstalledPlugin, ReadFileResult, WatchRoot } from "./types";
 import type { PluginInstallPlan } from "./lib/bridge";
 import type { LspEvent } from "./lib/bridge";
 import { applyLanguage, t, translateMessage } from "./lib/i18n";
@@ -474,7 +474,6 @@ export default function App() {
   let watcherRetryTimer: number | undefined;
   let watcherRetryAttempt = 0;
   let watcherOperationQueue: Promise<unknown> = Promise.resolve();
-  let lastFileEventSequence = 0;
   let lastFocusResumeRefreshAt = 0;
   let watcherRoots: WatchRoot[] = [];
   const watcherEvents = createWatcherEventBuffer();
@@ -495,13 +494,11 @@ export default function App() {
   let recoveryStorageWarningShown = false;
   let pluginStorageWarningShown = false;
   let sessionScope = "default";
-  let sessionStorageKey = SESSION_STORAGE_KEY;
   let cursorStorageKey = CURSOR_STORAGE_KEY;
   let sessionWindowId = "default";
   let sessionLease: SessionWindowLease | undefined;
   let closeCleanupGeneration = 0;
   let sessionHeartbeatTimer: number | undefined;
-  let sessionLeaseWarningShown = false;
   let sessionPersistenceBlocked = false;
   let sessionStartupUnavailable = false;
   let sessionPersistenceWarningShown = false;
@@ -521,7 +518,6 @@ export default function App() {
     getAdditionalCacheBytes: () => projectRuntime?.projectCacheBytes(allLoadedTabs(), currentProjects()) ?? 0,
   });
   const recoveryScheduler = new RecoveryWriteScheduler();
-  const recoveryWriteRevisions = new Map<string, number>();
   const checkpointedRecoveryRevisions = new Map<string, { path: string; revision: number }>();
   /** Saved baselines already durable, keyed by recovery key. */
   const checkpointedBaselines = new Map<string, number>();
@@ -674,7 +670,6 @@ export default function App() {
         }
         watcherSessionId = nextSessionId;
         watcherNeedsRestart = false;
-        lastFileEventSequence = 0;
         watcherRetryAttempt = 0;
         relistAllDirectories();
         verifyOpenFiles();
@@ -822,12 +817,6 @@ export default function App() {
     scheduleDocumentCacheBudget();
   };
   const getDocumentText = documentController.getText;
-  const getActiveDocumentText = () => {
-    const tabId = activeTabId();
-    if (!tabId) return "";
-    documentController.getRevision(tabId).read();
-    return documentController.getHandle(tabId)?.getText() ?? tabById[tabId]?.content ?? "";
-  };
 
   const activeTab = createMemo(() => {
     const id = activeTabId();
@@ -836,9 +825,13 @@ export default function App() {
   const loadedPaths = createMemo(() => loadedExplorerPaths(root()), undefined, {
     equals: (left, right) => left.length === right.length && left.every((path, index) => path === right[index]),
   });
+  const gitRepositoryRoot = createMemo(() => git().repositoryRoot);
+  const gitFiles = createMemo(() => git().files);
   createEffect(() => {
     const currentWorkspace = workspace();
-    const repositoryRoot = git().repositoryRoot;
+    const repositoryRoot = gitRepositoryRoot();
+    // A status refresh can follow a .gitignore edit; loading a history page cannot.
+    gitFiles();
     const paths = additionalFolders().length
       ? loadedPaths().filter((path) => isSameOrDescendantPath(path, currentWorkspace) && !samePath(path, currentWorkspace))
       : loadedPaths();
@@ -1390,8 +1383,6 @@ export default function App() {
       return;
     }
     const recovery = compactRecoverySnapshot(createRecoverySnapshot(tab));
-    const writeRevision = (recoveryWriteRevisions.get(tabId) ?? 0) + 1;
-    recoveryWriteRevisions.set(tabId, writeRevision);
     if (!recovery || recoverySnapshotSizeBytes(recovery) > MAX_RECOVERY_BYTES) {
       if (!recoveryStorageWarningShown) {
         recoveryStorageWarningShown = true;
@@ -1411,7 +1402,6 @@ export default function App() {
 
   const clearRecovery = (tabId: string) => {
     recoveryScheduler.cancel(tabId);
-    recoveryWriteRevisions.set(tabId, (recoveryWriteRevisions.get(tabId) ?? 0) + 1);
     const key = recoveryKey(tabId);
     pendingRecoverySnapshots.delete(key);
     unavailableRecoveryKeys.delete(key);
@@ -1593,7 +1583,6 @@ export default function App() {
       startupSession = { scope: sessionWindowId, checkpoint: null, legacy: null, lease: startupSession.lease, pendingReleaseLease: startupSession.pendingReleaseLease, recoveredSecondary: false };
     }
     sessionScope = startupSession.scope;
-    sessionStorageKey = scopedStorageKey(SESSION_STORAGE_KEY, sessionScope);
     cursorStorageKey = scopedStorageKey(CURSOR_STORAGE_KEY, sessionScope);
     const checkpoint = startupSession.checkpoint;
     sessionRestoreCheckpointVerified = Boolean(checkpoint);
@@ -1692,14 +1681,12 @@ export default function App() {
           await adoptStartupLease(attached.lease, attachGeneration);
         }
         else if (attachGeneration === workspaceGeneration) {
-          sessionLeaseWarningShown = true;
           blockSessionPersistence(attached.reason === "conflict"
             ? "This session scope is already owned by another window; unsaved recovery is paused."
             : "Session recovery storage is unavailable; unsaved recovery cannot be protected.");
         }
       }
     } catch (error) {
-      sessionLeaseWarningShown = true;
       blockSessionPersistence(errorMessage(error, "Session recovery storage is unavailable; unsaved recovery cannot be protected."));
     }
     sessionHeartbeatTimer = window.setInterval(() => {
@@ -1707,11 +1694,9 @@ export default function App() {
       if (!lease || disposed) return;
       void heartbeatSessionWindow(lease, windowSession().tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, sessionScope))).then((result) => {
         if (sessionLease !== lease || result.ok) return;
-        sessionLeaseWarningShown = true;
         blockSessionPersistence("Session window ownership was lost; unsaved recovery is paused until it is restored.");
       }).catch((error) => {
         if (sessionLease !== lease) return;
-        sessionLeaseWarningShown = true;
         blockSessionPersistence(errorMessage(error, "Session window ownership was lost; unsaved recovery is paused until it is restored."));
       });
     }, 60_000);
@@ -1926,7 +1911,6 @@ export default function App() {
         if (change.oldPath) versionedFileReader?.invalidate(change.oldPath);
       }
       if (event.needsRescan) for (const tab of tabs()) versionedFileReader?.invalidate(tab.path);
-      const currentWorkspace = workspace();
       const repositoryRoot = git().repositoryRoot;
       const metadataPaths = changes.flatMap((change) => [change.path, change.oldPath]).filter((path): path is string => Boolean(path));
       const repositoryChanged = Boolean(repositoryRoot && metadataPaths.some((path) => isSameOrDescendantPath(path, repositoryRoot)));
@@ -1996,7 +1980,6 @@ export default function App() {
           startupWatcherReadyMarked = true;
           markStartupEvent("watcher-ready");
         }
-        lastFileEventSequence = 0;
         watcherRetryAttempt = 0;
         verifyOpenFiles();
         scheduleGitRefresh(allGitDirtyState());
@@ -2106,21 +2089,28 @@ export default function App() {
 
   onMount(() => {
     if (!isTauri) return;
+    let resizeTimer: number | undefined;
+    const unlisteners: Array<() => void> = [];
+    const keepUnlistener = (unlisten: () => void) => {
+      if (disposed) unlisten();
+      else unlisteners.push(unlisten);
+    };
+    onCleanup(() => {
+      window.clearTimeout(resizeTimer);
+      unlisteners.forEach((unlisten) => unlisten());
+    });
     void getWindowApi().then(({ getCurrentWindow }) => {
       if (disposed) return;
       const currentWindow = getCurrentWindow();
       void currentWindow.isMaximized().then(setWindowMaximized);
-      let unlistenResize: (() => void) | undefined;
-      let unlistenClose: (() => void) | undefined;
-      void currentWindow.onResized(() => void currentWindow.isMaximized().then(setWindowMaximized)).then((unlisten) => { unlistenResize = unlisten; });
+      void currentWindow.onResized(() => {
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => void currentWindow.isMaximized().then(setWindowMaximized), 100);
+      }).then(keepUnlistener);
       void currentWindow.onCloseRequested((event) => {
         event.preventDefault();
         void closeWindow("preserve");
-      }).then((unlisten) => { unlistenClose = unlisten; });
-      onCleanup(() => {
-        unlistenResize?.();
-        unlistenClose?.();
-      });
+      }).then(keepUnlistener);
     }).catch((error) => emitDiagnostic("window.failure", error));
   });
 
@@ -2342,6 +2332,7 @@ export default function App() {
       documentController.release(tab.id);
     }
     setProjects((items) => items.filter((project) => project.id !== id));
+    olderClosedTabs.delete(id);
     markSessionDirty();
   };
 
@@ -2635,7 +2626,7 @@ export default function App() {
     }
   };
 
-  const loadGitHistory = async () => {
+  const runGitHistoryLoad = async (load: (controller: GitHistoryController) => Promise<boolean>, failureMessage: string) => {
     const requestWorkspace = workspace();
     const requestGeneration = workspaceGeneration;
     const requestSnapshotKey = git().repositoryRoot ? gitSnapshotKey(git()) : null;
@@ -2648,31 +2639,14 @@ export default function App() {
     };
     try {
       const controller = await getGitHistoryController();
-      return isCurrent() ? controller.load() : false;
+      return isCurrent() ? load(controller) : false;
     } catch (error) {
-      if (isCurrent()) notify(errorMessage(error, "Unable to load Git history."));
+      if (isCurrent()) notify(errorMessage(error, failureMessage));
       return false;
     }
   };
-  const loadOlderGitHistory = async () => {
-    const requestWorkspace = workspace();
-    const requestGeneration = workspaceGeneration;
-    const requestSnapshotKey = git().repositoryRoot ? gitSnapshotKey(git()) : null;
-    const isCurrent = () => {
-      const currentGit = git();
-      return !disposed
-        && workspace() === requestWorkspace
-        && workspaceGeneration === requestGeneration
-        && (currentGit.repositoryRoot ? gitSnapshotKey(currentGit) : null) === requestSnapshotKey;
-    };
-    try {
-      const controller = await getGitHistoryController();
-      return isCurrent() ? controller.loadOlder() : false;
-    } catch (error) {
-      if (isCurrent()) notify(errorMessage(error, "Unable to load older Git history."));
-      return false;
-    }
-  };
+  const loadGitHistory = () => runGitHistoryLoad((controller) => controller.load(), "Unable to load Git history.");
+  const loadOlderGitHistory = () => runGitHistoryLoad((controller) => controller.loadOlder(), "Unable to load older Git history.");
 
   const refreshGitHistory = (): Promise<void> => {
     const currentWorkspace = workspace();
@@ -3711,7 +3685,7 @@ export default function App() {
         }
         const path = joinPath(targetDirectory, name);
         if (action === "new-file") await createFile(path); else await createDirectory(path);
-        notify(`${action === "new-file" ? "Created" : "Created folder"} ${name}`);
+        notify(action === "new-file" ? t("Created {name}", { name }) : t("Created folder {name}", { name }));
         if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(targetDirectory);
       } catch (error) {
         notify(errorMessage(error, "Unable to create item."));
@@ -5220,7 +5194,7 @@ export default function App() {
                  <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button><button class="icon-button" onClick={collapseExplorer} title={t("Collapse folders")} aria-label={t("Collapse folders")}><Icon name="chevron-right" size={14} /></button></div></div>
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
-                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
+                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onRetry={(entry) => void refreshRoot(entry.path)} onContextMenu={showFileContextMenu} />
                    </Suspense>
                  </div>
                </Show>
@@ -5530,24 +5504,6 @@ function pathKey(path: string): string {
 
 function isSameOrDescendantPath(path: string, parent: string): boolean {
   return isDescendantIdentity(path, parent, PATH_OPTIONS);
-}
-
-function isGitReferencePath(path: string, repositoryRoot: string): boolean {
-  const candidate = pathKey(path);
-  const root = pathKey(repositoryRoot);
-  const gitRoot = `${root}/.git/`;
-  const repositoryRelative = candidate.startsWith(gitRoot) ? candidate.slice(gitRoot.length) : candidate;
-  const segments = candidate.split("/");
-  const gitDirectoryIndex = segments.findIndex((segment) => segment === ".git" || segment.endsWith(".git"));
-  const relative = gitDirectoryIndex >= 0 ? segments.slice(gitDirectoryIndex + 1).join("/") : repositoryRelative;
-  return relative === "head"
-    || relative === "packed-refs"
-    || relative === "config"
-    || relative.startsWith("refs/")
-    || relative.startsWith("logs/refs/")
-    || (gitDirectoryIndex >= 0 && relative.startsWith("worktrees/"))
-    || candidate.endsWith("/.git")
-    || candidate.endsWith("/head");
 }
 
 function sameGitPath(left: string, right: string, repositoryRoot: string): boolean {

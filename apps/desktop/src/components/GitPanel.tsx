@@ -15,6 +15,7 @@ import {
   gitStatusWindow,
   layoutGitStatusRows,
   resolveGitStatusFocus,
+  sameGitStatusFiles,
   type GitStatusRow,
 } from "../lib/git-status-virtualization";
 import type { GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult } from "../types";
@@ -201,7 +202,7 @@ export function GitPanel(props: GitPanelProps) {
       setBranchName("");
       setWorktreePath("");
     } catch (error) {
-      if (workspaceEpoch === origin) setDialog({ kind: "error", title: "Create worktree failed", message: errorMessage(error, "Unable to create the Git worktree.") });
+      if (workspaceEpoch === origin) setDialog({ kind: "error", title: t("{action} failed", { action: t("Create worktree") }), message: errorMessage(error, "Unable to create the Git worktree.") });
     }
   };
 
@@ -378,23 +379,21 @@ function GitActionButton(props: { label: string; title: string; variant?: "push"
 const GIT_STATUS_OVERSCAN = 8;
 
 function StatusView(props: { status: GitStatusResult; busy: boolean; onOpenDiff: (file: GitFileStatus, staged: boolean, untrackedHint?: boolean) => void; onAction: (request: GitActionRequest) => void; onDiscard: (file: GitFileStatus) => void }) {
-  const rows = createMemo(() => buildGitStatusRows(props.status.files));
+  // An unchanged status keeps its rows, so a refresh does not rebuild them or drop keyboard focus.
+  const files = createMemo(() => props.status.files, undefined, { equals: sameGitStatusFiles });
+  const rows = createMemo(() => buildGitStatusRows(files()));
   const layout = createMemo(() => layoutGitStatusRows(rows()));
   const untracked = () => props.status.files.some((file) => file.worktreeStatus === "?");
   const [hostElement, setHostElement] = createSignal<HTMLDivElement>();
   let scrollHost: HTMLElement | undefined;
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
+  const [listOffset, setListOffset] = createSignal(0);
   const [focusAnchor, setFocusAnchor] = createSignal<{ key: string; index: number }>();
 
   // The git panel scrolls as a whole; the row window is computed in list
   // coordinates by subtracting the list offset within the scroll host.
-  const listTop = () => {
-    const host = hostElement();
-    if (!scrollHost || !host) return 0;
-    return host.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top + scrollHost.scrollTop;
-  };
-  const window = createMemo(() => gitStatusWindow(rows(), layout(), Math.max(0, scrollTop() - listTop()), viewportHeight(), GIT_STATUS_OVERSCAN));
+  const window = createMemo(() => gitStatusWindow(rows(), layout(), Math.max(0, scrollTop() - listOffset()), viewportHeight(), GIT_STATUS_OVERSCAN));
   const rowIndexes = createMemo(() => new Map(rows().map((row, index) => [row.key, index])));
   const renderedRows = createMemo(() => {
     const currentWindow = window();
@@ -411,6 +410,8 @@ function StatusView(props: { status: GitStatusResult; busy: boolean; onOpenDiff:
 
   const updateViewport = () => {
     if (!scrollHost) return;
+    const list = hostElement();
+    setListOffset(list ? list.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top + scrollHost.scrollTop : 0);
     setViewportHeight(scrollHost.clientHeight);
     setScrollTop(scrollHost.scrollTop);
   };
@@ -425,7 +426,7 @@ function StatusView(props: { status: GitStatusResult; busy: boolean; onOpenDiff:
       return;
     }
     scrollHost = host;
-    const handleScroll = () => updateViewport();
+    const handleScroll = () => setScrollTop(host.scrollTop);
     host.addEventListener("scroll", handleScroll, { passive: true });
     updateViewport();
     const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateViewport);
@@ -448,7 +449,7 @@ function StatusView(props: { status: GitStatusResult; busy: boolean; onOpenDiff:
     if (!row || !scrollHost) return;
     const rowTop = layout().offsets[index];
     const rowBottom = rowTop + gitStatusRowHeight(row);
-    const hostTop = listTop();
+    const hostTop = listOffset();
     const viewport = viewportHeight();
     const relativeTop = scrollHost.scrollTop - hostTop;
     let target = scrollHost.scrollTop;

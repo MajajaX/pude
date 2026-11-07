@@ -12,7 +12,6 @@ import {
   MAX_RECOVERY_TOTAL_BYTES,
   MAX_SESSION_WINDOWS,
   SESSION_CHECKPOINT_SCHEMA_VERSION,
-  SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX,
   SESSION_REGISTRY_SCHEMA_VERSION,
   SESSION_REGISTRY_STORAGE_KEY,
   SESSION_WINDOW_LEASE_MS,
@@ -29,10 +28,10 @@ import {
   parseJson,
   parseRecovery,
   parseRecoveryBaseline,
-  parseSession,
   parseSessionCheckpoint,
   parseSessionRegistry,
   parseSessionCheckpointMetadata,
+  parseSessionValue,
   recoveryBaselineKey,
   recoveryBaselineSizeBytes,
   recoverySnapshotSizeBytes,
@@ -295,12 +294,6 @@ export async function readRecoveryBaselineResult(key: string): Promise<StorageRe
   });
 }
 
-/** Compatibility wrapper for older callers; restores use the status-bearing API. */
-export async function readRecoveryBaselineStorage(key: string): Promise<RecoveryBaseline | null> {
-  const result = await readRecoveryBaselineResult(key);
-  return result.status === "available" ? result.value : null;
-}
-
 export async function writeRecoveryStorage(key: string, value: RecoveryStorageValue, options: RecoveryWriteOptions = {}): Promise<boolean> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => writeRecoveryStorageInternal(key, value, options, lockHeld));
@@ -402,22 +395,6 @@ async function removeRecoveryStorageInternal(key: string, lockHeld = false): Pro
   await removeRecoveryFallback(key, lockHeld);
 }
 
-export async function readLatestSessionCheckpointStatus(scope: string): Promise<SessionCheckpointReadResult | null> {
-  const { openRecoveryDatabase, readSessionCheckpointDatabase } = await sessionStorageIdb();
-  if (!boundedString(scope, 256)) return null;
-  const database = await openRecoveryDatabase();
-  const [databaseResult, fallbackResult] = await Promise.all([
-    database ? readSessionCheckpointDatabase(database, scope).catch(() => null) : Promise.resolve(null),
-    readSessionCheckpointFallback(scope),
-  ]);
-  const candidates = [
-    databaseResult ? { ...databaseResult, source: "indexeddb" as const } : null,
-    fallbackResult ? { ...fallbackResult, source: "fallback" as const } : null,
-  ].filter((candidate): candidate is SessionCheckpointReadResult => Boolean(candidate));
-  candidates.sort((left, right) => compareSessionCheckpoints(left.checkpoint, right.checkpoint));
-  return candidates.at(-1) ?? null;
-}
-
 /** Returns only a marker with a matching recovery for every dirty tab. */
 export async function readLatestSessionCheckpoint(scope: string): Promise<SessionCheckpoint | null> {
   const { openRecoveryDatabase, readSessionCheckpointDatabase } = await sessionStorageIdb();
@@ -431,18 +408,6 @@ export async function readLatestSessionCheckpoint(scope: string): Promise<Sessio
     .filter((candidate): candidate is SessionCheckpointReadResult => Boolean(candidate?.complete))
     .sort((left, right) => compareSessionCheckpoints(left.checkpoint, right.checkpoint));
   return complete.at(-1)?.checkpoint ?? null;
-}
-
-/** Reads checkpoint metadata only, including data/reference completeness but never body integrity. */
-export async function readLatestSessionCheckpointMetadata(scope: string): Promise<SessionCheckpointMetadataReadResult | null> {
-  const { openRecoveryDatabase, readSessionCheckpointMetadataDatabase } = await sessionStorageIdb();
-  if (!boundedString(scope, 256)) return null;
-  const database = await openRecoveryDatabase();
-  const [databaseResult, fallbackResult] = await Promise.all([
-    database ? readSessionCheckpointMetadataDatabase(database, scope).catch(() => null) : Promise.resolve(null),
-    readSessionCheckpointMetadataFallback(scope),
-  ]);
-  return latestCheckpointMetadata(databaseResult, fallbackResult);
 }
 
 function readFallbackCheckpointMetadataResult(scope: string): StorageReadResult<SessionCheckpointMetadataReadResult> {
@@ -614,12 +579,6 @@ export async function loadSessionCheckpointResult(scope: string, options: Sessio
   );
 }
 
-/** Registers a UI callback for an IndexedDB upgrade blocked by an older connection. */
-export async function setRecoveryDatabaseBlockedHandler(handler: ((timeoutMs: number, status: "blocked" | "timed-out") => void) | undefined): Promise<void> {
-  const { setRecoveryDatabaseBlockedHandler: setHandler } = await sessionStorageIdb();
-  setHandler(handler);
-}
-
 export async function commitSessionCheckpoint(input: SessionCheckpointInput): Promise<SessionCheckpointResult> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => commitSessionCheckpointInternal(input, lockHeld));
@@ -772,14 +731,9 @@ export async function getRecoveryStorageUsage(): Promise<RecoveryStorageUsage> {
 }
 
 async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lockHeld = false): Promise<SessionCheckpointResult> {
-  const { openRecoveryDatabase, readRecoveryMetadataBytes, readCheckpointRecoveryBytes, readSessionCheckpointMetadataDatabase, writeSessionCheckpointDatabase } = await sessionStorageIdb();
+  const { openRecoveryDatabase, readRecoveryMetadataBytes, readCheckpointRecoveryBytes, writeSessionCheckpointDatabase } = await sessionStorageIdb();
   if (!boundedString(input.scope, 256)) return invalidCheckpointResult("invalid");
-  let session: SessionMetadata | null = null;
-  try {
-    session = parseSession(JSON.stringify(input.session));
-  } catch {
-    session = null;
-  }
+  const session = parseSessionValue(input.session);
   if (!session) return invalidCheckpointResult("invalid");
   const now = nonNegativeTimestamp(input.now) ?? Date.now();
   const registryResult = await readSessionRegistryInternal(now);
@@ -996,15 +950,6 @@ function carryForwardCheckpointBaselines(baselines: Record<string, RecoveryBasel
 
 function invalidCheckpointResult(reason: SessionCheckpointResult["reason"], missingRecoveryKeys: string[] = []): SessionCheckpointResult {
   return { ok: false, complete: false, checkpoint: null, updatedRecoveryKeys: [], removedRecoveryKeys: [], durability: "none", fallback: "failed", evictedKeys: [], missingRecoveryKeys, reason };
-}
-
-function latestCheckpointMetadata(
-  databaseResult: SessionCheckpointMetadataReadResult | null,
-  fallbackResult: SessionCheckpointMetadataReadResult | null,
-): SessionCheckpointMetadataReadResult | null {
-  const candidates = [databaseResult, fallbackResult].filter((candidate): candidate is SessionCheckpointMetadataReadResult => Boolean(candidate));
-  candidates.sort((left, right) => compareSessionCheckpoints(left.checkpoint, right.checkpoint));
-  return candidates.at(-1) ?? null;
 }
 
 function estimateMetadataBytes(checkpoint: SessionCheckpointMetadata): number {
@@ -1317,75 +1262,3 @@ async function readSessionRegistryInternal(now: number): Promise<{ registry: Ses
   const staleWindowIds = registry.windows.filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS).map((entry) => entry.windowId);
   return { registry, staleWindowIds };
 }
-
-export {
-  CURSOR_STORAGE_KEY,
-  MAX_RECOVERY_BYTES,
-  MAX_RECOVERY_TOTAL_BYTES,
-  RECOVERY_STORAGE_PREFIX,
-  SESSION_CHECKPOINT_SCHEMA_VERSION,
-  SESSION_CHECKPOINT_STORAGE_PREFIX,
-  SESSION_REGISTRY_SCHEMA_VERSION,
-  SESSION_REGISTRY_STORAGE_KEY,
-  SESSION_SCHEMA_VERSION,
-  SESSION_STORAGE_KEY,
-  SESSION_WINDOW_LEASE_MS,
-} from "./session-storage-schema";
-export type {
-  AttachSessionWindowInput,
-  ClaimSessionWindowInput,
-  ClaimSessionWindowResult,
-  ClaimRecoverableSessionCandidateInput,
-  ClaimRecoverableSessionCandidateResult,
-  CursorPosition,
-  DiscardSessionCheckpointResult,
-  PersistedTab,
-  RecoverableSession,
-  RecoverableSessionCandidate,
-  RecoveryBaseline,
-  RecoverySnapshot,
-  RecoveryStorageUsage,
-  RecoveryStorageValue,
-  RecoveryWriteOptions,
-  SessionCheckpoint,
-  SessionCheckpointMetadata,
-  SessionCheckpointMetadataReadResult,
-  SessionCheckpointDurability,
-  SessionCheckpointInput,
-  SessionCheckpointReadResult,
-  SessionCheckpointResult,
-  SessionMetadata,
-  SessionRegistry,
-  SessionRegistryResult,
-  SessionRegistryUpdateResult,
-  SessionWindowLease,
-  SessionWindowRecord,
-} from "./session-storage-schema";
-export {
-  baselineKeyForRecoveryKey,
-  collectExpandedPaths,
-  compactRecoverySnapshot,
-  createSessionMetadata,
-  isRecoveryBaselineKey,
-  parseCursorPositions,
-  parseRecovery,
-  parseRecoveryBaseline,
-  parseSession,
-  parseSessionCheckpoint,
-  parseSessionCheckpointMetadata,
-  parseSessionRegistry,
-  recoveryBaselineKey,
-  recoveryBaselineSizeBytes,
-  recoveryKeyForBaselineKey,
-  recoverySnapshotSizeBytes,
-  recoverySnapshotStorageValue,
-  recoveryStorageKey,
-  resolveRecoveryBaseline,
-  retainSessionTabs,
-  sameRecoveryStorageScope,
-  scopedStorageKey,
-  serializeCursorPositions,
-  sessionCheckpointStorageKey,
-  sessionCheckpointMetadataStorageKey,
-} from "./session-storage-schema";
-export { readStorage, removeStorage, writeStorage } from "./session-storage-fallback";

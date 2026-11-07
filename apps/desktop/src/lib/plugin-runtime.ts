@@ -13,7 +13,6 @@ import type {
   PluginWorkspaceFileRange,
   PluginWorkspaceListResult,
   PluginWorkspaceWriteResult,
-  ResolvedLspServer,
 } from "./bridge";
 import type { PluginResolvedLspServer } from "./plugin-authorization";
 
@@ -147,18 +146,11 @@ export async function cancelPluginNetworkRequest(authorizationToken: string, wor
   await invoke("plugin_network_cancel", { authorizationToken, workspace });
 }
 
-export async function resolveLspServer(
-  workspaceRoot: string,
-  server: LspServerDeclaration,
-): Promise<ResolvedLspServer> {
-  return invoke<ResolvedLspServer>("lsp_resolve_server", { request: { workspaceRoot, server } });
-}
-
 export async function resolvePluginLspServer(
   workspaceRoot: string,
   server: LspServerDeclaration,
 ): Promise<PluginResolvedLspServer> {
-  return resolveLspServer(workspaceRoot, server);
+  return invoke<PluginResolvedLspServer>("lsp_resolve_server", { request: { workspaceRoot, server } });
 }
 
 export async function approveLspServer(request: LspApprovalRequest): Promise<void> {

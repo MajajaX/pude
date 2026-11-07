@@ -7,6 +7,7 @@ import {
   gitStatusWindow,
   layoutGitStatusRows,
   resolveGitStatusFocus,
+  sameGitStatusFiles,
 } from "./git-status-virtualization";
 import type { GitFileStatus } from "../types";
 
@@ -19,6 +20,17 @@ function untrackedFiles(count: number): GitFileStatus[] {
 }
 
 describe("git status virtualization", () => {
+  it("treats a status as unchanged only when every file field matches", () => {
+    const files = [file("src/a.ts"), file("src/b.ts", { indexStatus: "R", worktreeStatus: null, originalPath: "src/old.ts" })];
+    expect(sameGitStatusFiles(files, files.map((item) => ({ ...item })))).toBe(true);
+    expect(sameGitStatusFiles(files, files.slice(0, 1))).toBe(false);
+    expect(sameGitStatusFiles([file("src/a.ts")], [file("src/c.ts")])).toBe(false);
+    expect(sameGitStatusFiles([file("src/a.ts")], [file("src/a.ts", { indexStatus: "M" })])).toBe(false);
+    expect(sameGitStatusFiles([file("src/a.ts")], [file("src/a.ts", { worktreeStatus: "D" })])).toBe(false);
+    expect(sameGitStatusFiles([file("src/a.ts")], [file("src/a.ts", { originalPath: "src/z.ts" })])).toBe(false);
+    expect(sameGitStatusFiles([file("src/a.ts")], [file("src/a.ts", { conflict: true })])).toBe(false);
+  });
+
   it("builds grouped rows with stable group+path keys", () => {
     const rows = buildGitStatusRows([
       file("src/staged.ts", { indexStatus: "M", worktreeStatus: null }),

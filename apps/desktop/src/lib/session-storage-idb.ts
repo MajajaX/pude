@@ -29,12 +29,10 @@ import {
   SESSION_REGISTRY_SCHEMA_VERSION,
   SESSION_REGISTRY_STORAGE_KEY,
   SESSION_WINDOW_LEASE_MS,
-  type ClaimSessionWindowInput,
   type ClaimRecoverableSessionCandidateInput,
   type RecoveryBaseline,
   type RecoverySnapshot,
   type RecoveryStorageValue,
-  type SessionCheckpoint,
   type SessionCheckpointMetadata,
   type SessionCheckpointMetadataReadResult,
   type SessionCheckpointReadResult,
@@ -45,9 +43,6 @@ import {
 } from "./session-storage-schema";
 import { readStorage } from "./session-storage-fallback";
 import { notifyRecoveryDatabaseBlocked } from "./recovery-database-status";
-
-export { setRecoveryDatabaseBlockedHandler } from "./recovery-database-status";
-export type { RecoveryDatabaseBlockedHandler, RecoveryDatabaseOpenStatus } from "./recovery-database-status";
 
 const RECOVERY_DB_NAME = "pude-recovery-v1";
 const RECOVERY_DB_VERSION = 4;
@@ -353,6 +348,12 @@ export function readStoredRecoveryValue(value: unknown): RecoveryStorageValue | 
   return record?.value ?? null;
 }
 
+/** Only a legacy string record still needs parsing; object records were parsed when read. */
+function readStoredSnapshot(value: unknown): RecoverySnapshot | null {
+  const stored = readStoredRecoveryValue(value);
+  return typeof stored === "string" ? parseRecovery(stored) : stored;
+}
+
 export function selectRecoveryValue(databaseValue: RecoveryStorageValue | null, fallbackValue: string | null): RecoveryStorageValue | null {
   if (!databaseValue) return fallbackValue;
   if (!fallbackValue) return databaseValue;
@@ -428,7 +429,7 @@ export function readSessionCheckpointDatabase(database: IDBDatabase, scope: stri
           const request = store.get(key);
           request.onerror = () => { failed = true; };
           request.onsuccess = () => {
-            const snapshot = parseRecovery(readStoredRecoveryValue(request.result));
+            const snapshot = readStoredSnapshot(request.result);
             if (snapshot) recoveries[key] = snapshot;
             else failed = true;
           };
@@ -466,7 +467,6 @@ export function readSessionCheckpointMetadataDatabase(database: IDBDatabase, sco
       const metadataStore = transaction.objectStore(RECOVERY_METADATA_STORE);
       const request = checkpointStore.get(scope);
       let result: SessionCheckpointMetadataReadResult | null = null;
-      let pending = 0;
       const missing = new Set<string>();
       let failed = false;
       request.onsuccess = () => {
@@ -475,18 +475,15 @@ export function readSessionCheckpointMetadataDatabase(database: IDBDatabase, sco
           result = parseSessionCheckpointMetadata(stored.checkpoint, Array.isArray(stored.recoveryKeys) ? stored.recoveryKeys : undefined, "indexeddb");
           if (!result) failed = true;
           if (result) {
-            pending = result.checkpoint.session.tabs.filter((tab) => tab.dirty).length;
             result.missingRecoveryKeys.forEach((key) => missing.add(key));
-            if (!pending) return;
             for (const tab of result.checkpoint.session.tabs.filter((candidate) => candidate.dirty)) {
               const key = recoveryStorageKey(tab.id, scope);
               const metaRequest = metadataStore.get(key);
-              metaRequest.onerror = () => { failed = true; missing.add(key); pending -= 1; };
+              metaRequest.onerror = () => { failed = true; missing.add(key); };
               metaRequest.onsuccess = () => {
                 const meta = readRecoveryMetadataRecord(metaRequest.result);
                 if (!meta || meta.kind !== "snapshot" || meta.tabId !== tab.id || meta.path !== tab.path || meta.revision !== tab.revision) missing.add(key);
                 if (metaRequest.result !== undefined && !meta) failed = true;
-                pending -= 1;
               };
             }
           }
@@ -511,7 +508,6 @@ export function readSessionCheckpointMetadataDatabase(database: IDBDatabase, sco
 export function readCheckpointRecoveryBytes(database: IDBDatabase, scope: string): Promise<number | null> {
   return new Promise((resolve) => {
     let total = 0;
-    let pending = 0;
     let missing = false;
     try {
       const transaction = database.transaction([RECOVERY_CHECKPOINT_STORE, RECOVERY_METADATA_STORE], "readonly");
@@ -530,21 +526,16 @@ export function readCheckpointRecoveryBytes(database: IDBDatabase, scope: string
           ? stored.recoveryKeys
           : isRecord(stored.checkpoint.recoveryRevisions) ? Object.keys(stored.checkpoint.recoveryRevisions) : [];
         const keys = rawKeys.filter((key): key is string => typeof key === "string" && isRecoveryStorageKey(key));
-        pending = keys.length * 2;
-        if (!pending) return;
         for (const key of keys) {
-          const baselineKey = baselineKeyForRecoveryKey(key);
-          for (const candidateKey of baselineKey ? [key, baselineKey] : [key]) {
+          for (const candidateKey of [key, baselineKeyForRecoveryKey(key)!]) {
             const request = metadata.get(candidateKey);
-            request.onerror = () => { missing = true; pending -= 1; };
+            request.onerror = () => { missing = true; };
             request.onsuccess = () => {
               const record = readRecoveryMetadataRecord(request.result);
               if (record) total += record.bytes;
               else if (candidateKey === key) missing = true;
-              pending -= 1;
             };
           }
-          if (!baselineKey) pending -= 1;
         }
       };
       transaction.oncomplete = () => resolve(missing && total === 0 ? null : total);
@@ -560,14 +551,12 @@ export function readCheckpointRecoveryBytes(database: IDBDatabase, scope: string
 export function readSessionCheckpointCandidatesDatabase(database: IDBDatabase, workspace?: string): Promise<SessionCheckpointMetadataReadResult[]> {
   return new Promise((resolve) => {
     const results: SessionCheckpointMetadataReadResult[] = [];
-    let failed = false;
     try {
       const transaction = database.transaction([RECOVERY_CHECKPOINT_STORE, RECOVERY_METADATA_STORE], "readonly");
       const checkpointStore = transaction.objectStore(RECOVERY_CHECKPOINT_STORE);
       const metadataStore = transaction.objectStore(RECOVERY_METADATA_STORE);
       const source = workspace === undefined ? checkpointStore : checkpointStore.index("workspace");
       const request = workspace === undefined ? source.openCursor() : source.openCursor(IDBKeyRange.only(workspace));
-      request.onerror = () => { failed = true; };
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) return;
@@ -586,7 +575,7 @@ export function readSessionCheckpointCandidatesDatabase(database: IDBDatabase, w
             for (const tab of expected) {
               const key = recoveryStorageKey(tab.id, candidate.checkpoint.scope);
               const metaRequest = metadataStore.get(key);
-              metaRequest.onerror = () => { failed = true; pending.add(key); remaining -= 1; finishCandidate(); };
+              metaRequest.onerror = () => { pending.add(key); remaining -= 1; finishCandidate(); };
               metaRequest.onsuccess = () => {
                 const record = readRecoveryMetadataRecord(metaRequest.result);
                 if (!record || record.kind !== "snapshot" || record.tabId !== tab.id || record.path !== tab.path || record.revision !== tab.revision) pending.add(key);
@@ -598,7 +587,7 @@ export function readSessionCheckpointCandidatesDatabase(database: IDBDatabase, w
         }
         cursor.continue();
       };
-      transaction.oncomplete = () => resolve(failed ? results : results);
+      transaction.oncomplete = () => resolve(results);
       transaction.onerror = () => resolve([]);
       transaction.onabort = () => resolve([]);
     } catch {
@@ -631,7 +620,7 @@ export function readAllSessionCheckpointsDatabase(database: IDBDatabase): Promis
             const request = snapshotStore.get(key);
             request.onerror = () => { failed = true; };
             request.onsuccess = () => {
-              const snapshot = parseRecovery(readStoredRecoveryValue(request.result));
+              const snapshot = readStoredSnapshot(request.result);
               if (snapshot) item.recoveries[key] = snapshot;
               else failed = true;
             };
@@ -818,10 +807,8 @@ export function writeSessionCheckpointDatabase(
           const updatedAt = checkpoint.committedAt;
           for (const [key, snapshot] of changed) {
             const bytes = recoverySnapshotSizeBytes(snapshot);
-            const parsed = parseRecovery(snapshot);
-            if (!parsed) { transaction.abort(); return; }
-            snapshotStore.put({ value: recoverySnapshotStorageValue(parsed), bytes, updatedAt } satisfies StoredRecoveryRecord, key);
-            metadataStore.put({ bytes, updatedAt, kind: "snapshot", tabId: parsed.tabId, path: parsed.path, revision: parsed.revision } satisfies RecoveryMetadataRecord, key);
+            snapshotStore.put({ value: recoverySnapshotStorageValue(snapshot), bytes, updatedAt } satisfies StoredRecoveryRecord, key);
+            metadataStore.put({ bytes, updatedAt, kind: "snapshot", tabId: snapshot.tabId, path: snapshot.path, revision: snapshot.revision } satisfies RecoveryMetadataRecord, key);
           }
           for (const [baselineKey, baseline] of changedBaselines) {
             const bytes = recoveryBaselineSizeBytes(baseline);
@@ -964,20 +951,6 @@ export function readSessionRegistryDatabase(database: IDBDatabase): Promise<Sess
       transaction.onabort = () => resolve(null);
     } catch {
       resolve(null);
-    }
-  });
-}
-
-export function writeSessionRegistryDatabase(database: IDBDatabase, registry: SessionRegistry): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const transaction = database.transaction(RECOVERY_REGISTRY_STORE, "readwrite");
-      transaction.objectStore(RECOVERY_REGISTRY_STORE).put({ registry } satisfies StoredSessionRegistryRecord, RECOVERY_REGISTRY_RECORD_KEY);
-      transaction.oncomplete = () => resolve(true);
-      transaction.onerror = () => resolve(false);
-      transaction.onabort = () => resolve(false);
-    } catch {
-      resolve(false);
     }
   });
 }

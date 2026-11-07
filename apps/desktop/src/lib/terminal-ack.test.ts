@@ -70,7 +70,7 @@ describe("terminal ack tracker", () => {
 });
 
 describe("terminal ack scheduler", () => {
-  function makeScheduler(flushBytes = TERMINAL_ACK_FLUSH_BYTES) {
+  function makeScheduler() {
     const frames = new Map<number, () => void>();
     let nextHandle = 1;
     const scheduler = new TerminalAckScheduler(
@@ -80,7 +80,6 @@ describe("terminal ack scheduler", () => {
         return handle;
       },
       (handle) => { frames.delete(handle); },
-      flushBytes,
     );
     const runFrame = () => {
       const callbacks = [...frames.values()];
@@ -113,7 +112,7 @@ describe("terminal ack scheduler", () => {
   });
 
   it("flushes immediately once the backlog reaches the byte threshold", () => {
-    const { scheduler, frames, runFrame } = makeScheduler(32);
+    const { scheduler, frames, runFrame } = makeScheduler();
     const deferred = vi.fn();
     scheduler.schedule(deferred);
     expect(frames.size).toBe(1);

@@ -310,7 +310,10 @@ export function createSessionMetadata(workspace: string, activeTabId: string | u
 }
 
 export function parseSession(raw: string | null): SessionMetadata | null {
-  const value = parseJson(raw);
+  return parseSessionValue(parseJson(raw));
+}
+
+export function parseSessionValue(value: unknown): SessionMetadata | null {
   if (!isRecord(value) || (value.version !== 2 && value.version !== SESSION_SCHEMA_VERSION)) return null;
   if (value.version === SESSION_SCHEMA_VERSION && Array.isArray(value.projects)) {
     const projects: ProjectSessionMetadata[] = [];
@@ -318,7 +321,7 @@ export function parseSession(raw: string | null): SessionMetadata | null {
     const tabIds = new Set<string>();
     for (const candidate of value.projects) {
       if (!isRecord(candidate) || !boundedString(candidate.id, 256) || ids.has(candidate.id)) return null;
-      const session = parseSession(JSON.stringify({ ...candidate, version: 2 }));
+      const session = parseSessionValue({ ...candidate, version: 2 });
       if (!session) return null;
       for (const tab of session.tabs) {
         if (tabIds.has(tab.id)) return null;
@@ -587,12 +590,7 @@ export function parseSessionCheckpoint(raw: unknown, baselines?: Record<string, 
   // Fallback checkpoints embed their baselines next to the recoveries so the
   // JSON stays self-contained; database checkpoints pass them separately.
   const resolvedBaselines = baselines ?? parseInlineBaselines(value.baselines);
-  let session: SessionMetadata | null = null;
-  try {
-    session = parseSession(JSON.stringify(value.session));
-  } catch {
-    session = null;
-  }
+  const session = parseSessionValue(value.session);
   if (!session || session.workspace.length > MAX_PATH_LENGTH) return null;
   const tabsByRecoveryKey = new Map(session.tabs.map((tab) => [recoveryStorageKey(tab.id, value.scope), tab]));
   const recoveryRevisions: Record<string, number | null> = {};
@@ -646,12 +644,7 @@ export function parseSessionCheckpointMetadata(
   const committedAt = nonNegativeTimestamp(value.committedAt);
   if (sequence === undefined || committedAt === undefined || !isRecord(value.session) || !isRecord(value.recoveryRevisions)) return null;
 
-  let session: SessionMetadata | null = null;
-  try {
-    session = parseSession(JSON.stringify(value.session));
-  } catch {
-    session = null;
-  }
+  const session = parseSessionValue(value.session);
   if (!session || session.workspace.length > MAX_PATH_LENGTH) return null;
 
   const tabsByRecoveryKey = new Map(session.tabs.map((tab) => [recoveryStorageKey(tab.id, value.scope as string), tab]));

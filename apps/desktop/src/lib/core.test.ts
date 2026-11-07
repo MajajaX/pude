@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { errorMessage, gitStatusLabel, hasUnsavedChanges, orderTabsByPinned } from "./core";
+import { errorMessage, gitStatusLabel, orderTabsByPinned } from "./core";
 
 describe("pude core helpers", () => {
-  it("detects unsaved editor content", () => {
-    expect(hasUnsavedChanges("new", "old")).toBe(true);
-    expect(hasUnsavedChanges("same", "same")).toBe(false);
-  });
-
   it("keeps pinned tabs first and preserves order within each group", () => {
     const tabs = [
       { id: "un-pinned-1", pinned: false },

@@ -1,6 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { parseDiff, toStackedDiffLines } from "../lib/diff";
-import type { DiffParseResult, StackedDiffLine } from "../lib/diff";
 import { virtualTreeWindow } from "../lib/tree-virtualization";
 import { Icon } from "./Icons";
 import { t } from "../lib/i18n";
@@ -28,41 +27,18 @@ export function DiffPane(props: {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
   let scrollHost!: HTMLDivElement;
-  let stackedSource: DiffParseResult | undefined;
-  let stackedCache: StackedDiffLine[] | undefined;
-
-  const getStackedRows = (): StackedDiffLine[] => {
-    const current = parsed();
-    if (current !== stackedSource) {
-      stackedSource = current;
-      stackedCache = undefined;
-    }
-    stackedCache ??= toStackedDiffLines(current.rows);
-    return stackedCache;
-  };
-
-  createEffect(() => {
-    const current = parsed();
-    if (current !== stackedSource) {
-      stackedSource = current;
-      stackedCache = undefined;
-    }
-  });
+  const stackedRows = createMemo(() => layout() === "stacked" ? toStackedDiffLines(parsed().rows) : []);
 
   const sideWindow = createMemo(() => virtualTreeWindow(parsed().rows.length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN));
-  const stackedWindow = createMemo(() => {
-    if (layout() !== "stacked") return virtualTreeWindow(0, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN);
-    return virtualTreeWindow(getStackedRows().length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN);
-  });
+  const stackedWindow = createMemo(() => virtualTreeWindow(stackedRows().length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN));
   const renderedRows = createMemo(() => {
+    if (layout() !== "side-by-side") return [];
     const currentWindow = sideWindow();
     return parsed().rows.slice(currentWindow.start, currentWindow.end);
   });
   const renderedStackedRows = createMemo(() => {
-    if (layout() !== "stacked") return [];
-    const rows = getStackedRows();
     const currentWindow = stackedWindow();
-    return rows.slice(currentWindow.start, currentWindow.end);
+    return stackedRows().slice(currentWindow.start, currentWindow.end);
   });
 
   const updateViewport = () => {

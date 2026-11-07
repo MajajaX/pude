@@ -143,6 +143,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   let writeQueue = Promise.resolve();
   let browserInput = "";
   let fitFrame = 0;
+  let lastSentSize = "";
   let earlyOutput = new Map<string, EarlyOutputChunk[]>();
   let earlyExit = new Map<string, TerminalExitPayload>();
   let sessionGeneration = 0;
@@ -237,7 +238,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     const didFit = fitVisibleTerminal(props.visible, hostRef, () => fitAddon?.fit());
     if (!didFit) return false;
     const id = sessionId();
-    if (id && !sessionEnded()) void resizeTerminal(id, terminal?.rows ?? 0, terminal?.cols ?? 0).catch(() => undefined);
+    if (id && terminal && !sessionEnded()) resizeSession(id, terminal.rows, terminal.cols);
     return true;
   };
 
@@ -250,6 +251,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   };
 
   const resizeSession = (id: string, rows: number, cols: number) => {
+    const size = `${id}:${rows}x${cols}`;
+    if (size === lastSentSize) return;
+    lastSentSize = size;
     void resizeTerminal(id, rows, cols).catch((error) => {
       if (!disposed && id === activeId) appendStatus(errorMessage(error, "Unable to resize terminal."));
     });
@@ -479,7 +483,11 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         resizeObserver?.observe(hostRef);
 
         unlistenExit = await listenForTerminalExit(finishSession);
-        if (disposed) return;
+        if (disposed) {
+          unlistenExit();
+          unlistenExit = undefined;
+          return;
+        }
 
         listenersReady = true;
         paneInitialized = true;

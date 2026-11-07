@@ -13,9 +13,17 @@ const plainText: FileLanguageMetadata = { label: "Plain Text" };
 
 const imageExtensions = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "avif"]);
 
+function fileName(path: string): string {
+  return path.split(/[\\/]/).at(-1)?.toLowerCase() ?? "";
+}
+
+function fileExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot < 0 ? "" : name.slice(dot + 1);
+}
+
 export function isImagePath(path: string): boolean {
-  const extension = path.split(/[\\/.]/).at(-1)?.toLowerCase();
-  return imageExtensions.has(extension ?? "");
+  return imageExtensions.has(fileExtension(fileName(path)));
 }
 
 const languageByExtension: Record<string, FileLanguageMetadata> = {
@@ -59,10 +67,9 @@ const languageByExtension: Record<string, FileLanguageMetadata> = {
 };
 
 export function fileLanguageForPath(path: string): FileLanguageMetadata {
-  const name = path.split(/[\\/]/).at(-1)?.toLowerCase() ?? "";
+  const name = fileName(path);
   if (name === ".env" || name.startsWith(".env.")) return { key: "shell", label: "Dotenv", icon: "sh" };
-  const extension = path.split(/[\\/.]/).at(-1)?.toLowerCase();
-  return languageByExtension[extension ?? ""] ?? plainText;
+  return languageByExtension[fileExtension(name)] ?? plainText;
 }
 
 export function normalizeDocumentContent(content: string): string {
@@ -188,70 +195,6 @@ export function lineEndingFromMap(lineEndings: string | undefined, fallback: "lf
     if (marker === LF_MARKER) lf += 1;
   }
   return crlf > lf ? "crlf" : lf > crlf ? "lf" : fallback;
-}
-
-/**
- * Reconcile the separator map after an editor edit. Exact unchanged prefix
- * and suffix lines retain their markers. When lines are inserted or replaced,
- * the new separators inherit the closest preceding mapped line; if there is no
- * preceding line, the closest following mapped line is used. A document with
- * no mapped neighbour falls back to the old file's majority (then the stored
- * preferred ending).
- */
-export function reconcileLineEndingMap(
-  previousContent: string,
-  nextContent: string,
-  previousLineEndings: string | undefined,
-  preferred: "lf" | "crlf" = "lf",
-): string {
-  const previous = normalizeDocumentContent(previousContent).split("\n");
-  const next = normalizeDocumentContent(nextContent).split("\n");
-  const previousMap = normalizeLineEndingMap(previousContent, previousLineEndings, preferred);
-  const previousBreaks = Math.max(0, previous.length - 1);
-  const nextBreaks = Math.max(0, next.length - 1);
-  const fallback = lineEndingFromMap(previousMap, preferred);
-  const result: Array<string | undefined> = Array.from({ length: nextBreaks });
-
-  let prefix = 0;
-  while (prefix < previous.length && prefix < next.length && previous[prefix] === next[prefix]) prefix += 1;
-  let suffix = 0;
-  while (
-    suffix < previous.length - prefix
-    && suffix < next.length - prefix
-    && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]
-  ) suffix += 1;
-
-  for (let index = 0; index < nextBreaks; index += 1) {
-    if (index < prefix && index < previousBreaks) {
-      result[index] = previousMap[index];
-      continue;
-    }
-    const suffixStart = next.length - suffix;
-    if (index >= suffixStart && index < next.length - 1) {
-      const previousIndex = previous.length - suffix + (index - suffixStart);
-      if (previousIndex >= 0 && previousIndex < previousBreaks) result[index] = previousMap[previousIndex];
-    }
-  }
-
-  // A same-line-count edit changes text, but not line identity. Preserve its
-  // original separator even when the changed line is at the document edge.
-  if (previous.length === next.length) {
-    for (let index = 0; index < nextBreaks; index += 1) {
-      if (result[index] === undefined && index < previousBreaks) result[index] = previousMap[index];
-    }
-  }
-
-  for (let index = 0; index < nextBreaks; index += 1) {
-    if (result[index] !== undefined) continue;
-    const preceding = index > 0 ? result[index - 1] : undefined;
-    if (preceding !== undefined) {
-      result[index] = preceding;
-      continue;
-    }
-    const following = result.slice(index + 1).find((marker) => marker !== undefined);
-    result[index] = following ?? markerForLineEnding(fallback);
-  }
-  return result.join("");
 }
 
 /**

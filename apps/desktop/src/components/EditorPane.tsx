@@ -345,8 +345,10 @@ export function EditorPane(props: EditorPaneProps) {
     if (document) {
       document.state = update.state;
       document.text = update.state.doc;
-      document.selectionJSON = update.state.selection.toJSON();
-      document.selectionBytesEstimate = serializedBytes(document.selectionJSON);
+      if (update.docChanged || update.selectionSet) {
+        document.selectionJSON = update.state.selection.toJSON();
+        document.selectionBytesEstimate = serializedBytes(document.selectionJSON);
+      }
       const lineState = document.lineEndingField ? lineEndingMapOf(update.state, document.lineEndingField) : undefined;
       if (lineState) {
         document.lineEndingHistory = lineState.history;
@@ -913,9 +915,10 @@ export function EditorPane(props: EditorPaneProps) {
       document.historyJSON = undefined;
       document.largeFile = tab.largeFile === true;
     }
-    if (!document) document = props.getCachedDocument(tab.id)
-      ? createDocumentFromSeed(tab, props.getCachedDocument(tab.id)!)
-      : createDocument(tab);
+    if (!document) {
+      const seed = props.getCachedDocument(tab.id);
+      document = seed ? createDocumentFromSeed(tab, seed) : createDocument(tab);
+    }
     if (!document.state) {
       if (document.sourceVersion === tab.contentVersion) {
         const created = createState(tab, document.text.toString(), document.lineEndingMap, {

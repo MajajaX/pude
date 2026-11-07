@@ -31,7 +31,6 @@ import type {
 } from "../types";
 
 export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-type WorkspaceImageResult = { mimeType: string; dataBase64: string };
 export type SaveAsDestinationState = { exists: boolean; token: string };
 type PluginRuntime = typeof import("./plugin-runtime");
 let pluginRuntimePromise: Promise<PluginRuntime> | undefined;
@@ -696,14 +695,6 @@ export async function restartToUpdate(): Promise<void> {
 
 export type LspServerDeclaration = import("../types").PluginLspServer;
 
-export type ResolvedLspServer = {
-  workspaceRoot: string;
-  serverId: string;
-  language: string;
-  executablePath: string;
-  args: string[];
-};
-
 export type LspServerRequest = {
   pluginId: string;
   pluginVersion: string;
@@ -752,14 +743,6 @@ export type LspEvent =
       serverId: string;
       text: string;
     };
-
-export async function resolveLspServer(
-  workspaceRoot: string,
-  server: LspServerDeclaration,
-): Promise<ResolvedLspServer> {
-  if (!isTauri) throw new Error("Language servers are available in the desktop build.");
-  return (await getPluginRuntime()).resolveLspServer(workspaceRoot, server);
-}
 
 export async function resolvePluginLspServer(
   workspaceRoot: string,

@@ -57,7 +57,7 @@ export function ProjectTabs(props: {
               tabIndex={props.activeId === project().id ? 0 : -1} aria-disabled={props.busy}
               title={project().title} onClick={() => { if (!props.busy) void props.onSelect(project().id); }} onKeyDown={(event) => keyDown(event, project().id)}>
               <Icon name="folder" size={13} /><span class="project-tab-label">{project().label}</span>
-              <Show when={project().dirty}><span class="project-tab-dirty" aria-label={t("Unsaved changes")}>●</span></Show>
+              <Show when={project().dirty}><span class="project-tab-dirty" role="img" aria-label={t("Unsaved changes")}>●</span></Show>
             </button>
             <button type="button" class="project-tab-close" aria-disabled={props.busy} title={t("Close project")} aria-label={t("Close {label}", { label: project().label })} onClick={() => { if (!props.busy) void props.onClose(project().id); }}><Icon name="close" size={12} /></button>
           </div>

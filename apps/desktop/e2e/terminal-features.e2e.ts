@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 test("terminal tabs, search, clear and interrupts remain usable", async ({ page }) => {
   const errors: string[] = [];
@@ -102,7 +103,7 @@ test("terminal copy writes the selection and keeps the clipboard when nothing is
 
 test("terminal tabs stay on one line without a scrollbar and keep the selected tab in view", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await expect(page).toHaveTitle("pude - pude-demo");
   await page.keyboard.press("Control+Backquote");
   const strip = page.getByRole("tablist", { name: "Terminal sessions" });

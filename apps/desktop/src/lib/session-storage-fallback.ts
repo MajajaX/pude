@@ -34,7 +34,7 @@ import {
 } from "./session-storage-schema";
 import { SESSION_GLOBAL_OPERATION_LOCK_KEY, withSessionLock } from "./session-storage-locks";
 import { readStorage } from "./session-storage-basic";
-export { readStorage, removeStorage, writeStorage } from "./session-storage-basic";
+export { readStorage };
 
 const RECOVERY_FALLBACK_INDEX_KEY = `${RECOVERY_STORAGE_PREFIX}index`;
 const SESSION_FALLBACK_LOCK_KEY = SESSION_GLOBAL_OPERATION_LOCK_KEY;

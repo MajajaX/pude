@@ -1,4 +1,4 @@
-import { setRecoveryDatabaseBlockedHandler as setBlockedHandler } from "./recovery-database-status";
+import { setRecoveryDatabaseBlockedHandler as setBlockedHandler, type RecoveryDatabaseBlockedHandler } from "./recovery-database-status";
 import type * as SessionStorageRuntime from "./session-storage-runtime";
 
 type Runtime = typeof SessionStorageRuntime;
@@ -28,10 +28,6 @@ export function readRecoveryStorageResult(...args: Parameters<Runtime["readRecov
   return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryStorageResult(...args));
 }
 
-export function readRecoveryBaselineStorage(...args: Parameters<Runtime["readRecoveryBaselineStorage"]>): ReturnType<Runtime["readRecoveryBaselineStorage"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryBaselineStorage(...args));
-}
-
 export function readRecoveryBaselineResult(...args: Parameters<Runtime["readRecoveryBaselineResult"]>): ReturnType<Runtime["readRecoveryBaselineResult"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryBaselineResult(...args));
 }
@@ -44,16 +40,8 @@ export function removeRecoveryStorage(...args: Parameters<Runtime["removeRecover
   return loadSessionStorageRuntime().then((runtime) => runtime.removeRecoveryStorage(...args));
 }
 
-export function readLatestSessionCheckpointStatus(...args: Parameters<Runtime["readLatestSessionCheckpointStatus"]>): ReturnType<Runtime["readLatestSessionCheckpointStatus"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpointStatus(...args));
-}
-
 export function readLatestSessionCheckpoint(...args: Parameters<Runtime["readLatestSessionCheckpoint"]>): ReturnType<Runtime["readLatestSessionCheckpoint"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpoint(...args));
-}
-
-export function readLatestSessionCheckpointMetadata(...args: Parameters<Runtime["readLatestSessionCheckpointMetadata"]>): ReturnType<Runtime["readLatestSessionCheckpointMetadata"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpointMetadata(...args));
 }
 
 export function readLatestSessionCheckpointMetadataResult(...args: Parameters<Runtime["readLatestSessionCheckpointMetadataResult"]>): ReturnType<Runtime["readLatestSessionCheckpointMetadataResult"]> {
@@ -61,7 +49,7 @@ export function readLatestSessionCheckpointMetadataResult(...args: Parameters<Ru
 }
 
 /** Retains the async public signature while making the callback available immediately. */
-export async function setRecoveryDatabaseBlockedHandler(handler: Parameters<Runtime["setRecoveryDatabaseBlockedHandler"]>[0]): Promise<void> {
+export async function setRecoveryDatabaseBlockedHandler(handler: RecoveryDatabaseBlockedHandler | undefined): Promise<void> {
   setBlockedHandler(handler);
 }
 

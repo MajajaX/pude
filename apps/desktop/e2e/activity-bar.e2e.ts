@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 test("the activity bar lists icon-only views and toggles the sidebar like a view switcher", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   const views = page.getByRole("tablist", { name: "Sidebar views" }).getByRole("tab");
   await expect(views).toHaveText(["", "", ""]);
   await expect(views.nth(0)).toHaveAccessibleName("Explorer");
@@ -40,7 +41,7 @@ test("the activity bar lists icon-only views and toggles the sidebar like a view
 
 test("dragging the resizer follows the pointer past the activity bar", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await expect(page).toHaveTitle("pude - pude-demo");
   const resizer = await page.getByRole("separator", { name: "Resize sidebar" }).boundingBox();
   await page.mouse.move(resizer!.x + 2, resizer!.y + 100);

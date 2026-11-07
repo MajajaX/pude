@@ -111,7 +111,8 @@ export function MarkdownPreview(props: {
     const href = link?.getAttribute("href");
     if (!href?.startsWith("#")) return;
     event.preventDefault();
-    const id = decodeURIComponent(href.slice(1));
+    let id = href.slice(1);
+    try { id = decodeURIComponent(id); } catch { /* A stray % is not an encoding, so the raw id is the target. */ }
     const target = event.currentTarget instanceof Element ? event.currentTarget.querySelector(`[id="${CSS.escape(id)}"]`) : null;
     target?.scrollIntoView({ block: "start" });
   };
