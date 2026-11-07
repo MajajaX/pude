@@ -26,6 +26,8 @@ export function ProjectSearch(props: {
   onReplaced: () => void;
   notify: (message: string) => void;
   onClose: () => void;
+  /** False when the arrow keys pass through this view, so focus stays on the activity bar. */
+  focusOnOpen: boolean;
 }) {
   const [query, setQuery] = createSignal("");
   const [replacement, setReplacement] = createSignal("");
@@ -42,7 +44,7 @@ export function ProjectSearch(props: {
   const [searchRevision, setSearchRevision] = createSignal(0);
   let input!: HTMLInputElement;
   let replaceInput: HTMLInputElement | undefined;
-  onMount(() => input.focus());
+  onMount(() => { if (props.focusOnOpen) input.focus(); });
 
   createEffect(() => {
     const request = props.request;

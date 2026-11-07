@@ -46,6 +46,8 @@ All notable changes to `pude` are recorded here. The format follows
 - Toasts for creating a file or folder and the worktree failure title are translated in
   Traditional Chinese.
 - Screen readers announce unsaved changes on file tabs and project tabs.
+- Arrow keys in the activity bar move through **Search** without jumping into its query
+  field. Clicking the icon still places the cursor there.
 
 ### Performance
 

@@ -367,6 +367,7 @@ export default function App() {
   const [searchMatches, setSearchMatches] = createSignal<SearchMatchCount>();
   const [selection, setSelection] = createSignal<{ tabId: string; characters: number }>();
   const [sidebarHidden, setSidebarHidden] = createSignal(false);
+  let sidebarViewChosenByArrowKey = false;
   const showSidebarView = (view: SidebarView) => {
     setSidebarView(view);
     setSidebarHidden(false);
@@ -5173,7 +5174,14 @@ export default function App() {
       </Show>
 
       <div classList={{ "main-layout": true, "sidebar-hidden": sidebarHidden() }} id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
-        <ActivityBar selected={sidebarView()} sidebarHidden={sidebarHidden()} onSelect={showSidebarView} onToggle={toggleSidebarView} />
+        <ActivityBar selected={sidebarView()} sidebarHidden={sidebarHidden()} onSelect={(view) => {
+          sidebarViewChosenByArrowKey = true;
+          setProjectSearchRequest(undefined);
+          showSidebarView(view);
+        }} onToggle={(view) => {
+          sidebarViewChosenByArrowKey = false;
+          toggleSidebarView(view);
+        }} />
         <aside class="sidebar">
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
@@ -5206,7 +5214,7 @@ export default function App() {
            <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
              <Show when={sidebarView() === "search"}>
                  <Suspense fallback={<div aria-busy="true" aria-label={t("Loading project search")} />}>
-                   <LazyProjectSearch request={projectSearchRequest()} folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
+                   <LazyProjectSearch focusOnOpen={!sidebarViewChosenByArrowKey} request={projectSearchRequest()} folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
                  </Suspense>
              </Show>
            </div>

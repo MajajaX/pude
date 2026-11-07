@@ -29,10 +29,19 @@ test("the activity bar lists icon-only views and toggles the sidebar like a view
   await views.nth(1).click();
   await expect(sidebar).toBeVisible();
   await expect(views.nth(1)).toHaveAttribute("aria-selected", "true");
+  const searchInput = page.locator("#sidebar-search-panel input").first();
+  await expect(searchInput).toBeFocused();
 
   await views.nth(1).press("ArrowDown");
   await expect(views.nth(2)).toBeFocused();
   await expect(views.nth(2)).toHaveAttribute("aria-selected", "true");
+
+  // Arrowing through Search must not move focus into its query field.
+  await views.nth(2).press("ArrowUp");
+  await expect(searchInput).toBeVisible();
+  await expect(views.nth(1)).toBeFocused();
+  await views.nth(1).press("ArrowDown");
+  await expect(views.nth(2)).toBeFocused();
   await views.nth(2).press("Home");
   await expect(views.nth(0)).toHaveAttribute("aria-selected", "true");
   await views.nth(0).press("Home");
