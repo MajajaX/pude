@@ -128,7 +128,8 @@ native installer in this release.
 ## Build from source
 
 You need [Node.js](https://nodejs.org/) 22.12+ (24 recommended) with npm 10.9+,
-[Rust](https://rustup.rs/) stable, Git on your `PATH`, and the
+[Rust](https://rustup.rs/) through rustup (it installs the version pinned in
+`rust-toolchain.toml`), Git on your `PATH`, and the
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS.
 
 ```bash
@@ -154,6 +155,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for platform notes and the full workflow.
 apps/desktop/src/          SolidJS UI, editor and frontend logic
 apps/desktop/src-tauri/    Rust backend: filesystem, Git, terminal, plugins
 apps/web/                  Project website
+shared/                    Release validation used by the desktop app and website
 examples/plugins/          Example plugins
 docs/                      Product specification, plugin API and release guides
 scripts/                   Build and release tooling

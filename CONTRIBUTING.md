@@ -80,11 +80,12 @@ Run these from the repository root:
 | `npm run tauri:dev` | Run the native Tauri desktop application. |
 | `npm run web:dev` | Start the public website on port 5174. |
 | `npm test` | Run the desktop Vitest suite. |
-| `npm run check` | Run desktop tests, desktop production build, web type checks, and web production build. |
+| `npm run check` | Run the version check, desktop and web tests, bundle budget checks, web type checks, and both production builds. |
 | `npm run build` | Build the desktop frontend. |
 | `npm run web:build` | Build the website. |
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. |
 | `cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml` | Run the Rust test suite without changing `Cargo.lock`. |
+| `node scripts/run-rust-tests.mjs` | Run the Rust tests as CI does, each test in its own process. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
 | `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
 | `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo. |
@@ -96,7 +97,8 @@ Use the native command on each platform affected by the change when possible.
 
 For documentation-only changes, check local links, anchors, obsolete references, and
 `git diff --check`; a full application rebuild is unnecessary unless an executable
-example or behavior claim needs verification. Keep reusable test fixtures in Git.
+example or behavior claim needs verification. Pull requests that change only
+documentation skip the CI web and tooling job. Keep reusable test fixtures in Git.
 Generated schemas, permissions, logs, raw measurement reports, and QA bundles are
 local outputs and are ignored.
 

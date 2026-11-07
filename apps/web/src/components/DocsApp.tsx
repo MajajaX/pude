@@ -1,6 +1,6 @@
 import { createEffect, createSignal, For, Index, onCleanup, onMount } from "solid-js";
 import { locale, localeHref, t, type DocBlock } from "../i18n-docs";
-import packageInfo from "../../package.json";
+import { version } from "../../package.json";
 import { getReleaseUrlForVersion, getReleaseStage, REPOSITORY_URL } from "../release-info";
 import { blockLineNumbers, blockSource } from "../lib/docs-source";
 import { scroll } from "../lib/scroll-progress";
@@ -11,8 +11,8 @@ import LanguageToggle from "./LanguageToggle";
 /** The line, as a share of the viewport height, that decides what is being read. */
 const READING_LINE = 0.4;
 
-const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-const releaseStage = getReleaseStage(packageInfo.version, releaseUrl);
+const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, version);
+const releaseStage = getReleaseStage(version, releaseUrl);
 const releaseAvailable = releaseStage === "published";
 
 /** Approximate rendered height of a block, in wrapped source lines, for the minimap. */
@@ -211,7 +211,7 @@ export default function DocsApp() {
               </h1>
               <p class="docs-sub">{t().docsPage.sub}</p>
               <p class="docs-version">
-                {t().docsPage.versionLabel} {packageInfo.version} · {t().docsPage.stages[releaseStage]}
+                {t().docsPage.versionLabel} {version} · {t().docsPage.stages[releaseStage]}
               </p>
             </header>
 
@@ -281,7 +281,7 @@ export default function DocsApp() {
       <footer class="ed-status">
         <span class="ed-status-brand">
           <span class="ed-status-dot" />
-          {t().docsPage.versionLabel} {packageInfo.version} · {t().docsPage.stages[releaseStage]}
+          {t().docsPage.versionLabel} {version} · {t().docsPage.stages[releaseStage]}
         </span>
         <span class="ed-status-spacer" />
         <span>

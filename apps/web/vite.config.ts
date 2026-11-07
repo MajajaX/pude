@@ -121,7 +121,8 @@ export default defineConfig({
   },
   build: {
     target: "es2022",
-    rollupOptions: {
+    modulePreload: { polyfill: false },
+    rolldownOptions: {
       input: Object.fromEntries(SITE_ROUTES.map(({ key, file }) => [key, fileURLToPath(new URL(file, import.meta.url))])),
     },
   },

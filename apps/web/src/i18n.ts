@@ -26,7 +26,6 @@ const en = {
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
-    label: "Product film",
     ariaLabel: "Animated walkthrough of pude: open a folder, edit, save, review Git, run a terminal and preview Markdown.",
     play: "Play",
     pause: "Pause",
@@ -305,7 +304,6 @@ const zhHant: Dict = {
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
-    label: "產品影片",
     ariaLabel: "pude 動態導覽：開啟資料夾、編輯、儲存、檢視 Git、執行終端機與預覽 Markdown。",
     play: "播放",
     pause: "暫停",

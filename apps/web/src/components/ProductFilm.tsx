@@ -275,7 +275,7 @@ export default function ProductFilm() {
                       class="film-line"
                       classList={{ shown: visibleChars(i) >= 0, current: showCursor() && cursorLine() === i }}
                     >
-                      <span class="film-line-text">
+                      <span>
                         <Tokens tokens={sliceTokens(line().tokens, visibleChars(i))} />
                         <Show when={showCursor() && cursorLine() === i}>
                           <span class="film-caret" />
@@ -309,7 +309,7 @@ export default function ProductFilm() {
                   <For each={readmeSource}>
                     {(line) => (
                       <div class="film-line shown" classList={{ heading: line.startsWith("#") }}>
-                        <span class="film-line-text">{line}</span>
+                        <span>{line}</span>
                       </div>
                     )}
                   </For>

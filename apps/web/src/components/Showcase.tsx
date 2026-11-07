@@ -12,7 +12,7 @@ export default function Showcase() {
     <section id="showcase" class="tour" use:scroll={{ mode: "pin", onProgress }} style={{ "--n": stepCount() }}>
       <div class="tour-sticky">
         <div class="wrap tour-grid">
-          <div class="tour-copy">
+          <div>
             <div use:reveal>
               <span class="eyebrow">{t().showcase.eyebrow}</span>
               <h2 class="section-title">{t().showcase.title}</h2>

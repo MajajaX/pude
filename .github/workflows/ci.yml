@@ -24,6 +24,7 @@ jobs:
       pull-requests: read # Lists the files a pull request changes
     outputs:
       # Pushes to main and release calls always run everything.
+      web: ${{ github.event_name != 'pull_request' || steps.filter.outputs.web == 'true' }}
       rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
       workflows: ${{ github.event_name != 'pull_request' || steps.filter.outputs.workflows == 'true' }}
     steps:
@@ -35,6 +36,16 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
+            web:
+              - 'apps/**'
+              - 'shared/**'
+              - 'scripts/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'LICENSE'
+              - 'THIRD_PARTY_NOTICES.md'
+              - 'THIRD_PARTY_LICENSES.md'
+              - '.github/workflows/ci.yml'
             rust:
               - 'apps/desktop/src-tauri/**'
               - 'examples/plugins/**'
@@ -46,6 +57,8 @@ jobs:
 
   web:
     name: Web and tooling (Node ${{ matrix.node }})
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -79,7 +92,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Install Playwright Chromium
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Install Playwright system dependencies
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium

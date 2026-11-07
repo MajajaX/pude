@@ -19,9 +19,7 @@ export function getReleaseUrlForVersion(value: string | undefined, version: stri
   return releaseUrl.slice(VERSIONED_RELEASE_PREFIX.length) === `v${version}` ? releaseUrl : undefined;
 }
 
-export const MACOS_INSTALLER = "pude-macos-arm64.dmg";
-export const WINDOWS_INSTALLER = "pude-windows-x64-setup.exe";
-export const INSTALLERS = { windows: WINDOWS_INSTALLER, macos: MACOS_INSTALLER } as const;
+export const INSTALLERS = { windows: "pude-windows-x64-setup.exe", macos: "pude-macos-arm64.dmg" } as const;
 export type InstallerPlatform = keyof typeof INSTALLERS;
 
 /** Direct download link for one release asset, from a validated release page URL. */

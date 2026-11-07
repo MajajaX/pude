@@ -2,13 +2,13 @@ import { createSignal, onMount } from "solid-js";
 import { t } from "../i18n";
 import { reveal } from "../lib/reveal";
 import { scroll } from "../lib/scroll-progress";
-import packageInfo from "../../package.json";
+import { version } from "../../package.json";
 import { getAssetDownloadUrl, getReleaseUrlForVersion, getReleaseStage, INSTALLERS, REPOSITORY_URL, type InstallerPlatform } from "../release-info";
 import { detectDownloadRecommendation, recommendInstaller, NO_RECOMMENDATION } from "../lib/download-platform";
 import BrandMark from "./BrandMark";
 
-const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-const releaseStage = getReleaseStage(packageInfo.version, releaseUrl);
+const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, version);
+const releaseStage = getReleaseStage(version, releaseUrl);
 const releaseAvailable = releaseStage === "published";
 
 export default function Footer() {
@@ -75,7 +75,7 @@ export default function Footer() {
             </a>
           </div>
           <p class="cta-note cta-version">
-            {t().cta.versionLabel} {packageInfo.version} · {t().cta.stages[releaseStage]}
+            {t().cta.versionLabel} {version} · {t().cta.stages[releaseStage]}
           </p>
           <p class="cta-note" id={!releaseAvailable ? "download-availability" : undefined}>
             {t().cta.note}

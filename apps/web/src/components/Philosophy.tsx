@@ -5,7 +5,7 @@ import { scroll } from "../lib/scroll-progress";
 
 export default function Philosophy() {
   return (
-    <section id="philosophy" class="philosophy">
+    <section id="philosophy">
       <div class="wrap">
         <div use:reveal>
           <span class="eyebrow">{t().philosophy.eyebrow}</span>

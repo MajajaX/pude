@@ -53,18 +53,3 @@ export function reveal(el: HTMLElement) {
   }
   onCleanup(() => unobserveElement(el));
 }
-
-export function refreshReveals() {
-  const elements = new Set<Element>(document.querySelectorAll<HTMLElement>(".reveal"));
-
-  for (const element of [...observedElements]) {
-    if (!elements.has(element)) unobserveElement(element);
-  }
-
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    for (const element of elements) element.classList.add("is-visible");
-    return;
-  }
-
-  for (const element of elements) observeElement(element);
-}

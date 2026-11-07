@@ -35,6 +35,33 @@ All notable changes to `pude` are recorded here. The format follows
   loading history: the commits those refs point at are read together in one Git process.
 - A commit listed early because a branch or tag points at it moves below its children
   once they load, so the graph stays connected across pages.
+- A file with no extension whose whole name looks like one, such as `go`, `md`, `sh` or
+  `png`, opens as plain text. It no longer gets that language or opens as an image.
+- **Retry directory scan** in Explorer now reads a partially listed folder again and
+  keeps it open, instead of collapsing it.
+- A Git status refresh that finds nothing changed keeps keyboard focus on its row, and
+  the visible rows stay correct when a message appears above the list.
+- A project search that reaches its file limit still returns its results in path order.
+- Clicking a Markdown link such as `#50%` no longer raises an error.
+- Toasts for creating a file or folder and the worktree failure title are translated in
+  Traditional Chinese.
+- Screen readers announce unsaved changes on file tabs and project tabs.
+
+### Performance
+
+- Project search skips files with no match before going through their lines, and scans
+  fewer file details while walking a folder.
+- Terminal output is copied less on its way to the screen, invalid bytes no longer slow
+  long reads, and dragging a panel only tells the terminal about real size changes.
+- File watcher events, Git status paths, Git history parsing, directory listing and LSP
+  messages allocate less, and the Git repository cache no longer holds its lock during
+  disk checks.
+- Typing, scrolling and unsaved work recovery do less repeated work: selections are only
+  serialized when they change, each stored session is parsed fewer times, and loading a
+  Git history page no longer asks for ignored paths again.
+- Window resizing checks the maximized state once resizing pauses.
+- The website loads about 750 bytes less compressed JavaScript and caches screenshots for
+  a day.
 
 ## [0.1.8] - 2026-11-05
 

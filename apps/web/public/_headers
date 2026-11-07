@@ -7,3 +7,7 @@
 # Vite fingerprints everything under /assets, so it can be cached forever.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Screenshots keep their names when replaced, so a new one can take a day to appear.
+/shots/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800

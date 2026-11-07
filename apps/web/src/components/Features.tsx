@@ -12,7 +12,7 @@ function followPointer(event: PointerEvent) {
 
 export default function Features() {
   return (
-    <section id="features" class="features">
+    <section id="features">
       <div class="wrap">
         <div use:reveal>
           <span class="eyebrow">{t().features.eyebrow}</span>
