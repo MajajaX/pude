@@ -2099,7 +2099,7 @@ async fn git_commits(
             &runtime,
             &request,
             cursor.as_deref(),
-            page_size.unwrap_or(60),
+            page_size.unwrap_or(200),
         )
     })
     .await

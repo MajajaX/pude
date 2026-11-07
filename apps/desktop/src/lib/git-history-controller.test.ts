@@ -74,7 +74,7 @@ describe("GitHistoryController", () => {
 
     expect(await controller.load()).toBe(true);
     expect(loadPage).toHaveBeenCalledWith("/repo-a", null, GIT_HISTORY_PAGE_SIZE);
-    expect(GIT_HISTORY_PAGE_SIZE).toBe(60);
+    expect(GIT_HISTORY_PAGE_SIZE).toBe(200);
     expect(commits.map(({ hash }) => hash)).toEqual(["c3"]);
     expect(states.at(-1)).toMatchObject({ loading: false, loadingOlder: false, hasMore: true });
     expect(states.at(-1)?.incomplete).toContain("1 refs remain unresolved.");
@@ -114,11 +114,11 @@ describe("GitHistoryController", () => {
     await controller.loadOlder();
 
     expect(loadPage.mock.calls).toEqual([
-      ["/repo-a", null, 60],
-      ["/repo-a", "cursor-page-2", 60],
-      ["/repo-a", "cursor-page-3", 60],
+      ["/repo-a", null, 200],
+      ["/repo-a", "cursor-page-2", 200],
+      ["/repo-a", "cursor-page-3", 200],
     ]);
-    expect(commits.map(({ hash }) => hash)).toEqual(["c3", "c2", "x2", "c1", "x1", "c0"]);
+    expect(commits.map(({ hash }) => hash)).toEqual(["c3", "c2", "x2", "x1", "c0", "c1"]);
     expect(commits[0].parents).toEqual(["c2", "x2"]);
     expect(states.at(-1)).toMatchObject({ loadingOlder: false, hasMore: false, incomplete: undefined });
   });
@@ -178,8 +178,8 @@ describe("GitHistoryController", () => {
     expect(setCommits).toHaveBeenCalledTimes(1);
     expect(commits.map(({ hash }) => hash)).toEqual(["new-head"]);
     expect(loadPage.mock.calls).toEqual([
-      ["/repo-a", null, 60],
-      ["/repo-b", null, 60],
+      ["/repo-a", null, 200],
+      ["/repo-b", null, 200],
     ]);
   });
 

@@ -21,8 +21,14 @@ const MIN_EDITOR_HEIGHT = 120;
 
 export function TerminalPane(props: { workspace: string; height: number; fontSize: number; visible: boolean; openRequest?: TerminalOpenRequest; onSettingsChange: (changes: { terminalHeight: number }) => void; onHide: () => void; onClose: () => void }) {
   let paneRef!: HTMLElement;
+  let tabStrip!: HTMLDivElement;
   const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: t("Terminal {number}", { number: 1 }), directory: props.openRequest?.directory }]);
   const [activeTabId, setActiveTabId] = createSignal(1);
+  // The strip has no visible scrollbar, so the selected tab brings itself into view.
+  createEffect(() => {
+    activeTabId();
+    queueMicrotask(() => tabStrip?.querySelector(".terminal-tab-active")?.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
   const [shell, setShell] = createSignal(isTauri ? t("Shell") : t("Demo"));
   onMount(() => { if (isTauri) void getTerminalShell().then((path) => setShell(path.split(/[\\/]/).filter(Boolean).pop() || t("Shell"))).catch(() => undefined); });
   const [renaming, setRenaming] = createSignal<number>();
@@ -90,9 +96,9 @@ export function TerminalPane(props: { workspace: string; height: number; fontSiz
     <section ref={paneRef} class="terminal-pane" style={{ height: `${props.height}px`, display: props.visible ? undefined : "none" }} aria-hidden={!props.visible}>
       <div class="terminal-resizer" role="separator" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="1200" aria-valuenow={props.height} aria-label={t("Resize terminal")} onPointerDown={startResize} onKeyDown={nudgeHeight} tabIndex={0} />
       <div class="terminal-toolbar">
-        <div class="terminal-tabs" role="tablist" aria-label={t("Terminal sessions")}>
+        <div ref={tabStrip} class="terminal-tabs" role="tablist" aria-label={t("Terminal sessions")} onWheel={(event) => { tabStrip.scrollLeft += event.deltaY; }}>
           <For each={tabs()}>{(tab) => <div classList={{ "terminal-tab": true, "terminal-tab-active": activeTabId() === tab.id }}>
-            {renaming() === tab.id ? <input aria-label={t("Rename terminal")} autocorrect="off" autocapitalize="off" spellcheck={false} value={tabLabel(tab)} autofocus onBlur={(event) => { const label = event.currentTarget.value.trim(); if (label && renaming() === tab.id) setTabLabels((current) => ({ ...current, [tab.id]: label })); setRenaming(undefined); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setRenaming(undefined); } }} /> : <button type="button" role="tab" aria-label={tabLabel(tab)} title={`${shell()} · ${tab.directory ?? props.workspace}`} aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)} onDblClick={() => setRenaming(tab.id)}><Icon name="terminal" size={13} />{tabLabel(tab)}<small>{shell()} · {(tab.directory ?? props.workspace).split(/[\\/]/).filter(Boolean).pop()}</small></button>}
+            {renaming() === tab.id ? <input aria-label={t("Rename terminal")} autocorrect="off" autocapitalize="off" spellcheck={false} value={tabLabel(tab)} autofocus onBlur={(event) => { const label = event.currentTarget.value.trim(); if (label && renaming() === tab.id) setTabLabels((current) => ({ ...current, [tab.id]: label })); setRenaming(undefined); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setRenaming(undefined); } }} /> : <button type="button" role="tab" aria-label={tabLabel(tab)} title={`${shell()} · ${tab.directory ?? props.workspace}`} aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)} onDblClick={() => setRenaming(tab.id)}><Icon name="terminal" size={13} /><span class="terminal-tab-label">{tabLabel(tab)}</span><small>{shell()} · {(tab.directory ?? props.workspace).split(/[\\/]/).filter(Boolean).pop()}</small></button>}
             <button type="button" class="terminal-tab-close" title={t("Kill {label}", { label: tabLabel(tab) })} aria-label={t("Kill {label}", { label: tabLabel(tab) })} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
           </div>}</For>
           <button class="icon-button terminal-add-tab" type="button" title={t("New terminal")} aria-label={t("New terminal")} onClick={() => addTab()}><Icon name="plus" size={14} /></button>

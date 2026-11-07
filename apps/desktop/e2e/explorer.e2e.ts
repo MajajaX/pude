@@ -26,7 +26,7 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await openProject(page);
-  await page.getByRole("tab", { name: "SEARCH", exact: true }).click();
+  await page.getByRole("tab", { name: "Search", exact: true }).click();
   const input = page.getByRole("textbox", { name: "Search project text" });
   await expect(input).toBeFocused();
   await input.fill("setReady(true)");
@@ -53,7 +53,7 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   await expect(result).toHaveAttribute("title", "src/editor.ts");
   await result.click();
   await expect(page.locator(".cm-content")).toContainText("openDocument");
-  await page.getByRole("tab", { name: "EXPLORER", exact: true }).click();
+  await page.getByRole("tab", { name: "Explorer", exact: true }).click();
   await expect(page.getByRole("tree", { name: "Files", exact: true })).toBeVisible();
   await page.keyboard.press("ControlOrMeta+Shift+f");
   await expect(page.getByRole("textbox", { name: "Search project text" })).toBeFocused();
@@ -124,7 +124,7 @@ test("project text matches are centered in long files and navigation is consumed
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowDown");
   await expect(page.locator(".status-right")).toContainText("Ln 92");
-  await page.getByRole("tab", { name: "EXPLORER", exact: true }).click();
+  await page.getByRole("tab", { name: "Explorer", exact: true }).click();
   await page.getByRole("treeitem", { name: "editor.ts", exact: true }).getByRole("button", { name: "editor.ts", exact: true }).click();
   await page.getByRole("tab", { name: "main.ts", exact: true }).click();
   await expect(page.locator(".status-right")).toContainText("Ln 92");

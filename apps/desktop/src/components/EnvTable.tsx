@@ -12,6 +12,9 @@ export const ENV_TABLE_MAX_CHARS = 512 * 1024;
 
 type CopyPart = "name" | "value" | "line";
 
+const NEW_VARIABLE_GENERATOR = -1;
+const DRAFT_GENERATOR = -2;
+
 type DraftVariable = { key: string; value: string; index: number; side: "above" | "below" };
 
 type EnvTableProps = {
@@ -41,13 +44,14 @@ export function EnvTable(props: EnvTableProps) {
   const [generator, setGenerator] = createSignal<number>();
   const [popupPosition, setPopupPosition] = createSignal({ x: 0, y: 0 });
   let popupTrigger: HTMLElement | null = null;
-  const closePopup = (restore = false) => { setMenu(undefined); setGenerator(undefined); if (restore) popupTrigger?.focus(); };
+  // Focus moves before the popup leaves the DOM, so a draft row never sees its focus drop.
+  const closePopup = (restore = false) => { if (restore) popupTrigger?.focus(); setMenu(undefined); setGenerator(undefined); };
   const showMenu = (index: number, x: number, y: number, trigger: HTMLElement) => {
     popupTrigger = trigger; setGenerator(undefined); setPopupPosition({ x: Math.max(8, Math.min(x, window.innerWidth - 200)), y: Math.max(8, Math.min(y, window.innerHeight - 130)) }); setMenu(index);
     queueMicrotask(() => document.querySelector<HTMLButtonElement>(".env-menu button")?.focus());
   };
   onMount(() => {
-    const dismiss = (event: PointerEvent) => { if (!(event.target as Element).closest(".env-menu-wrap, .env-generate")) closePopup(); };
+    const dismiss = (event: PointerEvent) => { if (!(event.target as Element).closest(".env-menu-wrap, .env-generate")) closePopup(generator() === DRAFT_GENERATOR); };
     document.addEventListener("pointerdown", dismiss);
     onCleanup(() => document.removeEventListener("pointerdown", dismiss));
   });
@@ -79,10 +83,10 @@ export function EnvTable(props: EnvTableProps) {
     if (input.value !== variable.value && !props.applyEdits([dotenvValueEdit(variable, input.value)])) input.value = variable.value;
   };
 
-  const addVariable = (index?: number, side: "above" | "below" = "below") => {
+  const addVariable = (index?: number, side: "above" | "below" = "below", value = "") => {
     const list = entries();
     const last = list.map((entry) => entry.kind).lastIndexOf("variable");
-    if (!draft()) setDraft({ key: "", value: "", index: index ?? last, side });
+    if (!draft()) setDraft({ key: "", value, index: index ?? last, side });
     setMenu(undefined);
     queueMicrotask(() => { draftKeyInput?.scrollIntoView({ block: "nearest" }); draftKeyInput?.focus(); });
   };
@@ -94,7 +98,7 @@ export function EnvTable(props: EnvTableProps) {
   };
 
   const finishDraft = (event: FocusEvent) => {
-    if (draftRow?.contains(event.relatedTarget as Node | null)) return;
+    if (generator() === DRAFT_GENERATOR || draftRow?.contains(event.relatedTarget as Node | null)) return;
     const current = draft();
     setDraft(undefined);
     if (!current || (!current.key && !current.value.trim())) return;
@@ -108,6 +112,27 @@ export function EnvTable(props: EnvTableProps) {
       <Icon name={copied() === `${index}:${part}` ? "check" : "copy"} size={14} />
       <Show when={text}><span>{text}</span></Show>
     </button>
+  );
+
+  const generatorPopup = (applyLabel: string, apply: () => void) => (
+    <div class="env-popup env-generator" style={{ left: `${popupPosition().x}px`, top: `${popupPosition().y}px` }} role="dialog" aria-label={t("Generate random value")}>
+      <strong>{t("Generate random value")}</strong>
+      <label>{t("Format")}<select aria-label={t("Format")} value={options().format} onChange={(event) => updateOptions({ ...options(), format: event.currentTarget.value as SecretFormat })}>
+        <option value="base64url">Base64URL</option><option value="base64">Base64</option><option value="hex">Hex</option><option value="alphanumeric">{t("Alphanumeric")}</option><option value="uuid">UUIDv4</option>
+      </select></label>
+      <Show when={options().format !== "uuid"}><label>{options().format === "alphanumeric" ? t("Length (characters)") : t("Length (bytes)")}
+        <input type="number" min="1" max="1024" value={options().length} onChange={(event) => { const length = Math.max(1, Math.min(1024, Math.floor(Number(event.currentTarget.value) || 1))); event.currentTarget.value = String(length); updateOptions({ ...options(), length }); }} />
+      </label></Show>
+      <Show when={options().format !== "uuid"}><div class="env-presets"><For each={[16, 32, 64]}>{(length) => <button class="secondary-button" onClick={() => updateOptions({ ...options(), length })}>{length}</button>}</For></div></Show>
+      <label>{t("Preview")}<textarea readonly rows="3" value={preview()} aria-label={t("Preview")} /></label>
+      <span class="env-output-length">{t("{count} characters", { count: preview().length })}</span>
+      <div class="env-generator-actions">
+        <button class="secondary-button" onClick={() => setPreview(generateSecret(options()))}>{t("Regenerate")}</button>
+        <button class="secondary-button" onClick={() => void props.onCopy(preview(), t("Copied the generated value."))}>{t("Copy")}</button>
+        <button class="secondary-button" onClick={() => closePopup(true)}>{t("Cancel")}</button>
+        <button class="primary-button" onClick={apply}>{applyLabel}</button>
+      </div>
+    </div>
   );
 
   const variableRow = (variable: () => DotenvVariable, index: number) => (
@@ -135,19 +160,7 @@ export function EnvTable(props: EnvTableProps) {
             <button class="secondary-button" role="menuitem" onClick={() => addVariable(index, "below")}>{t("Insert below")}</button>
             <button class="secondary-button" role="menuitem" onClick={() => openGenerator(index)}>{t("Generate random value")}</button>
           </div></Show>
-          <Show when={generator() === index}><div class="env-popup env-generator" style={{ left: `${popupPosition().x}px`, top: `${popupPosition().y}px` }} role="dialog" aria-label={t("Generate random value")}>
-            <strong>{t("Generate random value")}</strong>
-            <label>{t("Format")}<select aria-label={t("Format")} value={options().format} onChange={(event) => updateOptions({ ...options(), format: event.currentTarget.value as SecretFormat })}>
-              <option value="base64url">Base64URL</option><option value="base64">Base64</option><option value="hex">Hex</option><option value="alphanumeric">{t("Alphanumeric")}</option><option value="uuid">UUIDv4</option>
-            </select></label>
-            <Show when={options().format !== "uuid"}><label>{options().format === "alphanumeric" ? t("Length (characters)") : t("Length (bytes)")}
-              <input type="number" min="1" max="1024" value={options().length} onChange={(event) => { const length = Math.max(1, Math.min(1024, Math.floor(Number(event.currentTarget.value) || 1))); event.currentTarget.value = String(length); updateOptions({ ...options(), length }); }} />
-            </label></Show>
-            <Show when={options().format !== "uuid"}><div class="env-presets"><For each={[16, 32, 64]}>{(length) => <button class="secondary-button" onClick={() => updateOptions({ ...options(), length })}>{length}</button>}</For></div></Show>
-            <label>{t("Preview")}<textarea readonly rows="3" value={preview()} aria-label={t("Preview")} /></label>
-            <span class="env-output-length">{t("{count} characters", { count: preview().length })}</span>
-            <div class="env-generator-actions"><button class="secondary-button" onClick={() => setPreview(generateSecret(options()))}>{t("Regenerate")}</button><button class="secondary-button" onClick={() => closePopup(true)}>{t("Cancel")}</button><button class="primary-button" onClick={() => { if (props.applyEdits([dotenvValueEdit(variable(), preview())], true)) closePopup(true); }}>{t("Apply")}</button></div>
-          </div></Show>
+          <Show when={generator() === index}>{generatorPopup(t("Apply"), () => { if (props.applyEdits([dotenvValueEdit(variable(), preview())], true)) closePopup(true); })}</Show>
         </div>
         <button class="icon-button env-delete" title={t("Delete variable")} aria-label={`${t("Delete variable")}: ${variable().key}`} onClick={() => deleteEntry(variable())}><Icon name="trash" size={14} /></button>
       </div>
@@ -161,6 +174,10 @@ export function EnvTable(props: EnvTableProps) {
       </div>
       <div class="env-cell" role="cell">
         <input class="env-input env-value" value={draft()?.value ?? ""} placeholder={t("value")} spellcheck={false} autocomplete="off" aria-label={t("Value")} onInput={(event) => setDraft((current) => current && { ...current, value: event.currentTarget.value })} />
+        <div class="env-menu-wrap" onKeyDown={(event) => { if (event.key === "Escape") { closePopup(true); event.stopPropagation(); } }}>
+          <button class="icon-button env-generate" title={t("Generate random value")} aria-label={t("Generate random value")} aria-haspopup="dialog" aria-expanded={generator() === DRAFT_GENERATOR} onMouseDown={(event) => event.preventDefault()} onClick={(event) => { if (generator() === DRAFT_GENERATOR) closePopup(true); else openGenerator(DRAFT_GENERATOR, event.currentTarget); }}>✦</button>
+          <Show when={generator() === DRAFT_GENERATOR}>{generatorPopup(t("Apply"), () => { const value = preview(); setDraft((current) => current && { ...current, value }); closePopup(true); })}</Show>
+        </div>
       </div>
       <div class="env-row-actions" role="cell">
         <button class="icon-button env-delete" title={t("Discard new variable")} aria-label={t("Discard new variable")} onMouseDown={(event) => event.preventDefault()} onClick={() => setDraft(undefined)}><Icon name="trash" size={14} /></button>
@@ -184,7 +201,13 @@ export function EnvTable(props: EnvTableProps) {
     }}>
       <div class="env-toolbar">
         <span class="env-count">{variableCount() === 1 ? t("1 variable") : t("{count} variables", { count: variableCount() })}</span>
-        <button class="secondary-button" disabled={tooLarge()} onClick={() => addVariable()}><Icon name="plus" size={14} /><span>{t("Add variable")}</span></button>
+        <div class="env-toolbar-actions">
+          <div class="env-menu-wrap" onKeyDown={(event) => { if (event.key === "Escape") { closePopup(true); event.stopPropagation(); } }}>
+            <button class="secondary-button env-generate" disabled={tooLarge()} aria-haspopup="dialog" aria-expanded={generator() === NEW_VARIABLE_GENERATOR} onClick={(event) => { if (generator() === NEW_VARIABLE_GENERATOR) closePopup(); else openGenerator(NEW_VARIABLE_GENERATOR, event.currentTarget); }}><span aria-hidden="true">✦</span><span>{t("Generate key")}</span></button>
+            <Show when={generator() === NEW_VARIABLE_GENERATOR}>{generatorPopup(t("Add as variable"), () => { const value = preview(); closePopup(); addVariable(undefined, "below", value); })}</Show>
+          </div>
+          <button class="secondary-button" disabled={tooLarge()} onClick={() => addVariable()}><Icon name="plus" size={14} /><span>{t("Add variable")}</span></button>
+        </div>
       </div>
       <Show when={!tooLarge()} fallback={<p class="env-empty">{t("This file is too large for the table view. Switch to Source to edit it.")}</p>}>
         <Show when={entries().length > 0 || draft()} fallback={<p class="env-empty">{t("No variables yet.")}</p>}>

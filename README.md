@@ -74,7 +74,7 @@ permission).
   larger interface text and high-contrast labels in both dark and light themes, in
   English or Traditional Chinese (**Settings > Language**, follows the system by
   default).
-- **Explorer and project search** — **EXPLORER / GIT / SEARCH** sidebar tabs,
+- **Explorer and project search** — an icon activity bar for Explorer, Search and Git,
   optional Git-ignored grouping, file operations and on-demand text or file-path
   search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
   by default and supports match case. Text results center and highlight the match.

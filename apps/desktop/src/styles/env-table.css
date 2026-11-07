@@ -1,5 +1,7 @@
 .env-table { height: 100%; overflow: auto; padding: 20px clamp(16px, 2vw, 32px) 64px; color: var(--text); font: 13px var(--font-ui); }
 .env-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.env-toolbar-actions { display: flex; align-items: center; gap: 8px; }
+.env-generate.icon-button, .env-generate > [aria-hidden="true"] { font-size: 17px; line-height: 1; }
 .env-count { color: var(--muted); font-size: 12px; }
 .env-empty { margin: 24px 0; color: var(--muted); }
 .env-grid { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(200px, 2fr) auto; border: 1px solid var(--border); border-radius: 4px; }
@@ -28,7 +30,7 @@
 .env-generator label { display: grid; gap: 4px; }
 .env-generator input, .env-generator select, .env-generator textarea { width: 100%; padding: 6px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 3px; }
 .env-generator textarea { resize: vertical; font-family: var(--font-mono); overflow-wrap: anywhere; }
-.env-generator-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.env-generator-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 .env-presets { display: flex; gap: 6px; }
 .env-output-length { color: var(--muted); font-size: 12px; }

@@ -1,6 +1,7 @@
+import { orderCommitsAfterChildren } from "./git-graph";
 import type { GitCommit, GitHistoryPage } from "../types";
 
-export const GIT_HISTORY_PAGE_SIZE = 60;
+export const GIT_HISTORY_PAGE_SIZE = 200;
 
 export type GitHistoryViewState = {
   loading: boolean;
@@ -65,7 +66,7 @@ export class GitHistoryController {
     return this.start(context, null, "initial");
   }
 
-  /** Load the next 60-commit page and append only new commit OIDs. */
+  /** Load the next page and append only new commit OIDs. */
   loadOlder(): Promise<boolean> {
     const context = this.prepareContext();
     if (!context) return Promise.resolve(false);
@@ -153,7 +154,7 @@ export class GitHistoryController {
       if (request.kind === "initial") {
         this.options.setCommits(uniqueCommits(page.commits));
       } else {
-        this.options.setCommits(appendUniqueCommits(this.options.getCurrentCommits(), page.commits));
+        this.options.setCommits(orderCommitsAfterChildren(appendUniqueCommits(this.options.getCurrentCommits(), page.commits)));
       }
 
       this.cursor = page.cursor;

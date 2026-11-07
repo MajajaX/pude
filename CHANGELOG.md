@@ -6,6 +6,36 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Generate key** in the `.env` table toolbar opens the random value generator without
+  choosing a row, including in an empty file, and can copy the value or add it as a new
+  variable. A new variable's row also has a ✦ button that opens the generator.
+
+### Changed
+
+- Explorer, Search and Git moved to an icon-only activity bar on the left edge of the
+  window, in that order. Selecting the icon of the view already showing hides the
+  sidebar; the bar stays visible while the sidebar is hidden.
+- Git history loads 200 commits per page and starts the next page before you reach the
+  end. Selecting a commit opens details with its subject, author and age, and the
+  panel no longer takes space when nothing is selected. The full history tab uses
+  compact rows, the graph column stays narrow with many branches, and refreshing no
+  longer shifts the list. Commit tooltips wait for the pointer to rest.
+
+### Fixed
+
+- Terminal tabs stay on one line and no longer show a scrollbar. Long names shorten, the
+  selected tab scrolls into view, the mouse wheel moves the tab strip, and **New
+  terminal** stays reachable with many tabs.
+- Loading more Git history no longer recreates the visible rows or loses keyboard focus,
+  and Git status refreshes no longer recompute the loaded history.
+- Scrolling Git history no longer forces a layout measurement on every scroll event.
+- Repositories with many branches or tags no longer show a process-limit error while
+  loading history: the commits those refs point at are read together in one Git process.
+- A commit listed early because a branch or tag points at it moves below its children
+  once they load, so the graph stays connected across pages.
+
 ## [0.1.8] - 2026-11-05
 
 ### Added

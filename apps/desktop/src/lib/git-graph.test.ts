@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGitGraph, type GitGraphSegment } from "./git-graph";
+import { buildGitGraph, orderCommitsAfterChildren, type GitGraphSegment } from "./git-graph";
 import type { GitCommit } from "../types";
 
 function commit(hash: string, parents: string[] = []): GitCommit {
@@ -181,5 +181,30 @@ describe("buildGitGraph", () => {
         expect(segment.toLane).toBeLessThan(graph.laneCount);
       }
     }
+  });
+});
+
+describe("orderCommitsAfterChildren", () => {
+  const hashes = (commits: GitCommit[]) => commits.map(({ hash }) => hash);
+
+  it("leaves a list that already has children first unchanged", () => {
+    const commits = [commit("merge", ["left", "right"]), commit("left", ["root"]), commit("right", ["root"]), commit("root")];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["merge", "left", "right", "root"]);
+  });
+
+  it("moves a tip listed ahead of its child to just after that child", () => {
+    const commits = [commit("newest", ["middle"]), commit("tagged", ["root"]), commit("middle", ["tagged"]), commit("other"), commit("root")];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["newest", "middle", "tagged", "other", "root"]);
+  });
+
+  it("waits for the last child and moves chained parents along with it", () => {
+    const commits = [commit("grandparent"), commit("parent", ["grandparent"]), commit("first", ["parent"]), commit("second", ["parent", "parent"])];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["first", "second", "parent", "grandparent"]);
+  });
+
+  it("keeps the graph connected across a relocated tip", () => {
+    const listed = [commit("newest", ["tagged"]), commit("tagged")].reverse();
+    expect(buildGitGraph(listed).rows.some((row) => row.hasHiddenParents)).toBe(true);
+    expect(buildGitGraph(orderCommitsAfterChildren(listed)).rows.some((row) => row.hasHiddenParents)).toBe(false);
   });
 });

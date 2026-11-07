@@ -23,15 +23,17 @@ coverage and no published installer yet.
   appear in a collapsed group identified by a Git icon, divider and item count.
   Expanding it exposes the same file operations as other entries; the final row
   remains fully scrollable. Ignored descendants keep their normal hierarchy.
-- A **FILES** bar under the sidebar tabs holds **New file** (`+`) and **New folder**
+- A **FILES** bar at the top of the Explorer view holds **New file** (`+`) and **New folder**
   for the project root. Right-click a folder to create items inside it, or a file
   to create items beside it.
 - **Collapse folders** (the chevron in the **FILES** bar, or the command
   **Explorer: Collapse Folders**) closes every expanded subfolder below the
   workspace's top-level folders; loaded listings are kept.
 - **Cmd+B** / **Ctrl+B**, **View > Hide sidebar** or **View: Toggle Sidebar** hides the
-  sidebar and its resize handle so the editor uses the full width. Opening project
-  search shows it again. The choice lasts for the current window session only.
+  sidebar and its resize handle so the editor uses the full width; the activity bar
+  stays visible. Selecting the icon of the view already showing also hides the
+  sidebar, and selecting any icon or opening project search shows it again. The
+  choice lasts for the current window session only.
 - **Group ignored** is a checkbox at the left of the Explorer footer's plugin
   count. It defaults to on, persists locally across restarts, and shows ignored
   items among normal entries when off. It does not change `.gitignore` or search
@@ -89,9 +91,9 @@ coverage and no published installer yet.
 
 ## Project search
 
-- The sidebar has **EXPLORER / GIT / SEARCH** tabs. **SEARCH** or **Cmd+Shift+F**
-  on macOS / **Ctrl+Shift+F** on Windows opens search for the active project.
-  Selecting **EXPLORER** or pressing Escape in the search input returns to files.
+- The activity bar's **Search** icon or **Cmd+Shift+F** on macOS / **Ctrl+Shift+F**
+  on Windows opens search for the active project. Selecting the **Explorer** icon or
+  pressing Escape in the search input returns to files.
   A short single-line editor selection (at most 200 characters) becomes the query
   when search opens from the shortcut or **Search: Find in Project**.
 - **Cmd+P** / **Ctrl+P**, **Edit > Go to file** or **Go: Go to File…** opens search in
@@ -150,8 +152,10 @@ coverage and no published installer yet.
   separate file loaded only when that language is in use, so English adds nothing to
   startup. Messages from Git, shells, plugins and language servers, and some
   low-level native errors, stay in their original language.
-- The **EXPLORER / GIT / SEARCH** tabs fill the sidebar width. The Git view lists
-  the current branch at the top, and each changed file by name with its folder
+- An activity bar runs down the left edge of the window with icon-only **Explorer**,
+  **Search** and **Git** views, in that order. Each icon names its view in a tooltip
+  and to assistive technology; the arrow keys, Home and End move between views. The
+  Git view lists the current branch at the top, and each changed file by name with its folder
   dimmed beside it.
 
 ## Editing and Markdown
@@ -208,9 +212,13 @@ coverage and no published installer yet.
 - Random values are generated with the system's secure random source in Hex,
   Base64URL, Base64, alphanumeric or UUIDv4 format. The default is Base64URL with
   32 bytes; byte or character lengths range from 1 to 1,024, with presets of 16, 32
-  and 64. Open the generator from the value's ✦ button or the row actions; the preview
-  reports its character count and can be regenerated, applied or cancelled. Format and
-  length are saved locally; generated values are never saved as preferences.
+  and 64. **Generate key** in the table toolbar is always available, including in an
+  empty file: it can copy the value or add it as a new variable, leaving only the name
+  to type. A row's ✦ button or actions menu generates a value for that row, including a
+  new variable's row, which stays unsaved while the generator is open. The preview reports its character count and can be regenerated, copied, applied or
+  cancelled. The generator belongs to the table view; **Table** in the editor corner
+  returns to it from source. Format and length are saved locally; generated values are
+  never saved as preferences.
 - Table edits change the same document as the source editor, so undo, dirty state,
   saving and recovery work as usual. Outside a draft row or generator, Cmd/Ctrl+Z
   undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation
@@ -274,7 +282,9 @@ coverage and no published installer yet.
 
 - The panel opens with **Cmd+`** / **Ctrl+`**. A normal new terminal uses the project
   root; xterm.js and a PTY start only when a terminal first appears.
-- Tabs show the native shell executable basename and starting directory basename, with
+- Tabs stay on one line with no visible scrollbar: long names shorten, the selected tab
+  scrolls into view, the mouse wheel moves the strip and **New terminal** stays in reach.
+  Tabs show the native shell executable basename and starting directory basename, with
   the full path in the title; the browser labels its shell **Demo**. Double-click
   to rename a tab for the session. Status shows Starting, Ready, Exited or Failed;
   exited or failed sessions offer restart. Settings saves terminal font size locally
@@ -326,11 +336,23 @@ coverage and no published installer yet.
   and can be unavailable. The busy state of a Git action is scoped to its project.
 - The Git view always shows its action groups (**Changes**, **Sync**, **Branches**,
   **Stash**); they no longer collapse.
-- History loads 60 commits at a time. Scrolling near the end loads the next page
-  automatically; when the branch filter hides a whole page, **Load older commits**
-  continues. History reloads after commits, push, pull, branch and stash operations,
+- History loads 200 commits at a time. The next page starts loading while 40 loaded
+  rows remain below the viewport, so scrolling rarely reaches the end; when the
+  branch filter hides a whole page, **Load older commits** continues. Loading a page
+  keeps the rows on screen and keyboard focus in place. A commit listed early because
+  a branch or tag points at it moves below its children once they load. History
+  reloads after commits, push, pull, branch and stash operations,
   and after Git changes made outside pude, in both the sidebar and the full
-  history tab; a reload starts again from the newest commits.
+  history tab; a reload starts again from the newest commits. A thin bar under the
+  toolbar shows a reload without moving the list.
+- The sidebar history uses two-line rows and the full history tab uses compact
+  single-line rows. The graph column stays narrow in repositories with many branches,
+  and lanes move closer together instead of crowding out the commit message.
+- Selecting a commit opens its details below the list, with its subject, hash, author,
+  age and changed files; selecting it again, the close button or Escape closes them.
+  Resting the pointer on a row shows its full metadata after a short delay, and a
+  commit whose parent is not loaded yet says so there. History search shows the
+  current match and the match count, such as `3/12`.
 - When the repository has stashes, a **STASH** tab with their count appears next to
   **STATUS / HISTORY**. Each stash shows its message, `stash@{N}` and age; expanding
   it lists the changed files, with untracked files marked `?`, and selecting a file

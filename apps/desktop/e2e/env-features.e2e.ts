@@ -40,3 +40,62 @@ test("inserts variables and generates an undoable value with persistent options"
   await expect(page.locator("vite-error-overlay")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test("the toolbar generates a key for a new variable, also from an empty file", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
+  const table = page.locator(".env-table");
+  const dialog = page.getByRole("dialog", { name: "Generate random value" });
+
+  await table.getByRole("button", { name: "Generate key" }).click();
+  await expect(dialog).toBeVisible();
+  const generated = await dialog.getByRole("textbox", { name: "Preview" }).inputValue();
+  await dialog.getByRole("button", { name: "Copy", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(generated);
+  await dialog.getByRole("button", { name: "Add as variable" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const draft = table.locator(".env-draft");
+  await expect(draft.getByRole("textbox", { name: "Variable name" })).toBeFocused();
+  await expect(draft.getByRole("textbox", { name: "Value", exact: true })).toHaveValue(generated);
+  await draft.getByRole("textbox", { name: "Variable name" }).fill("SESSION_SECRET");
+
+  // The new row's own button opens the same dialog, and using it keeps the row unsaved.
+  const generate = draft.getByRole("button", { name: "Generate random value" });
+  await generate.click();
+  await dialog.getByRole("combobox", { name: "Format" }).selectOption("uuid");
+  await dialog.getByText("Generate random value").click();
+  await expect(draft).toBeVisible();
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(draft.getByRole("textbox", { name: "Value", exact: true })).toHaveValue(generated);
+  await expect(generate).toBeFocused();
+
+  await generate.click();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(draft).toBeVisible();
+
+  await generate.click();
+  await dialog.getByRole("combobox", { name: "Format" }).selectOption("hex");
+  const replaced = await dialog.getByRole("textbox", { name: "Preview" }).inputValue();
+  expect(replaced).toMatch(/^[a-f0-9]+$/);
+  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(draft.getByRole("textbox", { name: "Value", exact: true })).toHaveValue(replaced);
+  await expect(draft.getByRole("textbox", { name: "Variable name" })).toHaveValue("SESSION_SECRET");
+  await table.locator(".env-count").click();
+  await expect(table.getByRole("textbox", { name: "Value of SESSION_SECRET" })).toHaveValue(replaced);
+
+  await page.getByRole("button", { name: "Show .env source" }).click();
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+a" : "Control+a");
+  await page.keyboard.press("Backspace");
+  await page.getByRole("button", { name: "Show .env as a table" }).click();
+  await expect(table.getByText("No variables yet.")).toBeVisible();
+  await table.getByRole("button", { name: "Generate key" }).click();
+  await dialog.getByRole("button", { name: "Add as variable" }).click();
+  await expect(table.locator(".env-draft").getByRole("textbox", { name: "Variable name" })).toBeFocused();
+});

@@ -32,7 +32,7 @@ test("blank-area refresh preserves editor content and terminal sessions", async 
 test("editable controls keep their native context menu", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-  await page.getByRole("tab", { name: "SEARCH", exact: true }).click();
+  await page.getByRole("tab", { name: "Search", exact: true }).click();
   await page.getByRole("textbox", { name: "Search project text" }).click({ button: "right" });
   await expect(page.getByRole("menuitem", { name: "Refresh", exact: true })).toHaveCount(0);
 });

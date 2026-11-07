@@ -99,3 +99,47 @@ test("terminal copy writes the selection and keeps the clipboard when nothing is
   await input.pressSequentially("abc");
   await expect(session.locator(".xterm-rows")).toContainText("abc");
 });
+
+test("terminal tabs stay on one line without a scrollbar and keep the selected tab in view", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await expect(page).toHaveTitle("pude - pude-demo");
+  await page.keyboard.press("Control+Backquote");
+  const strip = page.getByRole("tablist", { name: "Terminal sessions" });
+  await expect(strip).toBeVisible();
+  // A long folder name beside the shell used to wrap to a second line.
+  await strip.locator("small").first().evaluate((element) => { element.textContent = "zsh · a project folder with a very long name"; });
+  const heights = await strip.evaluate((element) => {
+    const tab = element.querySelector(".terminal-tab button")!;
+    const small = element.querySelector("small")!;
+    return { strip: element.clientHeight, content: element.scrollHeight, tab: tab.getBoundingClientRect().height, small: small.getBoundingClientRect().height };
+  });
+  expect(heights.content).toBeLessThanOrEqual(heights.strip);
+  expect(heights.tab).toBeLessThanOrEqual(heights.strip);
+  expect(heights.small).toBeLessThan(20);
+
+  const addTab = page.getByRole("button", { name: "New terminal" });
+  for (let count = 0; count < 14; count += 1) await addTab.click();
+  await expect(strip.locator(".terminal-tab")).toHaveCount(15);
+  await expect(addTab).toBeInViewport({ ratio: 1 });
+  const active = strip.locator(".terminal-tab-active");
+  await expect(active).toContainText("Terminal 15");
+  const label = active.locator(".terminal-tab-label");
+  // scrollWidth rounds away the sub-pixel loss that is enough to ellipsize the number.
+  expect(await label.evaluate((element) => {
+    const text = document.createRange();
+    text.selectNodeContents(element);
+    return text.getBoundingClientRect().width <= element.getBoundingClientRect().width;
+  })).toBe(true);
+  const inStrip = () => strip.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const tab = element.querySelector(".terminal-tab-active")!.getBoundingClientRect();
+    return tab.left >= bounds.left - 1 && tab.right <= bounds.right + 1;
+  });
+  await expect.poll(inStrip).toBe(true);
+  expect(await strip.evaluate((element) => getComputedStyle(element).scrollbarWidth)).toBe("none");
+  await strip.hover();
+  const before = await strip.evaluate((element) => element.scrollLeft);
+  await page.mouse.wheel(0, -200);
+  await expect.poll(() => strip.evaluate((element) => element.scrollLeft)).toBeLessThan(before);
+});

@@ -1,9 +1,9 @@
-import { For, Show, createEffect, createMemo, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
+import { For, Index, Show, createEffect, createMemo, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Icon } from "./Icons";
-import { buildGitGraph } from "../lib/git-graph";
+import { buildGitGraph, type GitGraphRow, type GitGraphSegment } from "../lib/git-graph";
 import { reconcileGitHistoryBranchFilter, type GitHistoryBranchFilter } from "../lib/git-history-filter";
-import { GIT_HISTORY_ROW_HEIGHT, gitHistoryRenderWindow } from "../lib/git-history-virtualization";
+import { GIT_HISTORY_FULL_ROW_HEIGHT, GIT_HISTORY_PREFETCH_ROWS, GIT_HISTORY_ROW_HEIGHT, gitHistoryRenderWindow, sameGitHistoryRenderWindow } from "../lib/git-history-virtualization";
 import { relativeTimeLabel } from "../lib/relative-time";
 import type { GitBranch, GitCommit, GitCommitFile } from "../types";
 import "../styles/git-history.css";
@@ -11,7 +11,7 @@ import { t } from "../lib/i18n";
 
 type BranchFilter = GitHistoryBranchFilter;
 type HistoryBranch = { value: BranchFilter; name: string; kind: "local" | "remote"; tipHash?: string; current: boolean };
-type CommitTooltip = { commit: GitCommit; left: number; top: number; width: number; maxHeight: number };
+type CommitTooltip = { commit: GitCommit; boundary: boolean; left: number; top: number; width: number; maxHeight: number };
 
 type GitHistoryProps = {
   repositoryRoot: string;
@@ -36,7 +36,10 @@ type GitHistoryProps = {
   onLoadMoreHistory: () => void;
 };
 
-const commitRowHeight = 44;
+const LANE_SPACING = 14;
+const TOOLTIP_OPEN_DELAY_MS = 400;
+const TOOLTIP_CLOSE_DELAY_MS = 180;
+const searchTextByCommit = new WeakMap<GitCommit, string>();
 
 export function GitHistory(props: GitHistoryProps) {
   const [branchFilter, setBranchFilter] = createSignal<BranchFilter>("all");
@@ -54,20 +57,31 @@ export function GitHistory(props: GitHistoryProps) {
   const [tableElement, setTableElement] = createSignal<HTMLDivElement>();
   const [listElement, setListElement] = createSignal<HTMLDivElement>();
   let scrollHost: HTMLDivElement | undefined;
+  let detachScrollHost = () => {};
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
+  const [listOffset, setListOffset] = createSignal(0);
   let copyMessageTimer: ReturnType<typeof setTimeout> | undefined;
+  let tooltipOpenTimer: ReturnType<typeof setTimeout> | undefined;
   let tooltipCloseTimer: ReturnType<typeof setTimeout> | undefined;
   let suppressedFocusedTooltipHash: string | undefined;
 
-  const commitByHash = createMemo(() => new Map(props.commits.map((commit) => [commit.hash, commit])));
+  // Reading these props subscribes to the whole Git status, which changes on
+  // every refresh. Memos keep unchanged commits from recomputing what follows.
+  const commits = createMemo(() => props.commits);
+  const branches = createMemo(() => props.branches);
+  const rowHeight = () => props.fullMode ? GIT_HISTORY_FULL_ROW_HEIGHT : GIT_HISTORY_ROW_HEIGHT;
+  const commitByHash = createMemo(() => new Map(commits().map((commit) => [commit.hash, commit])));
   const headCommit = createMemo(() => {
     const exactHead = props.headOid ? commitByHash().get(props.headOid) : undefined;
     if (exactHead) return exactHead;
-    return props.commits.find((commit) => commit.refs.some((reference) => reference === "HEAD" || reference.startsWith("HEAD -> ")));
+    return commits().find((commit) => commit.refs.some((reference) => reference === "HEAD" || reference.startsWith("HEAD -> ")));
   });
-  const currentBranchName = () => props.currentBranch ?? props.branches.find((branch) => branch.current)?.name ?? "";
-  const branchOptions = createMemo(() => historyBranchOptions(props.commits, props.branches, currentBranchName()));
+  const currentBranchName = () => props.currentBranch ?? branches().find((branch) => branch.current)?.name ?? "";
+  const branchOptions = createMemo(() => historyBranchOptions(commits(), branches(), currentBranchName()), undefined, { equals: sameBranchOptions });
+  const localBranchOptions = createMemo(() => branchOptions().filter((branch) => branch.kind === "local"));
+  const remoteBranchOptions = createMemo(() => branchOptions().filter((branch) => branch.kind === "remote"));
+  const localBranchNames = createMemo<ReadonlySet<string>>(() => new Set(branches().map((branch) => branch.name)));
   const availableBranchFilters = createMemo(() => {
     const options = branchOptions().map((branch) => ({ value: branch.value }));
     if (props.repositoryState === "detached") options.push({ value: "current-head" as BranchFilter });
@@ -88,75 +102,74 @@ export function GitHistory(props: GitHistoryProps) {
         if (parent && !reachable.has(parent)) pending.push(parent);
       }
     }
-    return props.commits.filter((commit) => reachable.has(commit.hash));
+    return commits().filter((commit) => reachable.has(commit.hash));
   };
 
   const visibleCommits = createMemo(() => {
     const selected = branchFilter();
-    if (selected === "all") return props.commits;
+    if (selected === "all") return commits();
     if (selected === "current-head") return commitsReachableFrom(headCommit()?.hash);
     const branch = branchOptions().find((option) => option.value === selected);
     const startHash = branch?.current ? headCommit()?.hash ?? branch.tipHash : branch?.tipHash;
     return commitsReachableFrom(startHash);
   });
   const graph = createMemo(() => buildGitGraph(visibleCommits()));
-  const listTop = () => {
-    const list = listElement();
-    if (!scrollHost || !list) return 0;
-    if (scrollHost === list) return 0;
-    return list.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top + scrollHost.scrollTop;
-  };
+  const graphEntries = createMemo(() => new Map(graph().rows.map((row, index) => [row.commit.hash, { row, index }])));
   const renderWindow = createMemo(() => {
-    const rows = graph().rows;
-    const focusedIndex = focusedHash()
-      ? rows.findIndex((row) => row.commit.hash === focusedHash())
-      : -1;
+    const focused = focusedHash();
     return gitHistoryRenderWindow(
-      rows.length,
-      Math.max(0, scrollTop() - listTop()),
+      graph().rows.length,
+      Math.max(0, scrollTop() - listOffset()),
       viewportHeight(),
-      focusedIndex,
+      focused ? graphEntries().get(focused)?.index ?? -1 : -1,
+      rowHeight(),
     );
-  });
-  const rowIndexes = createMemo(() => new Map(graph().rows.map((row, index) => [row.commit.hash, index])));
-  const renderedRows = createMemo(() => {
+  }, undefined, { equals: sameGitHistoryRenderWindow });
+  // Rows are keyed by commit hash so a rebuilt graph updates mounted rows in
+  // place: they keep their DOM and keyboard focus when another page arrives.
+  const renderedHashes = createMemo(() => {
     const rows = graph().rows;
-    // Keep the graph row objects as For keys so scrolling doesn't recreate
-    // buttons and steal keyboard focus from a row that remains mounted.
-    return renderWindow().indexes.flatMap((index) => rows[index] ? [rows[index]] : []);
+    return renderWindow().indexes.flatMap((index) => rows[index] ? [rows[index].commit.hash] : []);
   });
-  const historyContentHeight = () => graph().rows.length * GIT_HISTORY_ROW_HEIGHT + (props.historyHasMore ? 46 : 0);
-  // Load the next page when the viewport nears the end of the loaded rows. A
+  const historyContentHeight = () => graph().rows.length * rowHeight() + (props.historyHasMore ? 46 : 0);
+  // Load the next page before the viewport reaches the end of the loaded rows. A
   // page that adds no visible rows (hidden by the branch filter) stops the
   // automatic loading; the Load older commits button continues it.
   let autoLoadedRowCount = -1;
   createEffect(() => {
     const rowCount = graph().rows.length;
     const viewport = viewportHeight();
-    const remaining = rowCount * GIT_HISTORY_ROW_HEIGHT - (Math.max(0, scrollTop() - listTop()) + viewport);
-    if (!props.historyHasMore || props.loading || props.historyLoadingMore || !viewport || remaining > GIT_HISTORY_ROW_HEIGHT * 4) return;
+    const remaining = rowCount * rowHeight() - (Math.max(0, scrollTop() - listOffset()) + viewport);
+    if (!props.historyHasMore || props.loading || props.historyLoadingMore || !viewport || remaining > rowHeight() * GIT_HISTORY_PREFETCH_ROWS) return;
     if (rowCount === autoLoadedRowCount) return;
     autoLoadedRowCount = rowCount;
     props.onLoadMoreHistory();
   });
   const railWidth = createMemo(() => {
     const laneCount = Math.max(1, graph().laneCount);
-    return Math.max(props.fullMode ? 46 : 30, laneCount * 14 + 4);
+    const [minimum, maximum] = props.fullMode ? [46, 220] : [30, 86];
+    return Math.min(maximum, Math.max(minimum, laneCount * LANE_SPACING + 4));
   });
-  const selectedCommit = createMemo(() => props.commits.find((commit) => commit.hash === selectedHash()));
+  const selectedCommit = createMemo(() => {
+    const hash = selectedHash();
+    return hash ? commitByHash().get(hash) : undefined;
+  });
+  const isSelected = (hash: string) => selectedHash() === hash;
+  const hasOpenTooltip = (hash: string) => tooltip()?.commit.hash === hash;
   const filesFor = (commit: GitCommit) => Object.prototype.hasOwnProperty.call(props.commitFiles, commit.hash)
     ? props.commitFiles[commit.hash]
     : commit.files;
-  const visibleHashSet = createMemo(() => new Set(visibleCommits().map((commit) => commit.hash)));
-  const loadedHashSet = createMemo(() => new Set(props.commits.map((commit) => commit.hash)));
-  const hasUnloadedParents = createMemo(() => props.commits.some((commit) => (commit.parents ?? []).some((parent) => !loadedHashSet().has(parent))));
-  const hasUnknownParents = createMemo(() => props.commits.some((commit) => commit.parents === undefined));
-  const hasFilteredParents = createMemo(() => visibleCommits().some((commit) => (commit.parents ?? []).some((parent) => loadedHashSet().has(parent) && !visibleHashSet().has(parent))));
+  const hasUnknownParents = createMemo(() => commits().some((commit) => commit.parents === undefined));
   const searchMatches = createMemo(() => {
     const query = search().trim().toLocaleLowerCase();
     if (!query) return [];
-    return visibleCommits().filter((commit) => [commit.subject, commit.body ?? "", commit.author, commit.date, commit.authoredAt ?? "", commit.hash, commit.refs.join(" ")]
-      .some((value) => value.toLocaleLowerCase().includes(query)));
+    return visibleCommits().filter((commit) => commitSearchText(commit).includes(query));
+  });
+  const searchMatchLabel = createMemo(() => {
+    const matches = searchMatches();
+    const cursor = searchCursorHash();
+    const position = cursor ? matches.findIndex((commit) => commit.hash === cursor) : -1;
+    return position >= 0 ? `${position + 1}/${matches.length}` : String(matches.length);
   });
 
   createEffect(() => {
@@ -176,88 +189,79 @@ export function GitHistory(props: GitHistoryProps) {
   });
   createEffect(() => {
     const hash = selectedHash();
-    if (hash && !visibleHashSet().has(hash)) setSelectedHash(undefined);
+    if (hash && !graphEntries().has(hash)) setSelectedHash(undefined);
   });
 
-  const closeTooltip = () => {
-    clearTimeout(tooltipCloseTimer);
-    tooltipCloseTimer = undefined;
-    setTooltip(undefined);
+  const cancelTooltipOpen = () => {
+    clearTimeout(tooltipOpenTimer);
+    tooltipOpenTimer = undefined;
   };
   const cancelTooltipClose = () => {
     clearTimeout(tooltipCloseTimer);
     tooltipCloseTimer = undefined;
   };
+  const closeTooltip = () => {
+    cancelTooltipOpen();
+    cancelTooltipClose();
+    setTooltip(undefined);
+  };
   const scheduleTooltipClose = () => {
+    cancelTooltipOpen();
     cancelTooltipClose();
     tooltipCloseTimer = setTimeout(() => {
       const activeTooltip = tooltip();
       const focusedRow = activeTooltip && rowElements.get(activeTooltip.commit.hash);
       const focused = focusedRow && focusedRow === document.activeElement && focusedRow.matches(":focus-visible") && suppressedFocusedTooltipHash !== activeTooltip.commit.hash;
       if (!focused) setTooltip(undefined);
-    }, 180);
+    }, TOOLTIP_CLOSE_DELAY_MS);
   };
-  const updateViewport = () => {
+  const measureViewport = () => {
     if (!scrollHost) return;
+    const list = listElement();
+    setListOffset(list && list !== scrollHost ? list.getBoundingClientRect().top - scrollHost.getBoundingClientRect().top + scrollHost.scrollTop : 0);
     setScrollTop(scrollHost.scrollTop);
     setViewportHeight(scrollHost.clientHeight);
   };
   createEffect(() => {
     // The history table is conditional, so the first mount can happen before
     // Git returns its initial page. Ref signals and content height both cause
-    // this effect to attach or refresh the active scroll host after that page
-    // becomes available.
+    // this effect to attach the active scroll host and measure it again.
     historyContentHeight();
-    const table = tableElement();
-    const list = listElement();
-    const host = props.fullMode
-      ? (table?.isConnected ? table : undefined)
-      : (list?.isConnected ? list : undefined);
-    if (!host) {
-      scrollHost = undefined;
-      return;
+    const element = props.fullMode ? tableElement() : listElement();
+    const host = element?.isConnected ? element : undefined;
+    if (host !== scrollHost) {
+      detachScrollHost();
+      scrollHost = host;
+      if (host) {
+        const handleScroll = () => setScrollTop(host.scrollTop);
+        host.addEventListener("scroll", handleScroll, { passive: true });
+        const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(measureViewport);
+        resizeObserver?.observe(host);
+        detachScrollHost = () => {
+          host.removeEventListener("scroll", handleScroll);
+          resizeObserver?.disconnect();
+          detachScrollHost = () => {};
+        };
+      }
     }
-    scrollHost = host;
-    const handleScroll = () => {
-      updateViewport();
-      closeTooltip();
-    };
-    host.addEventListener("scroll", handleScroll, { passive: true });
-    updateViewport();
-    const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateViewport);
-    resizeObserver?.observe(host);
-    onCleanup(() => {
-      host.removeEventListener("scroll", handleScroll);
-      resizeObserver?.disconnect();
-      if (scrollHost === host) scrollHost = undefined;
-    });
+    measureViewport();
   });
   onMount(() => {
-    const closeOrRepositionOnScroll = (event: Event) => {
-      const activeTooltip = document.getElementById(tooltipId);
-      if (event.target instanceof Node && activeTooltip?.contains(event.target)) return;
-      const focusedRow = [...rowElements.entries()].find(([hash, row]) => {
-        if (row !== document.activeElement || !row.matches(":focus-visible") || suppressedFocusedTooltipHash === hash) return false;
-        const bounds = row.getBoundingClientRect();
-        const hostBounds = scrollHost?.getBoundingClientRect();
-        return hostBounds && bounds.bottom > hostBounds.top && bounds.top < hostBounds.bottom;
-      });
-      if (focusedRow && suppressedFocusedTooltipHash !== focusedRow[0]) {
-        const commit = commitByHash().get(focusedRow[0]);
-        if (commit) { showTooltip(commit, focusedRow[1]); return; }
-      }
+    const closeOnScroll = (event: Event) => {
+      if (event.target instanceof Node && document.getElementById(tooltipId)?.contains(event.target)) return;
       closeTooltip();
     };
-    window.addEventListener("scroll", closeOrRepositionOnScroll, true);
+    window.addEventListener("scroll", closeOnScroll, { capture: true, passive: true });
     window.addEventListener("resize", closeTooltip);
     onCleanup(() => {
-      window.removeEventListener("scroll", closeOrRepositionOnScroll, true);
+      window.removeEventListener("scroll", closeOnScroll, { capture: true });
       window.removeEventListener("resize", closeTooltip);
     });
   });
-  onCleanup(() => { clearTimeout(copyMessageTimer); closeTooltip(); });
+  onCleanup(() => { clearTimeout(copyMessageTimer); closeTooltip(); detachScrollHost(); });
 
-  const showTooltip = (commit: GitCommit, row: HTMLButtonElement) => {
+  const showTooltip = (commit: GitCommit, row: HTMLButtonElement, boundary: boolean) => {
+    cancelTooltipOpen();
     cancelTooltipClose();
     const bounds = row.getBoundingClientRect();
     const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
@@ -272,7 +276,20 @@ export function GitHistory(props: GitHistoryProps) {
     let top = bounds.bottom + 6;
     if (top + maxHeight > areaBottom - 4) top = bounds.top - maxHeight - 6;
     top = Math.max(areaTop + 4, Math.min(top, areaBottom - maxHeight - 4));
-    setTooltip({ commit, left, top, width, maxHeight });
+    setTooltip({ commit, boundary, left, top, width, maxHeight });
+  };
+  // A pointer crossing rows opens nothing until it rests on one; once a tooltip
+  // is open, moving to the next row switches right away.
+  const showTooltipOnHover = (commit: GitCommit, row: HTMLButtonElement, boundary: boolean) => {
+    cancelTooltipOpen();
+    cancelTooltipClose();
+    if (tooltip()) {
+      showTooltip(commit, row, boundary);
+      return;
+    }
+    tooltipOpenTimer = setTimeout(() => {
+      if (row.isConnected) showTooltip(commit, row, boundary);
+    }, TOOLTIP_OPEN_DELAY_MS);
   };
 
   const ensureCommitFiles = (commit: GitCommit) => {
@@ -281,15 +298,15 @@ export function GitHistory(props: GitHistoryProps) {
   };
 
   const scrollToCommit = (hash: string) => {
-    const index = graph().rows.findIndex((row) => row.commit.hash === hash);
-    if (index < 0) return;
+    const index = graphEntries().get(hash)?.index;
+    if (index === undefined) return;
     if (scrollHost) {
-      const rowTop = index * GIT_HISTORY_ROW_HEIGHT;
-      const rowBottom = rowTop + GIT_HISTORY_ROW_HEIGHT;
-      const viewportTop = scrollHost.scrollTop - listTop();
+      const rowTop = index * rowHeight();
+      const rowBottom = rowTop + rowHeight();
+      const viewportTop = scrollHost.scrollTop - listOffset();
       let target = scrollHost.scrollTop;
-      if (rowTop < viewportTop) target = listTop() + rowTop;
-      else if (rowBottom > viewportTop + viewportHeight()) target = listTop() + rowBottom - viewportHeight();
+      if (rowTop < viewportTop) target = listOffset() + rowTop;
+      else if (rowBottom > viewportTop + viewportHeight()) target = listOffset() + rowBottom - viewportHeight();
       target = Math.min(Math.max(0, target), Math.max(0, scrollHost.scrollHeight - scrollHost.clientHeight));
       if (target !== scrollHost.scrollTop) {
         scrollHost.scrollTop = target;
@@ -314,10 +331,10 @@ export function GitHistory(props: GitHistoryProps) {
   };
 
   const moveSelection = (commit: GitCommit, offset: number) => {
-    const index = visibleCommits().findIndex((item) => item.hash === commit.hash);
-    const next = visibleCommits()[Math.max(0, Math.min(visibleCommits().length - 1, index + offset))];
-    if (!next) return;
-    scrollToCommit(next.hash);
+    const rows = graph().rows;
+    const index = graphEntries().get(commit.hash)?.index ?? 0;
+    const next = rows[Math.max(0, Math.min(rows.length - 1, index + offset))];
+    if (next) scrollToCommit(next.commit.hash);
   };
 
   const moveToHistoryBoundary = (boundary: "first" | "last") => {
@@ -334,7 +351,7 @@ export function GitHistory(props: GitHistoryProps) {
       copyMessageTimer = setTimeout(() => setCopyMessage(""), 2200);
       return;
     }
-    if (!visibleHashSet().has(head.hash)) setBranchFilter("all");
+    if (!graphEntries().has(head.hash)) setBranchFilter("all");
     scrollToCommit(head.hash);
   };
 
@@ -361,8 +378,6 @@ export function GitHistory(props: GitHistoryProps) {
 
   const setBranchChoice = (value: string) => setBranchFilter(value as BranchFilter);
 
-  const referencesFor = (commit: GitCommit) => commitReferences(commit, props.branches);
-
   return (
     <section classList={{ "git-history": true, "git-history-full": Boolean(props.fullMode) }} aria-label={t("Git history")} onKeyDown={(event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "f") {
@@ -379,14 +394,14 @@ export function GitHistory(props: GitHistoryProps) {
               <option value="all">{t("All branches")}</option>
               <Show when={props.repositoryState === "detached"}><option value="current-head">{t("Current HEAD")}</option></Show>
               <Show when={!branchOptions().length}><option value="all" disabled>{t("No branch refs available")}</option></Show>
-              <Show when={branchOptions().some((branch) => branch.kind === "local")}>
+              <Show when={localBranchOptions().length}>
                 <optgroup label={t("Local branches")}>
-                  <For each={branchOptions().filter((branch) => branch.kind === "local")}>{(branch) => <option value={branch.value}>{branch.name}{branch.current ? t(" · HEAD") : ""}</option>}</For>
+                  <For each={localBranchOptions()}>{(branch) => <option value={branch.value}>{branch.name}{branch.current ? t(" · HEAD") : ""}</option>}</For>
                 </optgroup>
               </Show>
-              <Show when={branchOptions().some((branch) => branch.kind === "remote")}>
+              <Show when={remoteBranchOptions().length}>
                 <optgroup label={t("Remote branches")}>
-                  <For each={branchOptions().filter((branch) => branch.kind === "remote")}>{(branch) => <option value={branch.value}>{branch.name}</option>}</For>
+                  <For each={remoteBranchOptions()}>{(branch) => <option value={branch.value}>{branch.name}</option>}</For>
                 </optgroup>
               </Show>
             </select>
@@ -399,7 +414,7 @@ export function GitHistory(props: GitHistoryProps) {
               if (event.key === "Enter") { event.preventDefault(); jumpToSearchMatch(event.shiftKey ? -1 : 1); }
               if (event.key === "Escape") { event.stopPropagation(); setSearch(""); searchInput?.blur(); }
             }} placeholder={t("Search history")} aria-label={t("Search history; Enter jumps to a match")} />
-            <Show when={search().trim()}><span class="git-history-match-count">{searchMatches().length}</span></Show>
+            <Show when={search().trim()}><span class="git-history-match-count">{searchMatchLabel()}</span></Show>
           </label>
           <div class="git-history-toolbar-actions">
             <button class="git-history-icon-button" type="button" title={t("Locate current HEAD")} aria-label={t("Locate current HEAD")} onClick={jumpToHead}><span class="git-history-head-icon">●</span></button>
@@ -407,80 +422,80 @@ export function GitHistory(props: GitHistoryProps) {
             <Show when={props.onOpenHistory}><button class="git-history-icon-button git-history-expand" type="button" title={t("Open full history")} aria-label={t("Open full history")} onClick={props.onOpenHistory}><Icon name="external" size={13} /></button></Show>
           </div>
         </div>
+        <Show when={props.loading}><div class="git-history-progress" role="status" aria-label={t("Refreshing history…")} /></Show>
       </div>
 
-      <Show when={props.loading}><div class="git-history-loading" role="status">{t("Refreshing history…")}</div></Show>
       <Show when={props.error}><div class="git-history-error" role="alert">{props.error}</div></Show>
-      <Show when={hasUnloadedParents()}><div class="git-history-note" role="note">{t("Some older parents are outside the loaded history; dashed edges or dotted nodes mark those boundaries.")}</div></Show>
       <Show when={hasUnknownParents()}><div class="git-history-note" role="note">{t("Some commits have unavailable parent data; dotted nodes mark incomplete ancestry.")}</div></Show>
-      <Show when={hasFilteredParents()}><div class="git-history-note" role="note">{t("Dotted nodes mark commits with a parent hidden by the selected branch filter.")}</div></Show>
       <Show when={copyMessage()}><div class="git-history-feedback" role="status">{copyMessage()}</div></Show>
       <Show when={search().trim() && !searchMatches().length}><div class="git-history-search-empty" role="status">{t("No commits match “{query}”. The history rows remain visible.", { query: search().trim() })}</div></Show>
 
-      <Show when={visibleCommits().length} fallback={<div class="git-history-empty">{props.loading ? t("Loading commit history…") : props.commits.length ? t("No history found for the selected branches") : t("No commit history")}</div>}>
-          <div class="git-history-table" ref={setTableElement} style={{ "--history-rail-width": `${railWidth()}px`, "--history-row-height": `${GIT_HISTORY_ROW_HEIGHT}px` }} onScroll={closeTooltip}>
+      <Show when={visibleCommits().length} fallback={<div class="git-history-empty">{props.loading ? t("Loading commit history…") : commits().length ? t("No history found for the selected branches") : t("No commit history")}</div>}>
+          <div class="git-history-table" ref={setTableElement} style={{ "--history-rail-width": `${railWidth()}px`, "--history-row-height": `${rowHeight()}px` }}>
           <Show when={props.fullMode}><div class="git-history-column-header"><span>{t("GRAPH")}</span><span>{t("MESSAGE")}</span><span>{t("AUTHOR")}</span><span>{t("DATE")}</span><span>{t("HASH")}</span></div></Show>
-          <div class="git-history-list" ref={setListElement} role="list" aria-label={t("Commits")} onScroll={closeTooltip} onKeyDown={(event) => {
+          <div class="git-history-list" ref={setListElement} role="list" aria-label={t("Commits")} onKeyDown={(event) => {
           if (event.key === "Escape") {
-            const focusedRow = [...rowElements.entries()].find(([, row]) => row === document.activeElement);
-            if (focusedRow) suppressedFocusedTooltipHash = focusedRow[0];
+            const activeHash = (document.activeElement as HTMLElement | null)?.dataset?.commitHash;
+            if (activeHash) suppressedFocusedTooltipHash = activeHash;
             closeTooltip();
             setSelectedHash(undefined);
           }
         }}>
           <div class="git-history-rows" style={{ position: "relative", height: `${historyContentHeight()}px` }}>
-          <For each={renderedRows()}>{(row) => {
-            const index = () => rowIndexes().get(row.commit.hash) ?? 0;
-            const commit = row.commit;
+          <For each={renderedHashes()}>{(hash) => {
+            // A hash leaving the graph keeps its last row until For disposes it.
+            const entry = createMemo((previous: { row: GitGraphRow; index: number }) => graphEntries().get(hash) ?? previous, graphEntries().get(hash)!);
+            const row = () => entry().row;
+            const commit = createMemo(() => row().commit);
             const rowRef = (element: HTMLButtonElement) => {
-              rowElements.set(commit.hash, element);
-              onCleanup(() => rowElements.delete(commit.hash));
+              rowElements.set(hash, element);
+              onCleanup(() => rowElements.delete(hash));
             };
-            const references = referencesFor(commit);
-            const visibleReferenceCount = props.fullMode ? 4 : 2;
-            return <div classList={{ "git-history-row-wrap": true, "git-history-row-selected": selectedHash() === commit.hash, "git-history-row-boundary": row.hasHiddenParents }} style={{ position: "absolute", top: `${index() * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }} role="listitem">
-              <button ref={rowRef} class="git-history-row" type="button" aria-current={selectedHash() === commit.hash ? "true" : undefined} aria-describedby={tooltip()?.commit.hash === commit.hash ? tooltipId : undefined} aria-label={`${commit.subject}, ${commit.author}, ${commit.date}, ${commit.shortHash}${row.hasHiddenParents ? ", history boundary" : ""}`} onMouseEnter={(event) => { cancelTooltipClose(); showTooltip(commit, event.currentTarget); }} onMouseLeave={(event) => { if (event.currentTarget.matches(":focus-visible") && suppressedFocusedTooltipHash !== commit.hash) showTooltip(commit, event.currentTarget); else scheduleTooltipClose(); }} onFocus={(event) => { setFocusedHash(commit.hash); suppressedFocusedTooltipHash = undefined; showTooltip(commit, event.currentTarget); }} onBlur={(event) => { if (focusedHash() === commit.hash) setFocusedHash(undefined); if (!event.currentTarget.matches(":hover") && !event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleTooltipClose(); }} onClick={() => { suppressedFocusedTooltipHash = commit.hash; selectCommit(commit); }} onKeyDown={(event) => {
-                if (event.key === "ArrowDown") { event.preventDefault(); moveSelection(commit, 1); }
-                if (event.key === "ArrowUp") { event.preventDefault(); moveSelection(commit, -1); }
+            const references = createMemo(() => commitReferences(commit(), localBranchNames()));
+            const visibleReferenceCount = () => props.fullMode ? 4 : 2;
+            return <div classList={{ "git-history-row-wrap": true, "git-history-row-selected": isSelected(hash), "git-history-row-boundary": row().hasHiddenParents }} style={{ position: "absolute", top: `${entry().index * rowHeight()}px`, left: "0", right: "0" }} role="listitem">
+              <button ref={rowRef} class="git-history-row" type="button" data-commit-hash={hash} aria-current={isSelected(hash) ? "true" : undefined} aria-describedby={hasOpenTooltip(hash) ? tooltipId : undefined} aria-label={`${commit().subject}, ${commit().author}, ${commit().date}, ${commit().shortHash}${row().hasHiddenParents ? ", history boundary" : ""}`} onMouseEnter={(event) => showTooltipOnHover(commit(), event.currentTarget, row().hasHiddenParents)} onMouseLeave={(event) => { if (event.currentTarget.matches(":focus-visible") && suppressedFocusedTooltipHash !== hash) showTooltip(commit(), event.currentTarget, row().hasHiddenParents); else scheduleTooltipClose(); }} onFocus={(event) => { setFocusedHash(hash); suppressedFocusedTooltipHash = undefined; if (event.currentTarget.matches(":focus-visible")) showTooltip(commit(), event.currentTarget, row().hasHiddenParents); }} onBlur={(event) => { if (focusedHash() === hash) setFocusedHash(undefined); if (!event.currentTarget.matches(":hover") && !event.currentTarget.contains(event.relatedTarget as Node | null)) scheduleTooltipClose(); }} onClick={() => { suppressedFocusedTooltipHash = hash; selectCommit(commit()); }} onKeyDown={(event) => {
+                if (event.key === "ArrowDown") { event.preventDefault(); moveSelection(commit(), 1); }
+                if (event.key === "ArrowUp") { event.preventDefault(); moveSelection(commit(), -1); }
                 if (event.key === "Home") { event.preventDefault(); moveToHistoryBoundary("first"); }
                 if (event.key === "End") { event.preventDefault(); moveToHistoryBoundary("last"); }
-                if (event.key === "Escape") { event.preventDefault(); suppressedFocusedTooltipHash = commit.hash; closeTooltip(); setSelectedHash(undefined); }
+                if (event.key === "Escape") { event.preventDefault(); suppressedFocusedTooltipHash = hash; closeTooltip(); setSelectedHash(undefined); }
               }}>
-                <GitGraphRail row={row} laneCount={graph().laneCount} width={railWidth()} />
+                <GitGraphRail row={row()} laneCount={graph().laneCount} width={railWidth()} height={rowHeight()} />
                 <span class="git-history-columns">
                   <span class="git-history-message">
-                    <span class="git-history-subject" title={commit.subject}><HighlightedText value={commit.subject} query={search()} /></span>
-                    <span class="git-history-ref-list" aria-label={commit.refs.length ? t("References: {value}", { value: commit.refs.join(", ") }) : undefined}>
-                      <For each={references}>{(reference, refIndex) => <Show when={refIndex() < visibleReferenceCount}><span class={`git-history-ref git-history-ref-${reference.kind}`} title={`${reference.kind}: ${reference.label}`}>{reference.label}</span></Show>}</For>
-                      <Show when={references.length > visibleReferenceCount}><span class="git-history-ref-more" title={references.slice(visibleReferenceCount).map((reference) => reference.label).join(", ")}>+{references.length - visibleReferenceCount}</span></Show>
+                    <span class="git-history-subject" title={commit().subject}><HighlightedText value={commit().subject} query={search()} /></span>
+                    <span class="git-history-ref-list" aria-label={commit().refs.length ? t("References: {value}", { value: commit().refs.join(", ") }) : undefined}>
+                      <For each={references().slice(0, visibleReferenceCount())}>{(reference) => <span class={`git-history-ref git-history-ref-${reference.kind}`} title={`${reference.kind}: ${reference.label}`}>{reference.label}</span>}</For>
+                      <Show when={references().length > visibleReferenceCount()}><span class="git-history-ref-more" title={references().slice(visibleReferenceCount()).map((reference) => reference.label).join(", ")}>+{references().length - visibleReferenceCount()}</span></Show>
                     </span>
-                    <Show when={!props.fullMode}><span class="git-history-meta" title={commit.authoredAt ?? commit.date}><HighlightedText value={`${commit.shortHash} · ${commit.author} · ${relativeCommitAge(commit)}`} query={search()} /></span></Show>
+                    <Show when={!props.fullMode}><span class="git-history-meta" title={commit().authoredAt ?? commit().date}><HighlightedText value={`${commit().shortHash} · ${commit().author} · ${relativeCommitAge(commit())}`} query={search()} /></span></Show>
                   </span>
-                  <Show when={props.fullMode}><span class="git-history-author" title={commit.author}><HighlightedText value={commit.author} query={search()} /></span><span class="git-history-date" title={commit.authoredAt ?? commit.date}><HighlightedText value={commit.date} query={search()} /></span><span class="git-history-hash" title={commit.hash}><HighlightedText value={commit.shortHash} query={search()} /></span></Show>
+                  <Show when={props.fullMode}><span class="git-history-author" title={commit().author}><HighlightedText value={commit().author} query={search()} /></span><span class="git-history-date" title={commit().authoredAt ?? commit().date}><HighlightedText value={commit().date} query={search()} /></span><span class="git-history-hash" title={commit().hash}><HighlightedText value={commit().shortHash} query={search()} /></span></Show>
                 </span>
               </button>
             </div>;
           }}</For>
-          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * GIT_HISTORY_ROW_HEIGHT}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory(); }}>{props.historyLoadingMore ? t("Loading older commits…") : t("Load older commits")}</button></div></Show>
+          <Show when={props.historyHasMore}><div class="git-history-load-more" style={{ position: "absolute", top: `${graph().rows.length * rowHeight()}px`, left: "0", right: "0" }}><button type="button" disabled={props.loading || props.historyLoadingMore} onClick={() => { if (!props.loading && !props.historyLoadingMore) props.onLoadMoreHistory(); }}>{props.historyLoadingMore ? t("Loading older commits…") : t("Load older commits")}</button></div></Show>
           </div>
           </div>
         </div>
       </Show>
 
-      <CommitDetails
-        commit={selectedCommit()}
-        loading={Boolean(selectedCommit() && props.isLoading(selectedCommit()!.hash))}
-        error={selectedCommit() ? props.commitLoadErrors[selectedCommit()!.hash] : undefined}
-        files={selectedCommit() ? filesFor(selectedCommit()!) : []}
-        loaded={Boolean(selectedCommit() && (Object.prototype.hasOwnProperty.call(props.commitFiles, selectedCommit()!.hash) || selectedCommit()!.files.length))}
+      <Show when={selectedCommit()}>{(commit) => <CommitDetails
+        commit={commit()}
+        loading={props.isLoading(commit().hash)}
+        error={props.commitLoadErrors[commit().hash]}
+        files={filesFor(commit())}
+        loaded={Object.prototype.hasOwnProperty.call(props.commitFiles, commit().hash) || Boolean(commit().files.length)}
         onCopy={copyHash}
         onRetry={props.onLoadFiles}
         onCreateBranch={props.onCreateBranch}
         onOpenDiff={props.onOpenDiff}
         onClose={() => setSelectedHash(undefined)}
-      />
+      />}</Show>
       <Show when={tooltip()}>{(active) => <Portal mount={overlayRoot}>
-        <CommitMetadataTooltip id={tooltipId} commit={active().commit} left={active().left} top={active().top} width={active().width} maxHeight={active().maxHeight} onMouseEnter={cancelTooltipClose} onMouseLeave={scheduleTooltipClose} />
+        <CommitMetadataTooltip id={tooltipId} commit={active().commit} boundary={active().boundary} left={active().left} top={active().top} width={active().width} maxHeight={active().maxHeight} onMouseEnter={cancelTooltipClose} onMouseLeave={scheduleTooltipClose} />
       </Portal>}</Show>
     </section>
   );
@@ -525,6 +540,22 @@ function historyBranchOptions(commits: GitCommit[], branches: GitBranch[], curre
   });
 }
 
+function sameBranchOptions(left: HistoryBranch[], right: HistoryBranch[]): boolean {
+  return left.length === right.length && left.every((branch, index) => {
+    const other = right[index];
+    return branch.value === other.value && branch.tipHash === other.tipHash && branch.current === other.current;
+  });
+}
+
+function commitSearchText(commit: GitCommit): string {
+  let text = searchTextByCommit.get(commit);
+  if (text === undefined) {
+    text = [commit.subject, commit.body ?? "", commit.author, commit.date, commit.authoredAt ?? "", commit.hash, commit.refs.join(" ")].join("\n").toLocaleLowerCase();
+    searchTextByCommit.set(commit, text);
+  }
+  return text;
+}
+
 function parseBranchReference(reference: string, localNames: ReadonlySet<string>): { kind: "local" | "remote"; name: string } | undefined {
   if (reference === "HEAD" || reference.startsWith("tag: ") || reference.startsWith("refs/tags/")) return undefined;
   if (reference.startsWith("refs/heads/")) return { kind: "local", name: reference.slice("refs/heads/".length) };
@@ -534,8 +565,7 @@ function parseBranchReference(reference: string, localNames: ReadonlySet<string>
   return { kind: "remote", name: reference };
 }
 
-function commitReferences(commit: GitCommit, branches: GitBranch[]): CommitReference[] {
-  const localBranches = new Set(branches.map((branch) => branch.name));
+function commitReferences(commit: GitCommit, localBranches: ReadonlySet<string>): CommitReference[] {
   const references: CommitReference[] = [];
   for (const reference of commit.refs) {
     if (reference === "HEAD") {
@@ -560,7 +590,7 @@ function commitReferences(commit: GitCommit, branches: GitBranch[]): CommitRefer
   });
 }
 
-function CommitMetadataTooltip(props: { id: string; commit: GitCommit; left: number; top: number; width: number; maxHeight: number; onMouseEnter: () => void; onMouseLeave: () => void }) {
+function CommitMetadataTooltip(props: { id: string; commit: GitCommit; boundary: boolean; left: number; top: number; width: number; maxHeight: number; onMouseEnter: () => void; onMouseLeave: () => void }) {
   const parents = () => props.commit.parents === undefined
     ? t("Parent data unavailable")
     : props.commit.parents.length ? props.commit.parents.join(", ") : t("Root commit");
@@ -581,6 +611,7 @@ function CommitMetadataTooltip(props: { id: string; commit: GitCommit; left: num
       <dt>{t("Parents")}</dt><dd>{parents()}</dd>
       <dt>{t("Refs")}</dt><dd>{props.commit.refs.length ? props.commit.refs.join(", ") : t("None")}</dd>
     </dl>
+    <Show when={props.boundary}><p class="git-history-tooltip-note">{t("A parent of this commit is outside the loaded history.")}</p></Show>
   </div>;
 }
 
@@ -588,11 +619,13 @@ function relativeCommitAge(commit: GitCommit): string {
   return relativeTimeLabel(commit.authoredAt ?? commit.date);
 }
 
-function GitGraphRail(props: { row: ReturnType<typeof buildGitGraph>["rows"][number]; laneCount: number; width: number }) {
+function GitGraphRail(props: { row: GitGraphRow; laneCount: number; width: number; height: number }) {
   const laneTotal = () => Math.max(1, props.laneCount);
-  const x = (lane: number) => 7 + (laneTotal() <= 1 ? 0 : lane * ((props.width - 14) / (laneTotal() - 1)));
-  const y = (fraction: number) => fraction * commitRowHeight;
-  const segmentPath = (segment: (typeof props.row.segments)[number]) => {
+  // Lanes compress only when they no longer fit the capped rail width.
+  const laneSpacing = () => laneTotal() <= 1 ? 0 : Math.min(LANE_SPACING, (props.width - 14) / (laneTotal() - 1));
+  const x = (lane: number) => 7 + lane * laneSpacing();
+  const y = (fraction: number) => fraction * props.height;
+  const segmentPath = (segment: GitGraphSegment) => {
     const fromX = x(segment.fromLane);
     const toX = x(segment.toLane);
     const fromY = y(segment.fromY);
@@ -601,16 +634,16 @@ function GitGraphRail(props: { row: ReturnType<typeof buildGitGraph>["rows"][num
     const middleY = (fromY + toY) / 2;
     return `M ${fromX} ${fromY} C ${fromX} ${middleY} ${toX} ${middleY} ${toX} ${toY}`;
   };
-  return <svg class="git-history-graph" width={props.width} height={commitRowHeight} viewBox={`0 0 ${props.width} ${commitRowHeight}`} aria-hidden="true">
-    <For each={props.row.segments}>{(segment) => <path classList={{ "git-history-segment": true, "git-history-segment-dashed": Boolean(segment.dashed) }} d={segmentPath(segment)} data-color={segment.color} />}</For>
-    <Show when={props.row.hasHiddenParents}><circle class="git-history-hidden-parent-ring" cx={x(props.row.lane)} cy={commitRowHeight / 2} r="7.3" /></Show>
-    <circle class="git-history-node-halo" cx={x(props.row.lane)} cy={commitRowHeight / 2} r="5.3" />
-    <circle class="git-history-node" cx={x(props.row.lane)} cy={commitRowHeight / 2} r="3.1" data-color={props.row.color} />
+  return <svg class="git-history-graph" width={props.width} height={props.height} viewBox={`0 0 ${props.width} ${props.height}`} aria-hidden="true">
+    <Index each={props.row.segments}>{(segment) => <path classList={{ "git-history-segment": true, "git-history-segment-dashed": Boolean(segment().dashed) }} d={segmentPath(segment())} data-color={segment().color} />}</Index>
+    <Show when={props.row.hasHiddenParents}><circle class="git-history-hidden-parent-ring" cx={x(props.row.lane)} cy={props.height / 2} r="7.3" /></Show>
+    <circle class="git-history-node-halo" cx={x(props.row.lane)} cy={props.height / 2} r="5.3" />
+    <circle class="git-history-node" cx={x(props.row.lane)} cy={props.height / 2} r="3.1" data-color={props.row.color} />
   </svg>;
 }
 
 function CommitDetails(props: {
-  commit?: GitCommit;
+  commit: GitCommit;
   loading: boolean;
   error?: string;
   files: GitCommitFile[];
@@ -624,27 +657,28 @@ function CommitDetails(props: {
   return <section class="git-history-details" aria-label={t("Commit details")} onKeyDown={(event) => {
     if (event.key === "Escape") props.onClose();
   }}>
-    <Show when={props.commit} fallback={<div class="git-history-details-empty">{t("Select a commit to view changed files")}</div>}>
-      {(commit) => <>
-        <div class="git-history-details-heading">
-          <div class="git-history-details-title"><strong>{t("Changed files")}</strong><Show when={props.loaded && !props.loading}><span>{t("{count} in {hash}", { count: props.files.length, hash: commit().shortHash })}</span></Show></div>
-          <div class="git-history-detail-actions">
-            <button type="button" onClick={() => props.onCopy(commit().hash)} title={t("Copy full commit hash")}><Icon name="copy" size={12} /><span>{t("Copy hash")}</span></button>
-            <button type="button" onClick={() => props.onCreateBranch(commit())} title={t("Create a branch from {shortHash}", { shortHash: commit().shortHash })}><Icon name="plus" size={12} /><span>{t("Create branch")}</span></button>
-          </div>
-        </div>
-        <Show when={props.loading}><div class="git-history-files-state">{t("Loading changed files…")}</div></Show>
-        <Show when={!props.loading && props.error}><div class="git-history-files-state git-history-files-error">{t("Unable to load changed files: {error}", { error: props.error })}<button type="button" onClick={() => props.onRetry(commit())}>{t("Retry")}</button></div></Show>
-        <Show when={!props.loading && !props.error && props.loaded && !props.files.length}><div class="git-history-files-state">{t("No changed files")}</div></Show>
-        <Show when={!props.loading && !props.error && !props.loaded}><div class="git-history-files-state">{t("Changed file list is unavailable")}</div></Show>
-        <Show when={!props.loading && !props.error && props.files.length}>
-          <div class="git-history-files">
-            <For each={props.files}>{(file) => <button class="git-history-file" type="button" onClick={() => props.onOpenDiff(commit(), file)} title={t("Open {path} from commit {shortHash}", { path: file.path, shortHash: commit().shortHash })}>
-              <span class={`git-history-file-status git-history-file-status-${file.status.slice(0, 1)}`}>{file.status}</span><span>{file.path}</span><Icon name="chevron-right" size={11} />
-            </button>}</For>
-          </div>
-        </Show>
-      </>}
+    <div class="git-history-details-heading">
+      <div class="git-history-details-title">
+        <strong title={props.commit.subject}>{props.commit.subject}</strong>
+        <span title={props.commit.authoredAt ?? props.commit.date}>{props.commit.shortHash} · {props.commit.author} · {relativeCommitAge(props.commit)}</span>
+      </div>
+      <div class="git-history-detail-actions">
+        <button type="button" onClick={() => props.onCopy(props.commit.hash)} title={t("Copy full commit hash")}><Icon name="copy" size={12} /><span>{t("Copy hash")}</span></button>
+        <button type="button" onClick={() => props.onCreateBranch(props.commit)} title={t("Create a branch from {shortHash}", { shortHash: props.commit.shortHash })}><Icon name="plus" size={12} /><span>{t("Create branch")}</span></button>
+        <button type="button" onClick={props.onClose} title={t("Close")} aria-label={t("Close")}><Icon name="close" size={11} /></button>
+      </div>
+    </div>
+    <div class="git-history-files-heading"><span>{t("Changed files")}</span><Show when={props.loaded && !props.loading}><span>{props.files.length}</span></Show></div>
+    <Show when={props.loading}><div class="git-history-files-state">{t("Loading changed files…")}</div></Show>
+    <Show when={!props.loading && props.error}><div class="git-history-files-state git-history-files-error">{t("Unable to load changed files: {error}", { error: props.error })}<button type="button" onClick={() => props.onRetry(props.commit)}>{t("Retry")}</button></div></Show>
+    <Show when={!props.loading && !props.error && props.loaded && !props.files.length}><div class="git-history-files-state">{t("No changed files")}</div></Show>
+    <Show when={!props.loading && !props.error && !props.loaded}><div class="git-history-files-state">{t("Changed file list is unavailable")}</div></Show>
+    <Show when={!props.loading && !props.error && props.files.length}>
+      <div class="git-history-files">
+        <For each={props.files}>{(file) => <button class="git-history-file" type="button" onClick={() => props.onOpenDiff(props.commit, file)} title={t("Open {path} from commit {shortHash}", { path: file.path, shortHash: props.commit.shortHash })}>
+          <span class={`git-history-file-status git-history-file-status-${file.status.slice(0, 1)}`}>{file.status}</span><span>{file.path}</span><Icon name="chevron-right" size={11} />
+        </button>}</For>
+      </div>
     </Show>
   </section>;
 }

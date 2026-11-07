@@ -53,6 +53,18 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
   let nextColor = 0;
   let nextPriority = 0;
   let laneCount = 0;
+  // A lane crossing a row looks the same on every row it crosses. Sharing that
+  // one segment keeps long histories from allocating millions of equal objects.
+  const crossingSegments = new Map<number, GitGraphSegment>();
+  const crossingSegment = (lane: number, color: number): GitGraphSegment => {
+    const key = lane * GIT_GRAPH_PALETTE_SIZE + color;
+    let segment = crossingSegments.get(key);
+    if (!segment) {
+      segment = { fromLane: lane, toLane: lane, fromY: 0, toY: 1, color };
+      crossingSegments.set(key, segment);
+    }
+    return segment;
+  };
 
   const noteLane = (lane: number) => {
     laneCount = Math.max(laneCount, lane + 1);
@@ -97,13 +109,7 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
           color: active.color,
         });
       } else {
-        segments.push({
-          fromLane: activeLane,
-          toLane: activeLane,
-          fromY: 0,
-          toY: 1,
-          color: active.color,
-        });
+        segments.push(crossingSegment(activeLane, active.color));
       }
     }
 
@@ -184,4 +190,40 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
   }
 
   return { rows, laneCount };
+}
+
+/**
+ * Moves a commit that was listed before one of its children to just after its
+ * last child, leaving every other commit in place. History pages list a quiet
+ * ref's tip ahead of the walk that later reaches its children.
+ */
+export function orderCommitsAfterChildren(commits: readonly GitCommit[]): GitCommit[] {
+  const commitByHash = new Map(commits.map((commit) => [commit.hash, commit]));
+  const unlistedChildren = new Map<string, number>();
+  for (const commit of commits) {
+    for (const parent of new Set(commit.parents ?? [])) {
+      if (commitByHash.has(parent)) unlistedChildren.set(parent, (unlistedChildren.get(parent) ?? 0) + 1);
+    }
+  }
+
+  const ordered: GitCommit[] = [];
+  const waiting = new Set<string>();
+  const list = (first: GitCommit) => {
+    const pending = [first];
+    while (pending.length) {
+      const commit = pending.pop()!;
+      ordered.push(commit);
+      for (const parent of new Set(commit.parents ?? [])) {
+        const remaining = unlistedChildren.get(parent);
+        if (remaining === undefined) continue;
+        unlistedChildren.set(parent, remaining - 1);
+        if (remaining === 1 && waiting.delete(parent)) pending.push(commitByHash.get(parent)!);
+      }
+    }
+  };
+  for (const commit of commits) {
+    if (unlistedChildren.get(commit.hash)) waiting.add(commit.hash);
+    else list(commit);
+  }
+  return ordered;
 }

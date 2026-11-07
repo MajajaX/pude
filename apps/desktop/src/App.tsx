@@ -7,7 +7,7 @@ import type { SearchMatchCount } from "./lib/search-match-count";
 import type { ProjectSearchRequest } from "./components/ProjectSearch";
 import type { TabMenuAction } from "./components/TabContextMenu";
 import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
-import { SidebarTabs, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/SidebarTabs";
+import { ActivityBar, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/ActivityBar";
 import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
@@ -367,6 +367,14 @@ export default function App() {
   const [searchMatches, setSearchMatches] = createSignal<SearchMatchCount>();
   const [selection, setSelection] = createSignal<{ tabId: string; characters: number }>();
   const [sidebarHidden, setSidebarHidden] = createSignal(false);
+  const showSidebarView = (view: SidebarView) => {
+    setSidebarView(view);
+    setSidebarHidden(false);
+  };
+  const toggleSidebarView = (view: SidebarView) => {
+    if (view === sidebarView() && !sidebarHidden()) setSidebarHidden(true);
+    else showSidebarView(view);
+  };
   const [projectSearchRequest, setProjectSearchRequest] = createSignal<ProjectSearchRequest>();
   const [externalConflicts, setExternalConflicts] = createSignal<EditorTab[]>([]);
   const [settings, setSettings] = createSignal<AppSettings>(loadSettings());
@@ -883,7 +891,8 @@ export default function App() {
     event.preventDefault();
     stopSidebarResize();
     document.body.classList.add("sidebar-resizing");
-    const handleMove = (moveEvent: PointerEvent) => updateSidebarWidth(moveEvent.clientX);
+    const sidebarLeft = (event.currentTarget as HTMLElement).previousElementSibling?.getBoundingClientRect().left ?? 0;
+    const handleMove = (moveEvent: PointerEvent) => updateSidebarWidth(moveEvent.clientX - sidebarLeft);
     const handleUp = () => stopSidebarResize();
     stopSidebarResize = () => {
       window.removeEventListener("pointermove", handleMove);
@@ -3609,8 +3618,7 @@ export default function App() {
   const openProjectSearch = (mode: ProjectSearchRequest["mode"]) => {
     if (!workspace()) return;
     const query = mode === "content" ? selectedSearchText() : undefined;
-    setSidebarHidden(false);
-    setSidebarView("search");
+    showSidebarView("search");
     setProjectSearchRequest({ id: Date.now(), mode, query });
   };
   const collapseExplorer = () => {
@@ -5191,8 +5199,8 @@ export default function App() {
       </Show>
 
       <div classList={{ "main-layout": true, "sidebar-hidden": sidebarHidden() }} id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
+        <ActivityBar selected={sidebarView()} sidebarHidden={sidebarHidden()} onSelect={showSidebarView} onToggle={toggleSidebarView} />
         <aside class="sidebar">
-           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /></div>
            <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
              <Show when={sidebarView() === "explorer"}>
                <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={

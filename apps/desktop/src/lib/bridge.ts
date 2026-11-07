@@ -295,7 +295,7 @@ export async function getGitBranches(workspace: string): Promise<GitBranch[]> {
   return browserBranches.map((branch) => ({ ...branch }));
 }
 
-export async function getGitCommits(workspace: string, cursor: string | null = null, pageSize = 60): Promise<GitHistoryPage> {
+export async function getGitCommits(workspace: string, cursor: string | null = null, pageSize = 200): Promise<GitHistoryPage> {
   if (isTauri) return invoke<GitHistoryPage>("git_commits", { workspace, cursor, pageSize });
   const { demoGit } = await getDemoModules();
   const offset = cursor?.startsWith("demo:") ? Number(cursor.slice(5)) : 0;
