@@ -241,11 +241,11 @@
 | `docs/github-social-preview.png` | 1280x640 px | `9cd4f107797a18fd44e23e3779c67b2e6a4228805f95945e071ffa501bdc73b6` | Repository social preview source; identical to the website OG image. |
 | `apps/web/public/pude-favicon.png` | 128x128 px | `4430d99287845538df9c6d34414de037502e2fff10b570c290489266254faefb` | Website dist (Vite public). |
 | `apps/web/public/pude-logo.png` | 512x512 px | `9352f34917525fa299e00fa0a401ef9f931149447cc1fc1fc370d546fbcfa8fa` | Website dist (Vite public). |
-| `apps/web/public/shots/diff.webp` | 1708x979 px | `5ec20c82517ddaa4692af8260db31f33aef28c677e15c31fa7ed290d745e0aaa` | Website dist (Vite public). |
-| `apps/web/public/shots/editor.webp` | 1708x979 px | `5412fca28e32bf76222a43ff7a09843c436aae714f2f01bdb1fb0e7f6952b834` | Website dist (Vite public). |
-| `apps/web/public/shots/git.webp` | 1708x979 px | `f0e570e1e553417f762b01a83138e6d299ae9d8fe1fdc879d9e30d2d2127025b` | Website dist (Vite public). |
-| `apps/web/public/shots/markdown.webp` | 1708x979 px | `dd448428a4686f922d8be0a438a07feb4265e0ea76e2812f5227b6f1bbd23871` | Website dist (Vite public). |
-| `apps/web/public/shots/terminal.webp` | 1708x979 px | `142743751c3b3071bf608bb6477c0c482b7cb0d0f6ffcddd554dbed69786dcb1` | Website dist (Vite public). |
+| `apps/web/public/shots/diff.webp` | 1708x979 px | `de845cb65644f332f623365d328d89281548bbea2b9c4a69d85e69a28a6bb222` | Website dist (Vite public). |
+| `apps/web/public/shots/editor.webp` | 1708x979 px | `f3cf65d3b96b4c15b8296721a4743ac478264d22c87137fb15baef59aff722d5` | Website dist (Vite public). |
+| `apps/web/public/shots/git.webp` | 1708x979 px | `1d36433babbcbb81a216ce20296e048018c43a88091bb6e08b5a28ef3659a83d` | Website dist (Vite public). |
+| `apps/web/public/shots/markdown.webp` | 1708x979 px | `b1bc59b0062703315522e2666ea493c1f2aa5002d9ac762b4eacf729eb7b502f` | Website dist (Vite public). |
+| `apps/web/public/shots/terminal.webp` | 1708x979 px | `c9072362b8fa5b2a0651216921d202646b399b5ee09f03c578b1a91ae68108a2` | Website dist (Vite public). |
 
 ### 後續更新
 
