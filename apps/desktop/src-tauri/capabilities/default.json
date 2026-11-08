@@ -37,6 +37,7 @@
     "allow-create-file",
     "allow-create-directory",
     "allow-rename-path",
+    "allow-copy-path",
     "allow-delete-path",
     "allow-git-status",
     "allow-get-git-ignored-paths",

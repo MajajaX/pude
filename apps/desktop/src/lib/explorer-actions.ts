@@ -60,6 +60,13 @@ function shortcutModifier(event: ShortcutKeyEvent, platform: ExplorerPlatform): 
   return null;
 }
 
+export function explorerClipboardAction(event: ShortcutKeyEvent, platform: ExplorerPlatform): "copy" | "paste" | null {
+  const primaryModifier = platform === "mac" ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+  if (!primaryModifier || event.altKey || event.shiftKey) return null;
+  const key = event.key.toLowerCase();
+  return key === "c" ? "copy" : key === "v" ? "paste" : null;
+}
+
 export function normalizeExplorerPath(path: string): string {
   const normalized = path.replaceAll("\\", "/");
   if (normalized === "/" || /^[A-Za-z]:\/$/.test(normalized)) return normalized;

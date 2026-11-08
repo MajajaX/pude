@@ -56,7 +56,7 @@ function browserFile(path: string): Promise<ReadFileResult | null> {
 
 export async function openFolder(): Promise<string | null> {
   if (isTauri) return invoke<string | null>("open_folder_dialog");
-  return (await getDemoModules()).demoWorkspace;
+  return (await getDemoModules()).demoFolderToOpen();
 }
 
 export async function openFileDialog(): Promise<string | null> {
@@ -105,10 +105,10 @@ export async function saveFileDialog(defaultName: string): Promise<string | null
 
 export async function listDirectory(path: string, requestId?: string): Promise<DirectoryListResult> {
   if (isTauri) return invoke<DirectoryListResult>("list_directory", { path, requestId });
-  const { demoTree, demoWorkspace } = await getDemoModules();
-  if (path === demoWorkspace) return { entries: demoTree.children ?? [] };
-  const node = findDemoEntry(demoTree, path);
-  return { entries: node?.children ?? [] };
+  const { demoTree, demoWorkspace, findDemoEntry } = await getDemoModules();
+  if (path === demoWorkspace) return { entries: structuredClone(demoTree.children ?? []) };
+  const node = findDemoEntry(path);
+  return { entries: structuredClone(node?.children ?? []) };
 }
 
 export async function cancelDirectoryListing(requestId: string): Promise<boolean> {
@@ -171,7 +171,7 @@ export async function saveFile(path: string, content: string, lineEnding: LineEn
   if (isTauri) {
     return invoke<SaveFileResult>("save_file", { path, content, lineEnding, lineEndings, bom, expectedModifiedAt, expectedSize, expectedFingerprint });
   }
-  const { demoFiles, demoTree } = await getDemoModules();
+  const { demoFiles, findDemoEntry } = await getDemoModules();
   const existing = demoFiles[path];
   if (existing) {
     if (expectedModifiedAt !== undefined && existing.modifiedAt !== expectedModifiedAt) throw new Error("The file changed on disk while it was being saved.");
@@ -185,7 +185,7 @@ export async function saveFile(path: string, content: string, lineEnding: LineEn
     existing.encoding = bom ? "utf-8-bom" : "utf-8";
     existing.size = serializeDocumentBytes(content, existing.lineEndings, bom).byteLength;
     existing.modifiedAt = Date.now();
-    const entry = findDemoEntry(demoTree, path);
+    const entry = findDemoEntry(path);
     if (entry) {
       entry.size = existing.size;
       entry.modifiedAt = existing.modifiedAt;
@@ -220,8 +220,8 @@ export async function saveFileAs(path: string, content: string, lineEnding: Line
 
 export async function pathExists(path: string): Promise<boolean> {
   if (isTauri) return invoke<boolean>("path_exists", { path });
-  const { demoTree } = await getDemoModules();
-  return Boolean(findDemoEntry(demoTree, path));
+  const { findDemoEntry } = await getDemoModules();
+  return Boolean(findDemoEntry(path));
 }
 
 export async function createFile(path: string): Promise<void> {
@@ -229,14 +229,7 @@ export async function createFile(path: string): Promise<void> {
     await invoke("create_file", { path });
     return;
   }
-  const { demoFiles, demoTree, demoWorkspace } = await getDemoModules();
-  if (findDemoEntry(demoTree, path)) throw new Error("Unable to create file. The item already exists.");
-  const parent = findDemoEntry(demoTree, parentDemoPath(demoWorkspace, path));
-  if (!parent || parent.kind !== "directory") throw new Error("Unable to create file. The parent folder no longer exists.");
-  const name = demoBaseName(path);
-  const file: ReadFileResult = { path, content: "", encoding: "utf-8", lineEnding: "lf", lineEndings: "", bom: false, modifiedAt: Date.now(), size: 0, fingerprint: contentFingerprint(""), identity: `demo:${path}` };
-  demoFiles[path] = file;
-  parent.children = [...(parent.children ?? []), { name, path, kind: "file", size: 0 }];
+  (await getDemoModules()).createDemoFile(path);
 }
 
 export async function createDirectory(path: string): Promise<void> {
@@ -244,11 +237,7 @@ export async function createDirectory(path: string): Promise<void> {
     await invoke("create_directory", { path });
     return;
   }
-  const { demoTree, demoWorkspace } = await getDemoModules();
-  if (findDemoEntry(demoTree, path)) throw new Error("Unable to create folder. The item already exists.");
-  const parent = findDemoEntry(demoTree, parentDemoPath(demoWorkspace, path));
-  if (!parent || parent.kind !== "directory") throw new Error("Unable to create folder. The parent folder no longer exists.");
-  parent.children = [...(parent.children ?? []), { name: demoBaseName(path), path, kind: "directory", expanded: false, loaded: true, children: [] }];
+  (await getDemoModules()).createDemoDirectory(path);
 }
 
 export async function renamePath(from: string, to: string): Promise<void> {
@@ -256,7 +245,14 @@ export async function renamePath(from: string, to: string): Promise<void> {
     await invoke("rename_path", { from, to });
     return;
   }
-  await renameDemoPath(await getDemoModules(), from, to);
+  (await getDemoModules()).renameDemoPath(from, to);
+}
+
+export type CopyPathResult = { path: string; skippedSpecialItems: number };
+
+export async function copyPath(source: string, sourceRoot: string, destinationDirectory: string, destinationRoot: string): Promise<CopyPathResult> {
+  if (isTauri) return invoke<CopyPathResult>("copy_path", { source, sourceRoot, destinationDirectory, destinationRoot });
+  return (await getDemoModules()).copyDemoPath(source, destinationDirectory);
 }
 
 export async function deletePath(path: string): Promise<void> {
@@ -264,15 +260,7 @@ export async function deletePath(path: string): Promise<void> {
     await invoke("delete_path", { path });
     return;
   }
-  const { demoFiles, demoTree } = await getDemoModules();
-  const parent = findDemoParent(demoTree, path);
-  if (!parent?.children) throw new Error("Unable to delete item. The item no longer exists.");
-  const index = parent.children.findIndex((entry) => entry.path === path);
-  if (index < 0) throw new Error("Unable to delete item. The item no longer exists.");
-  parent.children.splice(index, 1);
-  for (const filePath of Object.keys(demoFiles)) {
-    if (filePath === path || filePath.startsWith(`${path}/`)) delete demoFiles[filePath];
-  }
+  (await getDemoModules()).deleteDemoPath(path);
 }
 
 export async function getGitIgnoredPaths(workspace: string, paths: string[]): Promise<string[]> {
@@ -800,59 +788,4 @@ export async function stopPluginLsp(pluginId: string): Promise<void> {
 export async function stopWorkspaceLsp(workspaceRoot: string): Promise<void> {
   if (!isTauri) return;
   await (await getPluginRuntime()).stopWorkspaceLsp(workspaceRoot);
-}
-
-function findDemoEntry(entry: DirectoryEntry, path: string): DirectoryEntry | undefined {
-  if (entry.path === path) return entry;
-  for (const child of entry.children ?? []) {
-    const found = findDemoEntry(child, path);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-function findDemoParent(entry: DirectoryEntry, path: string): DirectoryEntry | undefined {
-  if (entry.children?.some((child) => child.path === path)) return entry;
-  for (const child of entry.children ?? []) {
-    const parent = findDemoParent(child, path);
-    if (parent) return parent;
-  }
-  return undefined;
-}
-
-function parentDemoPath(demoWorkspace: string, path: string): string {
-  const separator = path.includes("\\") ? "\\" : "/";
-  const normalized = path.replace(/[\\/]+$/, "");
-  const index = normalized.lastIndexOf(separator);
-  return index < 0 ? demoWorkspace : normalized.slice(0, index) || separator;
-}
-
-function demoBaseName(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
-}
-
-async function renameDemoPath(demo: DemoModules, from: string, to: string) {
-  const { demoFiles, demoTree } = demo;
-  const entry = findDemoEntry(demoTree, from);
-  if (!entry) throw new Error("Unable to rename item. The file no longer exists.");
-  const nextName = to.split(/[\\/]/).filter(Boolean).at(-1);
-  if (!nextName) throw new Error("Unable to rename item. Enter a valid name.");
-  const previousPath = entry.path;
-  entry.name = nextName;
-  entry.path = to;
-  updateDemoDescendantPaths(entry, previousPath, to);
-  for (const [path, file] of Object.entries(demoFiles)) {
-    if (path !== previousPath && !path.startsWith(`${previousPath}/`)) continue;
-    const nextPath = `${to}${path.slice(previousPath.length)}`;
-    delete demoFiles[path];
-    demoFiles[nextPath] = { ...file, path: nextPath };
-  }
-}
-
-function updateDemoDescendantPaths(entry: DirectoryEntry, previousPath: string, nextPath: string) {
-  for (const child of entry.children ?? []) {
-    const childPath = child.path;
-    child.path = `${nextPath}${childPath.slice(previousPath.length)}`;
-    updateDemoDescendantPaths(child, childPath, child.path);
-  }
 }

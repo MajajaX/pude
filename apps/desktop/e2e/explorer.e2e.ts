@@ -212,7 +212,7 @@ test("Retry scan relists a partially read folder instead of collapsing it", asyn
   await page.route("**/src/lib/bridge.ts*", async (route) => {
     const response = await route.fetch();
     const body = (await response.text()).replace(
-      "return { entries: demoTree.children ?? [] };",
+      "return { entries: structuredClone(demoTree.children ?? []) };",
       'return { entries: demoTree.children.map((entry) => entry.name === "src" ? { ...entry, partialError: { kind: "metadata", message: "Some entries could not be read." } } : entry) };',
     );
     await route.fulfill({ response, body });

@@ -27,6 +27,7 @@ fn main() {
         "create_file",
         "create_directory",
         "rename_path",
+        "copy_path",
         "delete_path",
         "git_status",
         "get_git_ignored_paths",

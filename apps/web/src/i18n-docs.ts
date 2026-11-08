@@ -202,6 +202,8 @@ const en: DocsDict = {
             t: "list",
             items: [
               "Create, rename and delete files and folders. Deleting moves items to the Recycle Bin or Trash — never a permanent delete. The `FILES` bar at the top of Explorer has `+` for a new file and a folder button for a new folder.",
+              "Copy and paste files and folders with `Copy` and `Paste` in the right-click menu, or `⌘C` and `⌘V` (`Ctrl+C` and `Ctrl+V` on Windows and Linux) on a focused Explorer row. Pasting on a folder puts the item inside it; pasting on a file puts it beside that file. The copied item stays available when you switch project tabs, so you can paste it into another project. It is separate from the system clipboard, holds one item, is not shared between windows and is forgotten on restart.",
+              "Paste never overwrites: a name in use becomes `name copy.ext`, then `name copy 2.ext`. Folders copy recursively in the background and cannot be pasted into themselves or their subfolders. Symbolic links are recreated rather than followed, which on Windows needs Developer Mode or administrator rights. Sockets, pipes and device files inside a folder are skipped. A failed paste removes its partial copy, but closing the window during a paste can leave one behind.",
               "Right-click a file or folder for `New file`, `New folder`, `Copy Name`, `Copy Path`, `Copy Relative Path`, `Open in Integrated Terminal` and `Reveal in Finder` (`Open in File Explorer` on Windows). On a file, `New file` and `New folder` create the item in that file's folder.",
               "Dot files are shown. Git-ignored items have gray names. The `Git ignored` root group uses a Git icon, divider and count; expand it to browse ignored items. Toggle `Group ignored` beside the footer’s plugin count to show them among normal entries instead. The choice is remembered after restart.",
               "Long folders stay fast: only visible rows are rendered.",
@@ -381,6 +383,7 @@ const en: DocsDict = {
               ["Command palette", "`⌘⇧P`", "`Ctrl+Shift+P`"],
               ["Settings", "`⌘,`", "`Ctrl+,`"],
               ["Toggle sidebar", "`⌘B`", "`Ctrl+B`"],
+              ["Copy / paste file or folder (focused Explorer row)", "`⌘C` / `⌘V`", "`Ctrl+C` / `Ctrl+V`"],
               ["Toggle word wrap", "`⌥Z`", "`Alt+Z`"],
               ["Markdown source / preview", "`⌘⇧V`", "`Ctrl+Shift+V`"],
               ["Toggle terminal", "`` ⌘` ``", "`` Ctrl+` ``"],
@@ -616,6 +619,8 @@ const zhHant: DocsDict = {
             t: "list",
             items: [
               "建立、重新命名與刪除檔案和資料夾。刪除會移到資源回收筒或垃圾桶，絕不永久刪除。檔案總管頂端的 `FILES` 列有 `+`（新增檔案）與資料夾按鈕（新增資料夾）。",
+              "用右鍵選單的 `Copy` 與 `Paste`，或在檔案總管的列取得焦點時按 `⌘C` 與 `⌘V`（Windows 和 Linux 為 `Ctrl+C` 與 `Ctrl+V`），即可複製和貼上檔案與資料夾。貼在資料夾上會放進該資料夾，貼在檔案上會放在該檔案旁邊。切換專案分頁後仍可貼上，因此能貼到另一個專案。複製的內容與系統剪貼簿分開，一次只有一個項目，不同視窗之間不共用，重新啟動後會清除。",
+              "貼上絕不覆蓋：名稱已被使用時會改為 `name copy.ext`，接著是 `name copy 2.ext`。資料夾會在背景遞迴複製，且不能貼進自己或自己的子資料夾。符號連結會重新建立而不會跟隨，在 Windows 上需要開發人員模式或系統管理員權限。資料夾內的 socket、管道與裝置檔案會略過。貼上失敗時會移除不完整的副本，但在貼上途中關閉視窗可能留下不完整的副本。",
               "對檔案或資料夾按右鍵，可使用 `New file`、`New folder`、`Copy Name`、`Copy Path`、`Copy Relative Path`、`Open in Integrated Terminal` 與 `Reveal in Finder`（Windows 為 `Open in File Explorer`）。在檔案上按右鍵時，`New file` 與 `New folder` 會建立在該檔案所在的資料夾。",
               "會顯示以 `.` 開頭的檔案。被 Git 忽略的項目以灰色顯示；根目錄的 `Git ignored` 群組以 Git 圖示、分隔線與數量標示，展開即可瀏覽。在底部外掛數量旁取消勾選 `Group ignored`，可將項目放回一般列表；重新啟動後也會記住選擇。",
               "很長的資料夾也保持流暢：只渲染看得到的列。",
@@ -795,6 +800,7 @@ const zhHant: DocsDict = {
               ["命令面板", "`⌘⇧P`", "`Ctrl+Shift+P`"],
               ["設定", "`⌘,`", "`Ctrl+,`"],
               ["切換側邊欄", "`⌘B`", "`Ctrl+B`"],
+              ["複製／貼上檔案或資料夾（檔案總管的列取得焦點時）", "`⌘C` / `⌘V`", "`Ctrl+C` / `Ctrl+V`"],
               ["切換自動換行", "`⌥Z`", "`Alt+Z`"],
               ["Markdown 原始碼／預覽", "`⌘⇧V`", "`Ctrl+Shift+V`"],
               ["切換終端機", "`` ⌘` ``", "`` Ctrl+` ``"],

@@ -11,6 +11,11 @@ All notable changes to `pude` are recorded here. The format follows
 - **Generate key** in the `.env` table toolbar opens the random value generator without
   choosing a row, including in an empty file, and can copy the value or add it as a new
   variable. A new variable's row also has a ✦ button that opens the generator.
+- **Copy** and **Paste** for files and folders in Explorer, from the context menu or
+  `Cmd/Ctrl+C` and `Cmd/Ctrl+V` on a focused row. The copied item stays available when
+  you switch project tabs, so it can be pasted into another project. Paste never
+  overwrites: a name in use becomes `name copy.ext`. A folder cannot be pasted into
+  itself, and symbolic links are recreated rather than followed.
 
 ### Changed
 

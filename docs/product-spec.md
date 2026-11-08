@@ -26,6 +26,22 @@ coverage and no published installer yet.
 - A **FILES** bar at the top of the Explorer view holds **New file** (`+`) and **New folder**
   for the project root. Right-click a folder to create items inside it, or a file
   to create items beside it.
+- Right-click a file or folder for **Copy** and **Paste**, or press **Cmd+C** / **Cmd+V**
+  (**Ctrl+C** / **Ctrl+V** on Windows and Linux) while its Explorer row has focus; the
+  editor and terminal keep their own copy and paste. Pasting on a folder puts the item
+  inside it, and pasting on a file puts it beside that file. The copied item stays
+  available in every project tab of the window, so it can be pasted into another
+  project, and it can be pasted repeatedly. It holds one item, is separate from the
+  system clipboard, is not shared between windows and is forgotten on restart.
+- Paste never replaces anything. A name already in use becomes `name copy.ext`, then
+  `name copy 2.ext`. Folders copy recursively and cannot be pasted into themselves or
+  their subfolders. Symbolic links are recreated rather than followed; on Windows that
+  needs Developer Mode or administrator rights. Sockets, pipes and device files inside
+  a folder are skipped and counted in the message. Both locations must be inside their
+  project. Pasting runs in the background, one at a time, without blocking the window,
+  and has no cancel. After it finishes, Explorer refreshes, expands the folder and
+  selects the new item. A failed paste shows the error and removes the partial copy;
+  closing the window during a paste can leave a partial copy behind.
 - **Collapse folders** (the chevron in the **FILES** bar, or the command
   **Explorer: Collapse Folders**) closes every expanded subfolder below the
   workspace's top-level folders; loaded listings are kept.

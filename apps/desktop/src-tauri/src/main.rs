@@ -33,6 +33,7 @@ mod blocking;
 #[cfg(target_os = "macos")]
 mod dock_menu;
 mod document_encoding;
+mod file_copy;
 mod filesystem;
 mod git_diff;
 mod git_history;
@@ -4931,6 +4932,7 @@ fn main() {
                     filesystem::create_file,
                     filesystem::create_directory,
                     filesystem::rename_path,
+                    file_copy::copy_path,
                     filesystem::delete_path,
                     git_status,
                     get_git_ignored_paths,

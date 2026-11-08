@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceOpenFolderChord, relativePathWithinRoot } from "./explorer-actions";
+import { advanceOpenFolderChord, explorerClipboardAction, relativePathWithinRoot } from "./explorer-actions";
 
 const key = (keyName: string, modifier: "ctrl" | "meta" | null = null, overrides: Partial<{ altKey: boolean; shiftKey: boolean; defaultPrevented: boolean }> = {}) => ({
   key: keyName,
@@ -16,6 +16,19 @@ describe("Explorer actions", () => {
     expect(relativePathWithinRoot("/work/src/main.ts", "/work")).toBe("src/main.ts");
     expect(relativePathWithinRoot("/workbench/file.ts", "/work")).toBeNull();
     expect(relativePathWithinRoot("C:\\WORK", "c:\\work")).toBe(".");
+  });
+
+  it("maps only the platform's primary modifier to Explorer copy and paste", () => {
+    expect(explorerClipboardAction(key("c", "meta"), "mac")).toBe("copy");
+    expect(explorerClipboardAction(key("V", "meta"), "mac")).toBe("paste");
+    expect(explorerClipboardAction(key("c", "ctrl"), "windows")).toBe("copy");
+    expect(explorerClipboardAction(key("v", "ctrl"), "linux")).toBe("paste");
+    expect(explorerClipboardAction(key("c", "ctrl"), "mac")).toBeNull();
+    expect(explorerClipboardAction(key("v", "meta"), "windows")).toBeNull();
+    expect(explorerClipboardAction(key("c"), "linux")).toBeNull();
+    expect(explorerClipboardAction(key("v", "ctrl", { shiftKey: true }), "windows")).toBeNull();
+    expect(explorerClipboardAction(key("c", "meta", { altKey: true }), "mac")).toBeNull();
+    expect(explorerClipboardAction(key("x", "meta"), "mac")).toBeNull();
   });
 
   it("opens a folder only after the matching two-key chord", () => {

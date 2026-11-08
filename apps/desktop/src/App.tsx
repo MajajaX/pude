@@ -19,7 +19,7 @@ import { version as appVersion } from "../package.json";
 import { checkForUpdates, updateStatus } from "./lib/app-update";
 import { defaultSettings, SETTINGS_STORAGE_KEY } from "./lib/settings";
 import { getStartupFolder, setRecentItems } from "./lib/bridge";
-import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStashDiff, getGitStashes, getGitStashFiles, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import { cancelWorkspaceOperations, copyPath, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStashDiff, getGitStashes, getGitStashFiles, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
 import { loadedExplorerPaths } from "./lib/explorer-ignored";
 import { errorMessage, orderTabsByPinned } from "./lib/core";
 import { emitDiagnostic } from "./lib/diagnostics";
@@ -72,6 +72,7 @@ import { applyLanguage, t, translateMessage } from "./lib/i18n";
 
 type ViewMode = "editor" | "diff" | "history";
 type FileContextMenu = { entry: DirectoryEntry; x: number; y: number };
+type ExplorerClipboard = { path: string; name: string; root: string };
 type InputDialogState = {
   title: string;
   label: string;
@@ -395,6 +396,9 @@ export default function App() {
   let contextMenuFocusTarget: HTMLElement | undefined;
   const closeTabMenu = () => setTabMenu(undefined);
   const closeFileMenu = () => setFileMenu(undefined);
+  const [explorerClipboard, setExplorerClipboard] = createSignal<ExplorerClipboard>();
+  const [explorerRevealPath, setExplorerRevealPath] = createSignal<string>();
+  let pasteInFlight = false;
   let toastTimer: number | undefined;
   let openFolderChord: OpenFolderChordState = null;
   let cursorPersistTimer: number | undefined;
@@ -2847,7 +2851,7 @@ export default function App() {
     if (isWorkspaceRootEntry(entry)) return;
     setTabMenu(undefined);
     const row = document.elementFromPoint(x, y)?.closest<HTMLElement>("[role=treeitem]");
-    contextMenuFocusTarget = row?.querySelector<HTMLElement>("button") ?? undefined;
+    contextMenuFocusTarget = row ?? undefined;
     setFileMenu({ entry, x, y });
   };
 
@@ -3771,6 +3775,45 @@ export default function App() {
       } finally {
         setConfirmedOperationInProgress(false);
       }
+    }
+  };
+
+  const copyExplorerEntry = (entry: DirectoryEntry) => {
+    const root = folderContaining(entry.path, workspaceFolders(), PATH_OPTIONS);
+    if (!root) return;
+    setExplorerClipboard({ path: entry.path, name: entry.name, root });
+    notify(t("Copied {name}", { name: entry.name }));
+  };
+
+  const pasteExplorerEntry = async (entry: DirectoryEntry) => {
+    const copied = explorerClipboard();
+    if (!copied || confirmedOperationInProgress() || appQuitPrepared()) return;
+    if (pasteInFlight) {
+      notify(t("Wait for the current paste to finish."));
+      return;
+    }
+    const targetDirectory = entry.kind === "directory" ? entry.path : parentPath(entry.path);
+    const targetRoot = folderContaining(targetDirectory, workspaceFolders(), PATH_OPTIONS);
+    if (!targetRoot) return;
+    const requestGeneration = workspaceGeneration;
+    const requestWorkspace = workspace();
+    pasteInFlight = true;
+    notify(t("Pasting {name}…", { name: copied.name }));
+    window.clearTimeout(toastTimer);
+    try {
+      const { path, skippedSpecialItems } = await copyPath(copied.path, copied.root, targetDirectory, targetRoot);
+      const name = baseName(path);
+      notify(skippedSpecialItems
+        ? t("Pasted {name}. Skipped {count} sockets or other special items.", { name, count: skippedSpecialItems })
+        : t("Pasted {name}", { name }));
+      if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace()) return;
+      setRoot((current) => updateEntry(current, targetDirectory, (item) => ({ ...item, expanded: true })));
+      await refreshRoot(targetDirectory);
+      setExplorerRevealPath(path);
+    } catch (error) {
+      notify(errorMessage(error, "Unable to paste item."));
+    } finally {
+      pasteInFlight = false;
     }
   };
 
@@ -5202,7 +5245,7 @@ export default function App() {
                  <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button><button class="icon-button" onClick={collapseExplorer} title={t("Collapse folders")} aria-label={t("Collapse folders")}><Icon name="chevron-right" size={14} /></button></div></div>
                  <div class="explorer-scroll">
                    <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
-                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onRetry={(entry) => void refreshRoot(entry.path)} onContextMenu={showFileContextMenu} />
+                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onRetry={(entry) => void refreshRoot(entry.path)} onContextMenu={showFileContextMenu} platform={windowPlatform} onClipboardAction={(action, entry) => { if (action === "copy") copyExplorerEntry(entry); else void pasteExplorerEntry(entry); }} revealPath={explorerRevealPath()} onRevealed={() => setExplorerRevealPath(undefined)} />
                    </Suspense>
                  </div>
                </Show>
@@ -5242,6 +5285,9 @@ export default function App() {
              showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
              onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
              onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
+             canPaste={Boolean(explorerClipboard())}
+             onCopyItem={() => { const entry = menu().entry; closeFileMenu(); contextMenuFocusTarget?.focus({ preventScroll: true }); copyExplorerEntry(entry); }}
+             onPasteItem={() => { const entry = menu().entry; closeFileMenu(); contextMenuFocusTarget?.focus({ preventScroll: true }); void pasteExplorerEntry(entry); }}
              onCopy={(kind) => void copyEntryText(menu().entry, kind)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">

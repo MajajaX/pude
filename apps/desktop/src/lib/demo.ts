@@ -3,6 +3,7 @@ import { lineEndingMapForContent } from "./file-metadata";
 import { contentFingerprint } from "./fingerprint";
 
 export const demoWorkspace = "pude-demo";
+const demoSamplesWorkspace = "pude-samples";
 
 const demoFileSeeds: Record<string, Omit<ReadFileResult, "lineEndings" | "bom" | "fingerprint" | "identity">> = {
   "pude-demo/src/main.ts": {
@@ -53,6 +54,22 @@ const demoFileSeeds: Record<string, Omit<ReadFileResult, "lineEndings" | "bom" |
     modifiedAt: Date.now(),
     size: 176,
   },
+  "pude-samples/README.md": {
+    path: "pude-samples/README.md",
+    content: `# Samples\n\nA second demo project.\n`,
+    encoding: "utf-8",
+    lineEnding: "lf",
+    modifiedAt: Date.now(),
+    size: 32,
+  },
+  "pude-samples/notes/ideas.md": {
+    path: "pude-samples/notes/ideas.md",
+    content: `# Ideas\n`,
+    encoding: "utf-8",
+    lineEnding: "lf",
+    modifiedAt: Date.now(),
+    size: 8,
+  },
 };
 
 export const demoFiles: Record<string, ReadFileResult> = Object.fromEntries(Object.entries(demoFileSeeds).map(([path, file]) => [path, {
@@ -96,6 +113,145 @@ export const demoTree: DirectoryEntry = {
     { name: "package.json", path: "pude-demo/package.json", kind: "file", size: 118 },
   ],
 };
+
+const demoSamplesTree: DirectoryEntry = {
+  name: "pude-samples",
+  path: demoSamplesWorkspace,
+  kind: "directory",
+  expanded: true,
+  loaded: true,
+  children: [
+    {
+      name: "notes",
+      path: "pude-samples/notes",
+      kind: "directory",
+      expanded: false,
+      loaded: true,
+      children: [{ name: "ideas.md", path: "pude-samples/notes/ideas.md", kind: "file", size: 8 }],
+    },
+    { name: "README.md", path: "pude-samples/README.md", kind: "file", size: 32 },
+  ],
+};
+
+const demoRoots = [demoTree, demoSamplesTree];
+
+/** Browser tests set this key to open the second demo project in another tab. */
+export function demoFolderToOpen(): string {
+  return sessionStorage.getItem("pude-demo-open-folder") ?? demoWorkspace;
+}
+
+function findEntryBelow(entry: DirectoryEntry, path: string): DirectoryEntry | undefined {
+  if (entry.path === path) return entry;
+  for (const child of entry.children ?? []) {
+    const found = findEntryBelow(child, path);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export function findDemoEntry(path: string): DirectoryEntry | undefined {
+  for (const root of demoRoots) {
+    const found = findEntryBelow(root, path);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export function findDemoParent(path: string): DirectoryEntry | undefined {
+  return findDemoEntry(path.slice(0, path.lastIndexOf("/")));
+}
+
+function demoCopyName(entry: DirectoryEntry, attempt: number): string {
+  if (attempt === 0) return entry.name;
+  const suffix = attempt === 1 ? " copy" : ` copy ${attempt}`;
+  const extensionStart = entry.kind === "directory" ? -1 : entry.name.lastIndexOf(".");
+  return extensionStart > 0 ? `${entry.name.slice(0, extensionStart)}${suffix}${entry.name.slice(extensionStart)}` : `${entry.name}${suffix}`;
+}
+
+function cloneDemoEntry(entry: DirectoryEntry, path: string, name = entry.name): DirectoryEntry {
+  const file = demoFiles[entry.path];
+  if (file) demoFiles[path] = { ...file, path, identity: `demo:${path}` };
+  return { ...entry, name, path, children: entry.children?.map((child) => cloneDemoEntry(child, `${path}/${child.name}`)) };
+}
+
+export function copyDemoPath(source: string, destinationDirectory: string): { path: string; skippedSpecialItems: number } {
+  const entry = findDemoEntry(source);
+  if (!entry) throw new Error("Unable to paste item. The copied item no longer exists.");
+  const directory = findDemoEntry(destinationDirectory);
+  if (directory?.kind !== "directory") throw new Error("Unable to paste item. The destination folder no longer exists.");
+  if (entry.kind === "directory" && (destinationDirectory === source || destinationDirectory.startsWith(`${source}/`))) {
+    throw new Error("Unable to paste item. A folder cannot be pasted into itself or one of its subfolders.");
+  }
+  const taken = new Set(directory.children?.map((child) => child.name));
+  let attempt = 0;
+  while (taken.has(demoCopyName(entry, attempt))) attempt += 1;
+  const name = demoCopyName(entry, attempt);
+  const path = `${destinationDirectory}/${name}`;
+  directory.children = [...(directory.children ?? []), cloneDemoEntry(entry, path, name)];
+  return { path, skippedSpecialItems: 0 };
+}
+
+function parentDemoPath(path: string): string {
+  const separator = path.includes("\\") ? "\\" : "/";
+  const normalized = path.replace(/[\\/]+$/, "");
+  const index = normalized.lastIndexOf(separator);
+  return index < 0 ? demoWorkspace : normalized.slice(0, index) || separator;
+}
+
+function demoBaseName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
+}
+
+export function createDemoFile(path: string): void {
+  if (findDemoEntry(path)) throw new Error("Unable to create file. The item already exists.");
+  const parent = findDemoEntry(parentDemoPath(path));
+  if (!parent || parent.kind !== "directory") throw new Error("Unable to create file. The parent folder no longer exists.");
+  demoFiles[path] = { path, content: "", encoding: "utf-8", lineEnding: "lf", lineEndings: "", bom: false, modifiedAt: Date.now(), size: 0, fingerprint: contentFingerprint(""), identity: `demo:${path}` };
+  parent.children = [...(parent.children ?? []), { name: demoBaseName(path), path, kind: "file", size: 0 }];
+}
+
+export function createDemoDirectory(path: string): void {
+  if (findDemoEntry(path)) throw new Error("Unable to create folder. The item already exists.");
+  const parent = findDemoEntry(parentDemoPath(path));
+  if (!parent || parent.kind !== "directory") throw new Error("Unable to create folder. The parent folder no longer exists.");
+  parent.children = [...(parent.children ?? []), { name: demoBaseName(path), path, kind: "directory", expanded: false, loaded: true, children: [] }];
+}
+
+export function deleteDemoPath(path: string): void {
+  const parent = findDemoParent(path);
+  if (!parent?.children) throw new Error("Unable to delete item. The item no longer exists.");
+  const index = parent.children.findIndex((entry) => entry.path === path);
+  if (index < 0) throw new Error("Unable to delete item. The item no longer exists.");
+  parent.children.splice(index, 1);
+  for (const filePath of Object.keys(demoFiles)) {
+    if (filePath === path || filePath.startsWith(`${path}/`)) delete demoFiles[filePath];
+  }
+}
+
+export function renameDemoPath(from: string, to: string): void {
+  const entry = findDemoEntry(from);
+  if (!entry) throw new Error("Unable to rename item. The file no longer exists.");
+  const nextName = to.split(/[\\/]/).filter(Boolean).at(-1);
+  if (!nextName) throw new Error("Unable to rename item. Enter a valid name.");
+  const previousPath = entry.path;
+  entry.name = nextName;
+  entry.path = to;
+  updateDemoDescendantPaths(entry, previousPath, to);
+  for (const [path, file] of Object.entries(demoFiles)) {
+    if (path !== previousPath && !path.startsWith(`${previousPath}/`)) continue;
+    const nextPath = `${to}${path.slice(previousPath.length)}`;
+    delete demoFiles[path];
+    demoFiles[nextPath] = { ...file, path: nextPath };
+  }
+}
+
+function updateDemoDescendantPaths(entry: DirectoryEntry, previousPath: string, nextPath: string) {
+  for (const child of entry.children ?? []) {
+    const childPath = child.path;
+    child.path = `${nextPath}${childPath.slice(previousPath.length)}`;
+    updateDemoDescendantPaths(child, childPath, child.path);
+  }
+}
 
 export const demoGit: GitStatusResult = {
   repositoryRoot: demoWorkspace,

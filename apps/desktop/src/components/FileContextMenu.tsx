@@ -11,6 +11,9 @@ export function FileContextMenu(props: {
   revealLabel: string;
   onAction: (action: "new-file" | "new-folder" | "rename" | "delete") => void;
   onCopy: (kind: "path" | "relative-path" | "name") => void;
+  canPaste: boolean;
+  onCopyItem: () => void;
+  onPasteItem: () => void;
   onOpenTerminal: () => void;
   onReveal: () => void;
   /** Present on the top folder rows of a multi-folder workspace. */
@@ -30,6 +33,8 @@ export function FileContextMenu(props: {
   return <div ref={menu} class="file-context-menu" style={{ left: `${props.x}px`, top: `${props.y}px` }} onClick={(event) => event.stopPropagation()}>
     <button onClick={() => props.onAction("new-file")}><Icon name="plus" size={13} /> {t("New file")}</button>
     <button onClick={() => props.onAction("new-folder")}><Icon name="folder" size={13} /> {t("New folder")}</button>
+    <button onClick={props.onCopyItem}><Icon name="copy" size={13} /> {t("Copy")}</button>
+    <button disabled={!props.canPaste} onClick={props.onPasteItem}><Icon name="file" size={13} /> {t("Paste")}</button>
     <button onClick={() => props.onCopy("name")}><Icon name="copy" size={13} /> {t("Copy Name")}</button>
     <button onClick={() => props.onCopy("path")}><Icon name="copy" size={13} /> {t("Copy Path")}</button>
     <Show when={props.showRelativePath}><button onClick={() => props.onCopy("relative-path")}><Icon name="copy" size={13} /> {t("Copy Relative Path")}</button></Show>

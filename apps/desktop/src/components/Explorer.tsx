@@ -7,6 +7,7 @@ import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored
 import { sameGitStatusFiles } from "../lib/git-status-virtualization";
 import { isWorkspaceRootEntry } from "../lib/workspace-folders";
 import { isImeComposing } from "../lib/keyboard-input";
+import { explorerClipboardAction, type ExplorerPlatform } from "../lib/explorer-actions";
 import "../styles/explorer-virtualization.css";
 import { t, translateMessage } from "../lib/i18n";
 
@@ -27,6 +28,10 @@ type ExplorerProps = {
   onRetry?: (entry: DirectoryEntry) => void;
   onOpen: (entry: ExplorerEntry) => void;
   onContextMenu: (entry: DirectoryEntry, x: number, y: number) => void;
+  platform: ExplorerPlatform;
+  onClipboardAction: (action: "copy" | "paste", entry: DirectoryEntry) => void;
+  revealPath?: string;
+  onRevealed: () => void;
 };
 
 type StableTreeRow = {
@@ -181,10 +186,19 @@ export function Explorer(props: ExplorerProps) {
   };
 
   const handleTreeKeyDown = (event: KeyboardEvent) => {
-    if (isImeComposing(event) || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isImeComposing(event)) return;
     if (!(event.target instanceof HTMLElement) || event.target.getAttribute("role") !== "treeitem") return;
     const currentRows = rows();
     const index = focusedIndex() >= 0 ? focusedIndex() : tabStopIndex();
+    const clipboardAction = explorerClipboardAction(event, props.platform);
+    const clipboardEntry = currentRows[index]?.entry;
+    if (clipboardAction && clipboardEntry && !clipboardEntry.recentProject && !clipboardEntry.gitIgnoredGroup) {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onClipboardAction(clipboardAction, clipboardEntry);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     const action = treeKeyboardAction(currentRows, index, event.key);
     if (!action) return;
     event.preventDefault();
@@ -238,6 +252,19 @@ export function Explorer(props: ExplorerProps) {
       if (hadTreeFocus) queueMicrotask(() => document.getElementById(rowId(focusedIndex()))?.focus({ preventScroll: true }));
     }
     setTreeVersion(change.version);
+  });
+
+  createEffect(() => {
+    treeVersion();
+    if (!props.revealPath) return;
+    const key = pathKey(props.revealPath);
+    const index = treeModel.indexOfKey(key);
+    if (index < 0) return;
+    const focusIsAvailable = document.activeElement === document.body || treeHost.contains(document.activeElement);
+    setFocusedKey(key);
+    ensureIndexVisible(index);
+    if (focusIsAvailable) queueMicrotask(() => document.getElementById(rowId(index))?.focus({ preventScroll: true }));
+    props.onRevealed();
   });
 
   createEffect(() => {
