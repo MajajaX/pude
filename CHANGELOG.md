@@ -6,6 +6,12 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Git history shows one badge for a tagged commit instead of a tag badge and a
+  remote-branch badge, and tags no longer appear as remote branches in the history
+  branch filter.
+
 ## [0.1.8] - 2026-11-05
 
 ### Added

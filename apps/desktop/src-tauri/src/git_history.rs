@@ -641,7 +641,7 @@ fn resolve_pending_ref_tips(
 
 fn add_ref_names(commit: &mut GitCommit, references: &[String]) {
     for reference in references {
-        let display_name = short_ref_name(reference);
+        let display_name = decorated_ref_name(reference);
         if !commit.refs.contains(&display_name) {
             commit.refs.push(display_name);
         }
@@ -711,11 +711,13 @@ fn commit_page_into_state<'a>(
     state.last_used = Instant::now();
 }
 
-fn short_ref_name(reference: &str) -> String {
+fn decorated_ref_name(reference: &str) -> String {
+    if let Some(tag) = reference.strip_prefix("refs/tags/") {
+        return format!("tag: {tag}");
+    }
     reference
         .strip_prefix("refs/heads/")
         .or_else(|| reference.strip_prefix("refs/remotes/"))
-        .or_else(|| reference.strip_prefix("refs/tags/"))
         .unwrap_or(reference)
         .to_string()
 }
@@ -1301,6 +1303,42 @@ mod tests {
             .as_deref()
             .unwrap()
             .contains("8 MiB"));
+    }
+
+    #[test]
+    fn tags_are_listed_once_in_decorated_form_beside_branches_and_head() {
+        let fixture = GitFixture::new();
+        let quiet_tip = fixture.commit("quiet", "quiet\n");
+        fixture.git(&["tag", "v0.1.0"]);
+        let newest = fixture.commit("newest", "newest\n");
+        fixture.git(&["tag", "v0.2.0"]);
+        fixture.git(&["tag", "--annotate", "--message", "release", "v0.2.1"]);
+        fixture.git(&["branch", "--move", "main"]);
+        fixture.git(&["branch", "feature"]);
+
+        let page = fixture.load(None, 1);
+        let sorted_refs = |hash: &str| {
+            let commit = page
+                .commits
+                .iter()
+                .find(|commit| commit.hash == hash)
+                .expect("tagged commit is visible");
+            let mut refs = commit.refs.clone();
+            refs.sort();
+            refs
+        };
+
+        assert_eq!(
+            sorted_refs(&newest),
+            vec![
+                "HEAD -> main",
+                "feature",
+                "main",
+                "tag: v0.2.0",
+                "tag: v0.2.1",
+            ]
+        );
+        assert_eq!(sorted_refs(&quiet_tip), vec!["tag: v0.1.0"]);
     }
 
     #[test]
