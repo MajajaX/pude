@@ -446,7 +446,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         instance.options.fontSize = props.fontSize;
         instance.open(hostRef);
         instance.attachCustomKeyEventHandler((event) => event.type !== "keydown" || !handleShortcut(event));
-        instance.write("pude terminal\r\n");
         instance.options.disableStdin = isTauri;
 
         if (isTauri) {
@@ -463,7 +462,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
           disposeTerminalInput = () => subscription.dispose();
           instance.options.disableStdin = false;
           setStatus("Ready");
-          instance.write("browser demo: help, clear, pwd, git status\r\npude$ ");
+          instance.write("pude terminal\r\nbrowser demo: help, clear, pwd, git status\r\npude$ ");
           if (props.visible) instance.focus();
         }
 

@@ -6,6 +6,11 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A new terminal no longer occasionally shows the `pude terminal` banner twice above
+  its first prompt.
+
 ## [0.1.8] - 2026-11-05
 
 ### Added
