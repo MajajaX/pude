@@ -6,6 +6,14 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Typing in documents of 1 MiB or more no longer rewrites the full recovery checkpoint
+  about every 0.6 seconds. Checkpoints now land within about 5 seconds up to 5 MiB and about
+  15 seconds above that, so a crash or forced kill can lose that much recent typing.
+  Smaller documents are unchanged, and leaving or closing the window still writes
+  pending checkpoints immediately.
+
 ## [0.1.8] - 2026-11-05
 
 ### Added

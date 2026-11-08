@@ -57,7 +57,7 @@ import { attachSessionWindow, claimSessionWindow, closeSessionWindow, collectExp
 import type { StartupSessionSelection } from "./lib/session-startup";
 import { createSessionLeaseReleaseQueue } from "./lib/session-lease-release";
 import { setRecoveryDatabaseBlockedHandler } from "./lib/recovery-database-status";
-import { RecoveryWriteScheduler } from "./lib/recovery-scheduler";
+import { editNeedsSessionCheckpoint, RecoveryWriteScheduler } from "./lib/recovery-scheduler";
 import type { DirectoryRefreshCoordinator } from "./lib/directory-refresh";
 import type { GitHistoryController } from "./lib/git-history-controller";
 import type { VersionedFileReader } from "./lib/versioned-file-reader";
@@ -1428,6 +1428,8 @@ export default function App() {
     void flushRecoveryWrites().catch((error) => emitDiagnostic("recovery.flush", error));
   };
 
+  const recoverySizeBytes = (tab: EditorTab) => documentController.getHandle(tab.id)?.getMetadata()?.estimatedBytes ?? tab.estimatedBytes ?? tab.diskSize ?? 0;
+
   const scheduleRecovery = (tabId: string) => {
     const tab = tabById[tabId];
     if (!tab?.dirty) {
@@ -1439,8 +1441,7 @@ export default function App() {
       writeRecoveryCheckpoint(tabId);
       return;
     }
-    const sizeBytes = documentController.getHandle(tab.id)?.getMetadata()?.estimatedBytes ?? tab.estimatedBytes ?? tab.diskSize ?? 0;
-    recoveryScheduler.schedule(tabId, sizeBytes, Date.now(), () => writeRecoveryCheckpoint(tabId));
+    recoveryScheduler.schedule(tabId, recoverySizeBytes(tab), Date.now(), () => writeRecoveryCheckpoint(tabId));
   };
 
   const persistSettings = () => {
@@ -2897,15 +2898,20 @@ export default function App() {
     notifyFileOpen();
   };
 
+  const applyTabChanges = (tab: EditorTab, changes: Partial<EditorTab>) => {
+    const selectionFallback = editorSelectionFallbackAfterUpdate(tab, changes);
+    const applied = selectionFallback !== tab.selectionFallback || Object.prototype.hasOwnProperty.call(changes, "selectionFallback")
+      ? { ...changes, selectionFallback }
+      : changes;
+    setTabById(tab.id, applied);
+    return applied;
+  };
+
   const updateTab = (id: string, changes: Partial<EditorTab>) => {
     const current = tabById[id];
     if (!current) return;
-    const selectionFallback = editorSelectionFallbackAfterUpdate(current, changes);
-    if (selectionFallback !== current.selectionFallback || Object.prototype.hasOwnProperty.call(changes, "selectionFallback")) {
-      changes = { ...changes, selectionFallback };
-    }
-    setTabById(id, changes);
-    if (Object.keys(changes).some((key) => key !== "cursorLine" && key !== "cursorColumn")) markSessionDirty();
+    const applied = applyTabChanges(current, changes);
+    if (Object.keys(applied).some((key) => key !== "cursorLine" && key !== "cursorColumn")) markSessionDirty();
   };
 
   const applySavedSnapshot = (snapshot: SaveSnapshot, result: { modifiedAt?: number; size?: number; fingerprint?: string }) => {
@@ -5116,7 +5122,9 @@ export default function App() {
     // The editor owns the document text; App only tracks the small metadata
     // needed for dirty state, recovery, and saving. Full text is read on
     // demand through the document handle snapshot interface.
-    updateTab(tabId, { lineEnding, revision, dirty, estimatedBytes, largeFile });
+    const wasDirty = tab.dirty;
+    applyTabChanges(tab, { lineEnding, revision, dirty, estimatedBytes, largeFile });
+    if (editNeedsSessionCheckpoint(wasDirty, dirty, recoverySizeBytes(tab))) markSessionDirty();
     getDocumentRevision(tabId).bump();
     scheduleRecovery(tabId);
     scheduleDocumentCacheBudget();
