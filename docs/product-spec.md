@@ -342,7 +342,11 @@ coverage and no published installer yet.
 
 - Saves are atomic, queued per file and preserve LF/CRLF. External changes offer
   comparison or explicit recovery choices. Local checkpoints recover the last
-  completed snapshot of unsaved work.
+  completed snapshot of unsaved work. While typing, checkpoints land within about
+  1 s below 1 MiB, about 5 s from 1 MiB to under 5 MiB and about 15 s from 5 MiB.
+  The edit that makes a clean document dirty is checkpointed within about 1 s at
+  any size. Blurring, hiding or closing the window writes pending checkpoints at
+  once, so a longer window only applies to a crash or forced kill.
 - Git operations use system Git, update from events, and include status, history,
   diffs, staging, commits, branches, stash, push/pull and worktrees. Destructive
   operations require explicit confirmation. Full merge/rebase editing is planned.

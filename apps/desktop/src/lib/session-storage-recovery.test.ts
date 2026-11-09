@@ -281,6 +281,37 @@ describe("recovery checkpoint differential persistence", () => {
     expect(finalUsage.indexedDbBytes).toBe(initialUsage.indexedDbBytes - recoverySnapshotSizeBytes(v2Recovery(changedFirst)) - recoveryBaselineSizeBytes(baseline(first)));
   });
 
+  it("keeps the last durable body until a debounced large-document edit is written", async () => {
+    const workspace = "/workspace-debounced";
+    const scope = "debounced-scope";
+    const durable = { ...tab("large", workspace, 2), content: "durable text" };
+    const key = recoveryStorageKey(durable.id, scope);
+    await commitSessionCheckpoint({
+      scope,
+      session: session(workspace, [durable]),
+      recoveries: [v2Recovery(durable)],
+      baselines: [baseline(durable)],
+      now: 100,
+    });
+
+    const edited = { ...durable, revision: 5, content: "edited text" };
+    const metadataOnly = await commitSessionCheckpoint({ scope, session: session(workspace, [edited]), now: 200 });
+    expect(metadataOnly).toMatchObject({ ok: false, complete: false, reason: "missing-recovery", missingRecoveryKeys: [key] });
+    expect(await readLatestSessionCheckpoint(scope)).toMatchObject({ recoveryRevisions: { [key]: 2 }, recoveries: { [key]: { revision: 2, content: "durable text" } } });
+
+    const writeTrace = traceIdbOperations();
+    const written = await commitSessionCheckpoint({
+      scope,
+      session: session(workspace, [edited]),
+      recoveries: [v2Recovery(edited)],
+      now: 300,
+    });
+    writeTrace.stop();
+    expect(written).toMatchObject({ ok: true, complete: true, updatedRecoveryKeys: [key] });
+    expect(writeTrace.operations.filter((item) => item.kind === "put" && item.store === RECOVERY_STORE).map((item) => item.key)).toEqual([key]);
+    expect(await readLatestSessionCheckpoint(scope)).toMatchObject({ recoveries: { [key]: { revision: 5, content: "edited text" } } });
+  });
+
   it("rejects an oversized localStorage checkpoint before serializing recovery text and retains the prior version", async () => {
     Object.defineProperty(globalThis, "indexedDB", { configurable: true, value: undefined });
     invalidateRecoveryDatabase();

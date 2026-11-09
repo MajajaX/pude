@@ -27,6 +27,11 @@ All notable changes to `pude` are recorded here. The format follows
   panel no longer takes space when nothing is selected. The full history tab uses
   compact rows, the graph column stays narrow with many branches, and refreshing no
   longer shifts the list. Commit tooltips wait for the pointer to rest.
+- Typing in documents of 1 MiB or more no longer rewrites the full recovery checkpoint
+  about every 0.6 seconds. Checkpoints now land within about 5 seconds up to 5 MiB and about
+  15 seconds above that, so a crash or forced kill can lose that much recent typing.
+  Smaller documents are unchanged, and leaving or closing the window still writes
+  pending checkpoints immediately.
 
 ### Fixed
 

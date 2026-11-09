@@ -24,6 +24,15 @@ export function checkpointDebounceForSize(byteLength: number): CheckpointDebounc
 }
 
 /**
+ * Whether an edit should start the immediate session checkpoint. Documents of
+ * 1 MiB or more rely on the size-based debounce after the first dirty change,
+ * so typing does not rewrite their full text every checkpoint interval.
+ */
+export function editNeedsSessionCheckpoint(wasDirty: boolean, isDirty: boolean, byteLength: number): boolean {
+  return wasDirty !== isDirty || byteLength < RECOVERY_DEBOUNCE_SMALL_BYTES;
+}
+
+/**
  * Delay for the next recovery write. Debounces by `delay` after the most
  * recent edit but never lets the first pending edit wait longer than
  * `maxWait`.

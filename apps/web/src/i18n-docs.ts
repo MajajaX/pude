@@ -247,7 +247,7 @@ const en: DocsDict = {
           },
           {
             t: "p",
-            text: "Unsaved work is checkpointed locally for recovery. Recovery restores the last completed checkpoint, not every keystroke.",
+            text: "Unsaved work is checkpointed locally for recovery. Recovery restores the last completed checkpoint, not every keystroke. While you type, checkpoints land within about 1 second for files under 1 MiB, 5 seconds for files from 1 to 5 MiB and 15 seconds for larger files. Switching away from the window or closing it writes a checkpoint right away.",
           },
         ],
       },
@@ -664,7 +664,7 @@ const zhHant: DocsDict = {
           },
           {
             t: "p",
-            text: "未儲存的內容會在本機建立復原檢查點。復原會還原最後一次完成的檢查點，而不是每一次按鍵。",
+            text: "未儲存的內容會在本機建立復原檢查點。復原會還原最後一次完成的檢查點，而不是每一次按鍵。輸入時，小於 1 MiB 的檔案約在 1 秒內建立檢查點，1 到 5 MiB 的檔案約在 5 秒內，更大的檔案約在 15 秒內。切換到其他視窗或關閉視窗時，會立即寫入檢查點。",
           },
         ],
       },

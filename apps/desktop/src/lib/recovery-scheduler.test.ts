@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkpointDebounceForSize,
+  editNeedsSessionCheckpoint,
   nextRecoveryDelay,
   RecoveryWriteScheduler,
   RECOVERY_DEBOUNCE_LARGE_BYTES,
@@ -42,6 +43,26 @@ describe("nextRecoveryDelay", () => {
   });
 });
 
+describe("editNeedsSessionCheckpoint", () => {
+  it("checkpoints every edit below 1 MiB", () => {
+    expect(editNeedsSessionCheckpoint(true, true, 0)).toBe(true);
+    expect(editNeedsSessionCheckpoint(true, true, RECOVERY_DEBOUNCE_SMALL_BYTES - 1)).toBe(true);
+  });
+
+  it.each([RECOVERY_DEBOUNCE_SMALL_BYTES, RECOVERY_DEBOUNCE_LARGE_BYTES, 20 * MiB])(
+    "leaves continued edits of a %i-byte document to the debounce",
+    (size) => {
+      expect(editNeedsSessionCheckpoint(true, true, size)).toBe(false);
+      expect(editNeedsSessionCheckpoint(false, false, size)).toBe(false);
+    },
+  );
+
+  it("checkpoints a large document when its dirty state flips", () => {
+    expect(editNeedsSessionCheckpoint(false, true, 20 * MiB)).toBe(true);
+    expect(editNeedsSessionCheckpoint(true, false, 20 * MiB)).toBe(true);
+  });
+});
+
 describe("RecoveryWriteScheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -51,6 +72,20 @@ describe("RecoveryWriteScheduler", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
+
+  it.each([ [3 * MiB, 12], [20 * MiB, 4] ])(
+    "limits a %i-byte document to %i writes during a minute of continuous typing",
+    (size, expectedWrites) => {
+      const scheduler = new RecoveryWriteScheduler();
+      const run = vi.fn();
+      for (let elapsed = 0; elapsed < 60_000; elapsed += 125) {
+        scheduler.schedule("a", size, Date.now(), run);
+        vi.advanceTimersByTime(125);
+      }
+      vi.advanceTimersByTime(15_000);
+      expect(run).toHaveBeenCalledTimes(expectedWrites);
+    },
+  );
 
   it.each([ [100, 2000], [3 * MiB, 5000], [20 * MiB, 15000] ])(
     "enforces the %i-byte deadline when idle callbacks never execute",
