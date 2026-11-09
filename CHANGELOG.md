@@ -61,6 +61,8 @@ All notable changes to `pude` are recorded here. The format follows
 - Git history shows one badge for a tagged commit instead of a tag badge and a
   remote-branch badge, and tags no longer appear as remote branches in the history
   branch filter.
+- A new terminal no longer occasionally shows the `pude terminal` banner twice above
+  its first prompt.
 
 ### Performance
 
