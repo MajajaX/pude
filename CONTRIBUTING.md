@@ -26,7 +26,10 @@ You need:
   [Tauri documentation](https://v2.tauri.app/start/prerequisites/).
 
 Pull requests run CI on macOS, Windows and Linux, but run the checks locally before
-pushing changes.
+pushing changes. Pushes to `main` run only the jobs the changed files affect, and a
+newer push cancels the older `main` run. Rust lints (`-D warnings`) must pass on all
+three platforms, and dependency or lockfile changes also run the security checks
+(`cargo deny` and `npm audit`), which a pull request cannot merge without.
 The following operating systems describe the development
 verification baseline and do not promise support for every OS release, distribution,
 or CPU architecture.

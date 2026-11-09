@@ -4,12 +4,8 @@ on:
   schedule:
     - cron: "17 3 * * 1"
   workflow_dispatch:
-  pull_request:
-    paths:
-      - apps/desktop/src-tauri/Cargo.lock
-      - package-lock.json
-      - apps/desktop/src-tauri/deny.toml
-      - .github/workflows/security.yml
+  # CI runs these checks when dependency files change, and releases always run them.
+  workflow_call:
 
 permissions:
   contents: read

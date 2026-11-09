@@ -27,9 +27,13 @@ sync, changelog, tag), push the tag:
 git push origin main v0.1.0
 ```
 
-The workflow checks the tag, runs the same jobs as CI (`npm run check`, the release
-tooling self-test, the browser smoke test, Rust formatting, lints and tests on all three
-platforms), builds the signed and
+The workflow checks the tag, then requires the same checks as CI (`npm run check`, the
+release tooling self-test, the browser smoke test, Rust formatting, lints and tests on
+all three platforms, and the security checks). If the push to `main` for the tagged
+commit already has a complete successful CI run, where no job was skipped by the
+changed-files filter, the workflow reuses it. Otherwise (for example when that run was
+cancelled, filtered or never happened) it runs the full CI suite before building. It
+then builds the signed and
 notarized macOS DMG and the Windows installer in parallel, writes `latest.json` and
 `SHA256SUMS.txt`, publishes the release with the changelog section as notes, and
 verifies it. Continue with step 5 when it finishes.
@@ -165,6 +169,22 @@ variable to the `pude-web` Worker and redeploy:
 ```text
 VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/latest
 ```
+
+To deploy from GitHub Actions instead, so the website goes live only after the same
+commit's web checks pass, turn on the `deploy-website` job in
+[ci.yml](../.github/workflows/ci.yml):
+
+1. Create the `website` environment (Settings → Environments) with the secrets
+   `CLOUDFLARE_API_TOKEN` (a token that can edit Workers) and `CLOUDFLARE_ACCOUNT_ID`.
+2. Add the repository variables `WEBSITE_DEPLOY=true` and, once a release is verified,
+   `VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/latest`.
+3. Disconnect the Git repository from the `pude-web` Worker in the Cloudflare
+   dashboard (Settings → Builds), so Cloudflare no longer builds every push on its own.
+
+The job runs on pushes to `main` that change the website, `wrangler.jsonc`, `shared/`
+or `package-lock.json`, and only after the Node 22, 24 and 26 web checks succeed. To
+publish an unchanged commit again (for example after setting `VITE_RELEASE_URL`),
+re-run the latest `CI` run on `main` from the Actions tab.
 
 To build and deploy from a local checkout instead:
 

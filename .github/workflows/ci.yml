@@ -11,8 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  # Superseded pull request runs are cancelled; every main and release run finishes.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Superseded pull request and main runs are cancelled; every release run finishes.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
 
 jobs:
   changes:
@@ -23,16 +23,19 @@ jobs:
       contents: read
       pull-requests: read # Lists the files a pull request changes
     outputs:
-      # Pushes to main and release calls always run everything.
-      web: ${{ github.event_name != 'pull_request' || steps.filter.outputs.web == 'true' }}
-      rust: ${{ github.event_name != 'pull_request' || steps.filter.outputs.rust == 'true' }}
-      workflows: ${{ github.event_name != 'pull_request' || steps.filter.outputs.workflows == 'true' }}
+      # Release calls (tag refs) always run everything. Pull requests and pushes
+      # to main run what the changed files affect.
+      web: ${{ github.ref_type == 'tag' || steps.filter.outputs.web == 'true' }}
+      rust: ${{ github.ref_type == 'tag' || steps.filter.outputs.rust == 'true' }}
+      security: ${{ github.ref_type == 'tag' || steps.filter.outputs.security == 'true' }}
+      workflows: ${{ github.ref_type == 'tag' || steps.filter.outputs.workflows == 'true' }}
+      site: ${{ steps.filter.outputs.site == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - id: filter
-        if: github.event_name == 'pull_request'
+        if: github.ref_type != 'tag'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
@@ -45,6 +48,7 @@ jobs:
               - 'LICENSE'
               - 'THIRD_PARTY_NOTICES.md'
               - 'THIRD_PARTY_LICENSES.md'
+              - 'wrangler.jsonc'
               - '.github/workflows/ci.yml'
             rust:
               - 'apps/desktop/src-tauri/**'
@@ -52,8 +56,18 @@ jobs:
               - 'scripts/run-rust-tests.mjs'
               - 'rust-toolchain.toml'
               - '.github/workflows/ci.yml'
+            security:
+              - 'apps/desktop/src-tauri/Cargo.lock'
+              - 'package-lock.json'
+              - 'apps/desktop/src-tauri/deny.toml'
+              - '.github/workflows/security.yml'
             workflows:
               - '.github/**'
+            site:
+              - 'apps/web/**'
+              - 'shared/**'
+              - 'package-lock.json'
+              - 'wrangler.jsonc'
 
   web:
     name: Web and tooling (Node ${{ matrix.node }})
@@ -90,12 +104,17 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - name: Make apt downloads fail fast and retry
+        if: matrix.node == 24
+        run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
       - name: Install Playwright Chromium
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 15
+        run: bash scripts/ci-retry.sh 3 240 npx playwright install --with-deps --only-shell chromium
       - name: Install Playwright system dependencies
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
+        timeout-minutes: 15
+        run: bash scripts/ci-retry.sh 3 240 npx playwright install-deps chromium
       - if: matrix.node == 24
         run: npm run test:e2e --workspace @pude/desktop
       - if: failure() && matrix.node == 24
@@ -143,9 +162,11 @@ jobs:
       - run: rustup toolchain install
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
+          bash scripts/ci-retry.sh 3 120 sudo apt-get update
+          bash scripts/ci-retry.sh 3 240 sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: apps/desktop/src-tauri
@@ -154,9 +175,6 @@ jobs:
       # Tauri embeds the built frontend at compile time.
       - run: npm run desktop:build
       - name: Rust lints
-        # Windows and Linux lints are reported but do not fail the run until
-        # their platform-specific code has a clean baseline.
-        continue-on-error: ${{ runner.os != 'macOS' }}
         run: cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
       # Runs each test in its own process so process-group tests cannot disturb each other.
       - run: node scripts/run-rust-tests.mjs
@@ -165,6 +183,15 @@ jobs:
         with:
           name: rust-test-diagnostics-${{ matrix.os }}
           path: rust-test-diagnostics.log
+
+  security:
+    name: Security
+    needs: changes
+    if: needs.changes.outputs.security == 'true'
+    permissions:
+      contents: read
+    # actionlint cannot parse the `$/` self-repository form yet (rhysd/actionlint#711).
+    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
 
   workflow-lint:
     name: Workflow lint
@@ -189,7 +216,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, web, rust-format, rust, workflow-lint]
+    needs: [changes, web, rust-format, rust, security, workflow-lint]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -203,3 +230,34 @@ jobs:
               *) echo "A CI job finished with: $result" >&2; exit 1 ;;
             esac
           done
+
+  # Deploys only the commit whose website checks just passed. Opt in by setting the
+  # WEBSITE_DEPLOY repository variable to true (see docs/releasing.md).
+  deploy-website:
+    name: Deploy website
+    needs: [changes, web]
+    if: >-
+      vars.WEBSITE_DEPLOY == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && needs.changes.outputs.site == 'true' && needs.web.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: website
+    concurrency:
+      group: website-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run web:build
+        env:
+          VITE_RELEASE_URL: ${{ vars.VITE_RELEASE_URL }}
+      - run: npx --yes wrangler@4.158.0 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

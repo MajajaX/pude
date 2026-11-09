@@ -3145,11 +3145,11 @@ mod tests {
         #[cfg(windows)]
         {
             let pid = pid.to_string();
-            return Command::new("tasklist")
+            Command::new("tasklist")
                 .args(["/FI", &format!("PID eq {pid}")])
                 .output()
                 .map(|output| String::from_utf8_lossy(&output.stdout).contains(&pid))
-                .unwrap_or(false);
+                .unwrap_or(false)
         }
         #[cfg(unix)]
         {

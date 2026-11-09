@@ -28,16 +28,62 @@ jobs:
           package-manager-cache: false
       - run: node scripts/release-version.mjs release-check "$GITHUB_REF_NAME"
 
-  # The same web, tooling and Rust test jobs every pull request must pass.
+  # A complete, successful CI run on main for this exact commit is reused. Without
+  # one (or when the lookup fails), the full CI suite runs below.
+  trusted-ci:
+    name: Find trusted CI result
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read # Reads the CI run and jobs recorded for this commit
+    outputs:
+      found: ${{ steps.find.outputs.found }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/find-trusted-ci-run.mjs "$GITHUB_SHA"
+
+  # The same web, tooling, Rust and security jobs every pull request must pass.
   ci:
+    needs: trusted-ci
+    if: needs.trusted-ci.outputs.found != 'true'
     permissions:
       contents: read
       pull-requests: read # CI's change detection lists pull request files
     # actionlint cannot parse the `$/` self-repository form yet (rhysd/actionlint#711).
     uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
 
+  ci-gate:
+    name: CI gate
+    needs: [trusted-ci, ci]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a reused or freshly run successful CI
+        env:
+          TRUSTED_CI_RESULT: ${{ needs.trusted-ci.result }}
+          TRUSTED_CI_FOUND: ${{ needs.trusted-ci.outputs.found }}
+          CI_RESULT: ${{ needs.ci.result }}
+        run: |
+          [ "$TRUSTED_CI_RESULT" = success ] || { echo "Could not determine CI status: $TRUSTED_CI_RESULT" >&2; exit 1; }
+          if [ "$TRUSTED_CI_FOUND" = true ]; then
+            [ "$CI_RESULT" = skipped ] || { echo "Reused CI result, but CI also ran: $CI_RESULT" >&2; exit 1; }
+          else
+            [ "$CI_RESULT" = success ] || { echo "CI finished with: $CI_RESULT" >&2; exit 1; }
+          fi
+
   build-macos:
-    needs: [verify, ci]
+    needs: [verify, ci-gate]
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -100,7 +146,7 @@ jobs:
           rm -f "$RUNNER_TEMP/certificate.p12" "$RUNNER_TEMP/AuthKey.p8"
 
   build-windows:
-    needs: [verify, ci]
+    needs: [verify, ci-gate]
     runs-on: windows-latest
     timeout-minutes: 60
     steps:

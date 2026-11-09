@@ -1988,11 +1988,13 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
     use std::process::Command;
-    use std::sync::{Arc, Mutex, OnceLock, Weak};
+    use std::sync::{Arc, Mutex, Weak};
     use uuid::Uuid;
 
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+    #[cfg(unix)]
+    use std::sync::OnceLock;
 
     #[cfg(unix)]
     static UMASK_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();

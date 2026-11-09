@@ -3399,7 +3399,7 @@ fn read_terminal_chunks(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn read_terminal_output(
     reader: &mut impl Read,
     output_flow: &TerminalOutputFlow,
@@ -3714,7 +3714,7 @@ impl Drop for TerminalBootstrapGate {
 impl TerminalProcessTree {
     fn attach(
         child: &dyn Child,
-        #[cfg(windows)] mut bootstrap_gate: Option<&mut TerminalBootstrapGate>,
+        #[cfg(windows)] bootstrap_gate: Option<&mut TerminalBootstrapGate>,
     ) -> Result<Self, String> {
         let process_id = child
             .process_id()
@@ -3738,7 +3738,7 @@ impl TerminalProcessTree {
         {
             let process = child.as_raw_handle().ok_or_else(|| {
                 "The ConPTY backend did not expose its process handle.".to_string()
-            })? as *mut std::ffi::c_void;
+            })?;
             let job = unsafe { CreateJobObjectW(std::ptr::null_mut(), std::ptr::null()) };
             if job.is_null() {
                 return Err(format!(
@@ -3767,7 +3767,7 @@ impl TerminalProcessTree {
                     "Unable to assign the ConPTY process to its Job Object. {error}"
                 ));
             }
-            if let Some(gate) = bootstrap_gate.as_deref_mut() {
+            if let Some(gate) = bootstrap_gate {
                 if let Err(error) = gate.release() {
                     unsafe {
                         let _ = TerminateJobObject(job, 1);
@@ -3830,9 +3830,9 @@ impl TerminalProcessTree {
                 return Ok(());
             }
             let job_error = io::Error::last_os_error();
-            if unsafe { WaitForSingleObject(job, 0) } == TERMINAL_WAIT_OBJECT_0 {
-                Ok(())
-            } else if terminate_untracked_terminal_tree_by_id(self.process_id).is_ok() {
+            if unsafe { WaitForSingleObject(job, 0) } == TERMINAL_WAIT_OBJECT_0
+                || terminate_untracked_terminal_tree_by_id(self.process_id).is_ok()
+            {
                 Ok(())
             } else {
                 Err(format!(
@@ -4442,7 +4442,7 @@ fn cancel_blocking_terminal_read(reader: &JoinHandle<()>) {
     }
 
     unsafe {
-        let _ = CancelSynchronousIo(reader.as_raw_handle() as *mut std::ffi::c_void);
+        let _ = CancelSynchronousIo(reader.as_raw_handle());
     }
 }
 
