@@ -27,7 +27,7 @@ import { contentFingerprint } from "./lib/fingerprint";
 import { windowTitleForWorkspace } from "./lib/window-title";
 import { pathComparisonKey, samePath as samePathIdentity, isSameOrDescendantPath as isDescendantIdentity, runtimePathOptions, wireBasename, wireParentPath, joinWirePath } from "./lib/path-identity";
 import { utf8ByteLength } from "./lib/document-size";
-import { isImeComposing } from "./lib/keyboard-input";
+import { isImeComposing, shortcutKey } from "./lib/keyboard-input";
 import { isMissingFileReadError } from "./lib/file-read-errors";
 import { pickEditorSettings, sameEditorSettings } from "./lib/editor-settings";
 import { advanceOpenFolderChord, relativePathWithinRoot, type OpenFolderChordState } from "./lib/explorer-actions";
@@ -46,7 +46,7 @@ import { createRestoreIntent, markRestoreTabCancelled, markRestoreTabStarted, ma
 import type { DirectoryRestoreOptions, DirectoryRestoreResult } from "./lib/directory-restore";
 import type { SaveController, SaveSnapshot } from "./lib/save-controller";
 import { savedTabChanges } from "./lib/saved-tab-state";
-import { diskMetadataChanged } from "./lib/disk-metadata";
+import { adoptDiskVersionChanges, diskMetadataChanged } from "./lib/disk-metadata";
 import { markStartupEvent } from "./lib/startup-timeline";
 import { IoLimiter, IoStaleGenerationError, withBusyRetry } from "./lib/io-limiter";
 import { createExternalConflictController } from "./lib/external-conflict-controller";
@@ -2729,16 +2729,20 @@ export default function App() {
     return t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path });
   });
 
+  const expandAndListDirectory = async (entry: DirectoryEntry) => {
+    const generation = workspaceGeneration;
+    setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: true })));
+    try {
+      await refreshDirectory(entry.path, generation);
+    } catch (error) {
+      notify(errorMessage(error, entry.loaded ? "Unable to refresh directory." : "Unable to read directory."));
+    }
+  };
+
   const toggleDirectory = async (entry: DirectoryEntry) => {
     if (entry.kind !== "directory" || confirmedOperationInProgress() || appQuitPrepared()) return;
-    const generation = workspaceGeneration;
     if (!entry.loaded || entry.stale) {
-      setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: true })));
-      try {
-        await refreshDirectory(entry.path, generation);
-      } catch (error) {
-        notify(errorMessage(error, entry.loaded ? "Unable to refresh directory." : "Unable to read directory."));
-      }
+      await expandAndListDirectory(entry);
       return;
     }
     setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: !item.expanded })));
@@ -4022,7 +4026,7 @@ export default function App() {
         case "commands.register":
           return { registered: true, id: params.id };
         case "ui.notify":
-          notify(`${plugin.name}: ${params.message}`);
+          notify(t("{name}: {message}", { name: plugin.name, message: String(params.message) }));
           return { shown: true };
         case "ui.statusBar.set": {
           await context.authorize();
@@ -4303,6 +4307,10 @@ export default function App() {
     });
   };
 
+  const changePythonEnvironmentTrust = (trusted: boolean) => {
+    void import("./lib/python-environment-trust").then((trust) => trust.changePythonEnvironmentTrust(workspace(), trusted, notify));
+  };
+
   const runPaletteCommand = (command: CommandPaletteItem) => {
     setCommandPaletteOpen(false);
     if (command.source === "plugin" && command.pluginId && command.commandId) {
@@ -4323,6 +4331,8 @@ export default function App() {
       case "pude.builtin.find": showFind(false); break;
       case "pude.builtin.replace": showFind(true); break;
       case "pude.builtin.toggleTerminal": toggleTerminal(); break;
+      case "pude.builtin.trustPythonEnvironment": changePythonEnvironmentTrust(true); break;
+      case "pude.builtin.stopTrustingPythonEnvironment": changePythonEnvironmentTrust(false); break;
       case "pude.builtin.managePlugins": setPluginsOpen(true); break;
       case "pude.builtin.saveAll": void saveAll(); break;
       case "pude.builtin.closeEditor": runTabMenuAction(activeTabId() ?? "", "close"); break;
@@ -4569,8 +4579,7 @@ export default function App() {
         updateTab(current.id, { orphaned: false, diskModifiedAt: file.modifiedAt, diskSize: file.size, estimatedBytes: file.size, diskFingerprint: file.fingerprint, diskIdentity: file.identity ?? undefined });
         return;
       }
-      const revision = current.revision + 1;
-      updateTab(current.id, { content: file.content, savedContent: file.content, dirty: false, orphaned: false, lineEnding: file.lineEnding, lineEndings: file.lineEndings, savedLineEndings: file.lineEndings, bom: file.bom, savedBom: file.bom, encoding: file.encoding === "utf-8-bom" ? "UTF-8 BOM" : "UTF-8", revision, savedRevision: revision, contentVersion: current.contentVersion + 1, normalizedContentVersion: current.contentVersion + 1, normalizedSavedRevision: revision, diskModifiedAt: file.modifiedAt, diskSize: file.size, estimatedBytes: file.size, diskFingerprint: file.fingerprint, diskIdentity: file.identity ?? undefined, largeFile: file.size > 5 * 1024 * 1024 });
+      updateTab(current.id, adoptDiskVersionChanges(current, file));
       getDocumentRevision(current.id).bump();
     }).catch((error) => {
       if (generation !== workspaceGeneration || fileReadRevisions.get(tab.id) !== readRevision) return;
@@ -4980,7 +4989,7 @@ export default function App() {
     }
     if (!modifier && event.altKey && !event.shiftKey && event.code === "KeyZ") { event.preventDefault(); toggleSetting("wordWrap"); return; }
     if (!modifier) return;
-    const key = event.key.toLowerCase();
+    const key = shortcutKey(event, isMacPlatform());
     if (key === "s") { event.preventDefault(); void (event.shiftKey ? saveTabAs() : event.altKey ? saveAll() : saveTab()); }
     if (key === "o" && !event.altKey) { event.preventDefault(); void openFileAction(); }
     if (key === "w") { event.preventDefault(); const id = activeTabId(); if (id) closeTab(id); }

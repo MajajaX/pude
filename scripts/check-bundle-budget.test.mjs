@@ -23,7 +23,7 @@ test("counts recursive static imports once and excludes dynamic features", async
     assert.equal(result.entryBytes, 150_000);
     assert.equal(result.staticBytes, 255_000);
     assert.equal(result.files.length, 3);
-    assert.deepEqual(budgetFailures(result), ["Static imports 255000 > 250000 bytes"]);
+    assert.deepEqual(budgetFailures(result), ["Static imports 255000 > 250500 bytes"]);
     manifest.a.imports.push("missing");
     await writeFile(join(root, ".vite/manifest.json"), JSON.stringify(manifest));
     await assert.rejects(measureStartupBundle(root), /Missing static dependency/);
@@ -33,7 +33,7 @@ test("counts recursive static imports once and excludes dynamic features", async
 });
 
 test("uses decimal byte budgets and checks entry and closure independently", () => {
-  assert.deepEqual(budgetFailures({ entryBytes: 186_000, staticBytes: 250_000 }), []);
+  assert.deepEqual(budgetFailures({ entryBytes: 186_000, staticBytes: 250_500 }), []);
   assert.equal(budgetFailures({ entryBytes: 186_001, staticBytes: 200_000 }).length, 1);
-  assert.equal(budgetFailures({ entryBytes: 186_001, staticBytes: 250_001 }).length, 2);
+  assert.equal(budgetFailures({ entryBytes: 186_001, staticBytes: 250_501 }).length, 2);
 });

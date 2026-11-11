@@ -110,6 +110,26 @@ pub(crate) fn cancel_directory_listing(request_id: String) -> Result<bool, Strin
     cancel_directory_listing_sync(&request_id)
 }
 
+#[derive(Default)]
+struct ByteCounter(usize);
+
+impl io::Write for ByteCounter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0 += bytes.len();
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn serialized_json_len(value: &impl Serialize) -> serde_json::Result<usize> {
+    let mut counter = ByteCounter::default();
+    serde_json::to_writer(&mut counter, value)?;
+    Ok(counter.0)
+}
+
 #[cfg(test)]
 fn list_directory_sync(path: String) -> Result<DirectoryListingResult, String> {
     list_directory_sync_with_cancellation(path, None)
@@ -138,7 +158,6 @@ fn list_directory_sync_with_path_encoder(
     const RESPONSE_ENVELOPE_RESERVE: usize = 8 * 1024;
     let entries_byte_budget = MAX_DIRECTORY_LISTING_BYTES - RESPONSE_ENVELOPE_RESERVE;
     let mut entries_bytes = 2_usize; // opening and closing brackets for `entries`
-    let mut encoded_entry = Vec::new();
     if cancellation.is_some_and(|token| token.load(Ordering::Relaxed)) {
         return Ok(DirectoryListingResult {
             entries,
@@ -233,10 +252,8 @@ fn list_directory_sync_with_path_encoder(
             size,
             modified_at,
         };
-        encoded_entry.clear();
-        serde_json::to_writer(&mut encoded_entry, &entry)
+        let entry_bytes = serialized_json_len(&entry)
             .map_err(|error| format!("Unable to encode directory entry. {error}"))?;
-        let entry_bytes = encoded_entry.len();
         let separator_bytes = usize::from(!entries.is_empty());
         let next_entries_bytes = entries_bytes
             .saturating_add(separator_bytes)
@@ -1750,6 +1767,42 @@ mod file_operation_tests {
         );
     }
 
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[test]
+    fn copying_into_a_new_file_never_replaces_an_existing_destination() {
+        let directory = TempDir::new();
+        let temporary = directory.path().join(".pude-tmp-test.tmp");
+        let created = directory.path().join("created.txt");
+        let existing = directory.path().join("existing.txt");
+        fs::write(&temporary, b"editor contents").expect("temporary should exist");
+        fs::write(&existing, b"external contents").expect("destination should exist");
+
+        crate::copy_into_new_file(&temporary, &created).expect("a missing destination is created");
+        assert_eq!(fs::read(&created).unwrap(), b"editor contents");
+
+        let error = crate::copy_into_new_file(&temporary, &existing)
+            .expect_err("an existing destination must be kept");
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read(&existing).unwrap(), b"external contents");
+    }
+
+    #[test]
+    fn only_missing_hard_link_support_selects_the_copy_fallback() {
+        assert!(crate::hard_links_unsupported(&io::Error::from(
+            io::ErrorKind::Unsupported
+        )));
+        assert!(!crate::hard_links_unsupported(&io::Error::from(
+            io::ErrorKind::AlreadyExists
+        )));
+        assert!(!crate::hard_links_unsupported(&io::Error::from(
+            io::ErrorKind::NotFound
+        )));
+        #[cfg(unix)]
+        assert!(crate::hard_links_unsupported(
+            &io::Error::from_raw_os_error(libc::EPERM)
+        ));
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn save_as_writes_exact_mixed_newline_bytes_for_new_and_existing_destinations() {
@@ -2771,6 +2824,22 @@ mod directory_listing_tests {
         assert_eq!(listing.scanned_entries, listing.entries.len());
         assert!(listing.entries_bytes <= MAX_DIRECTORY_LISTING_BYTES);
         assert!(serde_json::to_vec(&listing).unwrap().len() <= MAX_DIRECTORY_LISTING_BYTES);
+    }
+
+    #[test]
+    fn serialized_json_len_matches_the_encoded_entry_size() {
+        let entry = DirectoryEntry {
+            name: "quote\" slash\\ tab\t 例 🧪.txt".to_string(),
+            path: "/workspace/quote\" slash\\ tab\t 例 🧪.txt".to_string(),
+            kind: "file",
+            size: Some(42),
+            modified_at: Some(1_700_000_000_123),
+        };
+
+        assert_eq!(
+            serialized_json_len(&entry).unwrap(),
+            serde_json::to_vec(&entry).unwrap().len()
+        );
     }
 
     #[test]

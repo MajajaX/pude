@@ -156,6 +156,21 @@ describe("external conflict controller reload", () => {
     expect(hooks.notifications).toEqual(["Reloaded file.ts"]);
   });
 
+  it("records the disk identity, size and normalization state like a background reload", async () => {
+    const { controller, hooks } = createController({
+      liveTabs: [tab()],
+      readFile: () => Promise.resolve(file({ identity: "1:2" })),
+    });
+    controller.queue(tab());
+    await controller.reload();
+    expect(hooks.updates[0].changes).toMatchObject({
+      diskIdentity: "1:2",
+      estimatedBytes: 4,
+      normalizedContentVersion: 8,
+      normalizedSavedRevision: 4,
+    });
+  });
+
   it("does nothing when no conflict is queued", async () => {
     const { controller, hooks } = createController();
     await controller.reload();

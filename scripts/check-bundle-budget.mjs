@@ -5,10 +5,11 @@ import { fileURLToPath } from "node:url";
 // Raised from 180,000 / 225,000 for workspaces, project replace, the Git stash
 // tab, the Dock/Jump List recents and interface translations; language files
 // load on demand and do not count. The static budget was raised again from
-// 245,000 for the editing aids, Explorer menu additions and .env table glue.
-// Keep new startup code minimal.
+// 245,000 for the editing aids, Explorer menu additions and .env table glue, and
+// from 250,000 for the macOS Option shortcut fix, Python environment trust and the
+// shared external-change reload. Keep new startup code minimal.
 export const ENTRY_BUDGET_BYTES = 186_000;
-export const STATIC_BUDGET_BYTES = 250_000;
+export const STATIC_BUDGET_BYTES = 250_500;
 
 export async function measureStartupBundle(distDir) {
   const manifest = JSON.parse(await readFile(join(distDir, ".vite", "manifest.json"), "utf8"));

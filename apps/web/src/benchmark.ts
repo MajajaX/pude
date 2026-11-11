@@ -26,6 +26,12 @@ export const BENCHMARK = {
   } satisfies Record<"pude" | "vscode", LaunchTimes>,
 };
 
+/**
+ * Installer sizes of a newer pude release, read from its GitHub release assets
+ * (decimal megabytes). Launch time, memory and size on disk were not re-measured.
+ */
+export const LATER_RELEASE = { version: "0.1.7", installerMacos: 5.6, installerWindows: 4.3 };
+
 export function sizeMetric(key: SizeKey): SizeMetric {
   return BENCHMARK.sizes.find((metric) => metric.key === key)!;
 }

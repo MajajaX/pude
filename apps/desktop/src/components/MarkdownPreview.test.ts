@@ -37,6 +37,17 @@ describe("Markdown preview", () => {
     expect(table.rowTokens[1][4].map((token) => token.text).join("")).toBe("[bad](javascript:alert(1))");
   });
 
+  it("links only to web URLs, anchors and app paths, never to protocol-relative hosts", () => {
+    const linkHrefs = (href: string) => {
+      const parsed = parseMarkdown(`| Link |\n| --- |\n| [x](${href}) |`);
+      const table = parsed.blocks[0];
+      if (table?.kind !== "table") throw new Error("Expected a table");
+      return table.rowTokens[0][0].flatMap((token) => token.kind === "link" ? [token.href] : []);
+    };
+    for (const href of ["https://example.com", "http://example.com", "#section", "/docs/page"]) expect(linkHrefs(href)).toEqual([href]);
+    for (const href of ["//evil.example/path", "/\\evil.example", "\\\\evil.example", "javascript:alert(1)"]) expect(linkHrefs(href)).toEqual([]);
+  });
+
   it("reads at most one Mi UTF-16 code units and does not retain a split surrogate pair", () => {
     const content = `${"a".repeat(MARKDOWN_PREVIEW_BUDGETS.maxChars - 1)}😀`;
     const parsed = parseMarkdown(content);

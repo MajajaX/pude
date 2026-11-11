@@ -203,8 +203,10 @@ async function testUpdateManifest() {
   await writeFile(notesFile, "- Added things\n");
   const writer = join(root, "scripts/write-update-manifest.mjs");
 
-  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "manifest without signatures", "no update package signatures");
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "manifest without signatures", "pude-macos-arm64.app.tar.gz.sig is missing");
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile, "--allow-partial"]), "partial manifest without any signature", "no update package signatures");
   await writeFile(join(releaseDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "manifest missing the Windows signature", "pude-windows-x64-setup.exe.sig is missing");
   await writeFile(join(releaseDirectory, "pude-windows-x64-setup.exe.sig"), "windows signature\n");
   expectSuccess(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "update manifest");
   const manifest = JSON.parse(await readFile(join(releaseDirectory, "latest.json"), "utf8"));
@@ -220,6 +222,7 @@ async function testUpdateManifest() {
   });
   expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "overwriting an existing manifest", "EEXIST");
   expectFailure(run(process.execPath, [writer, releaseDirectory, "1.2.3", notesFile]), "tag without v prefix", "usage");
+  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile, "--allow-everything"]), "unknown manifest option", "usage");
   for (const invalidTag of ["v1.2.3garbage", "v01.2.3", "v1.2", "v1.2.3-01"]) {
     expectFailure(run(process.execPath, [writer, releaseDirectory, invalidTag, notesFile]), `malformed tag ${invalidTag}`, "usage");
   }
@@ -228,36 +231,41 @@ async function testUpdateManifest() {
   assertTemporaryPath(buildDirectory);
   await mkdir(buildDirectory, { recursive: true });
   await writeFile(join(buildDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
-  expectSuccess(run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile]), "stable tag with build metadata");
+  expectFailure(run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile]), "single-platform manifest without opt-in", "--allow-partial");
+  expectSuccess(run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile, "--allow-partial"]), "stable tag with build metadata and one platform");
+  assert.deepEqual(Object.keys(JSON.parse(await readFile(join(buildDirectory, "latest.json"), "utf8")).platforms), ["darwin-aarch64"]);
   assert.equal(JSON.parse(await readFile(join(buildDirectory, "latest.json"), "utf8")).version, "1.2.3+build.4");
-  return "Update manifest lists each platform's package URL and signature, covers partial releases, accepts only complete stable versions, and refuses empty input or overwrites.";
+  return "Update manifest lists each platform's package URL and signature, requires every platform unless --allow-partial is passed, accepts only complete stable versions, and refuses empty input or overwrites.";
 }
 
-function validRelease(tag) {
-  const assets = [
-    "pude-windows-x64-setup.exe",
-    "pude-windows-x64-setup.exe.sig",
-    "pude-macos-arm64.dmg",
-    "pude-macos-arm64.app.tar.gz",
-    "pude-macos-arm64.app.tar.gz.sig",
-    "latest.json",
-    "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "THIRD_PARTY_LICENSES.md",
-    "SHA256SUMS.txt",
-  ].map((name, index) => ({
+const releaseAssetNames = [
+  "pude-windows-x64-setup.exe",
+  "pude-windows-x64-setup.exe.sig",
+  "pude-macos-arm64.dmg",
+  "pude-macos-arm64.app.tar.gz",
+  "pude-macos-arm64.app.tar.gz.sig",
+  "latest.json",
+  "LICENSE",
+  "THIRD_PARTY_NOTICES.md",
+  "THIRD_PARTY_LICENSES.md",
+  "SHA256SUMS.txt",
+];
+
+function validRelease(tag, { draft = false } = {}) {
+  const releaseSegment = draft ? "untagged-0123456789abcdef" : encodeURIComponent(tag);
+  const assets = releaseAssetNames.map((name, index) => ({
     id: index + 100,
     name,
     size: 10 + index,
     url: `https://api.github.com/repos/MajajaX/pude/releases/assets/${index + 100}`,
-    browser_download_url: `https://github.com/MajajaX/pude/releases/download/${encodeURIComponent(tag)}/${name}`,
+    browser_download_url: `https://github.com/MajajaX/pude/releases/download/${releaseSegment}/${name}`,
   }));
   return {
     id: 42,
     tag_name: tag,
-    draft: false,
+    draft,
     prerelease: false,
-    html_url: `https://github.com/MajajaX/pude/releases/tag/${encodeURIComponent(tag)}`,
+    html_url: `https://github.com/MajajaX/pude/releases/tag/${releaseSegment}`,
     url: "https://api.github.com/repos/MajajaX/pude/releases/42",
     assets_url: "https://api.github.com/repos/MajajaX/pude/releases/42/assets",
     assets,
@@ -275,19 +283,29 @@ async function testPublishedReleaseVerifier() {
   const fakeGh = join(bin, "gh");
   await writeExecutable(fakeGh, `#!/usr/bin/env node
 import { readFileSync } from "node:fs";
-const endpoint = process.argv[3];
-const response = endpoint === "repos/MajajaX/pude" ? process.env.FAKE_GH_REPO_RESPONSE : process.env.FAKE_GH_RESPONSE;
+const endpoint = process.argv.at(-1);
+let response = process.env.FAKE_GH_RESPONSE;
+if (endpoint === "repos/MajajaX/pude") response = process.env.FAKE_GH_REPO_RESPONSE;
+else if (endpoint.startsWith("repos/MajajaX/pude/releases?")) response = process.env.FAKE_GH_LIST_RESPONSE;
+else if (endpoint.startsWith("repos/MajajaX/pude/releases/assets/")) response = process.env.FAKE_GH_CHECKSUMS;
 process.stdout.write(readFileSync(response, "utf8"));
 `);
   const verifier = join(root, "scripts/verify-published-release.mjs");
   const responseFile = join(temporaryDirectory, "fake-release.json");
   const repositoryResponseFile = join(temporaryDirectory, "fake-repository.json");
+  const listResponseFile = join(temporaryDirectory, "fake-release-list.json");
+  const checksumsFile = join(temporaryDirectory, "fake-sha256sums.txt");
   const env = {
     ...process.env,
     PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
     FAKE_GH_RESPONSE: responseFile,
     FAKE_GH_REPO_RESPONSE: repositoryResponseFile,
+    FAKE_GH_LIST_RESPONSE: listResponseFile,
+    FAKE_GH_CHECKSUMS: checksumsFile,
   };
+  const checksumLines = (names) => `${names.map((name) => `${"a".repeat(64)}  ${name}`).join("\n")}\n`;
+  const checksummedNames = releaseAssetNames.filter((name) => name !== "SHA256SUMS.txt");
+  await writeFile(checksumsFile, checksumLines(checksummedNames));
   await writeFile(repositoryResponseFile, JSON.stringify({ full_name: "MajajaX/pude", private: false, visibility: "public" }));
 
   const stable = validRelease("v1.0.0");
@@ -341,7 +359,121 @@ process.stdout.write(readFileSync(response, "utf8"));
   missing.assets = missing.assets.filter((asset) => asset.name !== "THIRD_PARTY_LICENSES.md");
   await writeFile(responseFile, JSON.stringify(missing));
   expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "missing release legal asset", "THIRD_PARTY_LICENSES.md");
-  return "Fake GitHub API accepts stable canonical latest/tag/build-metadata releases and rejects prerelease tags, private or foreign repositories, malformed routes, and missing legal assets.";
+
+  await writeFile(responseFile, JSON.stringify(validRelease("v1.0.0")));
+  await writeFile(checksumsFile, checksumLines(checksummedNames.filter((name) => name !== "latest.json" && !name.endsWith(".sig"))));
+  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "checksums that omit update artifacts", "SHA256SUMS.txt does not list: pude-windows-x64-setup.exe.sig");
+  await writeFile(checksumsFile, checksumLines(checksummedNames));
+
+  const tagUrl = "https://github.com/MajajaX/pude/releases/tag/v1.0.0";
+  const draft = validRelease("v1.0.0", { draft: true });
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v0.9.0"), draft]));
+  expectSuccess(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft release verification");
+  await writeFile(responseFile, JSON.stringify(draft));
+  expectFailure(run(process.execPath, [verifier, tagUrl], { env }), "draft release without --draft", "not a published release");
+  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest", "--draft"], { env }), "draft against the latest route", "must be /MajajaX/pude/releases/tag/");
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v1.0.0")]));
+  expectFailure(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "published release passed off as a draft", "found 0");
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v0.9.0", { draft: true })]));
+  expectFailure(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft for another tag", "found 0");
+  const foreignDraft = validRelease("v1.0.0", { draft: true });
+  foreignDraft.assets[0].browser_download_url = "https://github.com/attacker/other/releases/download/untagged-0123456789abcdef/pude-windows-x64-setup.exe";
+  await writeFile(listResponseFile, JSON.stringify([foreignDraft]));
+  expectFailure(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft with a cross-repository asset", "malformed, duplicate, empty, or cross-repository");
+  const draftWithPublishedUrls = validRelease("v1.0.0", { draft: true });
+  draftWithPublishedUrls.assets = validRelease("v1.0.0").assets;
+  await writeFile(listResponseFile, JSON.stringify([draftWithPublishedUrls]));
+  expectSuccess(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft whose assets already use the tag path");
+  return "Fake GitHub API accepts stable canonical latest/tag/build-metadata releases and drafts (only with --draft) and rejects prerelease tags, private or foreign repositories, malformed routes, missing legal assets, and checksums that omit a download.";
+}
+
+async function testUpdateSignatures() {
+  const vector = JSON.parse(await readFile(join(root, "scripts/fixtures/tauri-signed-update.json"), "utf8"));
+  const verifier = join(root, "scripts/verify-update-signatures.mjs");
+  const writer = join(root, "scripts/write-update-manifest.mjs");
+  const packages = ["pude-macos-arm64.app.tar.gz", "pude-windows-x64-setup.exe"];
+
+  function editSignature(signatureBase64, edit) {
+    const lines = Buffer.from(signatureBase64, "base64").toString("utf8").split("\n");
+    const payload = Buffer.from(lines[1], "base64");
+    edit(payload, lines);
+    lines[1] = payload.toString("base64");
+    return Buffer.from(lines.join("\n")).toString("base64");
+  }
+
+  async function prepareRelease(name, { signature = vector.signature, tag = `v${vector.version}`, files = packages } = {}) {
+    const directory = join(temporaryDirectory, `update-signatures-${name}`);
+    assertTemporaryPath(directory);
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, "notes.md"), "notes\n");
+    for (const packageName of packages) {
+      await writeFile(join(directory, packageName), vector.payload);
+      await writeFile(join(directory, `${packageName}.sig`), `${signature}\n`);
+    }
+    expectSuccess(run(process.execPath, [writer, directory, tag, join(directory, "notes.md")]), `${name} manifest`);
+    for (const packageName of packages.filter((candidate) => !files.includes(candidate))) await rm(join(directory, packageName));
+    return directory;
+  }
+
+  async function writeConfig(name, publicKey) {
+    const configPath = join(temporaryDirectory, `update-signatures-${name}.conf.json`);
+    assertTemporaryPath(configPath);
+    await writeFile(configPath, JSON.stringify({ plugins: { updater: { pubkey: publicKey } } }));
+    return configPath;
+  }
+
+  const genuineConfig = await writeConfig("genuine", vector.publicKey);
+  const verify = (directory, config, ...extra) => run(process.execPath, [verifier, directory, "--config", config, ...extra]);
+
+  const genuine = await prepareRelease("genuine");
+  expectSuccess(verify(genuine, genuineConfig), "genuine Tauri signatures");
+
+  const tamperedFile = await prepareRelease("tampered-file");
+  await writeFile(join(tamperedFile, packages[1]), `${vector.payload}tampered`);
+  expectFailure(verify(tamperedFile, genuineConfig), "tampered update package", "file signature does not match the file");
+
+  expectFailure(verify(genuine, await writeConfig("other-key", vector.otherPublicKey)), "signature from another key", "does not match the public key id");
+
+  const forgedKey = Buffer.from(Buffer.from(vector.publicKey, "base64").toString("utf8").split("\n").map((line, index) => {
+    if (index !== 1) return line;
+    const payload = Buffer.from(line, "base64");
+    payload[20] ^= 1;
+    return payload.toString("base64");
+  }).join("\n")).toString("base64");
+  expectFailure(verify(genuine, await writeConfig("forged-key", forgedKey)), "public key with the right id but different key bytes", "does not match the file");
+
+  const wrongKeyId = await prepareRelease("wrong-key-id", { signature: editSignature(vector.signature, (payload) => { payload[5] ^= 1; }) });
+  expectFailure(verify(wrongKeyId, genuineConfig), "signature naming another key id", "does not match the public key id");
+
+  const legacyAlgorithm = await prepareRelease("legacy-algorithm", { signature: editSignature(vector.signature, (payload) => { payload.write("Ed", 0, "latin1"); }) });
+  expectFailure(verify(legacyAlgorithm, genuineConfig), "non-prehashed signature", "must be ED");
+
+  const forgedComment = await prepareRelease("forged-comment", {
+    signature: editSignature(vector.signature, (_payload, lines) => { lines[2] = lines[2].replace(`version:${vector.version}`, "version:9.9.9"); }),
+  });
+  expectFailure(verify(forgedComment, genuineConfig), "edited trusted comment", "trusted comment signature is invalid");
+
+  const wrongVersion = await prepareRelease("wrong-version", { tag: "v1.2.4" });
+  expectFailure(verify(wrongVersion, genuineConfig), "manifest version that differs from the signed version", "does not match latest.json version 1.2.4");
+
+  const swappedSignature = await prepareRelease("swapped-signature");
+  const manifestPath = join(swappedSignature, "latest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.platforms["windows-x86_64"].signature = vector.signature.slice(0, -4) + "AAAA";
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  expectFailure(verify(swappedSignature, genuineConfig), "manifest signature that differs from the .sig file", "differs from pude-windows-x64-setup.exe.sig");
+
+  const partial = join(temporaryDirectory, "update-signatures-partial");
+  assertTemporaryPath(partial);
+  await mkdir(partial, { recursive: true });
+  await writeFile(join(partial, "notes.md"), "notes\n");
+  await writeFile(join(partial, packages[0]), vector.payload);
+  await writeFile(join(partial, `${packages[0]}.sig`), `${vector.signature}\n`);
+  expectSuccess(run(process.execPath, [writer, partial, `v${vector.version}`, join(partial, "notes.md"), "--allow-partial"]), "partial manifest");
+  expectFailure(verify(partial, genuineConfig), "partial manifest without opt-in", "has no windows-x86_64 entry");
+  expectSuccess(verify(partial, genuineConfig, "--allow-partial"), "partial manifest with opt-in");
+  expectFailure(run(process.execPath, [verifier, genuine, "--config", join(temporaryDirectory, "missing-config.json")]), "missing config", "missing-config.json");
+  return "Updater signatures are verified against the Tauri public key like the installed app does: a genuine Tauri-signed package passes; tampered files, other keys or key ids, forged keys, non-prehashed signatures, edited trusted comments, version mismatches and partial manifests fail.";
 }
 
 async function testNoticeGate() {
@@ -385,7 +517,7 @@ async function testVersionTool() {
   }
   for (const path of [
     "scripts/release-version.mjs",
-    "scripts/semver.mjs",
+    "shared/semver.mjs",
     "scripts/verify-release-notices.mjs",
     "package.json",
     "package-lock.json",
@@ -450,6 +582,7 @@ try {
   reports.push(await testChecksums());
   reports.push(await testCollector());
   reports.push(await testUpdateManifest());
+  reports.push(await testUpdateSignatures());
   reports.push(await testPublishedReleaseVerifier());
   reports.push(await testNoticeGate());
   reports.push(await testVersionTool());
