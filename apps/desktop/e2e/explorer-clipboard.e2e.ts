@@ -6,7 +6,8 @@ const menuButton = (page: Page, name: string) => page.getByRole("button", { name
 
 async function copyWithMenu(page: Page, name: string) {
   await row(page, name).click({ button: "right" });
-  await menuButton(page, "Copy").click();
+  await menuButton(page, "Copy").hover();
+  await page.getByRole("menu", { name: "Copy" }).getByRole("button", { name: /^Copy (File|Folder)$/ }).click();
   await expect(page.getByRole("status")).toHaveText(`Copied ${name}`);
 }
 
@@ -64,6 +65,34 @@ test("Add to .gitignore moves the item to the ignored group and leaves its menu"
   await row(page, "README.md").click({ button: "right" });
   await expect(menuButton(page, "Rename")).toBeVisible();
   await expect(menuButton(page, "Add to .gitignore")).toHaveCount(0);
+});
+
+test("the Copy submenu groups the copy actions and works from the keyboard", async ({ page }) => {
+  await row(page, "src").click({ button: "right" });
+  const trigger = menuButton(page, "Copy");
+  const submenu = page.getByRole("menu", { name: "Copy" });
+  await expect(submenu).toHaveCount(0);
+  await expect(menuButton(page, "Copy Path")).toHaveCount(0);
+
+  await trigger.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(submenu.getByRole("button", { name: "Copy Folder", exact: true })).toBeFocused();
+  await expect(submenu.getByRole("button")).toHaveText(["Copy Folder", "Copy Name", "Copy Path", "Copy Relative Path"]);
+  await page.keyboard.press("Escape");
+  await expect(submenu).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+
+  await menuButton(page, "Paste").hover();
+  await trigger.hover();
+  await expect(submenu).toBeVisible();
+  await menuButton(page, "Paste").hover();
+  await expect(submenu).toHaveCount(0);
+
+  await page.keyboard.press("Escape");
+  await row(page, "README.md").click({ button: "right" });
+  await trigger.click();
+  await submenu.getByRole("button", { name: "Copy File", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Copied README.md");
 });
 
 test("a folder cannot be pasted into itself or its subfolders", async ({ page }) => {

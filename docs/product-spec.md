@@ -35,7 +35,13 @@ coverage and no published installer yet.
   tracking committed files, so the confirmation points to `git rm --cached`; Pude does not
   change the index. A name containing a line break cannot be listed. The change is a
   normal edit to `.gitignore` and shows in the Git panel.
-- Right-click a file or folder for **Copy** and **Paste**, or press **Cmd+C** / **Cmd+V**
+- The Explorer context menu groups its copy actions in a **Copy** submenu: **Copy File**
+  (**Copy Folder** on a folder), **Copy Name**, **Copy Path** and, inside a workspace
+  folder, **Copy Relative Path**. Hovering or clicking **Copy** opens it beside the menu,
+  on the left when the right edge has no room. With keyboard focus on **Copy**, the right
+  arrow key opens it and focuses its first item; the left arrow key or Escape closes it
+  and returns focus to **Copy**. **Paste** stays in the main menu.
+- Right-click a file or folder for **Copy File** / **Copy Folder** and **Paste**, or press **Cmd+C** / **Cmd+V**
   (**Ctrl+C** / **Ctrl+V** on Windows and Linux) while its Explorer row has focus; the
   editor and terminal keep their own copy and paste. Pasting on a folder puts the item
   inside it, and pasting on a file puts it beside that file. The copied item stays

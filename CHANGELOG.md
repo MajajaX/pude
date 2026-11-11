@@ -22,6 +22,10 @@ All notable changes to `pude` are recorded here. The format follows
 
 ### Changed
 
+- **Copy**, **Copy Name**, **Copy Path** and **Copy Relative Path** on the Explorer context
+  menu moved into one **Copy** submenu, where copying the item reads **Copy File** or
+  **Copy Folder**. Hover, click or press the right arrow key to open it; the left arrow
+  key or Escape closes it.
 - Explorer, Search and Git moved to an icon-only activity bar on the left edge of the
   window, in that order. Selecting the icon of the view already showing hides the
   sidebar; the bar stays visible while the sidebar is hidden.

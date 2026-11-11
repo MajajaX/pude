@@ -167,6 +167,8 @@ const zhHant: Dictionary = {
   "Copied the value of {key}.": "已複製 {key} 的值。",
   "Copied {name}": "已複製 {name}",
   "Copied {label}: {value}": "已複製{label}：{value}",
+  "Copy File": "複製檔案",
+  "Copy Folder": "複製資料夾",
   "Copy Name": "複製檔名",
   "Copy line": "複製整行",
   "Copy name": "複製名稱",
