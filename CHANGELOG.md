@@ -16,6 +16,9 @@ All notable changes to `pude` are recorded here. The format follows
   you switch project tabs, so it can be pasted into another project. Paste never
   overwrites: a name in use becomes `name copy.ext`. A folder cannot be pasted into
   itself, and symbolic links are recreated rather than followed.
+- **Add to .gitignore** on the Explorer context menu lists a file or folder in the
+  repository's root `.gitignore`, matching only that item. It appears for items inside a
+  Git repository that are not ignored yet, and warns when Git still tracks the item.
 
 ### Changed
 

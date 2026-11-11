@@ -41,6 +41,7 @@
     "allow-delete-path",
     "allow-git-status",
     "allow-get-git-ignored-paths",
+    "allow-add-to-gitignore",
     "allow-git-branches",
     "allow-git-commits",
     "allow-cancel-workspace",

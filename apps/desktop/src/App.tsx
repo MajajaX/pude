@@ -396,6 +396,12 @@ export default function App() {
   let contextMenuFocusTarget: HTMLElement | undefined;
   const closeTabMenu = () => setTabMenu(undefined);
   const closeFileMenu = () => setFileMenu(undefined);
+  const onFileMenuEntry = (action: (entry: DirectoryEntry) => void) => () => {
+    const entry = fileMenu()?.entry;
+    closeFileMenu();
+    contextMenuFocusTarget?.focus({ preventScroll: true });
+    if (entry) action(entry);
+  };
   const [explorerClipboard, setExplorerClipboard] = createSignal<ExplorerClipboard>();
   const [explorerRevealPath, setExplorerRevealPath] = createSignal<string>();
   let pasteInFlight = false;
@@ -3823,6 +3829,17 @@ export default function App() {
     }
   };
 
+  const showGitignoreOutcome = async (outcome: Promise<string>) => {
+    closeFileMenu();
+    contextMenuFocusTarget?.focus({ preventScroll: true });
+    try {
+      notify(await outcome);
+      await refreshGit(false);
+    } catch (error) {
+      notify(errorMessage(error, "Unable to add to .gitignore."));
+    }
+  };
+
   const refreshDirectory = async (path: string, generation = workspaceGeneration) => {
     if (generation !== workspaceGeneration || disposed) return false;
     const currentWorkspace = workspace();
@@ -5294,8 +5311,9 @@ export default function App() {
              onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
              onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
              canPaste={Boolean(explorerClipboard())}
-             onCopyItem={() => { const entry = menu().entry; closeFileMenu(); contextMenuFocusTarget?.focus({ preventScroll: true }); copyExplorerEntry(entry); }}
-             onPasteItem={() => { const entry = menu().entry; closeFileMenu(); contextMenuFocusTarget?.focus({ preventScroll: true }); void pasteExplorerEntry(entry); }}
+             onCopyItem={onFileMenuEntry(copyExplorerEntry)}
+             onPasteItem={onFileMenuEntry(pasteExplorerEntry)}
+             workspace={workspace()} repositoryRoot={git().repositoryRoot} ignored={gitIgnoredPaths().has(pathKey(menu().entry.path))} onGitignoreOutcome={(outcome) => void showGitignoreOutcome(outcome)}
              onCopy={(kind) => void copyEntryText(menu().entry, kind)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">

@@ -264,7 +264,15 @@ export async function deletePath(path: string): Promise<void> {
 }
 
 export async function getGitIgnoredPaths(workspace: string, paths: string[]): Promise<string[]> {
-  return isTauri ? invoke<string[]>("get_git_ignored_paths", { workspace, paths }) : [];
+  if (isTauri) return invoke<string[]>("get_git_ignored_paths", { workspace, paths });
+  return (await getDemoModules()).demoGitIgnoredPaths(paths);
+}
+
+export type AddToGitignoreResult = { added: boolean; tracked: boolean };
+
+export async function addToGitignore(workspace: string, path: string): Promise<AddToGitignoreResult> {
+  if (isTauri) return invoke<AddToGitignoreResult>("add_to_gitignore", { workspace, path });
+  return (await getDemoModules()).addDemoPathToGitignore(path);
 }
 
 export async function getGitStatus(workspace: string): Promise<GitStatusResult> {

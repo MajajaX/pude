@@ -202,6 +202,18 @@ function demoBaseName(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).at(-1) ?? path;
 }
 
+const demoIgnoredPaths = new Set<string>();
+
+export function addDemoPathToGitignore(path: string): { added: boolean; tracked: boolean } {
+  const added = !demoIgnoredPaths.has(path);
+  demoIgnoredPaths.add(path);
+  return { added, tracked: false };
+}
+
+export function demoGitIgnoredPaths(paths: string[]): string[] {
+  return paths.filter((path) => [...demoIgnoredPaths].some((ignored) => path === ignored || path.startsWith(`${ignored}/`)));
+}
+
 export function createDemoFile(path: string): void {
   if (findDemoEntry(path)) throw new Error("Unable to create file. The item already exists.");
   const parent = findDemoEntry(parentDemoPath(path));

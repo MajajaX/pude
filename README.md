@@ -76,7 +76,8 @@ permission).
   default).
 - **Explorer and project search** — an icon activity bar for Explorer, Search and Git,
   optional Git-ignored grouping, file operations including copy and paste across project
-  tabs (a name in use becomes `name copy.ext`), and on-demand text or file-path
+  tabs (a name in use becomes `name copy.ext`), **Add to .gitignore** from the context
+  menu, and on-demand text or file-path
   search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
   by default and supports match case. Text results center and highlight the match.
   Replace changes every match in the project or in one file, skipping files with

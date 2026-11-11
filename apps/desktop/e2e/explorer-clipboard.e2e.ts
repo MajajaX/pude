@@ -54,6 +54,18 @@ test("Copy and Paste keys act on the focused row in Explorer", async ({ page }) 
   await expect(page.locator(".cm-content")).toContainText('"name": "pude-demo"');
 });
 
+test("Add to .gitignore moves the item to the ignored group and leaves its menu", async ({ page }) => {
+  await row(page, "README.md").click({ button: "right" });
+  await menuButton(page, "Add to .gitignore").click();
+  await expect(page.getByRole("status")).toHaveText("Added README.md to .gitignore");
+  await expect(row(page, "README.md")).toHaveCount(0);
+
+  await row(page, "Git ignored").click();
+  await row(page, "README.md").click({ button: "right" });
+  await expect(menuButton(page, "Rename")).toBeVisible();
+  await expect(menuButton(page, "Add to .gitignore")).toHaveCount(0);
+});
+
 test("a folder cannot be pasted into itself or its subfolders", async ({ page }) => {
   await copyWithMenu(page, "src");
   const refused = "Unable to paste item. A folder cannot be pasted into itself or one of its subfolders.";

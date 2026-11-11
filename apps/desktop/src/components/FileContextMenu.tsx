@@ -2,6 +2,7 @@ import { Show, createEffect } from "solid-js";
 import type { DirectoryEntry } from "../types";
 import { Icon } from "./Icons";
 import { t } from "../lib/i18n";
+import { addEntryToGitignore, canAddToGitignore } from "../lib/add-to-gitignore";
 
 export function FileContextMenu(props: {
   entry: DirectoryEntry;
@@ -16,6 +17,10 @@ export function FileContextMenu(props: {
   onPasteItem: () => void;
   onOpenTerminal: () => void;
   onReveal: () => void;
+  workspace: string;
+  repositoryRoot: string;
+  ignored: boolean;
+  onGitignoreOutcome: (outcome: Promise<string>) => void;
   /** Present on the top folder rows of a multi-folder workspace. */
   onRemoveFolder?: () => void;
 }) {
@@ -40,6 +45,7 @@ export function FileContextMenu(props: {
     <Show when={props.showRelativePath}><button onClick={() => props.onCopy("relative-path")}><Icon name="copy" size={13} /> {t("Copy Relative Path")}</button></Show>
     <button onClick={props.onOpenTerminal}><Icon name="terminal" size={13} /> {t("Open in Integrated Terminal")}</button>
     <button onClick={props.onReveal}><Icon name="external" size={13} /> {props.revealLabel}</button>
+    <Show when={!props.ignored && canAddToGitignore(props.entry.path, props.repositoryRoot)}><button onClick={() => props.onGitignoreOutcome(addEntryToGitignore(props.workspace, props.entry))}><Icon name="git" size={13} /> {t("Add to .gitignore")}</button></Show>
     <Show when={props.onRemoveFolder} fallback={<>
       <button onClick={() => props.onAction("rename")}><Icon name="file" size={13} /> {t("Rename")}</button>
       <button onClick={() => props.onAction("delete")}><Icon name="trash" size={13} /> {t("Delete")}</button>

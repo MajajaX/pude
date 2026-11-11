@@ -31,6 +31,7 @@ fn main() {
         "delete_path",
         "git_status",
         "get_git_ignored_paths",
+        "add_to_gitignore",
         "git_branches",
         "git_commits",
         "cancel_workspace",

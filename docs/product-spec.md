@@ -26,6 +26,15 @@ coverage and no published installer yet.
 - A **FILES** bar at the top of the Explorer view holds **New file** (`+`) and **New folder**
   for the project root. Right-click a folder to create items inside it, or a file
   to create items beside it.
+- In a Git repository, right-click a file or folder that is not ignored yet for **Add to
+  .gitignore**. It appends one line to the `.gitignore` at the repository root, creating
+  that file if needed: `/path/to/file`, or `/path/to/folder/` for a folder. The line is
+  anchored and escaped so it matches only that item. Existing lines and line endings are
+  kept, and a line already present is not added again. The item is hidden for the
+  repository root, `.git`, ignored items and folders outside the repository. Git keeps
+  tracking committed files, so the confirmation points to `git rm --cached`; Pude does not
+  change the index. A name containing a line break cannot be listed. The change is a
+  normal edit to `.gitignore` and shows in the Git panel.
 - Right-click a file or folder for **Copy** and **Paste**, or press **Cmd+C** / **Cmd+V**
   (**Ctrl+C** / **Ctrl+V** on Windows and Linux) while its Explorer row has focus; the
   editor and terminal keep their own copy and paste. Pasting on a folder puts the item

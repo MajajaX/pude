@@ -158,6 +158,7 @@ fn test_webview() -> tauri::WebviewWindow<tauri::test::MockRuntime> {
             runtime_generic_command_probe,
             git_operation,
             get_git_ignored_paths,
+            crate::git_ignore_file::add_to_gitignore,
             project_search::search_project,
             project_search::cancel_project_search,
             project_search::replace_in_project,
@@ -448,6 +449,52 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
         cancelled_range,
         fixture["pluginWorkspaceCancelledReadError"]
     );
+}
+
+#[test]
+fn add_to_gitignore_command_lists_an_item_once_and_reports_tracking() {
+    let scratch = ScratchDirectory::new();
+    let root = scratch.0.canonicalize().unwrap();
+    let webview = test_webview();
+    let git = |args: &[&str]| {
+        assert!(std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(args)
+            .status()
+            .unwrap()
+            .success());
+    };
+    git(&["init", "--quiet"]);
+    fs::create_dir(root.join("build")).unwrap();
+    fs::write(root.join("tracked.txt"), "fixture").unwrap();
+    git(&["add", "tracked.txt"]);
+    let add = |item: &str| {
+        invoke(
+            &webview,
+            "add_to_gitignore",
+            json!({ "workspace": wire_path(&root), "path": wire_path(&root.join(item)) }),
+        )
+    };
+
+    assert_eq!(
+        add("build").unwrap(),
+        json!({ "added": true, "tracked": false })
+    );
+    assert_eq!(
+        add("build").unwrap(),
+        json!({ "added": false, "tracked": false })
+    );
+    assert_eq!(
+        add("tracked.txt").unwrap(),
+        json!({ "added": true, "tracked": true })
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(".gitignore")).unwrap(),
+        "/build/\n/tracked.txt\n"
+    );
+    assert!(add("").is_err());
+    assert!(add("missing.txt").is_err());
 }
 
 #[test]

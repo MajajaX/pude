@@ -37,6 +37,7 @@ mod file_copy;
 mod filesystem;
 mod git_diff;
 mod git_history;
+mod git_ignore_file;
 mod git_repository;
 mod git_runtime;
 mod git_stash;
@@ -4936,6 +4937,7 @@ fn main() {
                     filesystem::delete_path,
                     git_status,
                     get_git_ignored_paths,
+                    git_ignore_file::add_to_gitignore,
                     git_branches,
                     git_commits,
                     cancel_workspace,
