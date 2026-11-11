@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { REPOSITORY_URL } from "../shared/repository.mjs";
 import { parseSemver } from "../shared/semver.mjs";
 import { updatePackages } from "./update-packages.mjs";
 
@@ -9,10 +10,11 @@ const allowPartial = options.length === 1 && options[0] === "--allow-partial";
 if (!releaseDirectoryArgument || !version || !notesFileArgument || (options.length > 0 && !allowPartial)) {
   throw new Error("usage: write-update-manifest.mjs <release-directory> <vX.Y.Z> <notes-file> [--allow-partial]");
 }
-if (version.prerelease) throw new Error(`${tag} is a prerelease; update manifests are written for stable releases only`);
+if (version.prerelease)
+  throw new Error(`${tag} is a prerelease; update manifests are written for stable releases only`);
 
 const releaseDirectory = resolve(releaseDirectoryArgument);
-const downloadBase = `https://github.com/MajajaX/pude/releases/download/${encodeURIComponent(tag)}`;
+const downloadBase = `${REPOSITORY_URL}/releases/download/${encodeURIComponent(tag)}`;
 
 const platforms = {};
 for (const [target, packageName] of Object.entries(updatePackages)) {

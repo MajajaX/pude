@@ -1,5 +1,9 @@
 import { translateMessage } from "./i18n";
 
+/** An error notification is styled as one and stays on screen longer. */
+export type NotifyTone = "error";
+export type Notify = (message: string, tone?: NotifyTone) => void;
+
 /** Keep pinned tabs to the left while preserving order within each group. */
 export function orderTabsByPinned<T extends { pinned?: boolean }>(tabs: readonly T[]): T[] {
   return tabs.filter((tab) => tab.pinned === true).concat(tabs.filter((tab) => tab.pinned !== true));

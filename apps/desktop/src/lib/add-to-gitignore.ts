@@ -1,13 +1,25 @@
 import type { DirectoryEntry } from "../types";
 import { addToGitignore } from "./bridge";
 import { t } from "./i18n";
-import { isSameOrDescendantPath, joinWirePath, runtimePathOptions, samePath, type PathIdentityOptions } from "./path-identity";
+import {
+  isSameOrDescendantPath,
+  joinWirePath,
+  runtimePathOptions,
+  samePath,
+  type PathIdentityOptions,
+} from "./path-identity";
 
-export function canAddToGitignore(path: string, repositoryRoot: string, options: PathIdentityOptions = runtimePathOptions()): boolean {
-  return Boolean(repositoryRoot)
-    && isSameOrDescendantPath(path, repositoryRoot, options)
-    && !samePath(path, repositoryRoot, options)
-    && !isSameOrDescendantPath(path, joinWirePath(repositoryRoot, ".git", options), options);
+export function canAddToGitignore(
+  path: string,
+  repositoryRoot: string,
+  options: PathIdentityOptions = runtimePathOptions(),
+): boolean {
+  return (
+    Boolean(repositoryRoot) &&
+    isSameOrDescendantPath(path, repositoryRoot, options) &&
+    !samePath(path, repositoryRoot, options) &&
+    !isSameOrDescendantPath(path, joinWirePath(repositoryRoot, ".git", options), options)
+  );
 }
 
 export async function addEntryToGitignore(workspace: string, entry: DirectoryEntry): Promise<string> {

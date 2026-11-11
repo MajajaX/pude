@@ -1,3 +1,4 @@
+import type { Notify } from "./core";
 // Plugin host controller.
 //
 // The plugin host libraries below are ~100 KB of source that the shell only
@@ -49,11 +50,22 @@ export {
 import type { InstalledPlugin } from "../types";
 import { errorMessage } from "./core";
 import { t } from "./i18n";
-import { PLUGIN_SANDBOX_FLAGS, createPluginSandboxDocument, createPluginWorkerSource, createPluginWorkerV2Source } from "./plugin-sandbox";
+import {
+  PLUGIN_SANDBOX_FLAGS,
+  createPluginSandboxDocument,
+  createPluginWorkerSource,
+  createPluginWorkerV2Source,
+} from "./plugin-sandbox";
 import { createPluginApiV2Host, type PluginApiV2Dependencies } from "./plugin-api-v2";
 import { PluginEditorRevisionTracker } from "./plugin-editor-revisions";
 import { PluginWorkerMessageGate } from "./plugin-message-policy";
-import { PLUGIN_AUTHORIZATION_STORAGE_KEY, PluginAuthorizationManager, loadPluginAuthorizationStore, serializePluginAuthorizationStore, type PluginAuthorizationChange } from "./plugin-authorization";
+import {
+  PLUGIN_AUTHORIZATION_STORAGE_KEY,
+  PluginAuthorizationManager,
+  loadPluginAuthorizationStore,
+  serializePluginAuthorizationStore,
+  type PluginAuthorizationChange,
+} from "./plugin-authorization";
 import { pluginWorkerFailureNotification, pluginWorkerStatusAction } from "./plugin-worker-policy";
 import { parsePluginEventSubscriptions } from "./plugin-activation";
 
@@ -94,7 +106,7 @@ type PluginHostOptions = {
   workspace: () => string;
   workspaceGeneration: () => number;
   isDisposed: () => boolean;
-  notify: (message: string) => void;
+  notify: Notify;
   readPluginEntry: (root: string, entry: string) => Promise<string>;
   getEditorText: () => string;
   setPluginStatus: (id: string, status: "active" | "inactive" | "failed") => void;
@@ -106,9 +118,30 @@ type PluginHostOptions = {
 };
 
 export function createPluginHostController(options: PluginHostOptions) {
-  const { pluginsRecovered, plugins, workspace, notify, readPluginEntry, getEditorText, setPluginStatus, resolveApiPermission, executeApi } = options;
+  const {
+    pluginsRecovered,
+    plugins,
+    workspace,
+    notify,
+    readPluginEntry,
+    getEditorText,
+    setPluginStatus,
+    resolveApiPermission,
+    executeApi,
+  } = options;
   const getWorkspaceGeneration = options.workspaceGeneration;
-  const host = { PLUGIN_SANDBOX_FLAGS, createPluginSandboxDocument, createPluginWorkerSource, createPluginWorkerV2Source, PluginWorkerMessageGate, PluginEditorRevisionTracker, createPluginApiV2Host, parsePluginEventSubscriptions, pluginWorkerFailureNotification, pluginWorkerStatusAction };
+  const host = {
+    PLUGIN_SANDBOX_FLAGS,
+    createPluginSandboxDocument,
+    createPluginWorkerSource,
+    createPluginWorkerV2Source,
+    PluginWorkerMessageGate,
+    PluginEditorRevisionTracker,
+    createPluginApiV2Host,
+    parsePluginEventSubscriptions,
+    pluginWorkerFailureNotification,
+    pluginWorkerStatusAction,
+  };
   const pluginRuns = new Map<string, Set<PluginRun>>();
   const pluginRunGenerations = new Map<string, number>();
   let disposed = false;
@@ -165,7 +198,8 @@ export function createPluginHostController(options: PluginHostOptions) {
     return generation;
   };
 
-  const isCurrentPluginRun = (pluginId: string, generation: number) => !disposed && !options.isDisposed() && (pluginRunGenerations.get(pluginId) ?? 0) === generation;
+  const isCurrentPluginRun = (pluginId: string, generation: number) =>
+    !disposed && !options.isDisposed() && (pluginRunGenerations.get(pluginId) ?? 0) === generation;
 
   const invalidateAllPluginRuns = () => {
     const pluginIds = new Set([...pluginRunGenerations.keys(), ...pluginRuns.keys()]);
@@ -175,7 +209,12 @@ export function createPluginHostController(options: PluginHostOptions) {
     }
   };
 
-  const runPlugin = async (plugin: InstalledPlugin, activationEvent: string, activationPayload: unknown, activationCommand?: string) => {
+  const runPlugin = async (
+    plugin: InstalledPlugin,
+    activationEvent: string,
+    activationPayload: unknown,
+    activationCommand?: string,
+  ) => {
     if (!pluginsRecovered()) {
       notify(t("Plugin state is still being verified; plugins are temporarily unavailable."));
       return;
@@ -184,11 +223,17 @@ export function createPluginHostController(options: PluginHostOptions) {
     const generation = pluginRunGenerations.get(plugin.id) ?? 0;
     const expectedWorkspaceGeneration = getWorkspaceGeneration();
     const expectedWorkspaceRoot = workspace();
-    const isCurrent = () => isCurrentPluginRun(plugin.id, generation)
-      && expectedWorkspaceGeneration === getWorkspaceGeneration()
-      && expectedWorkspaceRoot === workspace()
-      && plugins().some((current) => current.id === plugin.id && current.enabled
-        && current.version === plugin.version && current.rootPath === plugin.rootPath);
+    const isCurrent = () =>
+      isCurrentPluginRun(plugin.id, generation) &&
+      expectedWorkspaceGeneration === getWorkspaceGeneration() &&
+      expectedWorkspaceRoot === workspace() &&
+      plugins().some(
+        (current) =>
+          current.id === plugin.id &&
+          current.enabled &&
+          current.version === plugin.version &&
+          current.rootPath === plugin.rootPath,
+      );
     const isLive = () => isCurrent() && isPluginRunLive(run);
     setPluginStatus(plugin.id, "active");
     if (!plugin.rootPath) {
@@ -207,11 +252,13 @@ export function createPluginHostController(options: PluginHostOptions) {
     } catch (error) {
       if (!isCurrent() || !plugins().some((item) => item.id === plugin.id && item.enabled)) return;
       setPluginStatus(plugin.id, "failed");
-      notify(errorMessage(error, "Unable to read plugin entry."));
+      notify(errorMessage(error, "Unable to read plugin entry."), "error");
       return;
     }
     if (!isCurrent()) return;
-    const canResolveLegacyPermission = async (permission: "editor.read" | "commands.register" | "ui.notification" | "ui.statusBar") => {
+    const canResolveLegacyPermission = async (
+      permission: "editor.read" | "commands.register" | "ui.notification" | "ui.statusBar",
+    ) => {
       if (!plugin.permissions.includes(permission)) return false;
       try {
         return await resolveApiPermission(plugin, permission, { workspaceRoot: expectedWorkspaceRoot });
@@ -232,18 +279,23 @@ export function createPluginHostController(options: PluginHostOptions) {
       ]);
       if (!isCurrent()) return;
     }
-    const workerSource = plugin.apiVersion === "2"
-      ? host.createPluginWorkerV2Source({ pluginSource })
-      : host.createPluginWorkerSource({
-        pluginSource,
-        editorText: canReadEditor ? getEditorText() : "",
-        facadeSource: [
-          canReadEditor ? "editor: { getText: () => editorText }," : "",
-          canRegisterCommands ? "commands: { register: (id, handler) => { commandHandlers.set(id, handler); self.postMessage({ type: \"commands\", commands: [...commandHandlers.keys()] }); } }," : "",
-          canNotify || canUseStatusBar ? `ui: { ${canNotify ? "notify: sendStatus," : ""}${canUseStatusBar ? "statusBar: { set: sendStatus }" : ""} },` : "",
-        ].join("\n"),
-        activationCommand: activationCommand ?? activationEvent,
-      });
+    const workerSource =
+      plugin.apiVersion === "2"
+        ? host.createPluginWorkerV2Source({ pluginSource })
+        : host.createPluginWorkerSource({
+            pluginSource,
+            editorText: canReadEditor ? getEditorText() : "",
+            facadeSource: [
+              canReadEditor ? "editor: { getText: () => editorText }," : "",
+              canRegisterCommands
+                ? 'commands: { register: (id, handler) => { commandHandlers.set(id, handler); self.postMessage({ type: "commands", commands: [...commandHandlers.keys()] }); } },'
+                : "",
+              canNotify || canUseStatusBar
+                ? `ui: { ${canNotify ? "notify: sendStatus," : ""}${canUseStatusBar ? "statusBar: { set: sendStatus }" : ""} },`
+                : "",
+            ].join("\n"),
+            activationCommand: activationCommand ?? activationEvent,
+          });
     const token = createPluginRunToken();
     const messageGate = new host.PluginWorkerMessageGate();
     const editorRevisionTracker = new host.PluginEditorRevisionTracker();
@@ -301,7 +353,9 @@ export function createPluginHostController(options: PluginHostOptions) {
         }
         run.hadSubscriptions ||= accepted.length > 0;
         run.subscriptions.clear();
-        accepted.forEach((event: string) => run.subscriptions.add(event));
+        accepted.forEach((event: string) => {
+          run.subscriptions.add(event);
+        });
         if (run.ready && run.hadSubscriptions && run.subscriptions.size === 0) finishPlugin("inactive");
         return;
       }
@@ -312,10 +366,14 @@ export function createPluginHostController(options: PluginHostOptions) {
         }
         const declared = new Set([
           ...(plugin.contributes?.commands ?? []).map((command) => command.command),
-          ...plugin.activationEvents.filter((event) => event.startsWith("onCommand:")).map((event) => event.slice("onCommand:".length)),
+          ...plugin.activationEvents
+            .filter((event) => event.startsWith("onCommand:"))
+            .map((event) => event.slice("onCommand:".length)),
         ]);
         run.commands.clear();
-        if (Array.isArray(data.commands)) for (const command of data.commands) if (typeof command === "string" && declared.has(command)) run.commands.add(command);
+        if (Array.isArray(data.commands))
+          for (const command of data.commands)
+            if (typeof command === "string" && declared.has(command)) run.commands.add(command);
         return;
       }
       if (data?.type === "ready") {
@@ -323,11 +381,17 @@ export function createPluginHostController(options: PluginHostOptions) {
         window.clearTimeout(run.timeout);
         run.timeout = 0;
         sendActivation(activationEvent, activationPayload, activationCommand);
-        for (const pending of run.pendingActivations.splice(0)) sendActivation(pending.event, pending.payload, pending.commandId);
+        for (const pending of run.pendingActivations.splice(0))
+          sendActivation(pending.event, pending.payload, pending.commandId);
         return;
       }
       if (data?.type === "status") {
-        const statusAction = host.pluginWorkerStatusAction(plugin.apiVersion, canNotify || canUseStatusBar, data.text, plugin.name);
+        const statusAction = host.pluginWorkerStatusAction(
+          plugin.apiVersion,
+          canNotify || canUseStatusBar,
+          data.text,
+          plugin.name,
+        );
         if (statusAction.kind === "reject") {
           finishPlugin("failed");
           if (statusAction.notification) notify(statusAction.notification);
@@ -367,7 +431,7 @@ export function createPluginHostController(options: PluginHostOptions) {
       }
       if (message.type === "worker-error") {
         finishPlugin("failed");
-        notify(t("{name}: plugin failed and was isolated from the editor.", { name: plugin.name }));
+        notify(t("{name}: plugin failed and was isolated from the editor.", { name: plugin.name }), "error");
       }
     };
     run = {
@@ -381,7 +445,10 @@ export function createPluginHostController(options: PluginHostOptions) {
       token,
       messageHandler,
       apiVersion: plugin.apiVersion,
-      stopApi: () => { apiHost?.stop(); editorRevisionTracker.clear(); },
+      stopApi: () => {
+        apiHost?.stop();
+        editorRevisionTracker.clear();
+      },
       send: sendToSandbox,
       activationEvent,
       activationPayload,

@@ -20,7 +20,10 @@ const chapterStarts = chapterOrder.map((_, i) =>
 const filmLength = chapterStarts.at(-1)! + chapterDurations[chapterOrder.at(-1)!];
 
 const addedLineOffsets = mainTs.map((_, i) =>
-  mainTs.slice(0, i).filter((line) => line.added).reduce((total, line) => total + lineLength(line) + 1, 0),
+  mainTs
+    .slice(0, i)
+    .filter((line) => line.added)
+    .reduce((total, line) => total + lineLength(line) + 1, 0),
 );
 
 const diffRows = (() => {

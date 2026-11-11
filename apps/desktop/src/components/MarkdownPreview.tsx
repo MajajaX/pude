@@ -16,7 +16,15 @@ type MarkdownBlock =
   | { kind: "paragraph"; text: string; tokens: InlineToken[] }
   | { kind: "quote"; text: string; tokens: InlineToken[] }
   | { kind: "list"; ordered: boolean; items: string[]; itemTokens: InlineToken[][] }
-  | { kind: "table"; headers: string[]; headerTokens: InlineToken[][]; alignments: TableAlignment[]; rows: string[][]; rowTokens: InlineToken[][][]; truncated: boolean }
+  | {
+      kind: "table";
+      headers: string[];
+      headerTokens: InlineToken[][];
+      alignments: TableAlignment[];
+      rows: string[][];
+      rowTokens: InlineToken[][][];
+      truncated: boolean;
+    }
   | { kind: "code"; language: string; text: string }
   | { kind: "rule" };
 
@@ -86,19 +94,28 @@ export function MarkdownPreview(props: {
     const currentGeneration = ++generation;
     const now = Date.now();
     updateStartedAt ??= now;
-    const wait = Math.min(MARKDOWN_PREVIEW_SCHEDULE.debounceMs, Math.max(0, MARKDOWN_PREVIEW_SCHEDULE.maxWaitMs - (now - updateStartedAt)));
+    const wait = Math.min(
+      MARKDOWN_PREVIEW_SCHEDULE.debounceMs,
+      Math.max(0, MARKDOWN_PREVIEW_SCHEDULE.maxWaitMs - (now - updateStartedAt)),
+    );
     const timer = setTimeout(() => {
       if (currentGeneration !== generation) return;
       const next = parseMarkdownPreviewRange(length, readRange);
       if (currentGeneration !== generation || props.documentKey !== documentKey || props.revision !== revision) return;
       const previous = parsed();
-      setParsed({ ...next, documentKey, blocks: previous.documentKey === documentKey ? reuseStableBlocks(previous.blocks, next.blocks) : next.blocks });
+      setParsed({
+        ...next,
+        documentKey,
+        blocks: previous.documentKey === documentKey ? reuseStableBlocks(previous.blocks, next.blocks) : next.blocks,
+      });
       updateStartedAt = undefined;
     }, wait);
     onCleanup(() => clearTimeout(timer));
   });
 
-  onCleanup(() => { generation += 1; });
+  onCleanup(() => {
+    generation += 1;
+  });
 
   const headingIds = createMemo(() => {
     const headings = parsed().blocks.filter((block) => block.kind === "heading");
@@ -112,19 +129,40 @@ export function MarkdownPreview(props: {
     if (!href?.startsWith("#")) return;
     event.preventDefault();
     let id = href.slice(1);
-    try { id = decodeURIComponent(id); } catch { /* A stray % is not an encoding, so the raw id is the target. */ }
-    const target = event.currentTarget instanceof Element ? event.currentTarget.querySelector(`[id="${CSS.escape(id)}"]`) : null;
+    try {
+      id = decodeURIComponent(id);
+    } catch {
+      /* A stray % is not an encoding, so the raw id is the target. */
+    }
+    const target =
+      event.currentTarget instanceof Element ? event.currentTarget.querySelector(`[id="${CSS.escape(id)}"]`) : null;
     target?.scrollIntoView({ block: "start" });
   };
 
   return (
     <article class="markdown-preview" aria-label={t("Markdown preview")} on:click={scrollToAnchor}>
       <Show when={parsed().documentKey === props.documentKey && parsed().truncated}>
-        <aside class="markdown-preview-notice" role="status" style={{ "margin": "0 auto 20px", "padding": "8px 10px", "color": "var(--muted)", "font-size": "13px", "border": "1px solid var(--border)", "border-radius": "4px", "background": "var(--panel-raised)" }}>
-          {t("Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.")}
+        <aside
+          class="markdown-preview-notice"
+          role="status"
+          style={{
+            margin: "0 auto 20px",
+            padding: "8px 10px",
+            color: "var(--muted)",
+            "font-size": "13px",
+            border: "1px solid var(--border)",
+            "border-radius": "4px",
+            background: "var(--panel-raised)",
+          }}
+        >
+          {t(
+            "Preview shortened for performance. It reads at most 1 Mi UTF-16 code units, 20,000 lines, and 2,000 blocks. Each table is capped at 1,000 rows including its header, 40 columns, and 10,000 cells; all tables together are capped at 2,000 rows, 256 columns, and 5,000 cells. Rendered output follows an estimated 50,000-node DOM budget.",
+          )}
         </aside>
       </Show>
-      <For each={parsed().documentKey === props.documentKey ? parsed().blocks : []}>{(block) => <MarkdownBlockView block={block} headingId={headingIds().get(block)} />}</For>
+      <For each={parsed().documentKey === props.documentKey ? parsed().blocks : []}>
+        {(block) => <MarkdownBlockView block={block} headingId={headingIds().get(block)} />}
+      </For>
     </article>
   );
 }
@@ -132,61 +170,170 @@ export function MarkdownPreview(props: {
 function MarkdownBlockView(props: { block: MarkdownBlock; headingId?: string }): JSX.Element {
   const block = props.block;
   if (block.kind === "heading") return <Heading level={block.level} tokens={block.tokens} id={props.headingId} />;
-  if (block.kind === "paragraph") return <p><InlineContent tokens={block.tokens} /></p>;
-  if (block.kind === "quote") return <blockquote><InlineContent tokens={block.tokens} /></blockquote>;
+  if (block.kind === "paragraph")
+    return (
+      <p>
+        <InlineContent tokens={block.tokens} />
+      </p>
+    );
+  if (block.kind === "quote")
+    return (
+      <blockquote>
+        <InlineContent tokens={block.tokens} />
+      </blockquote>
+    );
   if (block.kind === "rule") return <hr />;
-  if (block.kind === "code") return <pre><code data-language={block.language || undefined}>{block.text}</code></pre>;
-  if (block.kind === "table") return <div class="markdown-table-wrap">
-    <Show when={block.truncated}>
-      <div class="markdown-preview-notice" role="status" style={{ "margin-bottom": "8px", padding: "8px 10px", color: "var(--muted)", "font-size": "13px", border: "1px solid var(--border)", "border-radius": "4px", background: "var(--panel-raised)" }}>
-        {t("Table shortened by preview limits. Showing {rows} data rows and {columns} columns.", { rows: block.rows.length, columns: block.headers.length })}
+  if (block.kind === "code")
+    return (
+      <pre>
+        <code data-language={block.language || undefined}>{block.text}</code>
+      </pre>
+    );
+  if (block.kind === "table")
+    return (
+      <div class="markdown-table-wrap">
+        <Show when={block.truncated}>
+          <div
+            class="markdown-preview-notice"
+            role="status"
+            style={{
+              "margin-bottom": "8px",
+              padding: "8px 10px",
+              color: "var(--muted)",
+              "font-size": "13px",
+              border: "1px solid var(--border)",
+              "border-radius": "4px",
+              background: "var(--panel-raised)",
+            }}
+          >
+            {t("Table shortened by preview limits. Showing {rows} data rows and {columns} columns.", {
+              rows: block.rows.length,
+              columns: block.headers.length,
+            })}
+          </div>
+        </Show>
+        <table>
+          <thead>
+            <tr>
+              <For each={block.headers}>
+                {(_, index) => (
+                  <th style={{ "text-align": block.alignments[index()] }}>
+                    <InlineContent tokens={block.headerTokens[index()] ?? []} />
+                  </th>
+                )}
+              </For>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={block.rows}>
+              {(row, rowIndex) => (
+                <tr>
+                  <For each={row}>
+                    {(_, columnIndex) => (
+                      <td style={{ "text-align": block.alignments[columnIndex()] }}>
+                        <InlineContent tokens={block.rowTokens[rowIndex()]?.[columnIndex()] ?? []} />
+                      </td>
+                    )}
+                  </For>
+                </tr>
+              )}
+            </For>
+          </tbody>
+        </table>
       </div>
-    </Show>
-    <table>
-      <thead><tr><For each={block.headers}>{(_, index) => <th style={{ "text-align": block.alignments[index()] }}><InlineContent tokens={block.headerTokens[index()] ?? []} /></th>}</For></tr></thead>
-      <tbody><For each={block.rows}>{(row, rowIndex) => <tr><For each={row}>{(_, columnIndex) => <td style={{ "text-align": block.alignments[columnIndex()] }}><InlineContent tokens={block.rowTokens[rowIndex()]?.[columnIndex()] ?? []} /></td>}</For></tr>}</For></tbody>
-    </table>
-  </div>;
-  if (block.ordered) return <ol><For each={block.items}>{(_, index) => <li><InlineContent tokens={block.itemTokens[index()]} /></li>}</For></ol>;
-  return <ul><For each={block.items}>{(_, index) => <li><InlineContent tokens={block.itemTokens[index()]} /></li>}</For></ul>;
+    );
+  if (block.ordered)
+    return (
+      <ol>
+        <For each={block.items}>
+          {(_, index) => (
+            <li>
+              <InlineContent tokens={block.itemTokens[index()]} />
+            </li>
+          )}
+        </For>
+      </ol>
+    );
+  return (
+    <ul>
+      <For each={block.items}>
+        {(_, index) => (
+          <li>
+            <InlineContent tokens={block.itemTokens[index()]} />
+          </li>
+        )}
+      </For>
+    </ul>
+  );
 }
 
 function Heading(props: { level: number; tokens: InlineToken[]; id?: string }): JSX.Element {
-  if (props.level === 1) return <h1 id={props.id}><InlineContent tokens={props.tokens} /></h1>;
-  if (props.level === 2) return <h2 id={props.id}><InlineContent tokens={props.tokens} /></h2>;
-  if (props.level === 3) return <h3 id={props.id}><InlineContent tokens={props.tokens} /></h3>;
-  if (props.level === 4) return <h4 id={props.id}><InlineContent tokens={props.tokens} /></h4>;
-  if (props.level === 5) return <h5 id={props.id}><InlineContent tokens={props.tokens} /></h5>;
-  return <h6 id={props.id}><InlineContent tokens={props.tokens} /></h6>;
+  if (props.level === 1)
+    return (
+      <h1 id={props.id}>
+        <InlineContent tokens={props.tokens} />
+      </h1>
+    );
+  if (props.level === 2)
+    return (
+      <h2 id={props.id}>
+        <InlineContent tokens={props.tokens} />
+      </h2>
+    );
+  if (props.level === 3)
+    return (
+      <h3 id={props.id}>
+        <InlineContent tokens={props.tokens} />
+      </h3>
+    );
+  if (props.level === 4)
+    return (
+      <h4 id={props.id}>
+        <InlineContent tokens={props.tokens} />
+      </h4>
+    );
+  if (props.level === 5)
+    return (
+      <h5 id={props.id}>
+        <InlineContent tokens={props.tokens} />
+      </h5>
+    );
+  return (
+    <h6 id={props.id}>
+      <InlineContent tokens={props.tokens} />
+    </h6>
+  );
 }
 
 function InlineContent(props: { tokens: InlineToken[] }): JSX.Element {
   return (
-    <>
-      <For each={props.tokens}>{(token) => {
-        if (token.kind === "link") return token.href?.startsWith("#")
-          ? <a href={token.href}>{token.text}</a>
-          : <a href={token.href} target="_blank" rel="noreferrer">{token.text}</a>;
+    <For each={props.tokens}>
+      {(token) => {
+        if (token.kind === "link")
+          return token.href?.startsWith("#") ? (
+            <a href={token.href}>{token.text}</a>
+          ) : (
+            <a href={token.href} target="_blank" rel="noreferrer">
+              {token.text}
+            </a>
+          );
         if (token.kind === "strong") return <strong>{token.text}</strong>;
         if (token.kind === "emphasis") return <em>{token.text}</em>;
         if (token.kind === "code") return <code>{token.text}</code>;
         return <span>{token.text}</span>;
-      }}</For>
-    </>
+      }}
+    </For>
   );
 }
 
-export function parseMarkdown(content: string): MarkdownParseResult {
-  const limit = Math.min(content.length, MARKDOWN_PREVIEW_BUDGETS.maxChars);
-  let source = content.slice(0, limit);
-  if (limit < content.length && isHighSurrogate(source.charCodeAt(source.length - 1))) source = source.slice(0, -1);
-  return parseMarkdownRange(source.replace(/\r\n?/g, "\n"), content.length > MARKDOWN_PREVIEW_BUDGETS.maxChars);
-}
-
-export function parseMarkdownPreviewRange(length: number, readRange: (from: number, to: number) => string): MarkdownParseResult {
+export function parseMarkdownPreviewRange(
+  length: number,
+  readRange: (from: number, to: number) => string,
+): MarkdownParseResult {
   const requestedEnd = Math.min(length, MARKDOWN_PREVIEW_BUDGETS.maxChars);
   let boundedText = readRange(0, requestedEnd).slice(0, requestedEnd);
-  if (length > requestedEnd && isHighSurrogate(boundedText.charCodeAt(boundedText.length - 1))) boundedText = boundedText.slice(0, -1);
+  if (length > requestedEnd && isHighSurrogate(boundedText.charCodeAt(boundedText.length - 1)))
+    boundedText = boundedText.slice(0, -1);
   return parseMarkdownRange(boundedText, length > MARKDOWN_PREVIEW_BUDGETS.maxChars);
 }
 
@@ -208,7 +355,10 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
   let codeLanguage = "";
 
   const pushBlock = (block: MarkdownBlock, domNodes: number): boolean => {
-    if (blocks.length >= MARKDOWN_PREVIEW_BUDGETS.maxBlocks || budget.domNodes + domNodes > MARKDOWN_PREVIEW_BUDGETS.maxDomNodes) {
+    if (
+      blocks.length >= MARKDOWN_PREVIEW_BUDGETS.maxBlocks ||
+      budget.domNodes + domNodes > MARKDOWN_PREVIEW_BUDGETS.maxDomNodes
+    ) {
       truncated = true;
       stopped = true;
       return false;
@@ -286,10 +436,18 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
     }
 
     if (isTableStart(lines, lineIndex)) {
-      if (blocks.length >= MARKDOWN_PREVIEW_BUDGETS.maxBlocks) { truncated = true; stopped = true; break; }
+      if (blocks.length >= MARKDOWN_PREVIEW_BUDGETS.maxBlocks) {
+        truncated = true;
+        stopped = true;
+        break;
+      }
       if (!flushText()) break;
       const table = parseTable(lines, lineIndex, budget);
-      if (!table?.block) { truncated = true; stopped = true; break; }
+      if (!table?.block) {
+        truncated = true;
+        stopped = true;
+        break;
+      }
       truncated ||= table.truncated;
       if (!pushBlock(table.block, table.domNodes)) break;
       lineIndex = table.endIndex;
@@ -305,8 +463,13 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
       if (!flushText()) break;
       const text = heading[2];
       const tokens = parseInline(text);
-      if (!tokens) { truncated = true; stopped = true; break; }
-      if (!pushInlineBlock({ kind: "heading", level: heading[1].length, text, tokens }, tokens, 1 + inlineCost(tokens))) break;
+      if (!tokens) {
+        truncated = true;
+        stopped = true;
+        break;
+      }
+      if (!pushInlineBlock({ kind: "heading", level: heading[1].length, text, tokens }, tokens, 1 + inlineCost(tokens)))
+        break;
       continue;
     }
     if (/^\s*((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$/.test(line)) {
@@ -354,7 +517,11 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
       if (!flushText()) break;
       const text = quote[1];
       const tokens = parseInline(text);
-      if (!tokens) { truncated = true; stopped = true; break; }
+      if (!tokens) {
+        truncated = true;
+        stopped = true;
+        break;
+      }
       if (!pushInlineBlock({ kind: "quote", text, tokens }, tokens, 1 + inlineCost(tokens))) break;
       continue;
     }
@@ -374,9 +541,9 @@ function isTableStart(lines: string[], startIndex: number): boolean {
   if (!headerLine?.includes("|") || !separatorLine?.includes("|")) return false;
   const headers = splitTableRow(headerLine, MARKDOWN_PREVIEW_BUDGETS.maxTableColumns).cells;
   const separator = splitTableRow(separatorLine, MARKDOWN_PREVIEW_BUDGETS.maxTableColumns).cells;
-  return headers.length > 0
-    && headers.length === separator.length
-    && separator.every((cell) => /^:?-+:?$/.test(cell.trim()));
+  return (
+    headers.length > 0 && headers.length === separator.length && separator.every((cell) => /^:?-+:?$/.test(cell.trim()))
+  );
 }
 
 function parseTable(lines: string[], startIndex: number, budget: ParseBudget): ParsedTable | undefined {
@@ -408,10 +575,13 @@ function parseTable(lines: string[], startIndex: number, budget: ParseBudget): P
   const startingTokenCount = budget.inlineTokens;
   let columns = headers.length;
   for (let index = 0; index < headers.length; index += 1) {
-    const tokens = tokenizeInline(headers[index], Math.min(
-      MARKDOWN_PREVIEW_BUDGETS.maxInlineTokensPerValue,
-      MARKDOWN_PREVIEW_BUDGETS.maxInlineTokens - budget.inlineTokens,
-    ));
+    const tokens = tokenizeInline(
+      headers[index],
+      Math.min(
+        MARKDOWN_PREVIEW_BUDGETS.maxInlineTokensPerValue,
+        MARKDOWN_PREVIEW_BUDGETS.maxInlineTokens - budget.inlineTokens,
+      ),
+    );
     if (!tokens) {
       columns = index;
       truncated = true;
@@ -435,14 +605,21 @@ function parseTable(lines: string[], startIndex: number, budget: ParseBudget): P
   const cellBaseCost = 2 + BLOCK_LOOP_NODE_RESERVE;
   const headerTokenNodes = headerTokens.reduce((total, tokens) => total + tokens.length * INLINE_TOKEN_NODE_RESERVE, 0);
   let tableDomNodes = 6 + TABLE_NOTICE_NODE_RESERVE + columns * cellBaseCost + headerTokenNodes;
-  const tableRowLimit = Math.min(MARKDOWN_PREVIEW_BUDGETS.maxTableRows, MARKDOWN_PREVIEW_BUDGETS.maxTotalTableRows - budget.rows);
-  const tableCellLimit = Math.min(MARKDOWN_PREVIEW_BUDGETS.maxTableCells, MARKDOWN_PREVIEW_BUDGETS.maxTotalTableCells - budget.cells);
+  const tableRowLimit = Math.min(
+    MARKDOWN_PREVIEW_BUDGETS.maxTableRows,
+    MARKDOWN_PREVIEW_BUDGETS.maxTotalTableRows - budget.rows,
+  );
+  const tableCellLimit = Math.min(
+    MARKDOWN_PREVIEW_BUDGETS.maxTableCells,
+    MARKDOWN_PREVIEW_BUDGETS.maxTotalTableCells - budget.cells,
+  );
   let tableCells = columns;
   let endIndex = startIndex + 1;
 
-  const canFitHeader = tableRowLimit >= 1
-    && tableCellLimit >= columns
-    && budget.domNodes + tableDomNodes <= MARKDOWN_PREVIEW_BUDGETS.maxDomNodes;
+  const canFitHeader =
+    tableRowLimit >= 1 &&
+    tableCellLimit >= columns &&
+    budget.domNodes + tableDomNodes <= MARKDOWN_PREVIEW_BUDGETS.maxDomNodes;
   if (!canFitHeader) {
     budget.inlineTokens = startingTokenCount;
     return { endIndex, truncated: true, domNodes: 0 };
@@ -459,10 +636,13 @@ function parseTable(lines: string[], startIndex: number, budget: ParseBudget): P
     const tokensForRow: InlineToken[][] = [];
     let rowFits = true;
     for (const cell of cells) {
-      const tokens = tokenizeInline(cell, Math.min(
-        MARKDOWN_PREVIEW_BUDGETS.maxInlineTokensPerValue,
-        MARKDOWN_PREVIEW_BUDGETS.maxInlineTokens - budget.inlineTokens,
-      ));
+      const tokens = tokenizeInline(
+        cell,
+        Math.min(
+          MARKDOWN_PREVIEW_BUDGETS.maxInlineTokensPerValue,
+          MARKDOWN_PREVIEW_BUDGETS.maxInlineTokens - budget.inlineTokens,
+        ),
+      );
       if (!tokens) {
         rowFits = false;
         break;
@@ -472,7 +652,11 @@ function parseTable(lines: string[], startIndex: number, budget: ParseBudget): P
     }
     const rowTokenNodes = tokensForRow.reduce((total, tokens) => total + tokens.length * INLINE_TOKEN_NODE_RESERVE, 0);
     const rowDomNodes = 2 + columns * cellBaseCost + rowTokenNodes;
-    if (!rowFits || tableCells + columns > tableCellLimit || budget.domNodes + tableDomNodes + rowDomNodes > MARKDOWN_PREVIEW_BUDGETS.maxDomNodes) {
+    if (
+      !rowFits ||
+      tableCells + columns > tableCellLimit ||
+      budget.domNodes + tableDomNodes + rowDomNodes > MARKDOWN_PREVIEW_BUDGETS.maxDomNodes
+    ) {
       budget.inlineTokens = tokenStart;
       truncated = true;
       break;
@@ -488,8 +672,14 @@ function parseTable(lines: string[], startIndex: number, budget: ParseBudget): P
     }
   }
 
-  if (rows.length >= dataRowLimit && startIndex + 2 + rows.length < lines.length && lines[startIndex + 2 + rows.length]?.includes("|")) truncated = true;
-  if (tableCells >= tableCellLimit && endIndex + 1 < lines.length && lines[endIndex + 1]?.includes("|")) truncated = true;
+  if (
+    rows.length >= dataRowLimit &&
+    startIndex + 2 + rows.length < lines.length &&
+    lines[startIndex + 2 + rows.length]?.includes("|")
+  )
+    truncated = true;
+  if (tableCells >= tableCellLimit && endIndex + 1 < lines.length && lines[endIndex + 1]?.includes("|"))
+    truncated = true;
   budget.rows += rows.length + 1;
   budget.columns += columns;
   budget.cells += tableCells;
@@ -575,7 +765,12 @@ function tokenizeInline(text: string, maxTokens: number): InlineToken[] | undefi
 
 function isSafeLink(href: string) {
   const isProtocolRelative = /^[/\\]{2}/.test(href);
-  return href.startsWith("https://") || href.startsWith("http://") || href.startsWith("#") || (href.startsWith("/") && !isProtocolRelative);
+  return (
+    href.startsWith("https://") ||
+    href.startsWith("http://") ||
+    href.startsWith("#") ||
+    (href.startsWith("/") && !isProtocolRelative)
+  );
 }
 
 function isHighSurrogate(codeUnit: number | undefined): boolean {
@@ -587,29 +782,37 @@ export function reuseStableBlocks(previous: MarkdownBlock[], next: MarkdownBlock
   while (prefix < previous.length && prefix < next.length && sameBlock(previous[prefix], next[prefix])) prefix += 1;
   let suffix = 0;
   while (
-    suffix < previous.length - prefix
-    && suffix < next.length - prefix
-    && sameBlock(previous[previous.length - 1 - suffix], next[next.length - 1 - suffix])
-  ) suffix += 1;
+    suffix < previous.length - prefix &&
+    suffix < next.length - prefix &&
+    sameBlock(previous[previous.length - 1 - suffix], next[next.length - 1 - suffix])
+  )
+    suffix += 1;
   if (prefix === 0 && suffix === 0) return next;
   const blocks = next.slice();
   for (let index = 0; index < prefix; index += 1) blocks[index] = previous[index];
-  for (let offset = 0; offset < suffix; offset += 1) blocks[blocks.length - 1 - offset] = previous[previous.length - 1 - offset];
+  for (let offset = 0; offset < suffix; offset += 1)
+    blocks[blocks.length - 1 - offset] = previous[previous.length - 1 - offset];
   return blocks;
 }
 
 function sameBlock(left: MarkdownBlock, right: MarkdownBlock): boolean {
   if (left.kind !== right.kind) return false;
-  if (left.kind === "heading" && right.kind === "heading") return left.level === right.level && left.text === right.text;
-  if ((left.kind === "paragraph" && right.kind === "paragraph") || (left.kind === "quote" && right.kind === "quote")) return left.text === right.text;
+  if (left.kind === "heading" && right.kind === "heading")
+    return left.level === right.level && left.text === right.text;
+  if ((left.kind === "paragraph" && right.kind === "paragraph") || (left.kind === "quote" && right.kind === "quote"))
+    return left.text === right.text;
   if (left.kind === "rule" && right.kind === "rule") return true;
-  if (left.kind === "code" && right.kind === "code") return left.language === right.language && left.text === right.text;
-  if (left.kind === "list" && right.kind === "list") return left.ordered === right.ordered && sameStrings(left.items, right.items);
+  if (left.kind === "code" && right.kind === "code")
+    return left.language === right.language && left.text === right.text;
+  if (left.kind === "list" && right.kind === "list")
+    return left.ordered === right.ordered && sameStrings(left.items, right.items);
   if (left.kind === "table" && right.kind === "table") {
-    return sameStrings(left.headers, right.headers)
-      && sameAlignments(left.alignments, right.alignments)
-      && sameRows(left.rows, right.rows)
-      && left.truncated === right.truncated;
+    return (
+      sameStrings(left.headers, right.headers) &&
+      sameAlignments(left.alignments, right.alignments) &&
+      sameRows(left.rows, right.rows) &&
+      left.truncated === right.truncated
+    );
   }
   return false;
 }

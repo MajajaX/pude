@@ -1,9 +1,7 @@
 import type { PluginManifest } from "../types";
 import { t } from "./i18n";
 
-export type PluginWorkerStatusAction =
-  | { kind: "notify"; text: string }
-  | { kind: "reject"; notification?: string };
+export type PluginWorkerStatusAction = { kind: "notify"; text: string } | { kind: "reject"; notification?: string };
 
 export function pluginWorkerStatusAction(
   apiVersion: PluginManifest["apiVersion"],
@@ -12,7 +10,8 @@ export function pluginWorkerStatusAction(
   pluginName: string,
 ): PluginWorkerStatusAction {
   if (apiVersion === "2") return { kind: "reject" };
-  if (!hasLegacyUiPermission) return { kind: "reject", notification: t("{name}: status messages are not permitted.", { name: pluginName }) };
+  if (!hasLegacyUiPermission)
+    return { kind: "reject", notification: t("{name}: status messages are not permitted.", { name: pluginName }) };
   return { kind: "notify", text: String(value) };
 }
 

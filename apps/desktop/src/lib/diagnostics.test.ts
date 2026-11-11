@@ -24,9 +24,7 @@ describe("frontend diagnostics", () => {
       },
     };
 
-    expect(formatDiagnostic("plugin.restore", "token-sentinel")).toBe(
-      "stage=plugin.restore; error=string",
-    );
+    expect(formatDiagnostic("plugin.restore", "token-sentinel")).toBe("stage=plugin.restore; error=string");
     expect(formatDiagnostic("restore", error)).toBe("stage=restore; error=object");
   });
 
@@ -47,9 +45,7 @@ describe("frontend diagnostics", () => {
     expect(formatDiagnostic("document-body-sentinel", new Error("private"), "token-sentinel")).toBe(
       "stage=unknown; error=Error",
     );
-    expect(formatDiagnostic("save", new Error("private"), "EACCES; token=secret")).toBe(
-      "stage=save; error=Error",
-    );
+    expect(formatDiagnostic("save", new Error("private"), "EACCES; token=secret")).toBe("stage=save; error=Error");
   });
 
   it("limits reports to 20 per minute and reopens the window at its boundary", () => {

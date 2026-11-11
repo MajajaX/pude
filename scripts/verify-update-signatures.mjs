@@ -32,9 +32,11 @@ async function verifyReleaseSignatures({ releaseDirectory, allowPartial, configP
       if (allowPartial) continue;
       throw new Error(`latest.json has no ${target} entry`);
     }
-    if (basename(new URL(entry.url).pathname) !== packageName) throw new Error(`latest.json ${target} url must end in ${packageName}`);
+    if (basename(new URL(entry.url).pathname) !== packageName)
+      throw new Error(`latest.json ${target} url must end in ${packageName}`);
     const signatureFile = (await readFile(join(releaseDirectory, `${packageName}.sig`), "utf8")).trim();
-    if (entry.signature !== signatureFile) throw new Error(`latest.json ${target} signature differs from ${packageName}.sig`);
+    if (entry.signature !== signatureFile)
+      throw new Error(`latest.json ${target} signature differs from ${packageName}.sig`);
     try {
       const trustedComment = verifyUpdateSignature({
         publicKeyBase64,
@@ -43,7 +45,9 @@ async function verifyReleaseSignatures({ releaseDirectory, allowPartial, configP
       });
       const signedVersion = signedVersionOf(trustedComment);
       if (signedVersion !== manifest.version) {
-        throw new Error(`signed version ${signedVersion ?? "(none)"} does not match latest.json version ${manifest.version}`);
+        throw new Error(
+          `signed version ${signedVersion ?? "(none)"} does not match latest.json version ${manifest.version}`,
+        );
       }
     } catch (error) {
       throw new Error(`${packageName}: ${error instanceof Error ? error.message : String(error)}`);

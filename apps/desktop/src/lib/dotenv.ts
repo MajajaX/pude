@@ -1,6 +1,6 @@
 import type { PluginEditorEdit } from "./plugin-editor-edits";
 
-export type DotenvQuote = "" | "\"" | "'" | "`";
+export type DotenvQuote = "" | '"' | "'" | "`";
 
 export type DotenvVariable = {
   kind: "variable";
@@ -23,7 +23,7 @@ export type DotenvNote = { kind: "comment" | "other"; text: string; from: number
 
 export type DotenvEntry = DotenvVariable | DotenvNote;
 
-const QUOTES = new Set(["\"", "'", "`"]);
+const QUOTES = new Set(['"', "'", "`"]);
 
 /** Parse dotenv text into variables and comment lines, keeping offsets for editing in place. */
 export function parseDotenv(text: string): DotenvEntry[] {
@@ -67,14 +67,30 @@ function parseVariable(text: string, lineFrom: number, lineTo: number): DotenvVa
 
   let valueFrom = equals + 1;
   while (valueFrom < lineTo && (text[valueFrom] === " " || text[valueFrom] === "\t")) valueFrom += 1;
-  const variable = { kind: "variable" as const, key: text.slice(keyFrom, keyTo), from: lineFrom, keyFrom, keyTo, valueFrom, multiline: false, duplicate: false };
+  const variable = {
+    kind: "variable" as const,
+    key: text.slice(keyFrom, keyTo),
+    from: lineFrom,
+    keyFrom,
+    keyTo,
+    valueFrom,
+    multiline: false,
+    duplicate: false,
+  };
 
   const quote = text[valueFrom];
   if (QUOTES.has(quote)) {
     const close = closingQuote(text, valueFrom + 1, quote);
     if (close >= 0) {
       const inner = text.slice(valueFrom + 1, close);
-      return { ...variable, quote: quote as DotenvQuote, multiline: inner.includes("\n"), value: quote === "\"" ? unescapeDoubleQuoted(inner) : inner, valueTo: close + 1, to: lineEnd(text, close) };
+      return {
+        ...variable,
+        quote: quote as DotenvQuote,
+        multiline: inner.includes("\n"),
+        value: quote === '"' ? unescapeDoubleQuoted(inner) : inner,
+        valueTo: close + 1,
+        to: lineEnd(text, close),
+      };
     }
   }
   const rest = text.slice(valueFrom, lineTo);
@@ -85,13 +101,14 @@ function parseVariable(text: string, lineFrom: number, lineTo: number): DotenvVa
 
 function closingQuote(text: string, from: number, quote: string): number {
   for (let index = from; index < text.length; index += 1) {
-    if (quote === "\"" && text[index] === "\\") index += 1;
+    if (quote === '"' && text[index] === "\\") index += 1;
     else if (text[index] === quote) return index;
   }
   return -1;
 }
 
-const unescapeDoubleQuoted = (value: string) => value.replace(/\\([nr"\\])/g, (_, char: string) => char === "n" ? "\n" : char === "r" ? "\r" : char);
+const unescapeDoubleQuoted = (value: string) =>
+  value.replace(/\\([nr"\\])/g, (_, char: string) => (char === "n" ? "\n" : char === "r" ? "\r" : char));
 
 /**
  * Write a value back in the variable's quote style, switching to double quotes when the value needs them.
@@ -100,9 +117,7 @@ const unescapeDoubleQuoted = (value: string) => value.replace(/\\([nr"\\])/g, (_
 export function encodeDotenvValue(value: string, quote: DotenvQuote, multiline = false): string {
   if ((quote === "'" || quote === "`") && !value.includes(quote)) return `${quote}${value}${quote}`;
   if (quote === "" && !needsQuotes(value)) return value;
-  const escaped = value
-    .replace(/\\(?=[nr"\\\r\n]|$)/g, "\\\\")
-    .replace(/"/g, "\\\"");
+  const escaped = value.replace(/\\(?=[nr"\\\r\n]|$)/g, "\\\\").replace(/"/g, '\\"');
   return `"${multiline ? escaped : escaped.replace(/\r/g, "\\r").replace(/\n/g, "\\n")}"`;
 }
 
@@ -111,16 +126,26 @@ const needsQuotes = (value: string) => value !== value.trim() || /[\r\n]|\s#|^#|
 /** Keys cannot contain whitespace or "=", and cannot start with "#". */
 export const sanitizeDotenvKey = (key: string) => key.replace(/[\s=]/g, "").replace(/^#+/, "");
 
-export const dotenvKeyEdit = (variable: DotenvVariable, key: string): PluginEditorEdit => ({ from: variable.keyFrom, to: variable.keyTo, insert: sanitizeDotenvKey(key) });
+export const dotenvKeyEdit = (variable: DotenvVariable, key: string): PluginEditorEdit => ({
+  from: variable.keyFrom,
+  to: variable.keyTo,
+  insert: sanitizeDotenvKey(key),
+});
 
-export const dotenvValueEdit = (variable: DotenvVariable, value: string): PluginEditorEdit => ({ from: variable.valueFrom, to: variable.valueTo, insert: encodeDotenvValue(value, variable.quote, variable.multiline) });
+export const dotenvValueEdit = (variable: DotenvVariable, value: string): PluginEditorEdit => ({
+  from: variable.valueFrom,
+  to: variable.valueTo,
+  insert: encodeDotenvValue(value, variable.quote, variable.multiline),
+});
 
 /** The `KEY=value` text as written in the file, without an `export` prefix or trailing comment. */
 export const dotenvLine = (text: string, variable: DotenvVariable) => text.slice(variable.keyFrom, variable.valueTo);
 
 export function dotenvDeleteEdit(text: string, entry: DotenvEntry): PluginEditorEdit {
   if (entry.to < text.length) return { from: entry.from, to: entry.to + 1, insert: "" };
-  return { from: Math.max(0, entry.from - 1), to: entry.to, insert: "" };
+  // The last line has no break of its own, so remove the one before it, "\r\n" included.
+  const breakLength = text.endsWith("\r\n", entry.from) ? 2 : entry.from > 0 ? 1 : 0;
+  return { from: entry.from - breakLength, to: entry.to, insert: "" };
 }
 
 /** Append a `KEY=value` line at the end of the file; a variable needs a name, so a nameless one adds nothing. */
@@ -134,7 +159,13 @@ export function dotenvAppendEdit(text: string, key: string, value: string): Plug
 }
 
 /** Insert a variable immediately before or after an existing entry. */
-export function dotenvInsertEdit(text: string, entry: DotenvEntry, side: "above" | "below", key: string, value: string): PluginEditorEdit | undefined {
+export function dotenvInsertEdit(
+  text: string,
+  entry: DotenvEntry,
+  side: "above" | "below",
+  key: string,
+  value: string,
+): PluginEditorEdit | undefined {
   const name = sanitizeDotenvKey(key);
   if (!name) return undefined;
   const line = `${name}=${encodeDotenvValue(value, "")}`;

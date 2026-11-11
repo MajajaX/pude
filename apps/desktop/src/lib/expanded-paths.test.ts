@@ -34,10 +34,7 @@ describe("createExpandedPathsCache", () => {
     // collapse of /workspace/src the way toggleDirectory does.
     const collapsedSrc: DirectoryEntry = {
       ...tree,
-      children: [
-        { ...tree.children![0], expanded: false },
-        tree.children![1],
-      ],
+      children: [{ ...tree.children![0], expanded: false }, tree.children![1]],
     };
     expect(cache.current(collapsedSrc)).toEqual(["/workspace"]);
     // A fresh root (workspace switch) is also a new identity.

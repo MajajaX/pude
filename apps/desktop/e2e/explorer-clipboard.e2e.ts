@@ -7,7 +7,10 @@ const menuButton = (page: Page, name: string) => page.getByRole("button", { name
 async function copyWithMenu(page: Page, name: string) {
   await row(page, name).click({ button: "right" });
   await menuButton(page, "Copy").hover();
-  await page.getByRole("menu", { name: "Copy" }).getByRole("button", { name: /^Copy (File|Folder)$/ }).click();
+  await page
+    .getByRole("menu", { name: "Copy" })
+    .getByRole("button", { name: /^Copy (File|Folder)$/ })
+    .click();
   await expect(page.getByRole("status")).toHaveText(`Copied ${name}`);
 }
 
@@ -99,10 +102,10 @@ test("a folder cannot be pasted into itself or its subfolders", async ({ page })
   await copyWithMenu(page, "src");
   const refused = "Unable to paste item. A folder cannot be pasted into itself or one of its subfolders.";
   await pasteWithMenu(page, "src");
-  await expect(page.getByRole("status")).toHaveText(refused);
+  await expect(page.getByRole("alert")).toHaveText(refused);
   await page.getByRole("button", { name: "Open in Integrated Terminal", exact: true }).waitFor({ state: "detached" });
   await pasteWithMenu(page, "main.ts");
-  await expect(page.getByRole("status")).toHaveText(refused);
+  await expect(page.getByRole("alert")).toHaveText(refused);
   await expect(row(page, "src copy")).toHaveCount(0);
 
   await pasteWithMenu(page, "README.md");

@@ -90,21 +90,17 @@ async function inspectVersions() {
   const cargoManifest = await readText(paths.cargoManifest);
   const cargoLock = await readText(paths.cargoLock);
 
-  const cargoManifestVersion = cargoManifest.match(
-    /^\[package\][\s\S]*?^version = "([^"]+)"/m,
-  )?.[1];
-  const cargoLockVersion = cargoLock.match(
-    /^\[\[package\]\]\r?\nname = "pude"\r?\nversion = "([^"]+)"/m,
-  )?.[1];
+  const cargoManifestVersion = cargoManifest.match(/^\[package\][\s\S]*?^version = "([^"]+)"/m)?.[1];
+  const cargoLockVersion = cargoLock.match(/^\[\[package\]\]\r?\nname = "pude"\r?\nversion = "([^"]+)"/m)?.[1];
 
   return new Map([
     [paths.rootPackage, rootPackage.version],
     [paths.desktopPackage, desktopPackage.version],
     [paths.webPackage, webPackage.version],
     [paths.packageLock, packageLock.version],
-    ["package-lock.json packages[\"\"]", packageLock.packages?.[""]?.version],
-    ["package-lock.json packages[\"apps/desktop\"]", packageLock.packages?.["apps/desktop"]?.version],
-    ["package-lock.json packages[\"apps/web\"]", packageLock.packages?.["apps/web"]?.version],
+    ['package-lock.json packages[""]', packageLock.packages?.[""]?.version],
+    ['package-lock.json packages["apps/desktop"]', packageLock.packages?.["apps/desktop"]?.version],
+    ['package-lock.json packages["apps/web"]', packageLock.packages?.["apps/web"]?.version],
     [paths.cargoManifest, cargoManifestVersion],
     [paths.cargoLock, cargoLockVersion],
     [paths.tauriConfig, tauriConfig.version],
@@ -166,11 +162,14 @@ async function check(expectedVersion) {
     throw new Error("third-party notice and full-license records must not be empty");
   }
 
-  console.log(`Release versions are synchronized at ${currentVersion}; license metadata and macOS minimum are present.`);
+  console.log(
+    `Release versions are synchronized at ${currentVersion}; license metadata and macOS minimum are present.`,
+  );
 }
 
 function releaseCheck(tag, version) {
-  if (parseSemver(version)?.prerelease) throw new Error(`${version} is a prerelease; releases are published as stable versions only`);
+  if (parseSemver(version)?.prerelease)
+    throw new Error(`${version} is a prerelease; releases are published as stable versions only`);
   if (tag !== `v${version}`) throw new Error(`the release tag must be v${version} to match the workspace version`);
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   const tagCommit = execFileSync("git", ["rev-parse", `refs/tags/${tag}^{commit}`], {
@@ -180,7 +179,10 @@ function releaseCheck(tag, version) {
   if (head !== tagCommit) throw new Error(`${tag} must point to the checked out commit`);
   const status = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" }).trim();
   if (status) throw new Error("release source checkout must be clean");
-  execFileSync(process.execPath, [resolve(root, "scripts/verify-release-notices.mjs")], { cwd: root, stdio: "inherit" });
+  execFileSync(process.execPath, [resolve(root, "scripts/verify-release-notices.mjs")], {
+    cwd: root,
+    stdio: "inherit",
+  });
   console.log(`${tag} points to the clean checked out commit.`);
 }
 

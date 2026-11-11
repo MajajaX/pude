@@ -1,7 +1,5 @@
 import { For } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 
 export default function Philosophy() {
   return (
@@ -19,7 +17,9 @@ export default function Philosophy() {
               <For each={t().philosophy.wont}>
                 {(item, i) => (
                   <li style={{ "--i": i() }}>
-                    <span class="mark" aria-hidden="true">✕</span>
+                    <span class="mark" aria-hidden="true">
+                      ✕
+                    </span>
                     <span class="phil-text">{item}</span>
                   </li>
                 )}
@@ -32,7 +32,9 @@ export default function Philosophy() {
               <For each={t().philosophy.will}>
                 {(item, i) => (
                   <li style={{ "--i": i() }}>
-                    <span class="mark" aria-hidden="true">✓</span>
+                    <span class="mark" aria-hidden="true">
+                      ✓
+                    </span>
                     <span class="phil-text">{item}</span>
                   </li>
                 )}

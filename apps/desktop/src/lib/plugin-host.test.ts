@@ -4,9 +4,17 @@ import type { InstalledPlugin } from "../types";
 import type { PluginApiV2InstalledPlugin, PluginApiV2Permission, PluginApiV2PermissionScope } from "./plugin-api-v2";
 
 const plugin: InstalledPlugin = {
-  id: "pude.test", name: "Test", version: "1.0.0", apiVersion: "2", entry: "main.js",
-  rootPath: "/plugins/test", permissions: [], activationEvents: ["onWorkspaceOpen"],
-  enabled: true, status: "inactive", source: "local",
+  id: "pude.test",
+  name: "Test",
+  version: "1.0.0",
+  apiVersion: "2",
+  entry: "main.js",
+  rootPath: "/plugins/test",
+  permissions: [],
+  activationEvents: ["onWorkspaceOpen"],
+  enabled: true,
+  status: "inactive",
+  source: "local",
 };
 const windowHandlers = new Map<string, (event: any) => void>();
 
@@ -17,28 +25,64 @@ function setup(
   let installed = [plugin];
   let generation = 0;
   let recovered = true;
-  const frames: Array<{ remove: ReturnType<typeof vi.fn>; contentWindow: { postMessage: ReturnType<typeof vi.fn> }; setAttribute: ReturnType<typeof vi.fn>; style: { cssText: string }; srcdoc: string; onerror?: () => void }> = [];
+  const frames: Array<{
+    remove: ReturnType<typeof vi.fn>;
+    contentWindow: { postMessage: ReturnType<typeof vi.fn> };
+    setAttribute: ReturnType<typeof vi.fn>;
+    style: { cssText: string };
+    srcdoc: string;
+    onerror?: () => void;
+  }> = [];
   const append = vi.fn();
   vi.stubGlobal("document", {
-    body: { append }, createElement: () => {
-      const frame = { remove: vi.fn(), contentWindow: { postMessage: vi.fn() }, setAttribute: vi.fn(), style: { cssText: "" }, srcdoc: "" };
+    body: { append },
+    createElement: () => {
+      const frame = {
+        remove: vi.fn(),
+        contentWindow: { postMessage: vi.fn() },
+        setAttribute: vi.fn(),
+        style: { cssText: "" },
+        srcdoc: "",
+      };
       frames.push(frame);
       return frame;
     },
   });
   const options: Parameters<typeof createPluginHostController>[0] = {
-    pluginsRecovered: () => recovered, plugins: () => installed, workspace: () => "/workspace",
-    workspaceGeneration: () => generation, isDisposed: () => false, notify: vi.fn(),
-    readPluginEntry: vi.fn(async () => "export function activate() {}"), getEditorText,
-    setPluginStatus: vi.fn(), resolveApiPermission, executeApi: () => vi.fn(),
-    readStorage: vi.fn(() => null), writeStorage: vi.fn(() => true), onAuthorizationChange: vi.fn(),
+    pluginsRecovered: () => recovered,
+    plugins: () => installed,
+    workspace: () => "/workspace",
+    workspaceGeneration: () => generation,
+    isDisposed: () => false,
+    notify: vi.fn(),
+    readPluginEntry: vi.fn(async () => "export function activate() {}"),
+    getEditorText,
+    setPluginStatus: vi.fn(),
+    resolveApiPermission,
+    executeApi: () => vi.fn(),
+    readStorage: vi.fn(() => null),
+    writeStorage: vi.fn(() => true),
+    onAuthorizationChange: vi.fn(),
   };
   const controller = createPluginHostController(options);
-  return { controller, options, append, frames, windowHandlers,
-    changeWorkspace: () => { generation += 1; },
-    replacePlugin: () => { installed = [{ ...plugin, version: "2.0.0" }]; },
-    setPlugins: (items: InstalledPlugin[]) => { installed = items; },
-    setRecovered: (value: boolean) => { recovered = value; },
+  return {
+    controller,
+    options,
+    append,
+    frames,
+    windowHandlers,
+    changeWorkspace: () => {
+      generation += 1;
+    },
+    replacePlugin: () => {
+      installed = [{ ...plugin, version: "2.0.0" }];
+    },
+    setPlugins: (items: InstalledPlugin[]) => {
+      installed = items;
+    },
+    setRecovered: (value: boolean) => {
+      recovered = value;
+    },
   };
 }
 
@@ -57,7 +101,12 @@ describe("plugin host controller lifecycle", () => {
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
   });
-  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("fails closed until recovery finishes and while a plugin is disabled", async () => {
     const test = setup();
@@ -72,7 +121,12 @@ describe("plugin host controller lifecycle", () => {
   it.each(["workspace", "version", "dispose"])("drops a delayed entry after %s changes", async (change) => {
     const test = setup();
     let release!: (source: string) => void;
-    vi.mocked(test.options.readPluginEntry).mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+    vi.mocked(test.options.readPluginEntry).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
     const start = test.controller.runPlugin(plugin, "onWorkspaceOpen", {});
     if (change === "workspace") test.changeWorkspace();
     if (change === "version") test.replacePlugin();
@@ -116,7 +170,13 @@ describe("plugin host controller lifecycle", () => {
 
   it("filters API 1's initial editor text and legacy facade through saved grants", async () => {
     const granted = new Set(["commands.register", "ui.notification"]);
-    const resolveApiPermission = vi.fn(async (_installed: PluginApiV2InstalledPlugin, permission: PluginApiV2Permission, _scope: PluginApiV2PermissionScope) => granted.has(permission));
+    const resolveApiPermission = vi.fn(
+      async (
+        _installed: PluginApiV2InstalledPlugin,
+        permission: PluginApiV2Permission,
+        _scope: PluginApiV2PermissionScope,
+      ) => granted.has(permission),
+    );
     const getEditorText = vi.fn(() => "private editor sentinel");
     const test = setup(resolveApiPermission, getEditorText);
     const legacyPlugin: InstalledPlugin = {
@@ -147,11 +207,19 @@ describe("plugin host controller lifecycle", () => {
     expect(worker.exposed).toEqual({ editor: false, text: "", commands: true, notify: true, statusBar: false });
     expect(start.source).not.toContain("private editor sentinel");
     expect(resolveApiPermission).toHaveBeenCalledWith(legacyPlugin, "editor.read", { workspaceRoot: "/workspace" });
-    expect(resolveApiPermission).toHaveBeenCalledWith(legacyPlugin, "commands.register", { workspaceRoot: "/workspace" });
+    expect(resolveApiPermission).toHaveBeenCalledWith(legacyPlugin, "commands.register", {
+      workspaceRoot: "/workspace",
+    });
   });
 
   it("provides API 1 editor data when editor.read was approved", async () => {
-    const resolveApiPermission = vi.fn(async (_installed: PluginApiV2InstalledPlugin, permission: PluginApiV2Permission, _scope: PluginApiV2PermissionScope) => permission === "editor.read");
+    const resolveApiPermission = vi.fn(
+      async (
+        _installed: PluginApiV2InstalledPlugin,
+        permission: PluginApiV2Permission,
+        _scope: PluginApiV2PermissionScope,
+      ) => permission === "editor.read",
+    );
     const getEditorText = vi.fn(() => "approved editor sentinel");
     const test = setup(resolveApiPermission, getEditorText);
     const legacyPlugin: InstalledPlugin = { ...plugin, apiVersion: "1", permissions: ["editor.read"] };

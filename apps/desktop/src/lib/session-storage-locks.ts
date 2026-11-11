@@ -8,7 +8,8 @@ type SessionLockManager = {
 
 export function getSessionLockManager(): SessionLockManager | null {
   try {
-    const candidate = (globalThis as typeof globalThis & { navigator?: { locks?: SessionLockManager } }).navigator?.locks;
+    const candidate = (globalThis as typeof globalThis & { navigator?: { locks?: SessionLockManager } }).navigator
+      ?.locks;
     return candidate && typeof candidate.request === "function" ? candidate : null;
   } catch {
     return null;

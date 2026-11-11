@@ -23,19 +23,31 @@ export function trustPythonFolder(trusted: readonly string[], folder: string, op
   return [key, ...trusted.filter((trustedKey) => trustedKey !== key)].slice(0, TRUSTED_PYTHON_FOLDER_LIMIT);
 }
 
-export function untrustPythonFolder(trusted: readonly string[], folder: string, options?: PathIdentityOptions): string[] {
+export function untrustPythonFolder(
+  trusted: readonly string[],
+  folder: string,
+  options?: PathIdentityOptions,
+): string[] {
   const key = pathComparisonKey(folder, options);
   return trusted.filter((trustedKey) => trustedKey !== key);
 }
 
-export function isPythonFolderTrusted(trusted: readonly string[], folder: string, options?: PathIdentityOptions): boolean {
+export function isPythonFolderTrusted(
+  trusted: readonly string[],
+  folder: string,
+  options?: PathIdentityOptions,
+): boolean {
   const key = pathComparisonKey(folder, options);
   return key.length > 0 && trusted.includes(key);
 }
 
 /** Read on every terminal start so a decision made in one window applies to the others. */
 export function isPythonEnvironmentTrusted(folder: string): boolean {
-  return isPythonFolderTrusted(parseTrustedPythonFolders(readStorage(TRUSTED_PYTHON_FOLDERS_STORAGE_KEY)), folder, runtimePathOptions());
+  return isPythonFolderTrusted(
+    parseTrustedPythonFolders(readStorage(TRUSTED_PYTHON_FOLDERS_STORAGE_KEY)),
+    folder,
+    runtimePathOptions(),
+  );
 }
 
 const trustChangeListeners = new Set<(folder: string) => void>();
@@ -46,7 +58,11 @@ export function onPythonEnvironmentTrustChange(listener: (folder: string) => voi
   return () => trustChangeListeners.delete(listener);
 }
 
-export function changePythonEnvironmentTrust(folder: string | undefined, trusted: boolean, notify: (message: string) => void): void {
+export function changePythonEnvironmentTrust(
+  folder: string | undefined,
+  trusted: boolean,
+  notify: (message: string) => void,
+): void {
   if (!folder) {
     notify(t("Open a folder before changing Python environment trust."));
     return;
@@ -58,9 +74,13 @@ export function changePythonEnvironmentTrust(folder: string | undefined, trusted
     notify(t("Python environment trust could not be saved."));
     return;
   }
-  trustChangeListeners.forEach((listener) => listener(folder));
+  trustChangeListeners.forEach((listener) => {
+    listener(folder);
+  });
   const name = wireBasename(folder, options);
-  notify(trusted
-    ? t("Trusted the Python environment in {name}. New terminals will activate it.", { name })
-    : t("Stopped trusting the Python environment in {name}. New terminals will not activate it.", { name }));
+  notify(
+    trusted
+      ? t("Trusted the Python environment in {name}. New terminals will activate it.", { name })
+      : t("Stopped trusting the Python environment in {name}. New terminals will not activate it.", { name }),
+  );
 }

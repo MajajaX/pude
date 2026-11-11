@@ -10,15 +10,24 @@ describe("file restoration read failures", () => {
     expect(await readFileForRestore(async () => file, missing)).toEqual({ status: "available", file });
   });
   it("allows orphan restoration only for a confirmed missing file", async () => {
-    expect(await readFileForRestore(async () => { throw new Error("Unable to read file. No such file or directory (os error 2)"); }, missing)).toEqual({ status: "missing" });
+    expect(
+      await readFileForRestore(async () => {
+        throw new Error("Unable to read file. No such file or directory (os error 2)");
+      }, missing),
+    ).toEqual({ status: "missing" });
   });
   it.each([
-    new IoBusyError(), new IoStaleGenerationError(), new FileChangedDuringReadError("existing.txt"),
-    new Error("permission denied"), undefined,
+    new IoBusyError(),
+    new IoStaleGenerationError(),
+    new FileChangedDuringReadError("existing.txt"),
+    new Error("permission denied"),
+    undefined,
     new FileChangedDuringReadError("/workspace/no such file.txt"),
     new Error("Unable to read file. Permission denied: not found.txt (os error 13)"),
   ])("keeps an unavailable existing-file read distinct from empty content: %s", async (error) => {
-    const result = await readFileForRestore(async () => { throw error; }, missing);
+    const result = await readFileForRestore(async () => {
+      throw error;
+    }, missing);
     expect(result).toEqual({ status: "read-failed", error });
     expect("file" in result).toBe(false);
   });
@@ -29,7 +38,9 @@ describe("file restoration read failures", () => {
   });
   it("does not hide successful siblings when one read fails", async () => {
     const results = await Promise.all([
-      readFileForRestore(async () => { throw new IoBusyError(); }, missing),
+      readFileForRestore(async () => {
+        throw new IoBusyError();
+      }, missing),
       readFileForRestore(async () => ({ content: "sibling" }), missing),
     ]);
     expect(results[0].status).toBe("read-failed");

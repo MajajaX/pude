@@ -13,9 +13,17 @@ describe("plugin worker host effects", () => {
   });
 
   it("keeps API 1 status behavior and hides API 2 worker error text", () => {
-    expect(pluginWorkerStatusAction("1", true, "legacy status", "Example")).toEqual({ kind: "notify", text: "legacy status" });
-    expect(pluginWorkerStatusAction("1", false, "legacy status", "Example")).toEqual({ kind: "reject", notification: "Example: status messages are not permitted." });
+    expect(pluginWorkerStatusAction("1", true, "legacy status", "Example")).toEqual({
+      kind: "notify",
+      text: "legacy status",
+    });
+    expect(pluginWorkerStatusAction("1", false, "legacy status", "Example")).toEqual({
+      kind: "reject",
+      notification: "Example: status messages are not permitted.",
+    });
     expect(pluginWorkerFailureNotification("1", "Example", "legacy error")).toBe("Example: legacy error");
-    expect(pluginWorkerFailureNotification("2", "Example", "forged notification")).toBe("Example: plugin failed and was isolated from the editor.");
+    expect(pluginWorkerFailureNotification("2", "Example", "forged notification")).toBe(
+      "Example: plugin failed and was isolated from the editor.",
+    );
   });
 });

@@ -25,7 +25,8 @@
     "dev": "npm run desktop:dev",
     "build": "npm run desktop:build",
     "preview": "npm run desktop:preview",
-    "test": "npm run desktop:test",
+    "test": "npm run desktop:test && npm run test --workspace @pude/web && npm run test:scripts",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "tauri": "npm run tauri --workspace @pude/desktop --",
     "tauri:dev": "npm run tauri:dev --workspace @pude/desktop --",
     "tauri:build": "npm run tauri:build --workspace @pude/desktop --",
@@ -41,10 +42,13 @@
     "web:preview": "npm run preview --workspace @pude/web --",
     "release:version:check": "node scripts/release-version.mjs check",
     "release:version:sync": "node scripts/release-version.mjs sync",
-    "check": "npm run release:version:check && npm run desktop:test && node --test scripts/check-bundle-budget.test.mjs scripts/find-trusted-ci-run.test.mjs && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run test --workspace @pude/web && npm run typecheck --workspace @pude/web && npm run web:build"
+    "lint": "biome ci",
+    "format": "biome format --write",
+    "check": "npm run lint && npm run release:version:check && node scripts/verify-notice-versions.mjs && npm test && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run typecheck --workspace @pude/web && npm run web:build"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
-    "wrangler": "4.156.0"
+    "@biomejs/biome": "2.6.6",
+    "@playwright/test": "1.65.0",
+    "wrangler": "4.160.0"
   }
 }

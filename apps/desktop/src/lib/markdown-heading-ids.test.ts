@@ -9,6 +9,11 @@ describe("markdown heading ids", () => {
   });
 
   it("keeps repeated headings unique in document order", () => {
-    expect(assignMarkdownHeadingIds(["Usage", "Usage", "usage", "Usage 1"])).toEqual(["usage", "usage-1", "usage-2", "usage-1-1"]);
+    expect(assignMarkdownHeadingIds(["Usage", "Usage", "usage", "Usage 1"])).toEqual([
+      "usage",
+      "usage-1",
+      "usage-2",
+      "usage-1-1",
+    ]);
   });
 });

@@ -11,6 +11,8 @@ describe("default Git worktree path", () => {
   });
 
   it("preserves Windows drive separators", () => {
-    expect(defaultGitWorktreePath("C:\\Users\\example\\foo", "feature/search")).toBe("C:\\Users\\example\\foo-worktree-feature-search");
+    expect(defaultGitWorktreePath("C:\\Users\\example\\foo", "feature/search")).toBe(
+      "C:\\Users\\example\\foo-worktree-feature-search",
+    );
   });
 });

@@ -28,7 +28,7 @@ export function blockSource(block: DocBlock, releaseAvailable: boolean): string[
     case "p":
       return [block.text, ""];
     case "code":
-      return ["```" + block.lang, ...block.code.split("\n"), "```", ""];
+      return [`\`\`\`${block.lang}`, ...block.code.split("\n"), "```", ""];
     case "list":
       return [...block.items.map((item) => `- ${item}`), ""];
     case "table":

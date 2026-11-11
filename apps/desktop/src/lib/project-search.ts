@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./bridge";
+import { t, translateMessage } from "./i18n";
 import { isSameOrDescendantPath, runtimePathOptions, wireBasename } from "./path-identity";
 
 export type ProjectSearchOptions = {
@@ -43,17 +44,40 @@ export type ProjectReplaceResults = {
 
 const MAX_COMBINED_RESULTS = 300;
 
+export type ProjectSearchFileMatches = { path: string; relativePath: string; matches: ProjectSearchMatch[] };
+
+/** Text matches grouped by file, in the order each file first appears. */
+export function groupMatchesByFile(matches: readonly ProjectSearchMatch[]): ProjectSearchFileMatches[] {
+  const groups = new Map<string, ProjectSearchFileMatches>();
+  for (const match of matches) {
+    let group = groups.get(match.path);
+    if (!group) {
+      group = { path: match.path, relativePath: match.relativePath, matches: [] };
+      groups.set(match.path, group);
+    }
+    group.matches.push(match);
+  }
+  return [...groups.values()];
+}
+
 /**
  * Search each workspace folder in turn. With several folders, relative paths
  * start with the folder name so results from different folders stay apart.
  */
-export async function searchProjectFolders(folders: readonly string[], options: ProjectSearchOptions, requestId: string, isCurrent: () => boolean): Promise<ProjectSearchResults> {
+export async function searchProjectFolders(
+  folders: readonly string[],
+  options: ProjectSearchOptions,
+  requestId: string,
+  isCurrent: () => boolean,
+): Promise<ProjectSearchResults> {
   const combined: ProjectSearchResults = { matches: [], truncated: false, skippedFiles: 0 };
   for (const folder of folders) {
     if (!isCurrent()) break;
     const result = await searchProject(folder, options, requestId);
     const prefix = folders.length > 1 ? `${wireBasename(folder, runtimePathOptions())}/` : "";
-    combined.matches.push(...result.matches.map((match) => ({ ...match, relativePath: `${prefix}${match.relativePath}` })));
+    combined.matches.push(
+      ...result.matches.map((match) => ({ ...match, relativePath: `${prefix}${match.relativePath}` })),
+    );
     combined.truncated ||= result.truncated;
     combined.skippedFiles += result.skippedFiles;
     if (combined.matches.length >= MAX_COMBINED_RESULTS) {
@@ -65,23 +89,57 @@ export async function searchProjectFolders(folders: readonly string[], options: 
   return combined;
 }
 
-export async function replaceInProject(workspace: string, options: ProjectReplaceOptions): Promise<ProjectReplaceResults> {
+export async function replaceInProject(
+  workspace: string,
+  options: ProjectReplaceOptions,
+): Promise<ProjectReplaceResults> {
   if (!isTauri) throw new Error("Replacing across files is available in the desktop build.");
-  return invoke<ProjectReplaceResults>("replace_in_project", { workspace, options: { ...options, paths: options.paths ?? null } });
+  return invoke<ProjectReplaceResults>("replace_in_project", {
+    workspace,
+    options: { ...options, paths: options.paths ?? null },
+  });
 }
 
 export function replaceSummary(result: ProjectReplaceResults): string {
-  const count = (value: number, one: string, many: string) => `${value} ${value === 1 ? one : many}`;
-  const summary = [`Replaced ${count(result.replacements, "match", "matches")} in ${count(result.changedFiles.length, "file", "files")}.`];
-  if (result.skippedUnsaved) summary.push(`Skipped ${count(result.skippedUnsaved, "file", "files")} with unsaved changes.`);
-  if (result.failedFiles.length) summary.push(`${count(result.failedFiles.length, "file", "files")} could not be changed: ${result.failedFiles[0].message}`);
-  if (result.truncated) summary.push("Some files were not checked because the project is very large.");
+  const files = result.changedFiles.length;
+  const summary = [
+    result.replacements === 1
+      ? t("Replaced 1 match in 1 file.")
+      : files === 1
+        ? t("Replaced {count} matches in 1 file.", { count: result.replacements })
+        : t("Replaced {count} matches in {files} files.", { count: result.replacements, files }),
+  ];
+  if (result.skippedUnsaved) {
+    summary.push(
+      result.skippedUnsaved === 1
+        ? t("Skipped 1 file with unsaved changes.")
+        : t("Skipped {count} files with unsaved changes.", { count: result.skippedUnsaved }),
+    );
+  }
+  if (result.failedFiles.length) {
+    const message = translateMessage(result.failedFiles[0].message);
+    summary.push(
+      result.failedFiles.length === 1
+        ? t("1 file could not be changed: {message}", { message })
+        : t("{count} files could not be changed: {message}", { count: result.failedFiles.length, message }),
+    );
+  }
+  if (result.truncated) summary.push(t("Some files were not checked because the project is very large."));
   return summary.join(" ");
 }
 
 /** Replace in each workspace folder; listed paths only reach the folder that contains them. */
-export async function replaceInProjectFolders(folders: readonly string[], options: ProjectReplaceOptions): Promise<ProjectReplaceResults> {
-  const combined: ProjectReplaceResults = { changedFiles: [], replacements: 0, skippedUnsaved: 0, failedFiles: [], truncated: false };
+export async function replaceInProjectFolders(
+  folders: readonly string[],
+  options: ProjectReplaceOptions,
+): Promise<ProjectReplaceResults> {
+  const combined: ProjectReplaceResults = {
+    changedFiles: [],
+    replacements: 0,
+    skippedUnsaved: 0,
+    failedFiles: [],
+    truncated: false,
+  };
   const pathOptions = runtimePathOptions();
   for (const folder of folders) {
     const paths = options.paths?.filter((path) => isSameOrDescendantPath(path, folder, pathOptions));
@@ -96,7 +154,11 @@ export async function replaceInProjectFolders(folders: readonly string[], option
   return combined;
 }
 
-export async function searchProject(workspace: string, options: ProjectSearchOptions, requestId: string): Promise<ProjectSearchResults> {
+export async function searchProject(
+  workspace: string,
+  options: ProjectSearchOptions,
+  requestId: string,
+): Promise<ProjectSearchResults> {
   if (isTauri) return invoke<ProjectSearchResults>("search_project", { workspace, options, requestId });
   const { demoTree, demoFiles } = await import("./demo");
   const result: ProjectSearchResults = { matches: [], truncated: false, skippedFiles: 0 };
@@ -112,9 +174,13 @@ export async function searchProject(workspace: string, options: ProjectSearchOpt
       if (matches(relativePath)) result.matches.push({ path: entry.path, relativePath });
     } else {
       const content = demoFiles[entry.path]?.content;
-      if (content === undefined) { result.skippedFiles += 1; continue; }
+      if (content === undefined) {
+        result.skippedFiles += 1;
+        continue;
+      }
       content.split("\n").forEach((line, index) => {
-        if (matches(line)) result.matches.push({ path: entry.path, relativePath, line: index + 1, preview: line.slice(0, 240) });
+        if (matches(line))
+          result.matches.push({ path: entry.path, relativePath, line: index + 1, preview: line.slice(0, 240) });
       });
     }
   }

@@ -15,13 +15,15 @@ describe("plugin manifest API versions", () => {
   it("continues to accept the installed API 1 manifest shape and permissions", () => {
     expect(parsePluginManifest(legacyInstalledManifest)).toEqual(legacyInstalledManifest);
     expect(parsePluginManifest({ ...legacyInstalledManifest, permissions: ["workspace.read"] })).toBeNull();
-    expect(parseInstalledPlugin({
-      ...legacyInstalledManifest,
-      enabled: true,
-      status: "active",
-      source: "local",
-      rootPath: "C:/Users/example/AppData/plugins/pude.example",
-    })).toEqual({
+    expect(
+      parseInstalledPlugin({
+        ...legacyInstalledManifest,
+        enabled: true,
+        status: "active",
+        source: "local",
+        rootPath: "C:/Users/example/AppData/plugins/pude.example",
+      }),
+    ).toEqual({
       ...legacyInstalledManifest,
       enabled: true,
       status: "inactive",
@@ -69,8 +71,22 @@ describe("plugin manifest API versions", () => {
     expect(parsePluginManifest(manifest)).toEqual(manifest);
     expect(parsePluginManifest({ ...manifest, activationEvents: ["onFileClose"] })).toBeNull();
     expect(parsePluginManifest({ ...manifest, activationEvents: ["lsp.message"] })).toBeNull();
-    expect(parsePluginManifest({ ...manifest, contributes: { commands: [{ command: "invalid command", title: "Run" }] } })).toBeNull();
-    expect(parsePluginManifest({ ...manifest, contributes: { commands: [{ command: "pude.example.run", title: " " }] } })).toBeNull();
-    expect(parsePluginManifest({ ...manifest, contributes: { commands: [{ command: "pude.example.run", title: "Run" }, { command: "pude.example.run", title: "Run twice" }] } })).toBeNull();
+    expect(
+      parsePluginManifest({ ...manifest, contributes: { commands: [{ command: "invalid command", title: "Run" }] } }),
+    ).toBeNull();
+    expect(
+      parsePluginManifest({ ...manifest, contributes: { commands: [{ command: "pude.example.run", title: " " }] } }),
+    ).toBeNull();
+    expect(
+      parsePluginManifest({
+        ...manifest,
+        contributes: {
+          commands: [
+            { command: "pude.example.run", title: "Run" },
+            { command: "pude.example.run", title: "Run twice" },
+          ],
+        },
+      }),
+    ).toBeNull();
   });
 });

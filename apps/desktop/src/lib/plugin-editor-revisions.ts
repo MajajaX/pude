@@ -22,17 +22,14 @@ export class PluginEditorRevisionTracker {
     return token;
   }
 
-  matches(
-    token: number,
-    tabId: string,
-    documentRevision: number,
-    selectionGeneration: number,
-  ): boolean {
+  matches(token: number, tabId: string, documentRevision: number, selectionGeneration: number): boolean {
     const snapshot = this.snapshots.get(token);
-    return snapshot !== undefined
-      && snapshot.tabId === tabId
-      && snapshot.documentRevision === documentRevision
-      && snapshot.selectionGeneration === selectionGeneration;
+    return (
+      snapshot !== undefined &&
+      snapshot.tabId === tabId &&
+      snapshot.documentRevision === documentRevision &&
+      snapshot.selectionGeneration === selectionGeneration
+    );
   }
 
   clear(): void {

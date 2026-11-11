@@ -1,7 +1,12 @@
 import { For, Show, createEffect, createMemo, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Icon, LanguageIcon, languageIconForPath } from "./Icons";
 import type { DirectoryEntry, GitFileStatus } from "../types";
-import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type IndexedVisibleTreeRow } from "../lib/tree-virtualization";
+import {
+  treeKeyboardAction,
+  virtualTreeWindow,
+  VisibleTreeModel,
+  type IndexedVisibleTreeRow,
+} from "../lib/tree-virtualization";
 import { joinWirePath, pathComparisonKey, runtimePathOptions } from "../lib/path-identity";
 import { groupIgnoredEntries, type ExplorerEntry } from "../lib/explorer-ignored";
 import { sameGitStatusFiles } from "../lib/git-status-virtualization";
@@ -58,12 +63,24 @@ function createStableTreeRow(row: IndexedVisibleTreeRow<ExplorerEntry>): StableT
   const [state, setState] = createSignal<StableTreeRowState>(toStableTreeRowState(row));
   return {
     key: row.pathKey,
-    get entry() { return state().entry; },
-    get depth() { return state().depth; },
-    get isRoot() { return state().isRoot; },
-    get siblingIndex() { return state().siblingIndex; },
-    get siblingCount() { return state().siblingCount; },
-    get index() { return state().index; },
+    get entry() {
+      return state().entry;
+    },
+    get depth() {
+      return state().depth;
+    },
+    get isRoot() {
+      return state().isRoot;
+    },
+    get siblingIndex() {
+      return state().siblingIndex;
+    },
+    get siblingCount() {
+      return state().siblingCount;
+    },
+    get index() {
+      return state().index;
+    },
     update: (next) => setState(toStableTreeRowState(next)),
   };
 }
@@ -92,9 +109,12 @@ export function Explorer(props: ExplorerProps) {
   const isIgnored = (path: string) => props.ignoredPaths?.has(pathKey(path)) ?? false;
   const displayRoot = createMemo(() => {
     if (props.groupIgnored === false) return props.root;
-    const group = (entry: DirectoryEntry) => groupIgnoredEntries(entry, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles);
+    const group = (entry: DirectoryEntry) =>
+      groupIgnoredEntries(entry, isIgnored, props.ignoredExpanded ?? false, props.hideDotFiles);
     // Each folder of a multi-folder workspace groups its own ignored entries.
-    return isWorkspaceRootEntry(props.root) ? { ...props.root, children: props.root.children?.map(group) } : group(props.root);
+    return isWorkspaceRootEntry(props.root)
+      ? { ...props.root, children: props.root.children?.map(group) }
+      : group(props.root);
   });
   const treeModel = new VisibleTreeModel<ExplorerEntry>(pathOptions);
   treeModel.update(displayRoot(), props.hideDotFiles);
@@ -119,8 +139,10 @@ export function Explorer(props: ExplorerProps) {
     treeVersion();
     return treeModel.rows;
   };
-  const showRecentEmpty = createMemo(() => props.root.path === "pude://recent-projects" && !props.root.children?.length);
-  const activeKey = createMemo(() => props.activePath ? pathKey(props.activePath) : undefined);
+  const showRecentEmpty = createMemo(
+    () => props.root.path === "pude://recent-projects" && !props.root.children?.length,
+  );
+  const activeKey = createMemo(() => (props.activePath ? pathKey(props.activePath) : undefined));
   const activeIndex = createMemo(() => {
     treeVersion();
     const key = activeKey();
@@ -139,14 +161,24 @@ export function Explorer(props: ExplorerProps) {
     if (active >= 0) return active;
     return currentRows.length ? 0 : -1;
   });
-  const window = createMemo(() => virtualTreeWindow(rows().length + (showRecentEmpty() ? 1 : 0), scrollTop(), viewportHeight(), TREE_ROW_HEIGHT, TREE_OVERSCAN));
+  const window = createMemo(() =>
+    virtualTreeWindow(
+      rows().length + (showRecentEmpty() ? 1 : 0),
+      scrollTop(),
+      viewportHeight(),
+      TREE_ROW_HEIGHT,
+      TREE_OVERSCAN,
+    ),
+  );
   const renderedRows = createMemo(() => {
     const currentRows = rows();
     const currentWindow = window();
     const indexes = new Set<number>();
-    for (let index = currentWindow.start; index < Math.min(currentRows.length, currentWindow.end); index += 1) indexes.add(index);
+    for (let index = currentWindow.start; index < Math.min(currentRows.length, currentWindow.end); index += 1)
+      indexes.add(index);
     for (const index of [activeIndex(), focusedIndex(), tabStopIndex()]) if (index >= 0) indexes.add(index);
-    return [...indexes].sort((left, right) => left - right)
+    return [...indexes]
+      .sort((left, right) => left - right)
       .map((index) => stableRowCache.get(currentRows[index]?.pathKey ?? ""))
       .filter((row): row is StableTreeRow => Boolean(row));
   });
@@ -170,7 +202,9 @@ export function Explorer(props: ExplorerProps) {
   const updateViewport = () => {
     if (!scrollHost) return;
     const style = getComputedStyle(scrollHost);
-    setViewportHeight(Math.max(0, scrollHost.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)));
+    setViewportHeight(
+      Math.max(0, scrollHost.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)),
+    );
     setScrollTop(scrollHost.scrollTop);
   };
 
@@ -249,7 +283,8 @@ export function Explorer(props: ExplorerProps) {
     if (focused && treeModel.indexOfKey(focused) < 0) {
       const group = treeModel.rows.find((row) => row.entry.gitIgnoredGroup);
       setFocusedKey(group?.pathKey ?? treeModel.rows[0]?.pathKey);
-      if (hadTreeFocus) queueMicrotask(() => document.getElementById(rowId(focusedIndex()))?.focus({ preventScroll: true }));
+      if (hadTreeFocus)
+        queueMicrotask(() => document.getElementById(rowId(focusedIndex()))?.focus({ preventScroll: true }));
     }
     setTreeVersion(change.version);
   });
@@ -283,28 +318,42 @@ export function Explorer(props: ExplorerProps) {
   });
 
   return (
-    <div class="explorer-tree" ref={treeHost} role="tree" aria-label={t("Files")} onKeyDown={handleTreeKeyDown} style={{ position: "relative", height: `${window().totalHeight}px` }}>
-      <For each={renderedRows()}>{(row) => (
-        <TreeRow
-          row={row}
-          id={rowId(row.index)}
-          tabStop={tabStopIndex() === row.index}
-          activeKey={activeKey()}
-          statusForKey={statusForKey}
-          hasRepository={Boolean(props.repositoryRoot)}
-          onFocus={(key) => {
-            setFocusedKey(key);
-            ensureIndexVisible(treeModel.indexOfKey(key));
-          }}
-          ignored={isIgnored(row.entry.path)}
-          onToggle={toggleEntry}
-          onRetry={props.onRetry}
-          onOpen={openEntry}
-          onContextMenu={props.onContextMenu}
-        />
-      )}</For>
+    <div
+      class="explorer-tree"
+      ref={treeHost}
+      role="tree"
+      aria-label={t("Files")}
+      onKeyDown={handleTreeKeyDown}
+      style={{ position: "relative", height: `${window().totalHeight}px` }}
+    >
+      <For each={renderedRows()}>
+        {(row) => (
+          <TreeRow
+            row={row}
+            id={rowId(row.index)}
+            tabStop={tabStopIndex() === row.index}
+            activeKey={activeKey()}
+            statusForKey={statusForKey}
+            hasRepository={Boolean(props.repositoryRoot)}
+            onFocus={(key) => {
+              setFocusedKey(key);
+              ensureIndexVisible(treeModel.indexOfKey(key));
+            }}
+            ignored={isIgnored(row.entry.path)}
+            onToggle={toggleEntry}
+            onRetry={props.onRetry}
+            onOpen={openEntry}
+            onContextMenu={props.onContextMenu}
+          />
+        )}
+      </For>
       <Show when={showRecentEmpty()}>
-        <div class="recent-empty" style={{ position: "absolute", top: `${rows().length * TREE_ROW_HEIGHT}px`, left: "0", right: "0" }}>{t("No recent projects")}</div>
+        <div
+          class="recent-empty"
+          style={{ position: "absolute", top: `${rows().length * TREE_ROW_HEIGHT}px`, left: "0", right: "0" }}
+        >
+          {t("No recent projects")}
+        </div>
       </Show>
     </div>
   );
@@ -325,18 +374,25 @@ function TreeRow(props: {
   onContextMenu: ExplorerProps["onContextMenu"];
 }) {
   const entry = () => props.row.entry;
-  const status = createMemo(() => !props.ignored && entry().kind === "file" ? props.statusForKey(props.row.key) : undefined);
+  const status = createMemo(() =>
+    !props.ignored && entry().kind === "file" ? props.statusForKey(props.row.key) : undefined,
+  );
   const isUntracked = () => status()?.indexStatus === "?" || status()?.worktreeStatus === "?";
   const statusText = createMemo(() => {
     const current = status();
-    return current ? current.indexStatus ?? current.worktreeStatus ?? "" : "";
+    return current ? (current.indexStatus ?? current.worktreeStatus ?? "") : "";
   });
   const partialError = () => entry().partialError;
   const scanIssue = () => {
     const error = partialError();
-    if (error) return { label: t("partial"), message: error.message ? translateMessage(error.message) : t("Some directory entries could not be read.") };
+    if (error)
+      return {
+        label: t("partial"),
+        message: error.message ? translateMessage(error.message) : t("Some directory entries could not be read."),
+      };
     // A collapsed stale directory relists itself when expanded, so only an open one needs attention.
-    if (entry().stale && entry().expanded) return { label: t("stale"), message: t("Directory changed; refresh the scan.") };
+    if (entry().stale && entry().expanded)
+      return { label: t("stale"), message: t("Directory changed; refresh the scan.") };
     return undefined;
   };
   const listingLimitIssue = () => {
@@ -345,13 +401,17 @@ function TreeRow(props: {
     if (current.listingStopReason === "entryLimit") {
       return {
         label: t("entry cap"),
-        message: t("Directory listing reached the entry cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page."),
+        message: t(
+          "Directory listing reached the entry cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page.",
+        ),
       };
     }
     if (current.listingStopReason === "byteLimit") {
       return {
         label: t("byte cap"),
-        message: t("Directory listing reached the byte cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page."),
+        message: t(
+          "Directory listing reached the byte cap. Showing the encountered subset in sorted order; these are not guaranteed to be the globally first N entries, and this listing has no continuation page.",
+        ),
       };
     }
     // A cancelled scan is discarded by the caller and must not be described as a cap.
@@ -382,7 +442,13 @@ function TreeRow(props: {
         "tree-row-ignored-group": Boolean(entry().gitIgnoredGroup),
         "tree-row-directory": entry().kind === "directory" && !entry().gitIgnoredGroup,
       }}
-      style={{ position: "absolute", top: `${props.row.index * TREE_ROW_HEIGHT}px`, left: "0", right: "0", "padding-left": `${10 + props.row.depth * 16}px` }}
+      style={{
+        position: "absolute",
+        top: `${props.row.index * TREE_ROW_HEIGHT}px`,
+        left: "0",
+        right: "0",
+        "padding-left": `${10 + props.row.depth * 16}px`,
+      }}
       role="treeitem"
       aria-level={props.row.depth + 1}
       aria-posinset={props.row.siblingIndex + 1}
@@ -391,20 +457,36 @@ function TreeRow(props: {
       aria-selected={props.activeKey === props.row.key}
       aria-label={accessibleRowLabel()}
       onFocus={() => props.onFocus(props.row.key)}
-      onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.focus({ preventScroll: true }); }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) event.currentTarget.focus({ preventScroll: true });
+      }}
       onDblClick={() => props.onOpen(entry())}
       onContextMenu={(event) => {
         event.preventDefault();
-        if (!entry().recentProject && !entry().gitIgnoredGroup) props.onContextMenu(entry(), event.clientX, event.clientY);
+        if (!entry().recentProject && !entry().gitIgnoredGroup)
+          props.onContextMenu(entry(), event.clientX, event.clientY);
       }}
     >
       <button
+        type="button"
         tabIndex={-1}
         class="tree-chevron"
-        aria-label={entry().recentProject ? t("Open recent project") : entry().kind === "directory" ? (entry().expanded ? t("Collapse") : t("Expand")) : t("Open")}
+        aria-label={
+          entry().recentProject
+            ? t("Open recent project")
+            : entry().kind === "directory"
+              ? entry().expanded
+                ? t("Collapse")
+                : t("Expand")
+              : t("Open")
+        }
         onClick={(event) => {
           event.currentTarget.parentElement?.focus({ preventScroll: true });
-          entry().recentProject ? props.onOpen(entry()) : entry().kind === "directory" ? props.onToggle(entry()) : props.onOpen(entry());
+          entry().recentProject
+            ? props.onOpen(entry())
+            : entry().kind === "directory"
+              ? props.onToggle(entry())
+              : props.onOpen(entry());
         }}
       >
         <Show when={entry().kind === "directory"} fallback={<span class="chevron-spacer" />}>
@@ -412,27 +494,79 @@ function TreeRow(props: {
         </Show>
       </button>
       <span class="tree-kind">
-        <Show when={entry().gitIgnoredGroup} fallback={
-          <Show when={entry().kind === "file" && languageIconForPath(entry().path)} fallback={<Icon name={entry().kind === "directory" ? (entry().expanded ? "folder-open" : "folder") : "file-code"} size={15} />}>
-            {(language) => <LanguageIcon name={language()} size={15} />}
-          </Show>
-        }>
+        <Show
+          when={entry().gitIgnoredGroup}
+          fallback={
+            <Show
+              when={entry().kind === "file" && languageIconForPath(entry().path)}
+              fallback={
+                <Icon
+                  name={entry().kind === "directory" ? (entry().expanded ? "folder-open" : "folder") : "file-code"}
+                  size={15}
+                />
+              }
+            >
+              {(language) => <LanguageIcon name={language()} size={15} />}
+            </Show>
+          }
+        >
           <Icon name="git" size={13} />
         </Show>
       </span>
-      <button class="tree-label" tabIndex={-1} onClick={(event) => { event.currentTarget.parentElement?.focus({ preventScroll: true }); props.onOpen(entry()); }}>{entry().name}</button>
-      <Show when={entry().gitIgnoredGroup}><span class="tree-group-count">{entry().gitIgnoredCount}</span></Show>
+      <button
+        type="button"
+        class="tree-label"
+        tabIndex={-1}
+        onClick={(event) => {
+          event.currentTarget.parentElement?.focus({ preventScroll: true });
+          props.onOpen(entry());
+        }}
+      >
+        {entry().name}
+      </button>
+      <Show when={entry().gitIgnoredGroup}>
+        <span class="tree-group-count">{entry().gitIgnoredCount}</span>
+      </Show>
       <Show when={statusText()}>
-        <span class={`git-badge git-badge-${statusText()}`} title={statusText() === "?" ? t("Untracked file: Git is not tracking this file yet") : t("Git {statusText}", { statusText: statusText() })} aria-label={statusText() === "?" ? t("Untracked file") : t("Git {statusText}", { statusText: statusText() })}>{statusText()}</span>
+        <span
+          class={`git-badge git-badge-${statusText()}`}
+          title={
+            statusText() === "?"
+              ? t("Untracked file: Git is not tracking this file yet")
+              : t("Git {statusText}", { statusText: statusText() })
+          }
+          aria-label={statusText() === "?" ? t("Untracked file") : t("Git {statusText}", { statusText: statusText() })}
+        >
+          {statusText()}
+        </span>
       </Show>
       <Show when={listingLimitIssue()}>
-        {(issue) => <span class="tree-scan-warning" title={issue().message} aria-hidden="true">{issue().label}</span>}
+        {(issue) => (
+          <span class="tree-scan-warning" title={issue().message} aria-hidden="true">
+            {issue().label}
+          </span>
+        )}
       </Show>
       <Show when={scanIssue()}>
-        {(issue) => <>
-          <span class="tree-scan-warning" title={issue().message}>{issue().label}</span>
-          <button class="tree-retry" type="button" onClick={(event) => { event.stopPropagation(); retryScan(); }} aria-label={t("Retry scan for {name}", { name: entry().name })} title={t("Retry directory scan")}>↻</button>
-        </>}
+        {(issue) => (
+          <>
+            <span class="tree-scan-warning" title={issue().message}>
+              {issue().label}
+            </span>
+            <button
+              class="tree-retry"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                retryScan();
+              }}
+              aria-label={t("Retry scan for {name}", { name: entry().name })}
+              title={t("Retry directory scan")}
+            >
+              ↻
+            </button>
+          </>
+        )}
       </Show>
     </div>
   );

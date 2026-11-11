@@ -21,9 +21,27 @@ export type ActivityBarProps = {
   onToggle: (view: SidebarView) => void;
 };
 
-const views: readonly { id: SidebarView; label: string; icon: "folder" | "search" | "git"; tabId: string; panelId: string }[] = [
-  { id: "explorer", label: translatable("Explorer"), icon: "folder", tabId: SIDEBAR_EXPLORER_TAB_ID, panelId: SIDEBAR_EXPLORER_PANEL_ID },
-  { id: "search", label: translatable("Search"), icon: "search", tabId: SIDEBAR_SEARCH_TAB_ID, panelId: SIDEBAR_SEARCH_PANEL_ID },
+const views: readonly {
+  id: SidebarView;
+  label: string;
+  icon: "folder" | "search" | "git";
+  tabId: string;
+  panelId: string;
+}[] = [
+  {
+    id: "explorer",
+    label: translatable("Explorer"),
+    icon: "folder",
+    tabId: SIDEBAR_EXPLORER_TAB_ID,
+    panelId: SIDEBAR_EXPLORER_PANEL_ID,
+  },
+  {
+    id: "search",
+    label: translatable("Search"),
+    icon: "search",
+    tabId: SIDEBAR_SEARCH_TAB_ID,
+    panelId: SIDEBAR_SEARCH_PANEL_ID,
+  },
   { id: "git", label: translatable("Git"), icon: "git", tabId: SIDEBAR_GIT_TAB_ID, panelId: SIDEBAR_GIT_PANEL_ID },
 ];
 
@@ -39,7 +57,7 @@ export function ActivityBar(props: ActivityBarProps) {
       if (index >= 0) return index;
     }
     const selectedIndex = views.findIndex((view) => view.id === props.selected);
-    return selectedIndex >= 0 ? selectedIndex : 0;
+    return Math.max(selectedIndex, 0);
   };
 
   const rememberFocusedView = (event: FocusEvent) => {
@@ -83,31 +101,35 @@ export function ActivityBar(props: ActivityBarProps) {
 
   return (
     <div
-      ref={(element) => { tablistElement = element; }}
+      ref={(element) => {
+        tablistElement = element;
+      }}
       class="activity-bar"
       role="tablist"
       aria-label={t("Sidebar views")}
       aria-orientation="vertical"
       onFocusIn={rememberFocusedView}
     >
-      <For each={views}>{(view, index) => (
-        <button
-          classList={{ "activity-bar-item": true, "activity-bar-item-active": isShowing(view.id) }}
-          type="button"
-          role="tab"
-          id={view.tabId}
-          data-sidebar-view={view.id}
-          title={t(view.label)}
-          aria-label={t(view.label)}
-          aria-selected={isShowing(view.id)}
-          aria-controls={view.panelId}
-          tabIndex={tabRovingIndex(index(), focusedIndex())}
-          onKeyDown={handleTabKeyDown}
-          onClick={() => props.onToggle(view.id)}
-        >
-          <Icon name={view.icon} size={22} />
-        </button>
-      )}</For>
+      <For each={views}>
+        {(view, index) => (
+          <button
+            classList={{ "activity-bar-item": true, "activity-bar-item-active": isShowing(view.id) }}
+            type="button"
+            role="tab"
+            id={view.tabId}
+            data-sidebar-view={view.id}
+            title={t(view.label)}
+            aria-label={t(view.label)}
+            aria-selected={isShowing(view.id)}
+            aria-controls={view.panelId}
+            tabIndex={tabRovingIndex(index(), focusedIndex())}
+            onKeyDown={handleTabKeyDown}
+            onClick={() => props.onToggle(view.id)}
+          >
+            <Icon name={view.icon} size={22} />
+          </button>
+        )}
+      </For>
     </div>
   );
 }

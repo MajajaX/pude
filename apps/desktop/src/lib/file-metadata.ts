@@ -1,5 +1,38 @@
-export type EditorLanguageKey = "c" | "cpp" | "csharp" | "css" | "go" | "html" | "java" | "javascript" | "json" | "markdown" | "python" | "rust" | "shell" | "sql" | "toml" | "yaml";
-export type LanguageIconName = "c" | "cpp" | "csharp" | "java" | "toml" | "ts" | "js" | "py" | "rs" | "html" | "css" | "json" | "md" | "sql" | "sh" | "yaml" | "go";
+export type EditorLanguageKey =
+  | "c"
+  | "cpp"
+  | "csharp"
+  | "css"
+  | "go"
+  | "html"
+  | "java"
+  | "javascript"
+  | "json"
+  | "markdown"
+  | "python"
+  | "rust"
+  | "shell"
+  | "sql"
+  | "toml"
+  | "yaml";
+export type LanguageIconName =
+  | "c"
+  | "cpp"
+  | "csharp"
+  | "java"
+  | "toml"
+  | "ts"
+  | "js"
+  | "py"
+  | "rs"
+  | "html"
+  | "css"
+  | "json"
+  | "md"
+  | "sql"
+  | "sh"
+  | "yaml"
+  | "go";
 
 export type FileLanguageMetadata = {
   key?: EditorLanguageKey;
@@ -106,21 +139,30 @@ export type NormalizedEditorDocumentSource = {
 export function normalizeEditorDocumentSource(source: VersionedEditorDocumentSource): NormalizedEditorDocumentSource {
   const currentWasValidated = source.normalizedContentVersion === source.contentVersion;
   const content = currentWasValidated ? source.content : normalizeDocumentContent(source.content);
-  const lineEndings = currentWasValidated && typeof source.lineEndings === "string"
-    ? source.lineEndings
-    : normalizeLineEndingMap(content, source.lineEndings, source.lineEnding);
+  const lineEndings =
+    currentWasValidated && typeof source.lineEndings === "string"
+      ? source.lineEndings
+      : normalizeLineEndingMap(content, source.lineEndings, source.lineEnding);
 
   const savedWasValidated = source.normalizedSavedRevision === source.savedRevision;
-  const savedContent = source.savedContent === source.content
-    ? content
-    : savedWasValidated ? source.savedContent : normalizeDocumentContent(source.savedContent);
-  const savedLineEndings = savedContent === content
-    ? savedWasValidated && typeof source.savedLineEndings === "string"
-      ? source.savedLineEndings
-      : normalizeLineEndingMapForLineBreakCount(source.savedLineEndings ?? source.lineEndings, lineEndings.length, source.lineEnding)
-    : savedWasValidated && typeof source.savedLineEndings === "string"
-      ? source.savedLineEndings
-      : normalizeLineEndingMap(savedContent, source.savedLineEndings ?? source.lineEndings, source.lineEnding);
+  const savedContent =
+    source.savedContent === source.content
+      ? content
+      : savedWasValidated
+        ? source.savedContent
+        : normalizeDocumentContent(source.savedContent);
+  const savedLineEndings =
+    savedContent === content
+      ? savedWasValidated && typeof source.savedLineEndings === "string"
+        ? source.savedLineEndings
+        : normalizeLineEndingMapForLineBreakCount(
+            source.savedLineEndings ?? source.lineEndings,
+            lineEndings.length,
+            source.lineEnding,
+          )
+      : savedWasValidated && typeof source.savedLineEndings === "string"
+        ? source.savedLineEndings
+        : normalizeLineEndingMap(savedContent, source.savedLineEndings ?? source.lineEndings, source.lineEnding);
 
   return { content, lineEndings, savedContent, savedLineEndings, currentWasValidated, savedWasValidated };
 }
@@ -141,7 +183,11 @@ export function lineEndingMapForContent(content: string, lineEnding: "lf" | "crl
   return markerForLineEnding(lineEnding).repeat(countNormalizedLineBreaks(content));
 }
 
-export function normalizeLineEndingMap(content: string, lineEndings: string | undefined, fallback: "lf" | "crlf" = "lf"): string {
+export function normalizeLineEndingMap(
+  content: string,
+  lineEndings: string | undefined,
+  fallback: "lf" | "crlf" = "lf",
+): string {
   const expected = countNormalizedLineBreaks(content);
   return normalizeLineEndingMapForLineBreakCount(lineEndings, expected, fallback);
 }
@@ -204,11 +250,7 @@ export function lineEndingFromMap(lineEndings: string | undefined, fallback: "lf
  * order; missing markers reuse the majority ending). A final unterminated
  * line contributes no separator.
  */
-export function serializeDocumentBytes(
-  content: string,
-  lineEndings: string | undefined,
-  bom: boolean,
-): Uint8Array {
+export function serializeDocumentBytes(content: string, lineEndings: string | undefined, bom: boolean): Uint8Array {
   const majority = lineEndingFromMap(lineEndings, "lf");
   let serialized = "";
   let markerIndex = 0;
@@ -236,7 +278,10 @@ export function sameTextMetadata(
   right: { encoding?: string; bom?: boolean; lineEndings?: string; lineEnding: "lf" | "crlf" },
   content: string,
 ): boolean {
-  return (left.encoding ?? "utf-8") === (right.encoding ?? "utf-8")
-    && Boolean(left.bom) === Boolean(right.bom)
-    && normalizeLineEndingMap(content, left.lineEndings, left.lineEnding) === normalizeLineEndingMap(content, right.lineEndings, right.lineEnding);
+  return (
+    (left.encoding ?? "utf-8") === (right.encoding ?? "utf-8") &&
+    Boolean(left.bom) === Boolean(right.bom) &&
+    normalizeLineEndingMap(content, left.lineEndings, left.lineEnding) ===
+      normalizeLineEndingMap(content, right.lineEndings, right.lineEnding)
+  );
 }

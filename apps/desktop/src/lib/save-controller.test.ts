@@ -28,7 +28,16 @@ const controlledSaveFile = () => {
   const calls: RecordedCall[] = [];
   const resolvers: ((result: { modifiedAt: number; size: number; fingerprint: string }) => void)[] = [];
   const rejecters: ((error: unknown) => void)[] = [];
-  const saveFile: SaveControllerHooks["saveFile"] = (path, content, _lineEnding, _lineEndings, _bom, expectedModifiedAt, expectedSize, expectedFingerprint) => {
+  const saveFile: SaveControllerHooks["saveFile"] = (
+    path,
+    content,
+    _lineEnding,
+    _lineEndings,
+    _bom,
+    expectedModifiedAt,
+    expectedSize,
+    expectedFingerprint,
+  ) => {
     calls.push({ path, content, expectedModifiedAt, expectedSize, expectedFingerprint });
     return new Promise((resolve, reject) => {
       resolvers.push(resolve);
@@ -51,10 +60,21 @@ describe("save controller queue", () => {
     resolvers[0]({ modifiedAt: 11, size: 2, fingerprint: "fp-1" });
     await flush();
     expect(calls).toHaveLength(2);
-    expect(calls[1]).toMatchObject({ content: "b", expectedModifiedAt: 11, expectedSize: 2, expectedFingerprint: "fp-1" });
+    expect(calls[1]).toMatchObject({
+      content: "b",
+      expectedModifiedAt: 11,
+      expectedSize: 2,
+      expectedFingerprint: "fp-1",
+    });
     resolvers[1]({ modifiedAt: 12, size: 3, fingerprint: "fp-2" });
     expect(await first).toEqual({ ok: true, path: "/workspace/file.ts", modifiedAt: 11, size: 2, fingerprint: "fp-1" });
-    expect(await second).toEqual({ ok: true, path: "/workspace/file.ts", modifiedAt: 12, size: 3, fingerprint: "fp-2" });
+    expect(await second).toEqual({
+      ok: true,
+      path: "/workspace/file.ts",
+      modifiedAt: 12,
+      size: 3,
+      fingerprint: "fp-2",
+    });
   });
 
   it("keeps the original guard after a failed save and reports the failure", async () => {
@@ -160,7 +180,10 @@ describe("save controller queue", () => {
     const controller = createSaveController({ saveFile });
     let reads = 0;
     const saved = controller.enqueue(snapshot());
-    const disk = controller.readAfterSaves("tab-1", async () => { reads += 1; return "saved bytes"; });
+    const disk = controller.readAfterSaves("tab-1", async () => {
+      reads += 1;
+      return "saved bytes";
+    });
     await flush();
     expect(reads).toBe(0);
     resolvers[0]({ modifiedAt: 11, size: 2, fingerprint: "fp-1" });
@@ -169,26 +192,29 @@ describe("save controller queue", () => {
     expect(reads).toBe(1);
   });
 
-  it.each([false, true])("retries a disk read overtaken by a save, including a transient missing file (%s)", async (missing) => {
-    const { saveFile, resolvers } = controlledSaveFile();
-    const controller = createSaveController({ saveFile });
-    let finishRead!: () => void;
-    let reads = 0;
-    const disk = controller.readAfterSaves("tab-1", async () => {
-      reads += 1;
-      if (reads > 1) return "durable saved bytes";
-      return await new Promise<string>((resolve, reject) => {
-        finishRead = () => missing ? reject(new Error("file missing during replacement")) : resolve("old bytes");
+  it.each([false, true])(
+    "retries a disk read overtaken by a save, including a transient missing file (%s)",
+    async (missing) => {
+      const { saveFile, resolvers } = controlledSaveFile();
+      const controller = createSaveController({ saveFile });
+      let finishRead!: () => void;
+      let reads = 0;
+      const disk = controller.readAfterSaves("tab-1", async () => {
+        reads += 1;
+        if (reads > 1) return "durable saved bytes";
+        return await new Promise<string>((resolve, reject) => {
+          finishRead = () => (missing ? reject(new Error("file missing during replacement")) : resolve("old bytes"));
+        });
       });
-    });
-    const saved = controller.enqueue(snapshot());
-    await flush();
-    resolvers[0]({ modifiedAt: 11, size: 2, fingerprint: "fp-1" });
-    await saved;
-    finishRead();
-    expect(await disk).toBe("durable saved bytes");
-    expect(reads).toBe(2);
-  });
+      const saved = controller.enqueue(snapshot());
+      await flush();
+      resolvers[0]({ modifiedAt: 11, size: 2, fingerprint: "fp-1" });
+      await saved;
+      finishRead();
+      expect(await disk).toBe("durable saved bytes");
+      expect(reads).toBe(2);
+    },
+  );
 
   it("still verifies external changes after a failed save and does not wait on another tab", async () => {
     const { saveFile, rejecters } = controlledSaveFile();

@@ -34,17 +34,29 @@ const ranges: Record<NumericSetting, { min: number; max: number }> = {
 export const settingRange = (name: NumericSetting) => ranges[name];
 
 export function clampSetting(name: NumericSetting, value: unknown, fallback: number): number {
+  // Number("") and Number(null) are 0, which would clamp a cleared field to the minimum.
+  if (value === null || (typeof value === "string" && !value.trim())) return fallback;
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   const range = ranges[name];
   return Math.min(range.max, Math.max(range.min, Math.round(numeric)));
 }
 
-type BooleanSetting = { [Key in keyof AppSettings]: AppSettings[Key] extends boolean ? Key : never }[keyof AppSettings];
+export type BooleanSetting = {
+  [Key in keyof AppSettings]: AppSettings[Key] extends boolean ? Key : never;
+}[keyof AppSettings];
 
 const booleanSettings: readonly BooleanSetting[] = [
-  "insertSpaces", "wordWrap", "lineNumbers", "showWhitespace", "autoCloseBrackets",
-  "trimTrailingWhitespace", "insertFinalNewline", "hideDotFiles", "groupGitIgnoredFiles", "checkForUpdates",
+  "insertSpaces",
+  "wordWrap",
+  "lineNumbers",
+  "showWhitespace",
+  "autoCloseBrackets",
+  "trimTrailingWhitespace",
+  "insertFinalNewline",
+  "hideDotFiles",
+  "groupGitIgnoredFiles",
+  "checkForUpdates",
 ];
 
 export function validateSettings(value: unknown, defaults: AppSettings): AppSettings {
@@ -52,7 +64,10 @@ export function validateSettings(value: unknown, defaults: AppSettings): AppSett
   const settings: AppSettings = {
     ...defaults,
     theme: stored.theme === "light" || stored.theme === "dark" ? stored.theme : defaults.theme,
-    language: stored.language === "auto" || stored.language === "en" || stored.language === "zh-Hant" ? stored.language : defaults.language,
+    language:
+      stored.language === "auto" || stored.language === "en" || stored.language === "zh-Hant"
+        ? stored.language
+        : defaults.language,
     fontSize: clampSetting("fontSize", stored.fontSize, defaults.fontSize),
     tabSize: clampSetting("tabSize", stored.tabSize, defaults.tabSize),
     sidebarWidth: clampSetting("sidebarWidth", stored.sidebarWidth, defaults.sidebarWidth),

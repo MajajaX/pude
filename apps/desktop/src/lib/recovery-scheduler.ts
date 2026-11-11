@@ -32,16 +32,6 @@ export function editNeedsSessionCheckpoint(wasDirty: boolean, isDirty: boolean, 
   return wasDirty !== isDirty || byteLength < RECOVERY_DEBOUNCE_SMALL_BYTES;
 }
 
-/**
- * Delay for the next recovery write. Debounces by `delay` after the most
- * recent edit but never lets the first pending edit wait longer than
- * `maxWait`.
- */
-export function nextRecoveryDelay(firstPendingAt: number, now: number, byteLength: number): number {
-  const { delay, maxWait } = checkpointDebounceForSize(byteLength);
-  return Math.max(0, Math.min(delay, firstPendingAt + maxWait - now));
-}
-
 type IdleCallbackHandle = number;
 
 /**
@@ -100,12 +90,15 @@ export class RecoveryWriteScheduler {
     // the same absolute deadline, even if an idle callback never runs.
     pending.deadlineTimer = setTimeout(execute, remaining);
     if (remaining === 0) return;
-    pending.timer = setTimeout(() => {
-      pending.timer = undefined;
-      const idleRemaining = Math.max(0, deadline - Date.now());
-      if (idleRemaining === 0) execute();
-      else pending.cancelIdle = runRecoveryWhenIdle(execute, idleRemaining);
-    }, Math.min(policy.delay, remaining));
+    pending.timer = setTimeout(
+      () => {
+        pending.timer = undefined;
+        const idleRemaining = Math.max(0, deadline - Date.now());
+        if (idleRemaining === 0) execute();
+        else pending.cancelIdle = runRecoveryWhenIdle(execute, idleRemaining);
+      },
+      Math.min(policy.delay, remaining),
+    );
   }
 
   pendingTabs(): string[] {

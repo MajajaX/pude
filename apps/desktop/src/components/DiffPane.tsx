@@ -27,10 +27,14 @@ export function DiffPane(props: {
   const [scrollTop, setScrollTop] = createSignal(0);
   const [viewportHeight, setViewportHeight] = createSignal(0);
   let scrollHost!: HTMLDivElement;
-  const stackedRows = createMemo(() => layout() === "stacked" ? toStackedDiffLines(parsed().rows) : []);
+  const stackedRows = createMemo(() => (layout() === "stacked" ? toStackedDiffLines(parsed().rows) : []));
 
-  const sideWindow = createMemo(() => virtualTreeWindow(parsed().rows.length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN));
-  const stackedWindow = createMemo(() => virtualTreeWindow(stackedRows().length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN));
+  const sideWindow = createMemo(() =>
+    virtualTreeWindow(parsed().rows.length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN),
+  );
+  const stackedWindow = createMemo(() =>
+    virtualTreeWindow(stackedRows().length, scrollTop(), viewportHeight(), DIFF_ROW_HEIGHT, DIFF_OVERSCAN),
+  );
   const renderedRows = createMemo(() => {
     if (layout() !== "side-by-side") return [];
     const currentWindow = sideWindow();
@@ -72,66 +76,163 @@ export function DiffPane(props: {
   return (
     <div class="diff-view">
       <div class="diff-toolbar">
-        <div class="diff-toolbar-file"><button class="toolbar-link" onClick={props.onBack}><Icon name="chevron-right" size={13} class="rotate-180" /> {props.backLabel ?? t("Back to editor")}</button><span class="diff-file-name">{props.path}</span></div>
+        <div class="diff-toolbar-file">
+          <button type="button" class="toolbar-link" onClick={props.onBack}>
+            <Icon name="chevron-right" size={13} class="rotate-180" /> {props.backLabel ?? t("Back to editor")}
+          </button>
+          <span class="diff-file-name">{props.path}</span>
+        </div>
         <div class="diff-toolbar-actions">
           <div class="diff-layout-toggle" role="group" aria-label={t("Diff layout")}>
-            <button class="diff-layout-button" classList={{ "diff-layout-button-active": layout() === "side-by-side" }} aria-pressed={layout() === "side-by-side"} onClick={() => setLayout("side-by-side")}>{t("Side by side")}</button>
-            <button class="diff-layout-button" classList={{ "diff-layout-button-active": layout() === "stacked" }} aria-pressed={layout() === "stacked"} onClick={() => setLayout("stacked")}>{t("Stacked")}</button>
-          </div>
-          <Show when={props.onExpandContext && props.nextContextLines !== undefined && (props.contextLines === undefined || props.nextContextLines > props.contextLines)}>
             <button
+              type="button"
+              class="diff-layout-button"
+              classList={{ "diff-layout-button-active": layout() === "side-by-side" }}
+              aria-pressed={layout() === "side-by-side"}
+              onClick={() => setLayout("side-by-side")}
+            >
+              {t("Side by side")}
+            </button>
+            <button
+              type="button"
+              class="diff-layout-button"
+              classList={{ "diff-layout-button-active": layout() === "stacked" }}
+              aria-pressed={layout() === "stacked"}
+              onClick={() => setLayout("stacked")}
+            >
+              {t("Stacked")}
+            </button>
+          </div>
+          <Show
+            when={
+              props.onExpandContext &&
+              props.nextContextLines !== undefined &&
+              (props.contextLines === undefined || props.nextContextLines > props.contextLines)
+            }
+          >
+            <button
+              type="button"
               class="diff-layout-button"
               disabled={props.loading === true}
               aria-busy={props.loading === true}
-              aria-label={props.loading ? t("Loading additional diff context") : t("Load diff with {nextContextLines} lines of context", { nextContextLines: props.nextContextLines })}
-              title={props.contextLines === undefined ? undefined : t("Current context: {contextLines} lines", { contextLines: props.contextLines })}
+              aria-label={
+                props.loading
+                  ? t("Loading additional diff context")
+                  : t("Load diff with {nextContextLines} lines of context", {
+                      nextContextLines: props.nextContextLines,
+                    })
+              }
+              title={
+                props.contextLines === undefined
+                  ? undefined
+                  : t("Current context: {contextLines} lines", { contextLines: props.contextLines })
+              }
               onClick={() => props.onExpandContext?.()}
             >
               {props.loading
                 ? t("Loading context…")
                 : props.contextLines === undefined
                   ? t("More context ({nextContextLines} lines)", { nextContextLines: props.nextContextLines })
-                  : t("More context ({contextLines} → {nextContextLines} lines)", { contextLines: props.contextLines, nextContextLines: props.nextContextLines })}
+                  : t("More context ({contextLines} → {nextContextLines} lines)", {
+                      contextLines: props.contextLines,
+                      nextContextLines: props.nextContextLines,
+                    })}
             </button>
           </Show>
           <span class="diff-state">{t(props.label ?? (props.staged ? "STAGED CHANGES" : "WORKING TREE"))}</span>
         </div>
       </div>
-      <div class="diff-content" ref={scrollHost} role="document" aria-label={t("Diff for {path}", { path: props.path })}>
-        <Show when={parsed().rows.length} fallback={<div class="empty-diff">{t("No textual changes to display.")}</div>}>
-          <Show when={layout() === "side-by-side"} fallback={
-            <div class="diff-rows-virtual" style={{ position: "relative", height: `${stackedWindow().totalHeight}px` }}>
-              <For each={renderedStackedRows()}>{(row, index) => (
-                <div class={`diff-stacked-row diff-stacked-row-${row.kind}`} style={{ position: "absolute", top: `${(stackedWindow().start + index()) * DIFF_ROW_HEIGHT}px`, left: "0", right: "0" }}>
-                  <span class="diff-stacked-label">{row.kind === "context" ? "" : row.label}</span>
-                  <div class={`diff-stacked-side diff-side-${row.kind}`}>
-                    <span class="diff-number">{row.oldNumber ?? ""}</span>
-                    <span class="diff-number">{row.newNumber ?? ""}</span>
-                    <code>{row.text}</code>
-                  </div>
-                </div>
-              )}</For>
+      <div
+        class="diff-content"
+        ref={scrollHost}
+        role="document"
+        aria-label={t("Diff for {path}", { path: props.path })}
+      >
+        <Show
+          when={parsed().rows.length}
+          fallback={<div class="empty-diff">{t("No textual changes to display.")}</div>}
+        >
+          <Show
+            when={layout() === "side-by-side"}
+            fallback={
+              <div
+                class="diff-rows-virtual"
+                style={{ position: "relative", height: `${stackedWindow().totalHeight}px` }}
+              >
+                <For each={renderedStackedRows()}>
+                  {(row, index) => (
+                    <div
+                      class={`diff-stacked-row diff-stacked-row-${row.kind}`}
+                      style={{
+                        position: "absolute",
+                        top: `${(stackedWindow().start + index()) * DIFF_ROW_HEIGHT}px`,
+                        left: "0",
+                        right: "0",
+                      }}
+                    >
+                      <span class="diff-stacked-label">{row.kind === "context" ? "" : row.label}</span>
+                      <div class={`diff-stacked-side diff-side-${row.kind}`}>
+                        <span class="diff-number">{row.oldNumber ?? ""}</span>
+                        <span class="diff-number">{row.newNumber ?? ""}</span>
+                        <code>{row.text}</code>
+                      </div>
+                    </div>
+                  )}
+                </For>
+              </div>
+            }
+          >
+            <div class="diff-column-head">
+              <span>{t("BEFORE")}</span>
+              <span>{t("AFTER")}</span>
             </div>
-          }>
-            <div class="diff-column-head"><span>{t("BEFORE")}</span><span>{t("AFTER")}</span></div>
             <div class="diff-rows-virtual" style={{ position: "relative", height: `${sideWindow().totalHeight}px` }}>
-              <For each={renderedRows()}>{(row, index) => (
-                <div class={`diff-row diff-row-${row.state}`} style={{ position: "absolute", top: `${(sideWindow().start + index()) * DIFF_ROW_HEIGHT}px`, left: "0", right: "0" }}>
-                  <DiffSide text={row.left} number={row.leftNumber} state={row.state === "added" ? "empty" : row.state === "changed" ? "removed" : row.state} />
-                  <DiffSide text={row.right} number={row.rightNumber} state={row.state === "removed" ? "empty" : row.state === "changed" ? "added" : row.state} />
-                </div>
-              )}</For>
+              <For each={renderedRows()}>
+                {(row, index) => (
+                  <div
+                    class={`diff-row diff-row-${row.state}`}
+                    style={{
+                      position: "absolute",
+                      top: `${(sideWindow().start + index()) * DIFF_ROW_HEIGHT}px`,
+                      left: "0",
+                      right: "0",
+                    }}
+                  >
+                    <DiffSide
+                      text={row.left}
+                      number={row.leftNumber}
+                      state={row.state === "added" ? "empty" : row.state === "changed" ? "removed" : row.state}
+                    />
+                    <DiffSide
+                      text={row.right}
+                      number={row.rightNumber}
+                      state={row.state === "removed" ? "empty" : row.state === "changed" ? "added" : row.state}
+                    />
+                  </div>
+                )}
+              </For>
             </div>
           </Show>
         </Show>
         <Show when={parsed().truncated}>
-          <div class="diff-full-row diff-meta" role="status">{t("Diff preview shortened for performance. Open the file or use Git to inspect the complete change.")}</div>
+          <div class="diff-full-row diff-meta" role="status">
+            {t("Diff preview shortened for performance. Open the file or use Git to inspect the complete change.")}
+          </div>
         </Show>
       </div>
     </div>
   );
 }
 
-function DiffSide(props: { text?: string; number?: number; state: "context" | "changed" | "added" | "removed" | "empty" }) {
-  return <div class={`diff-side diff-side-${props.state}`}><span class="diff-number">{props.number ?? ""}</span><code>{props.text ?? " "}</code></div>;
+function DiffSide(props: {
+  text?: string;
+  number?: number;
+  state: "context" | "changed" | "added" | "removed" | "empty";
+}) {
+  return (
+    <div class={`diff-side diff-side-${props.state}`}>
+      <span class="diff-number">{props.number ?? ""}</span>
+      <code>{props.text ?? " "}</code>
+    </div>
+  );
 }

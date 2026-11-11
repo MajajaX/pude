@@ -63,9 +63,7 @@ export function readSessionRegistryFallback(): { registry: SessionRegistry; read
     const raw = storage.getItem(SESSION_REGISTRY_STORAGE_KEY);
     if (raw === null) return { registry: emptySessionRegistry(), readSucceeded: true };
     const registry = parseSessionRegistry(raw);
-    return registry
-      ? { registry, readSucceeded: true }
-      : { registry: emptySessionRegistry(), readSucceeded: false };
+    return registry ? { registry, readSucceeded: true } : { registry: emptySessionRegistry(), readSucceeded: false };
   } catch {
     return { registry: emptySessionRegistry(), readSucceeded: false };
   }
@@ -79,7 +77,13 @@ export function readFallbackRecoveryEntries(storage: Storage | null): FallbackRe
     const value = rawIndex ? parseJson(rawIndex) : null;
     if (Array.isArray(value)) {
       for (const candidate of value) {
-        if (!isRecord(candidate) || typeof candidate.key !== "string" || !isPersistedRecoveryKey(candidate.key) || candidate.key === RECOVERY_FALLBACK_INDEX_KEY) continue;
+        if (
+          !isRecord(candidate) ||
+          typeof candidate.key !== "string" ||
+          !isPersistedRecoveryKey(candidate.key) ||
+          candidate.key === RECOVERY_FALLBACK_INDEX_KEY
+        )
+          continue;
         const bytes = nonNegativeInteger(candidate.bytes);
         const updatedAt = nonNegativeTimestamp(candidate.updatedAt);
         if (bytes === undefined || updatedAt === undefined) continue;
@@ -130,9 +134,16 @@ export async function writeRecoveryFallback(
   return result === true;
 }
 
-function writeRecoveryFallbackUnlocked(storage: Storage, key: string, snapshot: RecoverySnapshot, protectedRecoveryKeys = new Set<string>(), maxBytes = MAX_RECOVERY_TOTAL_BYTES): boolean {
+function writeRecoveryFallbackUnlocked(
+  storage: Storage,
+  key: string,
+  snapshot: RecoverySnapshot,
+  protectedRecoveryKeys = new Set<string>(),
+  maxBytes = MAX_RECOVERY_TOTAL_BYTES,
+): boolean {
   const estimatedBytes = recoverySnapshotSizeBytes(snapshot);
-  if (estimatedBytes > MAX_RECOVERY_BYTES || estimatedBytes > MAX_FALLBACK_RECOVERY_BYTES || estimatedBytes > maxBytes) return false;
+  if (estimatedBytes > MAX_RECOVERY_BYTES || estimatedBytes > MAX_FALLBACK_RECOVERY_BYTES || estimatedBytes > maxBytes)
+    return false;
   let serialized: string;
   try {
     serialized = JSON.stringify(snapshot);
@@ -140,15 +151,26 @@ function writeRecoveryFallbackUnlocked(storage: Storage, key: string, snapshot: 
     return false;
   }
   const serializedBytes = utf8ByteLength(serialized);
-  if (serializedBytes > MAX_RECOVERY_BYTES || serializedBytes > MAX_FALLBACK_RECOVERY_BYTES || serializedBytes > maxBytes) return false;
+  if (
+    serializedBytes > MAX_RECOVERY_BYTES ||
+    serializedBytes > MAX_FALLBACK_RECOVERY_BYTES ||
+    serializedBytes > maxBytes
+  )
+    return false;
   try {
     const entries = readFallbackRecoveryEntries(storage);
     const existing = entries.find((entry) => entry.key === key);
-    let projectedBytes = entries.reduce((total, entry) => total + entry.bytes, 0) - (existing?.bytes ?? 0) + serializedBytes;
+    let projectedBytes =
+      entries.reduce((total, entry) => total + entry.bytes, 0) - (existing?.bytes ?? 0) + serializedBytes;
     const evicted: FallbackRecoveryEntry[] = [];
     if (projectedBytes > maxBytes) {
       const candidates = entries
-        .filter((entry) => entry.key !== key && !protectedRecoveryKeys.has(entry.key) && !fallbackEntryProtected(entry, protectedRecoveryKeys, storage))
+        .filter(
+          (entry) =>
+            entry.key !== key &&
+            !protectedRecoveryKeys.has(entry.key) &&
+            !fallbackEntryProtected(entry, protectedRecoveryKeys, storage),
+        )
         .sort((left, right) => left.updatedAt - right.updatedAt);
       for (const candidate of candidates) {
         if (projectedBytes <= maxBytes) break;
@@ -175,7 +197,10 @@ export async function removeRecoveryFallback(key: string, lockHeld = false): Pro
   const operation = () => {
     try {
       storage.removeItem(key);
-      writeFallbackRecoveryEntries(storage, readFallbackRecoveryEntries(storage).filter((entry) => entry.key !== key));
+      writeFallbackRecoveryEntries(
+        storage,
+        readFallbackRecoveryEntries(storage).filter((entry) => entry.key !== key),
+      );
     } catch {
       // Storage can be unavailable in private or restricted WebViews.
     }
@@ -199,7 +224,9 @@ export function readSessionCheckpointFallbackBytes(scope: string): number | null
   return raw === null ? 0 : utf8ByteLength(raw);
 }
 
-export async function readSessionCheckpointMetadataFallback(scope: string): Promise<SessionCheckpointMetadataReadResult | null> {
+export async function readSessionCheckpointMetadataFallback(
+  scope: string,
+): Promise<SessionCheckpointMetadataReadResult | null> {
   const raw = readStorage(sessionCheckpointMetadataStorageKey(scope));
   const value = raw ? parseJson(raw) : null;
   const recoveryKeys = isRecord(value) && Array.isArray(value.recoveryKeys) ? value.recoveryKeys : undefined;
@@ -207,17 +234,25 @@ export async function readSessionCheckpointMetadataFallback(scope: string): Prom
   if (parsed?.checkpoint.scope === scope) return parsed;
   // Compatibility path for checkpoints written before metadata sidecars.
   const legacy = await readSessionCheckpointFallback(scope);
-  return legacy ? parseSessionCheckpointMetadata(legacy.checkpoint, Object.keys(legacy.checkpoint.recoveries), "fallback") : null;
+  return legacy
+    ? parseSessionCheckpointMetadata(legacy.checkpoint, Object.keys(legacy.checkpoint.recoveries), "fallback")
+    : null;
 }
 
 /** Reads only metadata sidecars for new checkpoints; legacy bodies are parsed once when no sidecar exists. */
-export async function readAllSessionCheckpointMetadataFallback(workspace?: string): Promise<SessionCheckpointMetadataReadResult[]> {
+export async function readAllSessionCheckpointMetadataFallback(
+  workspace?: string,
+): Promise<SessionCheckpointMetadataReadResult[]> {
   const storage = getStorageSafe();
   if (!storage) return [];
   const keys: string[] = [];
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index);
-    if (key && (key.startsWith(SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX) || key.startsWith(SESSION_CHECKPOINT_STORAGE_PREFIX))) keys.push(key);
+    if (
+      key &&
+      (key.startsWith(SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX) || key.startsWith(SESSION_CHECKPOINT_STORAGE_PREFIX))
+    )
+      keys.push(key);
   }
   const byScope = new Map<string, SessionCheckpointMetadataReadResult>();
   for (const key of keys) {
@@ -226,13 +261,15 @@ export async function readAllSessionCheckpointMetadataFallback(workspace?: strin
     const value = raw ? parseJson(raw) : null;
     const recoveryKeys = isRecord(value) && Array.isArray(value.recoveryKeys) ? value.recoveryKeys : undefined;
     const candidate = parseSessionCheckpointMetadata(value, recoveryKeys, "fallback");
-    if (candidate && (workspace === undefined || candidate.checkpoint.session.workspace === workspace)) byScope.set(candidate.checkpoint.scope, candidate);
+    if (candidate && (workspace === undefined || candidate.checkpoint.session.workspace === workspace))
+      byScope.set(candidate.checkpoint.scope, candidate);
   }
   for (const key of keys) {
     if (!key.startsWith(SESSION_CHECKPOINT_STORAGE_PREFIX)) continue;
     const raw = readStorage(key);
     const legacy = parseSessionCheckpoint(raw);
-    if (!legacy || byScope.has(legacy.scope) || (workspace !== undefined && legacy.session.workspace !== workspace)) continue;
+    if (!legacy || byScope.has(legacy.scope) || (workspace !== undefined && legacy.session.workspace !== workspace))
+      continue;
     const candidate = parseSessionCheckpointMetadata(legacy, Object.keys(legacy.recoveries), "fallback");
     if (candidate) byScope.set(candidate.checkpoint.scope, candidate);
   }
@@ -248,7 +285,12 @@ export function writeSessionCheckpointMetadataFallback(checkpoint: SessionCheckp
     if (utf8ByteLength(serialized) > 1024 * 1024) return false;
     const key = sessionCheckpointMetadataStorageKey(checkpoint.scope);
     storage.setItem(key, serialized);
-    writeFallbackRecoveryEntries(storage, entries.filter((entry) => entry.key !== key).concat({ key, bytes: utf8ByteLength(serialized), updatedAt: checkpoint.committedAt }));
+    writeFallbackRecoveryEntries(
+      storage,
+      entries
+        .filter((entry) => entry.key !== key)
+        .concat({ key, bytes: utf8ByteLength(serialized), updatedAt: checkpoint.committedAt }),
+    );
     return true;
   } catch {
     return false;
@@ -261,7 +303,10 @@ export function removeSessionCheckpointBodyFallback(scope: string): void {
     if (!storage) return;
     const key = sessionCheckpointStorageKey(scope);
     storage.removeItem(key);
-    writeFallbackRecoveryEntries(storage, readFallbackRecoveryEntries(storage).filter((entry) => entry.key !== key));
+    writeFallbackRecoveryEntries(
+      storage,
+      readFallbackRecoveryEntries(storage).filter((entry) => entry.key !== key),
+    );
   } catch {
     // localStorage may be unavailable in restricted WebViews.
   }
@@ -292,12 +337,23 @@ export async function writeSessionCheckpointFallback(
   if (!storage) return { saved: false, skipped: true, evictedKeys: [] };
   const operation = () => {
     const fallbackRegistry = parseSessionRegistry(storage.getItem(SESSION_REGISTRY_STORAGE_KEY));
-    const liveOwner = fallbackRegistry?.windows.find((entry) => entry.scope === checkpoint.scope && entry.status === "open");
-    if (liveOwner && (!lease || !sameSessionLease(liveOwner, lease))) return { saved: false, skipped: false, evictedKeys: [] };
+    const liveOwner = fallbackRegistry?.windows.find(
+      (entry) => entry.scope === checkpoint.scope && entry.status === "open",
+    );
+    if (liveOwner && (!lease || !sameSessionLease(liveOwner, lease)))
+      return { saved: false, skipped: false, evictedKeys: [] };
     if (lease && !fallbackLeaseIsOpen(storage, lease)) return { saved: false, skipped: false, evictedKeys: [] };
     const existing = parseSessionCheckpoint(storage.getItem(sessionCheckpointStorageKey(checkpoint.scope)));
-    if (existing && compareSessionCheckpoints(existing, checkpoint) >= 0) return { saved: false, skipped: true, evictedKeys: [] };
-    return writeSessionCheckpointFallbackUnlocked(storage, checkpoint, protectedRecoveryKeys, maxBytes, estimateBytes, serializeCheckpoint);
+    if (existing && compareSessionCheckpoints(existing, checkpoint) >= 0)
+      return { saved: false, skipped: true, evictedKeys: [] };
+    return writeSessionCheckpointFallbackUnlocked(
+      storage,
+      checkpoint,
+      protectedRecoveryKeys,
+      maxBytes,
+      estimateBytes,
+      serializeCheckpoint,
+    );
   };
   const result = lockHeld ? operation() : await withSessionFallbackLock(storage, operation);
   return result === false ? { saved: false, skipped: true, evictedKeys: [] } : result;
@@ -324,15 +380,26 @@ function writeSessionCheckpointFallbackUnlocked(
     recoveryKeys: Object.keys(checkpoint.recoveries),
   };
   let serializedMetadata: string;
-  try { serializedMetadata = JSON.stringify(metadataValue); } catch { return { saved: false, skipped: false, evictedKeys: [] }; }
+  try {
+    serializedMetadata = JSON.stringify(metadataValue);
+  } catch {
+    return { saved: false, skipped: false, evictedKeys: [] };
+  }
   const estimatedTotalBytes = estimateBytes + utf8ByteLength(serializedMetadata);
   if (estimatedTotalBytes > maxBytes) return { saved: false, skipped: true, evictedKeys: [] };
   const entries = readFallbackRecoveryEntries(storage);
   const existing = entries.find((entry) => entry.key === key);
   const existingMetadata = entries.find((entry) => entry.key === metadataKey);
-  let projectedBytes = entries.reduce((total, entry) => total + entry.bytes, 0) - (existing?.bytes ?? 0) - (existingMetadata?.bytes ?? 0) + estimatedTotalBytes;
+  let projectedBytes =
+    entries.reduce((total, entry) => total + entry.bytes, 0) -
+    (existing?.bytes ?? 0) -
+    (existingMetadata?.bytes ?? 0) +
+    estimatedTotalBytes;
   const candidates = entries
-    .filter((entry) => entry.key !== key && !fallbackEntryProtectedForCheckpoint(entry, checkpoint, protectedRecoveryKeys, storage))
+    .filter(
+      (entry) =>
+        entry.key !== key && !fallbackEntryProtectedForCheckpoint(entry, checkpoint, protectedRecoveryKeys, storage),
+    )
     .sort((left, right) => left.updatedAt - right.updatedAt);
   const evictedKeys: string[] = [];
   const evictedEntries: FallbackRecoveryEntry[] = [];
@@ -351,7 +418,8 @@ function writeSessionCheckpointFallbackUnlocked(
   }
   const bytes = utf8ByteLength(serializedCheckpoint);
   const exactBytes = bytes + utf8ByteLength(serializedMetadata);
-  if (exactBytes > maxBytes || projectedBytes - estimatedTotalBytes + exactBytes > maxBytes) return { saved: false, skipped: true, evictedKeys: [] };
+  if (exactBytes > maxBytes || projectedBytes - estimatedTotalBytes + exactBytes > maxBytes)
+    return { saved: false, skipped: true, evictedKeys: [] };
   const previousCheckpoint = storage.getItem(key);
   const previousMetadata = storage.getItem(metadataKey);
   try {
@@ -363,10 +431,19 @@ function writeSessionCheckpointFallbackUnlocked(
     // A checkpoint supersedes legacy per-tab fallback copies for this scope.
     for (const candidate of readFallbackRecoveryEntries(storage)) {
       if (candidate.key === key || !sameRecoveryScope(candidate.key, checkpoint.scope)) continue;
-      if (checkpoint.recoveryRevisions[candidate.key] !== undefined || !fallbackEntryProtected(candidate, protectedRecoveryKeys, storage)) storage.removeItem(candidate.key);
+      if (
+        checkpoint.recoveryRevisions[candidate.key] !== undefined ||
+        !fallbackEntryProtected(candidate, protectedRecoveryKeys, storage)
+      )
+        storage.removeItem(candidate.key);
     }
-    const nextEntries = readFallbackRecoveryEntries(storage).filter((entry) => entry.key !== key && entry.key !== metadataKey);
-    nextEntries.push({ key, bytes, updatedAt: checkpoint.committedAt }, { key: metadataKey, bytes: utf8ByteLength(serializedMetadata), updatedAt: checkpoint.committedAt });
+    const nextEntries = readFallbackRecoveryEntries(storage).filter(
+      (entry) => entry.key !== key && entry.key !== metadataKey,
+    );
+    nextEntries.push(
+      { key, bytes, updatedAt: checkpoint.committedAt },
+      { key: metadataKey, bytes: utf8ByteLength(serializedMetadata), updatedAt: checkpoint.committedAt },
+    );
     writeFallbackRecoveryEntries(storage, nextEntries);
     return { saved: true, skipped: false, evictedKeys: [...new Set(evictedKeys)] };
   } catch {
@@ -383,7 +460,11 @@ function writeSessionCheckpointFallbackUnlocked(
   }
 }
 
-function fallbackEntryProtected(entry: FallbackRecoveryEntry, protectedRecoveryKeys: Set<string>, storage: Storage): boolean {
+function fallbackEntryProtected(
+  entry: FallbackRecoveryEntry,
+  protectedRecoveryKeys: Set<string>,
+  storage: Storage,
+): boolean {
   if (protectedRecoveryKeys.has(entry.key)) return true;
   if (!entry.key.startsWith(SESSION_CHECKPOINT_STORAGE_PREFIX)) return false;
   const raw = storage.getItem(entry.key);
@@ -391,7 +472,12 @@ function fallbackEntryProtected(entry: FallbackRecoveryEntry, protectedRecoveryK
   return Boolean(checkpoint && Object.keys(checkpoint.recoveries).some((key) => protectedRecoveryKeys.has(key)));
 }
 
-function fallbackEntryProtectedForCheckpoint(entry: FallbackRecoveryEntry, checkpoint: SessionCheckpoint, protectedRecoveryKeys: Set<string>, storage: Storage): boolean {
+function fallbackEntryProtectedForCheckpoint(
+  entry: FallbackRecoveryEntry,
+  checkpoint: SessionCheckpoint,
+  protectedRecoveryKeys: Set<string>,
+  storage: Storage,
+): boolean {
   if (isRecoveryStorageKey(entry.key) && checkpoint.recoveryRevisions[entry.key] !== undefined) return false;
   return fallbackEntryProtected(entry, protectedRecoveryKeys, storage);
 }
@@ -402,7 +488,10 @@ function fallbackEntryRecoveryKeys(entry: FallbackRecoveryEntry, storage: Storag
   return checkpoint ? Object.keys(checkpoint.recoveries) : [];
 }
 
-export async function mutateSessionRegistryFallback(mutate: (current: SessionRegistry) => SessionRegistry | null, lockHeld = false): Promise<{ registry: SessionRegistry; saved: boolean; readSucceeded: boolean }> {
+export async function mutateSessionRegistryFallback(
+  mutate: (current: SessionRegistry) => SessionRegistry | null,
+  lockHeld = false,
+): Promise<{ registry: SessionRegistry; saved: boolean; readSucceeded: boolean }> {
   const storage = getStorageSafe();
   if (!storage) return { registry: emptySessionRegistry(), saved: false, readSucceeded: false };
   const operation = () => {
@@ -460,7 +549,10 @@ function fallbackLeaseIsOpen(storage: Storage, lease: SessionWindowLease): boole
   return Boolean(registry?.windows.some((entry) => sameSessionLease(entry, lease) && entry.status === "open"));
 }
 
-export async function withSessionFallbackLock<T>(storage: Storage, operation: () => T | Promise<T>): Promise<T | false> {
+export async function withSessionFallbackLock<T>(
+  storage: Storage,
+  operation: () => T | Promise<T>,
+): Promise<T | false> {
   void storage;
   return withSessionLock(SESSION_FALLBACK_LOCK_KEY, operation);
 }

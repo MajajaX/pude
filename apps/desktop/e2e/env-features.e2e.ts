@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { openDemoProject } from "./open-demo-project";
+import { useRecordedClipboard } from "./recorded-clipboard";
 
 test("inserts variables and generates an undoable value with persistent options", async ({ page }) => {
   const errors: string[] = [];
@@ -7,7 +8,10 @@ test("inserts variables and generates an undoable value with persistent options"
   await page.goto("/");
   await expect(page).toHaveTitle(/pude/i);
   await openDemoProject(page);
-  await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: ".env", exact: true })
+    .getByRole("button", { name: ".env", exact: true })
+    .click();
   const table = page.locator(".env-table");
   await table.getByRole("textbox", { name: "Variable name" }).first().click({ button: "right" });
   await page.getByRole("menuitem", { name: "Insert below" }).click();
@@ -32,7 +36,10 @@ test("inserts variables and generates an undoable value with persistent options"
   await expect(table.getByRole("textbox", { name: "Value of SECRET" })).toHaveValue(generated);
   await page.reload();
   await openDemoProject(page);
-  await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: ".env", exact: true })
+    .getByRole("button", { name: ".env", exact: true })
+    .click();
   await table.getByRole("button", { name: "Generate random value for APP_NAME" }).click();
   await expect(dialog.getByRole("combobox", { name: "Format" })).toHaveValue("hex");
   await page.keyboard.press("Escape");
@@ -41,11 +48,14 @@ test("inserts variables and generates an undoable value with persistent options"
   expect(errors).toEqual([]);
 });
 
-test("the toolbar generates a key for a new variable, also from an empty file", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+test("the toolbar generates a key for a new variable, also from an empty file", async ({ page }) => {
+  const clipboard = await useRecordedClipboard(page);
   await page.goto("/");
   await openDemoProject(page);
-  await page.getByRole("treeitem", { name: ".env", exact: true }).getByRole("button", { name: ".env", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: ".env", exact: true })
+    .getByRole("button", { name: ".env", exact: true })
+    .click();
   const table = page.locator(".env-table");
   const dialog = page.getByRole("dialog", { name: "Generate random value" });
 
@@ -53,7 +63,7 @@ test("the toolbar generates a key for a new variable, also from an empty file", 
   await expect(dialog).toBeVisible();
   const generated = await dialog.getByRole("textbox", { name: "Preview" }).inputValue();
   await dialog.getByRole("button", { name: "Copy", exact: true }).click();
-  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(generated);
+  await expect.poll(clipboard).toBe(generated);
   await dialog.getByRole("button", { name: "Add as variable" }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -98,4 +108,23 @@ test("the toolbar generates a key for a new variable, also from an empty file", 
   await table.getByRole("button", { name: "Generate key" }).click();
   await dialog.getByRole("button", { name: "Add as variable" }).click();
   await expect(table.locator(".env-draft").getByRole("textbox", { name: "Variable name" })).toBeFocused();
+});
+
+test("values are masked until shown, and a focused value shows for editing", async ({ page }) => {
+  await page.goto("/");
+  await openDemoProject(page);
+  await page
+    .getByRole("treeitem", { name: ".env", exact: true })
+    .getByRole("button", { name: ".env", exact: true })
+    .click();
+  const value = page.locator(".env-table .env-value").first();
+  const masking = () =>
+    value.evaluate((element) => getComputedStyle(element).getPropertyValue("-webkit-text-security"));
+  await expect.poll(masking).toBe("disc");
+  await value.focus();
+  await expect.poll(masking).toBe("none");
+  await value.blur();
+  await page.getByRole("button", { name: "Show values" }).click();
+  await expect(page.getByRole("button", { name: "Hide values" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(masking).toBe("none");
 });

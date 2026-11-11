@@ -36,5 +36,8 @@ export function bindTerminalToPty(
     terminal.onResize(({ rows, cols }) => pty.resize(rows, cols)),
   ];
 
-  return () => subscriptions.forEach((subscription) => subscription.dispose());
+  return () =>
+    subscriptions.forEach((subscription) => {
+      subscription.dispose();
+    });
 }

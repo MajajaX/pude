@@ -50,22 +50,30 @@ test("reloading restores project order, selection and unsaved content", async ({
   const projects = page.locator('.project-tabs [role="tab"]');
   await expect(projects).toHaveCount(2);
   await expect(projects.nth(1)).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("pude-recovery-v1");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const transaction = db.transaction(["checkpoints", "snapshots"]);
-    const read = (store: string) => new Promise<unknown[]>((resolve, reject) => {
-      const request = transaction.objectStore(store).getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const [checkpoints, snapshots] = await Promise.all([read("checkpoints"), read("snapshots")]);
-    db.close();
-    return JSON.stringify(checkpoints).includes('"projects"') && JSON.stringify(snapshots).includes("reload-recovery-marker");
-  })).toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("pude-recovery-v1");
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const transaction = db.transaction(["checkpoints", "snapshots"]);
+        const read = (store: string) =>
+          new Promise<unknown[]>((resolve, reject) => {
+            const request = transaction.objectStore(store).getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+        const [checkpoints, snapshots] = await Promise.all([read("checkpoints"), read("snapshots")]);
+        db.close();
+        return (
+          JSON.stringify(checkpoints).includes('"projects"') &&
+          JSON.stringify(snapshots).includes("reload-recovery-marker")
+        );
+      }),
+    )
+    .toBe(true);
   await page.reload();
   await expect(projects).toHaveCount(2);
   await expect(projects.nth(0)).toContainText("pude-demo");

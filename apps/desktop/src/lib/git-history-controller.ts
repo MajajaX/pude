@@ -1,3 +1,4 @@
+import type { Notify } from "./core";
 import { orderCommitsAfterChildren } from "./git-graph";
 import type { GitCommit, GitHistoryPage } from "../types";
 
@@ -17,7 +18,7 @@ export type GitHistoryControllerOptions = {
   setCommits: (commits: GitCommit[]) => void;
   onState: (state: GitHistoryViewState) => void;
   onLoaded: () => void;
-  notify: (message: string) => void;
+  notify: Notify;
   loadPage: (workspace: string, cursor: string | null, pageSize: number) => Promise<GitHistoryPage>;
 };
 
@@ -139,9 +140,9 @@ export class GitHistoryController {
       promise: Promise.resolve(false),
     };
     this.request = request;
-    this.updateState(kind === "initial"
-      ? { loading: true, loadingOlder: false }
-      : { loadingOlder: true, loading: false });
+    this.updateState(
+      kind === "initial" ? { loading: true, loadingOlder: false } : { loadingOlder: true, loading: false },
+    );
     request.promise = this.run(request);
     return request.promise;
   }
@@ -154,7 +155,9 @@ export class GitHistoryController {
       if (request.kind === "initial") {
         this.options.setCommits(uniqueCommits(page.commits));
       } else {
-        this.options.setCommits(orderCommitsAfterChildren(appendUniqueCommits(this.options.getCurrentCommits(), page.commits)));
+        this.options.setCommits(
+          orderCommitsAfterChildren(appendUniqueCommits(this.options.getCurrentCommits(), page.commits)),
+        );
       }
 
       this.cursor = page.cursor;
@@ -180,8 +183,10 @@ export class GitHistoryController {
 
   private isCurrent(request: HistoryRequest): boolean {
     if (this.disposed || this.request !== request || request.context.generation !== this.generation) return false;
-    return this.options.getWorkspace() === request.context.workspace
-      && this.options.getSnapshotKey() === request.context.snapshotKey;
+    return (
+      this.options.getWorkspace() === request.context.workspace &&
+      this.options.getSnapshotKey() === request.context.snapshotKey
+    );
   }
 
   private handleError(request: HistoryRequest, error: unknown): void {
@@ -240,7 +245,9 @@ function appendUniqueCommits(existing: readonly GitCommit[], incoming: readonly 
 function incompletePageMessage(page: GitHistoryPage, hasMore: boolean): string {
   const reason = page.incompleteReason ?? "History request reached its work budget.";
   const unresolved = page.unresolvedRefs.length ? ` ${page.unresolvedRefs.length} refs remain unresolved.` : "";
-  const action = hasMore ? "Use Load older or Refresh history to continue." : "Use Refresh history to start a new scan.";
+  const action = hasMore
+    ? "Use Load older or Refresh history to continue."
+    : "Use Refresh history to start a new scan.";
   return `${reason}${unresolved} ${action}`;
 }
 
@@ -264,10 +271,12 @@ function historyErrorText(error: unknown): string {
 function isInvalidCursorError(error: unknown, message: string): boolean {
   const kind = error && typeof error === "object" ? (error as Record<string, unknown>).kind : undefined;
   const normalized = `${String(kind ?? "")} ${message}`.toLowerCase();
-  const cursorProblem = normalized.includes("cursor")
-    && /(expired|invalid|stale|no longer exists|reload history|changed|identity)/.test(normalized);
-  const changedSnapshot = normalized.includes("reload history")
-    && /(refs changed|refs or repository identity changed|repository identity changed|snapshot changed)/.test(normalized);
+  const cursorProblem =
+    normalized.includes("cursor") &&
+    /(expired|invalid|stale|no longer exists|reload history|changed|identity)/.test(normalized);
+  const changedSnapshot =
+    normalized.includes("reload history") &&
+    /(refs changed|refs or repository identity changed|repository identity changed|snapshot changed)/.test(normalized);
   return cursorProblem || changedSnapshot;
 }
 

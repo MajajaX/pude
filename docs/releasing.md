@@ -154,11 +154,8 @@ npm run tauri:build -- --bundles nsis --config src-tauri/tauri.release.conf.json
 node scripts/collect-release-bundle.mjs windows dist/release-windows --bundle-root apps/desktop/src-tauri/target
 ```
 
-Signing is optional for Windows. A signed installer can be checked with
-`node scripts/verify-release-artifact.mjs windows dist/release-windows/pude-windows-x64-setup.exe`.
-The check installs the app, so it only runs on an ephemeral GitHub Actions Windows runner
-(`GITHUB_ACTIONS` and `RUNNER_TEMP` set) with `WINDOWS_CERTIFICATE_THUMBPRINT` set to the
-signing certificate's thumbprint. It expects the version in `tauri.conf.json`.
+The Windows installer is not Authenticode-signed; only its update package carries the
+updater signature checked in the next step.
 
 ## 4. Publish
 
@@ -208,29 +205,31 @@ out. A build without the variable shows the version as a release candidate with
 downloads disabled, and `npm run web:build` fails when `VITE_RELEASE_URL` is set to
 anything other than the tagged URL of the current version.
 
-After the release is published and verified, set this build variable on the `pude-web`
-Worker in the Cloudflare dashboard (changing the version on every release) and
-redeploy:
-
-```text
-VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/tag/v0.1.0
-```
-
-To deploy from GitHub Actions instead, so the website goes live only after the same
-commit's web checks pass, turn on the `deploy-website` job in
-[ci.yml](../.github/workflows/ci.yml):
+The recommended way to deploy is the `deploy-website` job in
+[ci.yml](../.github/workflows/ci.yml), so the website goes live only after the same
+commit's web checks pass. The job looks up the GitHub Release of the version in
+`package.json` itself: once that release is published it builds with its tagged URL,
+and before that it deploys the version as a release candidate. No release URL needs to
+be set by hand. To turn it on:
 
 1. Create the `website` environment (Settings → Environments) with the secrets
    `CLOUDFLARE_API_TOKEN` (a token that can edit Workers) and `CLOUDFLARE_ACCOUNT_ID`.
-2. Add the repository variables `WEBSITE_DEPLOY=true` and, once a release is verified,
-   `VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/latest`.
+2. Add the repository variable `WEBSITE_DEPLOY=true`.
 3. Disconnect the Git repository from the `pude-web` Worker in the Cloudflare
    dashboard (Settings → Builds), so Cloudflare no longer builds every push on its own.
 
 The job runs on pushes to `main` that change the website, `wrangler.jsonc`, `shared/`
-or `package-lock.json`, and only after the Node 22, 24 and 26 web checks succeed. To
-publish an unchanged commit again (for example after setting `VITE_RELEASE_URL`),
-re-run the latest `CI` run on `main` from the Actions tab.
+or `package-lock.json`, and only after the Node 22, 24 and 26 web checks succeed. After
+a release is published, re-run the latest `CI` run on `main` from the Actions tab so
+the website enables its downloads.
+
+If you deploy from the Cloudflare dashboard instead, set this build variable on the
+`pude-web` Worker after each release is published (changing the version every time)
+and redeploy:
+
+```text
+VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/tag/v0.1.0
+```
 
 To build and deploy from a local checkout instead (`npx` runs the exact `wrangler`
 version pinned in the root `package.json` after `npm ci`):

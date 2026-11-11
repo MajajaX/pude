@@ -2,7 +2,6 @@ import { For } from "solid-js";
 import { t } from "../i18n";
 import { version } from "../../package.json";
 import { getSiteRelease } from "../release-info";
-import { scroll } from "../lib/scroll-progress";
 import ProductFilm from "./ProductFilm";
 
 export default function Hero() {

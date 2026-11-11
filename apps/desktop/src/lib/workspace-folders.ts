@@ -1,6 +1,12 @@
 import type { DirectoryEntry } from "../types";
 import { t } from "./i18n";
-import { isSameOrDescendantPath, pathComparisonKey, wireBasename, type PathIdentityOptions } from "./path-identity";
+import {
+  isAbsoluteWirePath,
+  isSameOrDescendantPath,
+  pathComparisonKey,
+  wireBasename,
+  type PathIdentityOptions,
+} from "./path-identity";
 
 /** Path of the Explorer row that groups the folders of a multi-folder workspace. */
 export const WORKSPACE_ROOT_PATH = "pude://workspace";
@@ -21,7 +27,11 @@ export function workspaceFileName(path: string, options: PathIdentityOptions = {
 }
 
 /** Name shown for a project: the workspace file, `folder +N` for unsaved workspaces, or the folder. */
-export function workspaceLabel(folders: readonly string[], workspaceFile: string | undefined, options: PathIdentityOptions = {}): string {
+export function workspaceLabel(
+  folders: readonly string[],
+  workspaceFile: string | undefined,
+  options: PathIdentityOptions = {},
+): string {
   if (workspaceFile) return workspaceFileName(workspaceFile, options);
   if (!folders.length) return "";
   const name = wireBasename(folders[0], options);
@@ -33,34 +43,57 @@ export function workspaceLabel(folders: readonly string[], workspaceFile: string
  * sit under a workspace row so each keeps its own tree. Existing folder
  * entries are reused so expanded state survives adding or removing folders.
  */
-export function makeWorkspaceRoot(folders: readonly string[], label: string, previous: DirectoryEntry | undefined, options: PathIdentityOptions = {}): DirectoryEntry {
-  const existing = new Map(workspaceRootFolders(previous).map((entry) => [pathComparisonKey(entry.path, options), entry]));
-  const folderEntry = (path: string): DirectoryEntry => existing.get(pathComparisonKey(path, options))
-    ?? { name: wireBasename(path, options), path, kind: "directory", expanded: true, loaded: false };
+export function makeWorkspaceRoot(
+  folders: readonly string[],
+  label: string,
+  previous: DirectoryEntry | undefined,
+  options: PathIdentityOptions = {},
+): DirectoryEntry {
+  const existing = new Map(
+    workspaceRootFolders(previous).map((entry) => [pathComparisonKey(entry.path, options), entry]),
+  );
+  const folderEntry = (path: string): DirectoryEntry =>
+    existing.get(pathComparisonKey(path, options)) ?? {
+      name: wireBasename(path, options),
+      path,
+      kind: "directory",
+      expanded: true,
+      loaded: false,
+    };
   if (folders.length === 1) return folderEntry(folders[0]);
   return {
-    name: t("{name} (Workspace)", { name: label }), path: WORKSPACE_ROOT_PATH, kind: "directory",
-    expanded: previous && isWorkspaceRootEntry(previous) ? previous.expanded : true, loaded: true,
+    name: t("{name} (Workspace)", { name: label }),
+    path: WORKSPACE_ROOT_PATH,
+    kind: "directory",
+    expanded: previous && isWorkspaceRootEntry(previous) ? previous.expanded : true,
+    loaded: true,
     children: folders.map(folderEntry),
   };
 }
 
 export function workspaceRootFolders(root: DirectoryEntry | undefined): DirectoryEntry[] {
   if (!root) return [];
-  return isWorkspaceRootEntry(root) ? root.children ?? [] : [root];
+  return isWorkspaceRootEntry(root) ? (root.children ?? []) : [root];
 }
 
 /** The workspace folder that contains `path`; the deepest one when folders are nested. */
-export function folderContaining(path: string, folders: readonly string[], options: PathIdentityOptions = {}): string | undefined {
+export function folderContaining(
+  path: string,
+  folders: readonly string[],
+  options: PathIdentityOptions = {},
+): string | undefined {
   return folders
     .filter((folder) => isSameOrDescendantPath(path, folder, options))
     .sort((left, right) => right.length - left.length)[0];
 }
 
 /** Workspace-relative watcher excludes apply to every folder of the workspace. */
-export function watcherExcludesForFolders(excludes: readonly string[], folders: readonly string[], join: (folder: string, path: string) => string): string[] {
-  const isAbsolute = (path: string) => path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\");
-  const relative = excludes.filter((exclude) => !isAbsolute(exclude));
+export function watcherExcludesForFolders(
+  excludes: readonly string[],
+  folders: readonly string[],
+  join: (folder: string, path: string) => string,
+): string[] {
+  const relative = excludes.filter((exclude) => !isAbsoluteWirePath(exclude));
   return [...excludes, ...folders.slice(1).flatMap((folder) => relative.map((exclude) => join(folder, exclude)))];
 }
 
@@ -72,6 +105,7 @@ export function collapseSubfolders(root: DirectoryEntry): DirectoryEntry {
     const changed = entry.expanded || children.some((child, index) => child !== entry.children![index]);
     return changed ? { ...entry, expanded: false, children } : entry;
   };
-  const keepTop = (entry: DirectoryEntry): DirectoryEntry => entry.children ? { ...entry, children: entry.children.map(collapse) } : entry;
+  const keepTop = (entry: DirectoryEntry): DirectoryEntry =>
+    entry.children ? { ...entry, children: entry.children.map(collapse) } : entry;
   return isWorkspaceRootEntry(root) ? { ...root, children: root.children?.map(keepTop) } : keepTop(root);
 }

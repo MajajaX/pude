@@ -12,6 +12,11 @@ describe("relativeTimeLabel", () => {
     expect(relativeTimeLabel("2023-10-23T12:00:00Z", now)).toBe("3 years ago");
   });
 
+  it("moves to the next unit when rounding reaches it", () => {
+    expect(relativeTimeLabel("2026-10-23T11:00:20Z", now)).toBe("1 hour ago");
+    expect(relativeTimeLabel("2026-10-22T12:20:00Z", now)).toBe("yesterday");
+  });
+
   it("returns text that is not a date unchanged", () => {
     expect(relativeTimeLabel("yesterday-ish", now)).toBe("yesterday-ish");
   });

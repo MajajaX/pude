@@ -18,8 +18,13 @@ describe("plugin terminal bridge", () => {
     await writeToActivePluginTerminal("/workspace/project", "echo hi\n");
     await writeToActivePluginTerminal("/workspace/project", "\u0000", true);
 
-    expect(writes).toEqual([["echo hi\n", false], ["\u0000", true]]);
-    await expect(writeToActivePluginTerminal("/workspace/other", "nope")).rejects.toThrow("No active user-opened terminal");
+    expect(writes).toEqual([
+      ["echo hi\n", false],
+      ["\u0000", true],
+    ]);
+    await expect(writeToActivePluginTerminal("/workspace/other", "nope")).rejects.toThrow(
+      "No active user-opened terminal",
+    );
   });
 
   it("removes the writer when its active session unregisters", async () => {
@@ -27,17 +32,22 @@ describe("plugin terminal bridge", () => {
     unregister();
     unregister = undefined;
 
-    await expect(writeToActivePluginTerminal("/workspace/project", "nope")).rejects.toThrow("No active user-opened terminal");
+    await expect(writeToActivePluginTerminal("/workspace/project", "nope")).rejects.toThrow(
+      "No active user-opened terminal",
+    );
   });
 
   it("rejects an aborted write before dispatching it to the active terminal", async () => {
     let called = false;
-    unregister = registerActivePluginTerminal("/workspace/project", "pty-3", async () => { called = true; });
+    unregister = registerActivePluginTerminal("/workspace/project", "pty-3", async () => {
+      called = true;
+    });
     const controller = new AbortController();
     controller.abort();
 
-    await expect(writeToActivePluginTerminal("/workspace/project", "echo hi\n", false, controller.signal))
-      .rejects.toThrow("Plugin terminal write was cancelled.");
+    await expect(
+      writeToActivePluginTerminal("/workspace/project", "echo hi\n", false, controller.signal),
+    ).rejects.toThrow("Plugin terminal write was cancelled.");
     expect(called).toBe(false);
   });
 
@@ -47,13 +57,9 @@ describe("plugin terminal bridge", () => {
       await guard?.();
     });
 
-    await writeToActivePluginTerminal(
-      "/workspace/project",
-      "echo hi\n",
-      false,
-      undefined,
-      async () => { authorized = true; },
-    );
+    await writeToActivePluginTerminal("/workspace/project", "echo hi\n", false, undefined, async () => {
+      authorized = true;
+    });
 
     expect(authorized).toBe(true);
   });

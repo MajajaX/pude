@@ -84,15 +84,15 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
     const incomingLanes = lanes
       .map((lane, index) => (lane?.target === commit.hash ? index : -1))
       .filter((index) => index >= 0);
-    const lane = incomingLanes.length > 0
-      ? incomingLanes.reduce((preferred, candidate) =>
-          lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred)
-      : firstFreeLane(lanes);
+    const lane =
+      incomingLanes.length > 0
+        ? incomingLanes.reduce((preferred, candidate) =>
+            lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred,
+          )
+        : firstFreeLane(lanes);
     noteLane(lane);
 
-    const color = incomingLanes.length > 0
-      ? lanes[lane]!.color
-      : nextColor++ % GIT_GRAPH_PALETTE_SIZE;
+    const color = incomingLanes.length > 0 ? lanes[lane]!.color : nextColor++ % GIT_GRAPH_PALETTE_SIZE;
     const priority = incomingLanes.length > 0 ? lanes[lane]!.priority : nextPriority++;
     const segments: GitGraphSegment[] = [];
 
@@ -117,9 +117,9 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
 
     for (const parent of laterParents) {
       const isFirstParent = parents[0] === parent;
-      const existingLanes = isFirstParent ? [] : lanes
-        .map((activeLane, index) => (activeLane?.target === parent ? index : -1))
-        .filter((index) => index >= 0);
+      const existingLanes = isFirstParent
+        ? []
+        : lanes.map((activeLane, index) => (activeLane?.target === parent ? index : -1)).filter((index) => index >= 0);
 
       if (isFirstParent) {
         // Keep the first-parent color attached to this path until it reaches
@@ -137,7 +137,8 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
         });
       } else if (existingLanes.length > 0) {
         const parentLane = existingLanes.reduce((preferred, candidate) =>
-          lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred);
+          lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred,
+        );
         segments.push({
           fromLane: lane,
           toLane: parentLane,

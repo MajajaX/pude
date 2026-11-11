@@ -12,7 +12,8 @@ function decodeBase64Text(base64Text, label) {
 
 function decodePayload(line, expectedLength, label) {
   const payload = Buffer.from(line ?? "", "base64");
-  if (payload.length !== expectedLength) throw new Error(`${label} payload must be ${expectedLength} bytes, found ${payload.length}`);
+  if (payload.length !== expectedLength)
+    throw new Error(`${label} payload must be ${expectedLength} bytes, found ${payload.length}`);
   return payload;
 }
 
@@ -40,7 +41,11 @@ export function parseSignature(signatureBase64) {
 }
 
 function ed25519Verify(message, publicKey, signature) {
-  const key = createPublicKey({ key: Buffer.concat([ED25519_SPKI_PREFIX, publicKey.key]), format: "der", type: "spki" });
+  const key = createPublicKey({
+    key: Buffer.concat([ED25519_SPKI_PREFIX, publicKey.key]),
+    format: "der",
+    type: "spki",
+  });
   return verify(null, message, key, signature);
 }
 
@@ -51,18 +56,25 @@ function ed25519Verify(message, publicKey, signature) {
 export function verifyUpdateSignature({ publicKeyBase64, signatureBase64, fileBytes }) {
   const publicKey = parsePublicKey(publicKeyBase64);
   const signature = parseSignature(signatureBase64);
-  if (signature.algorithm !== PREHASHED_ALGORITHM) throw new Error(`signature algorithm must be ${PREHASHED_ALGORITHM} (prehashed), found ${signature.algorithm}`);
+  if (signature.algorithm !== PREHASHED_ALGORITHM)
+    throw new Error(`signature algorithm must be ${PREHASHED_ALGORITHM} (prehashed), found ${signature.algorithm}`);
   if (!signature.keyId.equals(publicKey.keyId)) {
-    throw new Error(`signature key id ${signature.keyId.toString("hex")} does not match the public key id ${publicKey.keyId.toString("hex")}`);
+    throw new Error(
+      `signature key id ${signature.keyId.toString("hex")} does not match the public key id ${publicKey.keyId.toString("hex")}`,
+    );
   }
   const digest = createHash("blake2b512").update(fileBytes).digest();
   if (!ed25519Verify(digest, publicKey, signature.signature)) throw new Error("file signature does not match the file");
   const signedComment = Buffer.concat([signature.signature, Buffer.from(signature.trustedComment)]);
-  if (!ed25519Verify(signedComment, publicKey, signature.globalSignature)) throw new Error("trusted comment signature is invalid");
+  if (!ed25519Verify(signedComment, publicKey, signature.globalSignature))
+    throw new Error("trusted comment signature is invalid");
   return signature.trustedComment;
 }
 
 /** Reads the `version:` field the Tauri CLI records in the signed trusted comment. */
 export function signedVersionOf(trustedComment) {
-  return trustedComment.split("\t").find((field) => field.startsWith("version:"))?.slice("version:".length);
+  return trustedComment
+    .split("\t")
+    .find((field) => field.startsWith("version:"))
+    ?.slice("version:".length);
 }

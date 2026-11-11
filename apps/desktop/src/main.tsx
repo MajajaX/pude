@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "solid-js";
 import { render } from "solid-js/web";
 import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
@@ -6,20 +7,20 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
 import { markFirstFrameShown, markStartupEvent } from "./lib/startup-timeline";
-import { applyLanguage } from "./lib/i18n";
+import { applyLanguage, t } from "./lib/i18n";
 import { defaultSettings, SETTINGS_STORAGE_KEY, validateSettings } from "./lib/settings";
 
-const isTauriRuntime =
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 markStartupEvent("entry-start");
 
+// SB-05: forward otherwise invisible frontend crashes to the local log.
+const report = (message: string) => {
+  console.error(message);
+  if (isTauriRuntime) void invoke("log_frontend_error", { message }).catch(() => {});
+};
+
 if (isTauriRuntime) {
-  // SB-05: forward otherwise invisible frontend crashes to the local log.
-  const report = (message: string) => {
-    console.error(message);
-    void invoke("log_frontend_error", { message, source: null }).catch(() => {});
-  };
   window.addEventListener("error", (event) => {
     event.preventDefault();
     emitDiagnostic("frontend.error", event.error, report);
@@ -40,7 +41,32 @@ const storedLanguage = (() => {
 })();
 await applyLanguage(storedLanguage);
 
-render(() => <App />, document.getElementById("root")!);
+/** Shown instead of a broken window when rendering fails. Recovery data stays in local storage. */
+function AppCrashed() {
+  return (
+    <main class="app-crashed" role="alert">
+      <h1>{t("pude hit an unexpected error.")}</h1>
+      <p>{t("Unsaved changes are kept as recovery data and come back when the window reloads.")}</p>
+      <button type="button" onClick={() => window.location.reload()}>
+        {t("Reload window")}
+      </button>
+    </main>
+  );
+}
+
+render(
+  () => (
+    <ErrorBoundary
+      fallback={(error) => {
+        emitDiagnostic("frontend.render", error, report);
+        return <AppCrashed />;
+      }}
+    >
+      <App />
+    </ErrorBoundary>
+  ),
+  document.getElementById("root")!,
+);
 markStartupEvent("render-done");
 
 markStartupEvent("render-ready");

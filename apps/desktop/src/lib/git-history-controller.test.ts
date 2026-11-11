@@ -49,7 +49,9 @@ function createHarness() {
   const setCommits = vi.fn((next: GitCommit[]) => commits.splice(0, commits.length, ...next));
   const onLoaded = vi.fn();
   const notify = vi.fn();
-  const loadPage = vi.fn(async (_workspace: string, _cursor: string | null, _pageSize: number) => page([], null, false));
+  const loadPage = vi.fn(async (_workspace: string, _cursor: string | null, _pageSize: number) =>
+    page([], null, false),
+  );
   const controller = new GitHistoryController({
     getWorkspace: () => context.workspace,
     getSnapshotKey: () => context.snapshotKey,
@@ -66,11 +68,13 @@ function createHarness() {
 describe("GitHistoryController", () => {
   it("loads one fixed-size first page and exposes incomplete results with an action", async () => {
     const { controller, loadPage, commits, states, onLoaded } = createHarness();
-    loadPage.mockResolvedValue(page([commit("c3", ["c2"])], "cursor-1", true, {
-      complete: false,
-      unresolvedRefs: ["refs/heads/feature"],
-      incompleteReason: "The history scan reached its time budget.",
-    }));
+    loadPage.mockResolvedValue(
+      page([commit("c3", ["c2"])], "cursor-1", true, {
+        complete: false,
+        unresolvedRefs: ["refs/heads/feature"],
+        incompleteReason: "The history scan reached its time budget.",
+      }),
+    );
 
     expect(await controller.load()).toBe(true);
     expect(loadPage).toHaveBeenCalledWith("/repo-a", null, GIT_HISTORY_PAGE_SIZE);
@@ -165,7 +169,9 @@ describe("GitHistoryController", () => {
   it("reconciles workspace and snapshot changes before accepting old replies", async () => {
     const oldPage = deferred<GitHistoryPage>();
     const { context, controller, loadPage, commits, setCommits } = createHarness();
-    loadPage.mockImplementationOnce(() => oldPage.promise).mockResolvedValueOnce(page([commit("new-head")], null, false));
+    loadPage
+      .mockImplementationOnce(() => oldPage.promise)
+      .mockResolvedValueOnce(page([commit("new-head")], null, false));
 
     const oldRequest = controller.load();
     context.workspace = "/repo-b";
@@ -211,12 +217,10 @@ describe("GitHistoryController", () => {
 
   it("treats native ref-snapshot cancellation as an expired cursor", async () => {
     const { controller, loadPage, states, notify } = createHarness();
-    loadPage
-      .mockResolvedValueOnce(page([commit("tip")], "cursor-1"))
-      .mockRejectedValueOnce({
-        kind: "cancelled",
-        message: "Git refs or repository identity changed; reload history before continuing.",
-      });
+    loadPage.mockResolvedValueOnce(page([commit("tip")], "cursor-1")).mockRejectedValueOnce({
+      kind: "cancelled",
+      message: "Git refs or repository identity changed; reload history before continuing.",
+    });
 
     await controller.load();
     await controller.loadOlder();

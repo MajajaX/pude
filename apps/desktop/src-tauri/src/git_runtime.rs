@@ -1750,8 +1750,14 @@ fn build_git_command(spec: &GitCommandSpec) -> Command {
     // terminal; helpers (GCM, osxkeychain, …) are unaffected.
     command.env("GIT_TERMINAL_PROMPT", "0");
     // Error classification reads Git's English messages; a localized Git would
-    // report "not a repository" as a generic failure.
-    command.env("LC_ALL", "C");
+    // report "not a repository" as a generic failure. Only the message language
+    // changes, so hooks and filters keep the user's character set: LC_ALL would
+    // override LC_MESSAGES, so its value moves to LANG.
+    if let Some(locale) = std::env::var_os("LC_ALL") {
+        command.env_remove("LC_ALL");
+        command.env("LANG", locale);
+    }
+    command.env("LC_MESSAGES", "C");
     #[cfg(unix)]
     command.process_group(0);
     #[cfg(windows)]
@@ -2872,10 +2878,12 @@ mod tests {
             },
             "env" => {
                 let value = env::var("GIT_TERMINAL_PROMPT").unwrap_or_else(|_| "<unset>".into());
-                let locale = env::var("LC_ALL").unwrap_or_else(|_| "<unset>".into());
+                let locale = env::var("LC_MESSAGES").unwrap_or_else(|_| "<unset>".into());
+                let all = env::var("LC_ALL").unwrap_or_else(|_| "<unset>".into());
                 let mut output = io::stdout();
                 writeln!(output, "GIT_TERMINAL_PROMPT={value}").expect("fixture env output");
-                writeln!(output, "LC_ALL={locale}").expect("fixture env output");
+                writeln!(output, "LC_MESSAGES={locale}").expect("fixture env output");
+                writeln!(output, "LC_ALL={all}").expect("fixture env output");
                 output.flush().expect("fixture flush");
             }
             _ => {}
@@ -4231,11 +4239,10 @@ mod tests {
         let output = GitCoordinator::new()
             .execute(fixture_spec(&root, "env"), &CancellationToken::new())
             .expect("fixture env command");
-        assert!(
-            output.stdout_lossy().contains("LC_ALL=C"),
-            "got: {}",
-            output.stdout_lossy()
-        );
+        let environment = output.stdout_lossy();
+        assert!(environment.contains("LC_MESSAGES=C"), "got: {environment}");
+        // LC_ALL would also force the C character set on hooks and filters.
+        assert!(!environment.contains("LC_ALL=C"), "got: {environment}");
         clear_fixture_env();
         let _ = fs::remove_dir_all(root);
     }

@@ -5,7 +5,9 @@ test.beforeEach(({ page }) => {
   const errors: string[] = [];
   browserErrors.set(page, errors);
   page.on("pageerror", (error) => errors.push(error.message));
-  page.on("console", (message) => { if (["error", "warning"].includes(message.type())) errors.push(message.text()); });
+  page.on("console", (message) => {
+    if (["error", "warning"].includes(message.type())) errors.push(message.text());
+  });
 });
 test.afterEach(async ({ page }) => {
   expect(browserErrors.get(page)).toEqual([]);
@@ -33,8 +35,10 @@ test("project search finds nested text, jumps to its line, and searches paths", 
   const result = page.locator(".project-search-result");
   await expect(result).toHaveCount(1);
   await expect(result).toHaveAttribute("title", "src/main.ts:6");
-  await expect(result.locator(".project-search-name")).toHaveText("main.ts");
-  await expect(result.locator(".project-search-directory")).toHaveText("src");
+  const file = page.locator(".project-search-file-header");
+  await expect(file.locator(".project-search-name")).toHaveText("main.ts");
+  await expect(file.locator(".project-search-directory")).toHaveText("src");
+  await expect(file.locator(".project-search-count")).toHaveText("1");
   await expect(result).toContainText(":6");
   await result.click();
   await expect(page.locator(".cm-content")).toContainText("bootstrap()");
@@ -103,11 +107,22 @@ test("switching projects preserves terminal tabs, output and input", async ({ pa
 test("project text matches are centered in long files and navigation is consumed once", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await openProject(page);
-  await page.getByRole("treeitem", { name: "main.ts", exact: true }).getByRole("button", { name: "main.ts", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: "main.ts", exact: true })
+    .getByRole("button", { name: "main.ts", exact: true })
+    .click();
   const editor = page.locator(".cm-content");
   await editor.click();
   await page.keyboard.press("ControlOrMeta+a");
-  await page.keyboard.insertText(Array.from({ length: 180 }, (_, index) => index === 90 ? 'const target = "center-this-match";' : index === 179 ? 'const last = "last-line-match";' : `const value${index} = ${index};`).join("\n"));
+  await page.keyboard.insertText(
+    Array.from({ length: 180 }, (_, index) =>
+      index === 90
+        ? 'const target = "center-this-match";'
+        : index === 179
+          ? 'const last = "last-line-match";'
+          : `const value${index} = ${index};`,
+    ).join("\n"),
+  );
   await page.keyboard.press("ControlOrMeta+s");
   await expect(page.locator(".status-unsaved")).toHaveCount(0);
   await page.keyboard.press("ControlOrMeta+Shift+f");
@@ -115,7 +130,8 @@ test("project text matches are centered in long files and navigation is consumed
   await page.locator(".project-search-result").click();
   await expect(editor).toBeFocused();
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe("center-this-match");
-  const matchOffsetFromCenter = () => page.locator(".cm-scroller").evaluate((element) => {
+  const matchOffsetFromCenter = () =>
+    page.locator(".cm-scroller").evaluate((element) => {
       const range = window.getSelection()?.getRangeAt(0).getBoundingClientRect();
       const editor = element.getBoundingClientRect();
       return Math.abs((range!.top + range!.bottom) / 2 - (editor.top + editor.bottom) / 2);
@@ -125,7 +141,10 @@ test("project text matches are centered in long files and navigation is consumed
   await page.keyboard.press("ArrowDown");
   await expect(page.locator(".status-right")).toContainText("Ln 92");
   await page.getByRole("tab", { name: "Explorer", exact: true }).click();
-  await page.getByRole("treeitem", { name: "editor.ts", exact: true }).getByRole("button", { name: "editor.ts", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: "editor.ts", exact: true })
+    .getByRole("button", { name: "editor.ts", exact: true })
+    .click();
   await page.getByRole("tab", { name: "main.ts", exact: true }).click();
   await expect(page.locator(".status-right")).toContainText("Ln 92");
   await page.keyboard.press("ControlOrMeta+Shift+f");
@@ -140,7 +159,10 @@ test("dotenv files highlight assignments, values and comments in both themes", a
   await page.getByRole("button", { name: "New file", exact: true }).click();
   await page.getByRole("textbox", { name: "File name", exact: true }).fill(".env.local");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await page.getByRole("treeitem", { name: ".env.local", exact: true }).getByRole("button", { name: ".env.local", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: ".env.local", exact: true })
+    .getByRole("button", { name: ".env.local", exact: true })
+    .click();
   await page.getByRole("button", { name: "Show .env source", exact: true }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
@@ -151,7 +173,14 @@ test("dotenv files highlight assignments, values and comments in both themes", a
     await expect(editor.locator("span").filter({ hasText: /^APP_NAME$/ })).toBeVisible();
     const colors = await editor.evaluate((element) => ({
       base: getComputedStyle(element).color,
-      tokens: [...element.querySelectorAll("span")].filter((token) => token.textContent?.includes("Local configuration") || token.textContent === '"pude"' || token.textContent === "5173").map((token) => getComputedStyle(token).color),
+      tokens: [...element.querySelectorAll("span")]
+        .filter(
+          (token) =>
+            token.textContent?.includes("Local configuration") ||
+            token.textContent === '"pude"' ||
+            token.textContent === "5173",
+        )
+        .map((token) => getComputedStyle(token).color),
     }));
     expect(colors.tokens.length).toBeGreaterThanOrEqual(3);
     expect(colors.tokens.every((color) => color !== colors.base)).toBe(true);
@@ -163,7 +192,10 @@ test("dotenv table adds, skips blank and edits variables in the source", async (
   await page.getByRole("button", { name: "New file", exact: true }).click();
   await page.getByRole("textbox", { name: "File name", exact: true }).fill(".env.test");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await page.getByRole("treeitem", { name: ".env.test", exact: true }).getByRole("button", { name: ".env.test", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: ".env.test", exact: true })
+    .getByRole("button", { name: ".env.test", exact: true })
+    .click();
   const table = page.locator(".env-table");
   await expect(table).toContainText("No variables yet.");
 
@@ -187,14 +219,23 @@ test("dotenv table adds, skips blank and edits variables in the source", async (
 test("Markdown preview uses available width and readable text in both themes", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await openProject(page);
-  await page.getByRole("treeitem", { name: "README.md", exact: true }).getByRole("button", { name: "README.md", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: "README.md", exact: true })
+    .getByRole("button", { name: "README.md", exact: true })
+    .click();
   await page.getByRole("button", { name: "Show Markdown preview" }).click();
   const preview = page.getByRole("article", { name: "Markdown preview" });
   await expect(preview.locator("p").first()).toContainText("pure code editor");
-  const metrics = () => preview.evaluate((element) => {
-    const paragraph = element.querySelector("p")!;
-    return { width: paragraph.getBoundingClientRect().width, available: element.clientWidth, color: getComputedStyle(paragraph).color, text: getComputedStyle(element).color };
-  });
+  const metrics = () =>
+    preview.evaluate((element) => {
+      const paragraph = element.querySelector("p")!;
+      return {
+        width: paragraph.getBoundingClientRect().width,
+        available: element.clientWidth,
+        color: getComputedStyle(paragraph).color,
+        text: getComputedStyle(element).color,
+      };
+    });
   let measured = await metrics();
   expect(measured.available - measured.width).toBeLessThanOrEqual(64);
   expect(measured.width).toBeGreaterThan(840);
@@ -229,7 +270,10 @@ test("Retry scan relists a partially read folder instead of collapsing it", asyn
 
 test("an unsaved file is announced on its tab and its project tab", async ({ page }) => {
   await openProject(page);
-  await page.getByRole("treeitem", { name: "README.md", exact: true }).getByRole("button", { name: "README.md", exact: true }).click();
+  await page
+    .getByRole("treeitem", { name: "README.md", exact: true })
+    .getByRole("button", { name: "README.md", exact: true })
+    .click();
   const unsaved = { name: "Unsaved changes", exact: true };
   await expect(page.locator(".tabbar-tabs").getByRole("img", unsaved)).toHaveCount(0);
   await page.locator(".cm-content").click();

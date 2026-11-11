@@ -28,14 +28,20 @@ export class TerminalLifecycle {
 
       return sessionId;
     });
-    this.queue = operation.then(() => undefined, () => undefined);
+    this.queue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
     return operation;
   }
 
   stop(): Promise<void> {
     this.generation += 1;
     const operation = this.queue.then(() => this.stopActiveSession());
-    this.queue = operation.then(() => undefined, () => undefined);
+    this.queue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
     return operation;
   }
 

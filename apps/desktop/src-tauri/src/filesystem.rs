@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex, OnceLock, Weak};
 use tauri::{State, WebviewWindow};
 
 #[cfg(test)]
-use crate::atomic_replace;
+use crate::atomic_save::atomic_replace;
 use crate::blocking::BlockingClass;
 use crate::platform_trash;
 use crate::{
@@ -1777,10 +1777,11 @@ mod file_operation_tests {
         fs::write(&temporary, b"editor contents").expect("temporary should exist");
         fs::write(&existing, b"external contents").expect("destination should exist");
 
-        crate::copy_into_new_file(&temporary, &created).expect("a missing destination is created");
+        crate::atomic_save::copy_into_new_file(&temporary, &created)
+            .expect("a missing destination is created");
         assert_eq!(fs::read(&created).unwrap(), b"editor contents");
 
-        let error = crate::copy_into_new_file(&temporary, &existing)
+        let error = crate::atomic_save::copy_into_new_file(&temporary, &existing)
             .expect_err("an existing destination must be kept");
         assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read(&existing).unwrap(), b"external contents");

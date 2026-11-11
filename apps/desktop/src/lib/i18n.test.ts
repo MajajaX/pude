@@ -21,7 +21,9 @@ describe("i18n", () => {
     expect(locale()).toBe("zh-Hant");
     expect(t("Open folder")).toBe("開啟資料夾");
     expect(t("Opened {name}", { name: "pude" })).toContain("pude");
-    expect(translateMessage("Unable to save file. Permission denied (os error 13)")).toBe("無法儲存檔案。Permission denied (os error 13)");
+    expect(translateMessage("Unable to save file. Permission denied (os error 13)")).toBe(
+      "無法儲存檔案。Permission denied (os error 13)",
+    );
     expect(translateMessage("Something only the OS says")).toBe("Something only the OS says");
     await applyLanguage("en");
   });

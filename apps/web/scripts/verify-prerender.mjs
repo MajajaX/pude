@@ -46,19 +46,33 @@ const packageInfo = JSON.parse(await readFile(new URL("../package.json", import.
 const taggedReleaseUrl = `https://github.com/MajajaX/pude/releases/tag/v${packageInfo.version}`;
 const configuredReleaseUrl = process.env.VITE_RELEASE_URL;
 if (configuredReleaseUrl) {
-  assert.equal(configuredReleaseUrl, taggedReleaseUrl, `VITE_RELEASE_URL must be ${taggedReleaseUrl}: /releases/latest cannot prove which version it serves`);
+  assert.equal(
+    configuredReleaseUrl,
+    taggedReleaseUrl,
+    `VITE_RELEASE_URL must be ${taggedReleaseUrl}: /releases/latest cannot prove which version it serves`,
+  );
 }
 const claimsPublishedRelease = configuredReleaseUrl === taggedReleaseUrl;
 const redirectSource = await readFile(new URL("../public/_redirects", import.meta.url), "utf8");
-assert.equal(await readFile(new URL("../dist/_redirects", import.meta.url), "utf8"), redirectSource, "the deployment should include the redirect rules");
+assert.equal(
+  await readFile(new URL("../dist/_redirects", import.meta.url), "utf8"),
+  redirectSource,
+  "the deployment should include the redirect rules",
+);
 const redirects = new Map();
 for (const line of redirectSource.trim().split("\n")) {
   if (!line.trim() || line.trim().startsWith("#")) continue;
   const [source, destination, status] = line.trim().split(/\s+/);
   assert.equal(status, "301", `${source} should permanently redirect`);
   assert.ok(!redirects.has(source), `${source} should have only one redirect`);
-  assert.ok(!routes.some((route) => route.canonical === `https://pude.dev${source}`), `${source} should not redirect a canonical page`);
-  assert.ok(routes.some((route) => route.canonical === `https://pude.dev${destination}`), `${source} should redirect directly to a canonical page`);
+  assert.ok(
+    !routes.some((route) => route.canonical === `https://pude.dev${source}`),
+    `${source} should not redirect a canonical page`,
+  );
+  assert.ok(
+    routes.some((route) => route.canonical === `https://pude.dev${destination}`),
+    `${source} should redirect directly to a canonical page`,
+  );
   assert.notEqual(source, destination, `${source} should not redirect to itself`);
   redirects.set(source, destination);
 }
@@ -67,7 +81,11 @@ for (const suffix of ["", ".html", "/"]) {
   assert.equal(redirects.get(`/docs.zh-Hant${suffix}`), "/zh/docs");
 }
 const headersSource = await readFile(new URL("../public/_headers", import.meta.url), "utf8");
-assert.equal(await readFile(new URL("../dist/_headers", import.meta.url), "utf8"), headersSource, "the deployment should include the header rules");
+assert.equal(
+  await readFile(new URL("../dist/_headers", import.meta.url), "utf8"),
+  headersSource,
+  "the deployment should include the header rules",
+);
 const headerRules = new Map();
 let headerRule;
 for (const line of headersSource.split("\n")) {
@@ -79,25 +97,55 @@ for (const line of headersSource.split("\n")) {
     continue;
   }
   const header = line.trim().match(/^([A-Za-z][A-Za-z-]*): (\S.*)$/);
-  assert.ok(header && headerRule && !headerRule.has(header[1]), `${line.trim()} should be a unique "Name: value" header inside a path rule`);
+  assert.ok(
+    header && headerRule && !headerRule.has(header[1]),
+    `${line.trim()} should be a unique "Name: value" header inside a path rule`,
+  );
   headerRule.set(header[1], header[2]);
 }
-for (const name of ["Content-Security-Policy", "Strict-Transport-Security", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy"]) {
+for (const name of [
+  "Content-Security-Policy",
+  "Strict-Transport-Security",
+  "X-Content-Type-Options",
+  "Referrer-Policy",
+  "Permissions-Policy",
+]) {
   assert.ok(headerRules.get("/*")?.has(name), `/* should send ${name}`);
 }
-assert.match(headerRules.get("/assets/*")?.get("Cache-Control") ?? "", /immutable/, "fingerprinted assets should be cached immutably");
-const scriptSources = new Map(headerRules.get("/*").get("Content-Security-Policy").split(";").map((directive) => {
-  const [name, ...sources] = directive.trim().split(/\s+/);
-  return [name, sources];
-}));
-assert.ok(!scriptSources.get("script-src").some((source) => source === "'unsafe-inline'" || source === "'unsafe-eval'"), "script-src should not allow unsafe scripts");
+assert.match(
+  headerRules.get("/assets/*")?.get("Cache-Control") ?? "",
+  /immutable/,
+  "fingerprinted assets should be cached immutably",
+);
+const scriptSources = new Map(
+  headerRules
+    .get("/*")
+    .get("Content-Security-Policy")
+    .split(";")
+    .map((directive) => {
+      const [name, ...sources] = directive.trim().split(/\s+/);
+      return [name, sources];
+    }),
+);
+assert.ok(
+  !scriptSources.get("script-src").some((source) => source === "'unsafe-inline'" || source === "'unsafe-eval'"),
+  "script-src should not allow unsafe scripts",
+);
 const sitemap = await readFile(new URL("../dist/sitemap.xml", import.meta.url), "utf8");
 const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
-assert.deepEqual(sitemapUrls.sort(), routes.map((route) => route.canonical).sort(), "sitemap should contain exactly the four canonical pages");
+assert.deepEqual(
+  sitemapUrls.sort(),
+  routes.map((route) => route.canonical).sort(),
+  "sitemap should contain exactly the four canonical pages",
+);
 
 const pages = new Map();
 const titles = new Set();
-const unescapeHtml = (value) => value.replace(/&(amp|quot|#39|lt|gt);/g, (_, entity) => ({ amp: "&", quot: '"', "#39": "'", lt: "<", gt: ">" })[entity]);
+const unescapeHtml = (value) =>
+  value.replace(
+    /&(amp|quot|#39|lt|gt);/g,
+    (_, entity) => ({ amp: "&", quot: '"', "#39": "'", lt: "<", gt: ">" })[entity],
+  );
 
 for (const route of routes) {
   const html = await readFile(new URL(`../${route.file}`, import.meta.url), "utf8");
@@ -105,24 +153,47 @@ for (const route of routes) {
   const roots = html.match(/<div id="root">/g) ?? [];
   assert.equal(roots.length, 1, `${route.file} should have one hydration root`);
   assert.match(html, new RegExp(`<html lang="${route.locale}">`), `${route.file} should declare its locale`);
-  assert.equal(html.includes(route.publishedLabel), claimsPublishedRelease, `${route.file} should show the published stage only for a verified tagged release`);
-  assert.equal(html.includes(`/releases/download/v${packageInfo.version}/`), claimsPublishedRelease && route.file.includes("index"), `${route.file} should link installers only for a verified tagged release`);
+  assert.equal(
+    html.includes(route.publishedLabel),
+    claimsPublishedRelease,
+    `${route.file} should show the published stage only for a verified tagged release`,
+  );
+  assert.equal(
+    html.includes(`/releases/download/v${packageInfo.version}/`),
+    claimsPublishedRelease && route.file.includes("index"),
+    `${route.file} should link installers only for a verified tagged release`,
+  );
   assert.ok(html.includes(`<h1`), `${route.file} should render its primary heading`);
-  const heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1].replace(/<[^>]+>/g, "").trim();
+  const heading = html
+    .match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)?.[1]
+    .replace(/<[^>]+>/g, "")
+    .trim();
   assert.ok(heading, `${route.file} should render a non-empty primary heading`);
   assert.ok(html.includes(`href="${route.alternate}"`), `${route.file} should link to the other static locale`);
   assert.ok(html.includes(`href="${route.navigation}"`), `${route.file} should link to its localized counterpart page`);
-  assert.ok(html.includes("rel=\"stylesheet\""), `${route.file} should include its stylesheet without JavaScript`);
+  assert.ok(html.includes('rel="stylesheet"'), `${route.file} should include its stylesheet without JavaScript`);
   assert.ok(html.includes("_$HY"), `${route.file} should include the Solid hydration bootstrap`);
-  assert.ok(html.includes(`<link rel="canonical" href="${route.canonical}"`), `${route.file} should declare its canonical URL`);
-  assert.ok(html.includes(`<meta property="og:url" content="${route.canonical}"`), `${route.file} should share its canonical URL`);
-  assert.ok(html.includes(`<meta property="og:image" content="https://pude.dev/og-image.png"`), `${route.file} should include the social preview image`);
+  assert.ok(
+    html.includes(`<link rel="canonical" href="${route.canonical}"`),
+    `${route.file} should declare its canonical URL`,
+  );
+  assert.ok(
+    html.includes(`<meta property="og:url" content="${route.canonical}"`),
+    `${route.file} should share its canonical URL`,
+  );
+  assert.ok(
+    html.includes(`<meta property="og:image" content="https://pude.dev/og-image.jpg"`),
+    `${route.file} should include the social preview image`,
+  );
 
   const inlineScripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
   assert.ok(inlineScripts.length > 0, `${route.file} should include the hydration bootstrap`);
   for (const script of inlineScripts) {
     const hash = `'sha256-${createHash("sha256").update(script).digest("base64")}'`;
-    assert.ok(scriptSources.get("script-src").includes(hash), `${route.file} inline script needs ${hash} in the Content-Security-Policy script-src`);
+    assert.ok(
+      scriptSources.get("script-src").includes(hash),
+      `${route.file} inline script needs ${hash} in the Content-Security-Policy script-src`,
+    );
   }
   assert.ok(!/<[a-z][^>]*\son[a-z]+=/i.test(html), `${route.file} should not use inline event handlers`);
 
@@ -136,12 +207,18 @@ for (const route of routes) {
   assert.equal((head.match(/<title>/g) ?? []).length, 1, `${route.file} should declare exactly one title`);
   assert.ok(!/noindex/i.test(head), `${route.file} should remain indexable`);
   assert.ok(!head.includes("<!-- seo -->"), `${route.file} should resolve its SEO template`);
-  assert.ok(head.includes(`<meta property="og:title" content="${head.match(/<title>([^<]+)<\/title>/)[1]}"`), `${route.file} should share the same title`);
+  assert.ok(
+    head.includes(`<meta property="og:title" content="${head.match(/<title>([^<]+)<\/title>/)[1]}"`),
+    `${route.file} should share the same title`,
+  );
 
   const alternates = [...head.matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)];
   const siblings = route.file.includes("docs") ? routes.slice(2) : routes.slice(0, 2);
   for (const sibling of siblings) {
-    assert.ok(alternates.some(([, locale, url]) => locale === sibling.locale && url === sibling.canonical), `${route.file} should link reciprocally to ${sibling.locale}`);
+    assert.ok(
+      alternates.some(([, locale, url]) => locale === sibling.locale && url === sibling.canonical),
+      `${route.file} should link reciprocally to ${sibling.locale}`,
+    );
   }
   assert.equal(alternates.length, 3, `${route.file} should include only its two language versions and x-default`);
 
@@ -178,8 +255,14 @@ for (const [canonical, html] of pages) {
     assert.ok(!url.pathname.endsWith(".html"), `${canonical} should link directly to canonical pages: ${url}`);
     const target = `${url.origin}${url.pathname}`;
     assert.ok(pages.has(target), `${canonical} should link to an existing page: ${url}`);
-    if (url.hash) assert.ok(pages.get(target).includes(`id="${decodeURIComponent(url.hash.slice(1))}"`), `${canonical} should link to an existing section: ${url}`);
+    if (url.hash)
+      assert.ok(
+        pages.get(target).includes(`id="${decodeURIComponent(url.hash.slice(1))}"`),
+        `${canonical} should link to an existing section: ${url}`,
+      );
   }
 }
 
-console.log(`Verified ${routes.length} localized pages, metadata, structured data, sitemap, security headers, internal links and ${redirects.size} permanent redirects.`);
+console.log(
+  `Verified ${routes.length} localized pages, metadata, structured data, sitemap, security headers, internal links and ${redirects.size} permanent redirects.`,
+);

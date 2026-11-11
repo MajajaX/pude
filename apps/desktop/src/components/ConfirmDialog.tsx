@@ -48,7 +48,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   });
 
   onMount(() => {
-    if (dialog) modalFocus = activateModalFocus(dialog, { initialFocus: () => props.busy ? null : cancelButton });
+    if (dialog) modalFocus = activateModalFocus(dialog, { initialFocus: () => (props.busy ? null : cancelButton) });
   });
 
   onCleanup(() => {
@@ -58,7 +58,9 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   return (
     <div class="modal-backdrop">
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="modal"
         role="dialog"
         aria-modal="true"
@@ -78,7 +80,9 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         </div>
         <div class="modal-footer conflict-actions">
           <button
-            ref={(element) => { cancelButton = element; }}
+            ref={(element) => {
+              cancelButton = element;
+            }}
             type="button"
             class="secondary-button"
             disabled={props.busy}

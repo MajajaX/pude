@@ -4,14 +4,25 @@ import { groupIgnoredEntries, loadedExplorerPaths, type ExplorerEntry } from "./
 import { treeKeyboardAction, VisibleTreeModel } from "./tree-virtualization";
 
 const root: DirectoryEntry = {
-  path: "/repo", name: "repo", kind: "directory", expanded: true,
+  path: "/repo",
+  name: "repo",
+  kind: "directory",
+  expanded: true,
   children: [
-    { path: "/repo/src", name: "src", kind: "directory", expanded: true, children: [
-      { path: "/repo/src/cache.log", name: "cache.log", kind: "file" },
-    ] },
-    { path: "/repo/node_modules", name: "node_modules", kind: "directory", expanded: true, children: [
-      { path: "/repo/node_modules/module.js", name: "module.js", kind: "file" },
-    ] },
+    {
+      path: "/repo/src",
+      name: "src",
+      kind: "directory",
+      expanded: true,
+      children: [{ path: "/repo/src/cache.log", name: "cache.log", kind: "file" }],
+    },
+    {
+      path: "/repo/node_modules",
+      name: "node_modules",
+      kind: "directory",
+      expanded: true,
+      children: [{ path: "/repo/node_modules/module.js", name: "module.js", kind: "file" }],
+    },
     { path: "/repo/.env", name: ".env", kind: "file" },
     { path: "/repo/README.md", name: "README.md", kind: "file" },
   ],
@@ -37,9 +48,21 @@ describe("Explorer ignored entries", () => {
     const groupIndex = model.rows.findIndex((row) => row.entry.gitIgnoredGroup);
     expect(treeKeyboardAction(model.rows, groupIndex, "ArrowRight")).toEqual({ kind: "toggle" });
     model.update(groupIgnoredEntries(root, isIgnored, true, false), false);
-    expect(model.rows.map((row) => row.entry.name)).toEqual(["repo", "src", "cache.log", "README.md", "Git ignored", "node_modules", "module.js", ".env"]);
+    expect(model.rows.map((row) => row.entry.name)).toEqual([
+      "repo",
+      "src",
+      "cache.log",
+      "README.md",
+      "Git ignored",
+      "node_modules",
+      "module.js",
+      ".env",
+    ]);
     expect(treeKeyboardAction(model.rows, groupIndex + 1, "ArrowLeft")).toEqual({ kind: "toggle" });
-    expect(treeKeyboardAction(model.rows, model.rows.length - 1, "ArrowLeft")).toEqual({ kind: "focus", index: groupIndex });
+    expect(treeKeyboardAction(model.rows, model.rows.length - 1, "ArrowLeft")).toEqual({
+      kind: "focus",
+      index: groupIndex,
+    });
     model.update(groupIgnoredEntries(root, isIgnored, false, false), false);
     expect(model.indexOfPath("/repo/node_modules/module.js")).toBe(-1);
   });
@@ -48,7 +71,7 @@ describe("Explorer ignored entries", () => {
     expect(groupIgnoredEntries(root, () => false, false, false)).toBe(root);
     expect(groupIgnoredEntries(root, (path) => path === "/repo/.env", false, true)).toBe(root);
     const projected = groupIgnoredEntries(root, isIgnored, true, true);
-    expect((projected.children?.at(-1) as ExplorerEntry).gitIgnoredCount).toBe(1);
+    expect((projected.children?.at(-1) as ExplorerEntry | undefined)?.gitIgnoredCount).toBe(1);
     const model = new VisibleTreeModel<ExplorerEntry>();
     model.update(projected, true);
     expect(model.indexOfPath("/repo/.env")).toBe(-1);
@@ -56,9 +79,16 @@ describe("Explorer ignored entries", () => {
   });
 
   it("collects loaded descendants even inside collapsed directories", () => {
-    expect(new Set(loadedExplorerPaths(root))).toEqual(new Set([
-      "/repo/src", "/repo/src/cache.log", "/repo/node_modules", "/repo/node_modules/module.js", "/repo/.env", "/repo/README.md",
-    ]));
+    expect(new Set(loadedExplorerPaths(root))).toEqual(
+      new Set([
+        "/repo/src",
+        "/repo/src/cache.log",
+        "/repo/node_modules",
+        "/repo/node_modules/module.js",
+        "/repo/.env",
+        "/repo/README.md",
+      ]),
+    );
     expect(loadedExplorerPaths({ ...root, children: undefined })).toEqual([]);
   });
 });

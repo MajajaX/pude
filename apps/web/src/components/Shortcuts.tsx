@@ -1,7 +1,5 @@
 import { For } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 
 export default function Shortcuts() {
   return (

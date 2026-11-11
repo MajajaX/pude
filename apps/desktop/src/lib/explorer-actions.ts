@@ -54,10 +54,10 @@ export function advanceOpenFolderChord(
   return { state: null, action: "none", consume: false };
 }
 
+/** Cmd on macOS, Ctrl on Windows and Linux. */
 function shortcutModifier(event: ShortcutKeyEvent, platform: ExplorerPlatform): "ctrl" | "meta" | null {
-  if (platform === "windows" && event.ctrlKey && !event.metaKey) return "ctrl";
-  if (platform === "mac" && event.metaKey && !event.ctrlKey) return "meta";
-  return null;
+  if (platform === "mac") return event.metaKey && !event.ctrlKey ? "meta" : null;
+  return event.ctrlKey && !event.metaKey ? "ctrl" : null;
 }
 
 export function explorerClipboardAction(event: ShortcutKeyEvent, platform: ExplorerPlatform): "copy" | "paste" | null {
@@ -65,30 +65,4 @@ export function explorerClipboardAction(event: ShortcutKeyEvent, platform: Explo
   if (!primaryModifier || event.altKey || event.shiftKey) return null;
   const key = event.key.toLowerCase();
   return key === "c" ? "copy" : key === "v" ? "paste" : null;
-}
-
-export function normalizeExplorerPath(path: string): string {
-  const normalized = path.replaceAll("\\", "/");
-  if (normalized === "/" || /^[A-Za-z]:\/$/.test(normalized)) return normalized;
-  return normalized.replace(/\/+$/, "");
-}
-
-function explorerPathKey(path: string): string {
-  const normalized = normalizeExplorerPath(path);
-  const windowsPath = path.includes("\\") || normalized.startsWith("//") || /^[A-Za-z]:\//.test(normalized);
-  return windowsPath ? normalized.toLowerCase() : normalized;
-}
-
-/** Return the workspace-relative path, or null when the item is outside it. */
-export function relativePathWithinRoot(path: string, root: string): string | null {
-  const candidateKey = explorerPathKey(path);
-  const rootKey = explorerPathKey(root);
-  const isFilesystemRoot = rootKey === "/" || /^[A-Za-z]:\/$/.test(rootKey);
-  const inside = candidateKey === rootKey || (isFilesystemRoot ? candidateKey.startsWith(rootKey) : candidateKey.startsWith(`${rootKey}/`));
-  if (!inside) return null;
-
-  const candidate = normalizeExplorerPath(path);
-  const rootPath = normalizeExplorerPath(root);
-  if (candidateKey === rootKey) return ".";
-  return candidate.slice(rootPath.length).replace(/^\/+/, "") || ".";
 }

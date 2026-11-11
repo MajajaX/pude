@@ -1,3 +1,4 @@
+import { isAbsoluteWirePath } from "./path-identity";
 import type { InstalledPlugin, PluginManifest, PluginPermission } from "../types";
 
 const pluginIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -18,28 +19,48 @@ function parseContributes(value: unknown): PluginManifest["contributes"] | null 
   if (value.commands === undefined) return {};
   if (!Array.isArray(value.commands)) return null;
   const commands = value.commands.flatMap((item) => {
-    if (!isRecord(item) || Object.keys(item).some((key) => key !== "command" && key !== "title")
-        || typeof item.command !== "string" || !pluginIdPattern.test(item.command)
-        || typeof item.title !== "string" || !item.title.trim() || item.title.length > 128) return [];
+    if (
+      !isRecord(item) ||
+      Object.keys(item).some((key) => key !== "command" && key !== "title") ||
+      typeof item.command !== "string" ||
+      !pluginIdPattern.test(item.command) ||
+      typeof item.title !== "string" ||
+      !item.title.trim() ||
+      item.title.length > 128
+    )
+      return [];
     return [{ command: item.command, title: item.title.trim() }];
   });
-  if (commands.length !== value.commands.length || new Set(commands.map((command) => command.command)).size !== commands.length) return null;
+  if (
+    commands.length !== value.commands.length ||
+    new Set(commands.map((command) => command.command)).size !== commands.length
+  )
+    return null;
   return { commands };
 }
 
 function isValidHttpsDomain(value: unknown): value is string {
-  if (typeof value !== "string" || !value || value.length > 253 || value.trim() !== value || /[\s/@?#]/.test(value)) return false;
+  if (typeof value !== "string" || !value || value.length > 253 || value.trim() !== value || /[\s/@?#]/.test(value))
+    return false;
   try {
     const url = new URL(`https://${value}`);
-    return url.protocol === "https:" && url.hostname === value && !url.port && !url.username && !url.password && url.pathname === "/" && !url.search && !url.hash;
+    return (
+      url.protocol === "https:" &&
+      url.hostname === value &&
+      !url.port &&
+      !url.username &&
+      !url.password &&
+      url.pathname === "/" &&
+      !url.search &&
+      !url.hash
+    );
   } catch {
     return false;
   }
 }
 
 function isAbsoluteExecutable(value: string): boolean {
-  return value.length <= 4096 && !value.includes("\u0000")
-    && (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\"));
+  return value.length <= 4096 && !value.includes("\u0000") && isAbsoluteWirePath(value);
 }
 
 function parseNetworkDomains(value: unknown): string[] | null | undefined {
@@ -52,15 +73,30 @@ function parseLspServers(value: unknown): PluginManifest["lspServers"] | null | 
   if (value === undefined) return undefined;
   if (!Array.isArray(value)) return null;
   const servers = value.flatMap((server) => {
-    if (!isRecord(server)
-        || typeof server.serverId !== "string" || !pluginIdPattern.test(server.serverId)
-        || typeof server.language !== "string" || !pluginIdPattern.test(server.language)
-        || typeof server.executable !== "string" || !isAbsoluteExecutable(server.executable)
-        || !Array.isArray(server.args) || server.args.length > 64
-        || !server.args.every((arg) => typeof arg === "string" && arg.length <= 4096 && !arg.includes("\u0000"))) return [];
-    return [{ serverId: server.serverId, language: server.language, executable: server.executable, args: [...server.args] as string[] }];
+    if (
+      !isRecord(server) ||
+      typeof server.serverId !== "string" ||
+      !pluginIdPattern.test(server.serverId) ||
+      typeof server.language !== "string" ||
+      !pluginIdPattern.test(server.language) ||
+      typeof server.executable !== "string" ||
+      !isAbsoluteExecutable(server.executable) ||
+      !Array.isArray(server.args) ||
+      server.args.length > 64 ||
+      !server.args.every((arg) => typeof arg === "string" && arg.length <= 4096 && !arg.includes("\u0000"))
+    )
+      return [];
+    return [
+      {
+        serverId: server.serverId,
+        language: server.language,
+        executable: server.executable,
+        args: [...server.args] as string[],
+      },
+    ];
   });
-  if (servers.length !== value.length || new Set(servers.map((server) => server.serverId)).size !== servers.length) return null;
+  if (servers.length !== value.length || new Set(servers.map((server) => server.serverId)).size !== servers.length)
+    return null;
   return servers;
 }
 
@@ -91,18 +127,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function parsePluginManifest(value: unknown): PluginManifest | null {
-  if (!isRecord(value)
-      || typeof value.id !== "string"
-      || typeof value.name !== "string"
-      || typeof value.version !== "string"
-      || (value.apiVersion !== "1" && value.apiVersion !== "2")
-      || typeof value.entry !== "string"
-      || !Array.isArray(value.permissions)
-      || !Array.isArray(value.activationEvents)) return null;
+  if (
+    !isRecord(value) ||
+    typeof value.id !== "string" ||
+    typeof value.name !== "string" ||
+    typeof value.version !== "string" ||
+    (value.apiVersion !== "1" && value.apiVersion !== "2") ||
+    typeof value.entry !== "string" ||
+    !Array.isArray(value.permissions) ||
+    !Array.isArray(value.activationEvents)
+  )
+    return null;
   const supportedPermissions = value.apiVersion === "1" ? legacyPermissions : apiV2Permissions;
-  if (!value.permissions.every((permission) => typeof permission === "string" && supportedPermissions.has(permission as PluginPermission))
-      || !value.activationEvents.every(isValidActivationEvent)
-      || new Set(value.activationEvents).size !== value.activationEvents.length) return null;
+  if (
+    !value.permissions.every(
+      (permission) => typeof permission === "string" && supportedPermissions.has(permission as PluginPermission),
+    ) ||
+    !value.activationEvents.every(isValidActivationEvent) ||
+    new Set(value.activationEvents).size !== value.activationEvents.length
+  )
+    return null;
   const contributes = parseContributes(value.contributes);
   if (contributes === null) return null;
   const manifest: PluginManifest = {

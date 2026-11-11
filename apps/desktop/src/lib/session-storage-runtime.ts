@@ -108,11 +108,15 @@ let sessionPersistenceQueue: Promise<unknown> = Promise.resolve();
 
 function enqueueSessionPersistence<T>(operation: () => Promise<T>): Promise<T> {
   const next = sessionPersistenceQueue.catch(() => undefined).then(operation);
-  sessionPersistenceQueue = next.then(() => undefined, () => undefined);
+  sessionPersistenceQueue = next.then(
+    () => undefined,
+    () => undefined,
+  );
   return next;
 }
 
-type FallbackRecoveryRead = { readable: true; raw: string | null; value: RecoveryStorageValue | null; invalid: boolean }
+type FallbackRecoveryRead =
+  | { readable: true; raw: string | null; value: RecoveryStorageValue | null; invalid: boolean }
   | { readable: false; error: unknown };
 
 function readFallbackRecoveryValue(key: string): FallbackRecoveryRead {
@@ -128,7 +132,11 @@ function readFallbackRecoveryValue(key: string): FallbackRecoveryRead {
 }
 
 function recoveryReadUnavailable<T>(error?: unknown, observedValue?: T): StorageReadResult<T> {
-  return { status: "unavailable", ...(error === undefined ? {} : { error }), ...(observedValue === undefined ? {} : { observedValue }) };
+  return {
+    status: "unavailable",
+    ...(error === undefined ? {} : { error }),
+    ...(observedValue === undefined ? {} : { observedValue }),
+  };
 }
 
 function fallbackRecoveryReadResult(read: FallbackRecoveryRead): StorageReadResult<RecoveryStorageValue> {
@@ -139,13 +147,22 @@ function fallbackRecoveryReadResult(read: FallbackRecoveryRead): StorageReadResu
 
 /** Reads a recovery body without treating an inaccessible database as an empty one. */
 export async function readRecoveryStorageResult(key: string): Promise<StorageReadResult<RecoveryStorageValue>> {
-  const { RECOVERY_STORE, invalidateRecoveryDatabase, openRecoveryDatabase, readStoredRecoveryValue, selectRecoveryValue } = await sessionStorageIdb();
+  const {
+    RECOVERY_STORE,
+    invalidateRecoveryDatabase,
+    openRecoveryDatabase,
+    readStoredRecoveryValue,
+    selectRecoveryValue,
+  } = await sessionStorageIdb();
   const fallback = readFallbackRecoveryValue(key);
   if (typeof indexedDB === "undefined") return fallbackRecoveryReadResult(fallback);
 
   const database = await openRecoveryDatabase();
   if (!database) {
-    const result = recoveryReadUnavailable(new Error("IndexedDB recovery storage could not be opened."), fallback.readable ? fallback.value ?? undefined : undefined);
+    const result = recoveryReadUnavailable(
+      new Error("IndexedDB recovery storage could not be opened."),
+      fallback.readable ? (fallback.value ?? undefined) : undefined,
+    );
     return result;
   }
   return new Promise((resolve) => {
@@ -160,13 +177,18 @@ export async function readRecoveryStorageResult(key: string): Promise<StorageRea
     };
     const unavailable = (error: unknown) => {
       invalidateRecoveryDatabase();
-      finish(recoveryReadUnavailable(error, fallback.readable ? fallback.value ?? undefined : undefined));
+      finish(recoveryReadUnavailable(error, fallback.readable ? (fallback.value ?? undefined) : undefined));
     };
     try {
       const transaction = database.transaction(RECOVERY_STORE, "readonly");
       const request = transaction.objectStore(RECOVERY_STORE).get(key);
-      request.onsuccess = () => { didRead = true; stored = request.result; };
-      request.onerror = () => { requestError = request.error ?? new Error("IndexedDB recovery read failed."); };
+      request.onsuccess = () => {
+        didRead = true;
+        stored = request.result;
+      };
+      request.onerror = () => {
+        requestError = request.error ?? new Error("IndexedDB recovery read failed.");
+      };
       transaction.oncomplete = () => {
         if (requestError !== undefined || !didRead) {
           unavailable(requestError ?? new Error("IndexedDB recovery read did not complete."));
@@ -175,7 +197,8 @@ export async function readRecoveryStorageResult(key: string): Promise<StorageRea
         if (!fallback.readable) {
           const storedValue = readStoredRecoveryValue(stored);
           const parsedStored = storedValue === null ? null : parseRecovery(storedValue);
-          if (stored !== undefined && storedValue !== null && parsedStored) finish(recoveryReadUnavailable(fallback.error, storedValue));
+          if (stored !== undefined && storedValue !== null && parsedStored)
+            finish(recoveryReadUnavailable(fallback.error, storedValue));
           else finish(recoveryReadUnavailable(fallback.error));
           return;
         }
@@ -185,7 +208,12 @@ export async function readRecoveryStorageResult(key: string): Promise<StorageRea
         }
         const databaseValue = readStoredRecoveryValue(stored);
         if (databaseValue === null || !parseRecovery(databaseValue)) {
-          finish(recoveryReadUnavailable(new Error("IndexedDB contains an invalid recovery record."), fallback.value ?? undefined));
+          finish(
+            recoveryReadUnavailable(
+              new Error("IndexedDB contains an invalid recovery record."),
+              fallback.value ?? undefined,
+            ),
+          );
           return;
         }
         const value = selectRecoveryValue(databaseValue, fallback.invalid ? null : fallback.raw);
@@ -199,8 +227,10 @@ export async function readRecoveryStorageResult(key: string): Promise<StorageRea
         }
         finish(value === null ? { status: "missing" } : { status: "available", value });
       };
-      transaction.onerror = () => unavailable(transaction.error ?? requestError ?? new Error("IndexedDB recovery transaction failed."));
-      transaction.onabort = () => unavailable(transaction.error ?? requestError ?? new Error("IndexedDB recovery transaction was aborted."));
+      transaction.onerror = () =>
+        unavailable(transaction.error ?? requestError ?? new Error("IndexedDB recovery transaction failed."));
+      transaction.onabort = () =>
+        unavailable(transaction.error ?? requestError ?? new Error("IndexedDB recovery transaction was aborted."));
     } catch (error) {
       unavailable(error);
     }
@@ -213,8 +243,9 @@ export async function readRecoveryStorage(key: string): Promise<RecoveryStorageV
   return result.status === "available" ? result.value : null;
 }
 
-function readFallbackRecoveryBaseline(key: string): { readable: true; value: RecoveryBaseline | null; invalid: boolean }
-  | { readable: false; error: unknown } {
+function readFallbackRecoveryBaseline(
+  key: string,
+): { readable: true; value: RecoveryBaseline | null; invalid: boolean } | { readable: false; error: unknown } {
   const storage = getStorageSafe();
   if (!storage) return { readable: false, error: new Error("Local recovery storage is unavailable.") };
   try {
@@ -237,7 +268,11 @@ export async function readRecoveryBaselineResult(key: string): Promise<StorageRe
     return fallback.value ? { status: "available", value: fallback.value } : { status: "missing" };
   }
   const database = await openRecoveryDatabase();
-  if (!database) return recoveryReadUnavailable(new Error("IndexedDB recovery storage could not be opened."), fallback.readable ? fallback.value ?? undefined : undefined);
+  if (!database)
+    return recoveryReadUnavailable(
+      new Error("IndexedDB recovery storage could not be opened."),
+      fallback.readable ? (fallback.value ?? undefined) : undefined,
+    );
   return new Promise((resolve) => {
     let settled = false;
     let didRead = false;
@@ -250,13 +285,18 @@ export async function readRecoveryBaselineResult(key: string): Promise<StorageRe
     };
     const unavailable = (error: unknown) => {
       invalidateRecoveryDatabase();
-      finish(recoveryReadUnavailable(error, fallback.readable ? fallback.value ?? undefined : undefined));
+      finish(recoveryReadUnavailable(error, fallback.readable ? (fallback.value ?? undefined) : undefined));
     };
     try {
       const transaction = database.transaction(RECOVERY_STORE, "readonly");
       const request = transaction.objectStore(RECOVERY_STORE).get(key);
-      request.onsuccess = () => { didRead = true; stored = request.result; };
-      request.onerror = () => { requestError = request.error ?? new Error("IndexedDB baseline read failed."); };
+      request.onsuccess = () => {
+        didRead = true;
+        stored = request.result;
+      };
+      request.onerror = () => {
+        requestError = request.error ?? new Error("IndexedDB baseline read failed.");
+      };
       transaction.oncomplete = () => {
         if (requestError !== undefined || !didRead) {
           unavailable(requestError ?? new Error("IndexedDB baseline read did not complete."));
@@ -271,7 +311,12 @@ export async function readRecoveryBaselineResult(key: string): Promise<StorageRe
         const raw = isRecord(stored) && "value" in stored ? stored.value : stored;
         const value = parseRecoveryBaseline(raw);
         if (!value) {
-          finish(recoveryReadUnavailable(new Error("IndexedDB contains an invalid recovery baseline."), fallback.readable ? fallback.value ?? undefined : undefined));
+          finish(
+            recoveryReadUnavailable(
+              new Error("IndexedDB contains an invalid recovery baseline."),
+              fallback.readable ? (fallback.value ?? undefined) : undefined,
+            ),
+          );
           return;
         }
         if (fallback.readable && fallback.value) {
@@ -279,29 +324,47 @@ export async function readRecoveryBaselineResult(key: string): Promise<StorageRe
             finish({ status: "available", value: fallback.value });
             return;
           }
-          if (fallback.value.savedRevision === value.savedRevision && (fallback.value.savedContent !== value.savedContent || fallback.value.path !== value.path || fallback.value.tabId !== value.tabId)) {
+          if (
+            fallback.value.savedRevision === value.savedRevision &&
+            (fallback.value.savedContent !== value.savedContent ||
+              fallback.value.path !== value.path ||
+              fallback.value.tabId !== value.tabId)
+          ) {
             finish(recoveryReadUnavailable(new Error("Recovery baseline copies conflict."), value));
             return;
           }
         }
         finish({ status: "available", value });
       };
-      transaction.onerror = () => unavailable(transaction.error ?? requestError ?? new Error("IndexedDB baseline transaction failed."));
-      transaction.onabort = () => unavailable(transaction.error ?? requestError ?? new Error("IndexedDB baseline transaction was aborted."));
+      transaction.onerror = () =>
+        unavailable(transaction.error ?? requestError ?? new Error("IndexedDB baseline transaction failed."));
+      transaction.onabort = () =>
+        unavailable(transaction.error ?? requestError ?? new Error("IndexedDB baseline transaction was aborted."));
     } catch (error) {
       unavailable(error);
     }
   });
 }
 
-export async function writeRecoveryStorage(key: string, value: RecoveryStorageValue, options: RecoveryWriteOptions = {}): Promise<boolean> {
+export async function writeRecoveryStorage(
+  key: string,
+  value: RecoveryStorageValue,
+  options: RecoveryWriteOptions = {},
+): Promise<boolean> {
   return enqueueSessionPersistence(async () => {
-    const result = await withGlobalSessionLock((lockHeld) => writeRecoveryStorageInternal(key, value, options, lockHeld));
+    const result = await withGlobalSessionLock((lockHeld) =>
+      writeRecoveryStorageInternal(key, value, options, lockHeld),
+    );
     return result === false ? false : result;
   });
 }
 
-async function writeRecoveryStorageInternal(key: string, value: RecoveryStorageValue, options: RecoveryWriteOptions, lockHeld = false): Promise<boolean> {
+async function writeRecoveryStorageInternal(
+  key: string,
+  value: RecoveryStorageValue,
+  options: RecoveryWriteOptions,
+  lockHeld = false,
+): Promise<boolean> {
   const { openRecoveryDatabase, readRecoveryMetadataBytes, writeRecoveryDatabase } = await sessionStorageIdb();
   const snapshot = parseRecovery(value);
   if (!snapshot) return false;
@@ -310,16 +373,31 @@ async function writeRecoveryStorageInternal(key: string, value: RecoveryStorageV
   if (bytes > MAX_RECOVERY_BYTES) return false;
   const protectedRecoveryKeys = new Set((options.protectedRecoveryKeys ?? []).filter(isRecoveryStorageKey));
   const registry = await readSessionRegistryInternal(Date.now());
-  registry.registry.windows.flatMap((entry) => entry.dirtyRecoveryKeys).forEach((protectedKey) => protectedRecoveryKeys.add(protectedKey));
+  registry.registry.windows
+    .flatMap((entry) => entry.dirtyRecoveryKeys)
+    .forEach((protectedKey) => {
+      protectedRecoveryKeys.add(protectedKey);
+    });
   const database = await openRecoveryDatabase();
-  if (!database) return await writeRecoveryFallback(key, stored, protectedRecoveryKeys, MAX_FALLBACK_RECOVERY_BYTES, lockHeld);
+  if (!database)
+    return await writeRecoveryFallback(key, stored, protectedRecoveryKeys, MAX_FALLBACK_RECOVERY_BYTES, lockHeld);
   const databaseBytesBefore = await readRecoveryMetadataBytes(database);
-  const saved = await writeRecoveryDatabase(database, key, stored, bytes, MAX_RECOVERY_TOTAL_BYTES, protectedRecoveryKeys);
+  const saved = await writeRecoveryDatabase(
+    database,
+    key,
+    stored,
+    bytes,
+    MAX_RECOVERY_TOTAL_BYTES,
+    protectedRecoveryKeys,
+  );
   if (saved) {
     await removeRecoveryFallback(key, lockHeld);
     return true;
   }
-  const fallbackBudget = Math.min(MAX_FALLBACK_RECOVERY_BYTES, Math.max(0, MAX_RECOVERY_TOTAL_BYTES - databaseBytesBefore));
+  const fallbackBudget = Math.min(
+    MAX_FALLBACK_RECOVERY_BYTES,
+    Math.max(0, MAX_RECOVERY_TOTAL_BYTES - databaseBytesBefore),
+  );
   return await writeRecoveryFallback(key, stored, protectedRecoveryKeys, fallbackBudget, lockHeld);
 }
 
@@ -330,7 +408,8 @@ export async function removeRecoveryStorage(key: string): Promise<void> {
 }
 
 async function removeRecoveryStorageInternal(key: string, lockHeld = false): Promise<void> {
-  const { RECOVERY_METADATA_STORE, RECOVERY_STORE, invalidateRecoveryDatabase, openRecoveryDatabase } = await sessionStorageIdb();
+  const { RECOVERY_METADATA_STORE, RECOVERY_STORE, invalidateRecoveryDatabase, openRecoveryDatabase } =
+    await sessionStorageIdb();
   const database = await openRecoveryDatabase();
   if (!database) {
     await removeRecoveryFallback(key, lockHeld);
@@ -351,7 +430,10 @@ async function removeRecoveryStorageInternal(key: string, lockHeld = false): Pro
         if (readsPending > 0) return;
         metadataStore.delete(key);
         if (totalBytes !== undefined) {
-          metadataStore.put({ bytes: Math.max(0, totalBytes - metadataBytes), updatedAt: Date.now() }, "__pude_recovery_total_v1__");
+          metadataStore.put(
+            { bytes: Math.max(0, totalBytes - metadataBytes), updatedAt: Date.now() },
+            "__pude_recovery_total_v1__",
+          );
           return;
         }
         // Old databases may have no aggregate record. Rebuild it from small
@@ -367,23 +449,30 @@ async function removeRecoveryStorageInternal(key: string, lockHeld = false): Pro
           }
           if (cursor.key !== "__pude_recovery_total_v1__") {
             const record = cursor.value;
-            if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number") rebuiltBytes += Math.max(0, record.bytes);
+            if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number")
+              rebuiltBytes += Math.max(0, record.bytes);
           }
           cursor.continue();
         };
       };
       metadataRequest.onsuccess = () => {
         const record = metadataRequest.result;
-        if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number") metadataBytes = Math.max(0, record.bytes);
+        if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number")
+          metadataBytes = Math.max(0, record.bytes);
         finishReads();
       };
-      metadataRequest.onerror = () => { transaction.abort(); };
+      metadataRequest.onerror = () => {
+        transaction.abort();
+      };
       totalRequest.onsuccess = () => {
         const record = totalRequest.result;
-        if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number") totalBytes = Math.max(0, record.bytes);
+        if (record && typeof record === "object" && "bytes" in record && typeof record.bytes === "number")
+          totalBytes = Math.max(0, record.bytes);
         finishReads();
       };
-      totalRequest.onerror = () => { transaction.abort(); };
+      totalRequest.onerror = () => {
+        transaction.abort();
+      };
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => resolve();
       transaction.onabort = () => resolve();
@@ -425,9 +514,12 @@ function readFallbackCheckpointMetadataResult(scope: string): StorageReadResult<
     const checkpointRaw = storage.getItem(sessionCheckpointStorageKey(scope));
     if (checkpointRaw !== null) {
       const checkpoint = parseSessionCheckpoint(checkpointRaw);
-      if (!checkpoint || checkpoint.scope !== scope) return recoveryReadUnavailable(new Error("Stored fallback checkpoint is invalid."));
+      if (!checkpoint || checkpoint.scope !== scope)
+        return recoveryReadUnavailable(new Error("Stored fallback checkpoint is invalid."));
       const metadata = parseSessionCheckpointMetadata(checkpoint, Object.keys(checkpoint.recoveries), "fallback");
-      return metadata ? { status: "available", value: metadata } : recoveryReadUnavailable(new Error("Stored fallback checkpoint metadata is invalid."));
+      return metadata
+        ? { status: "available", value: metadata }
+        : recoveryReadUnavailable(new Error("Stored fallback checkpoint metadata is invalid."));
     }
     return { status: "missing" };
   } catch (error) {
@@ -436,7 +528,9 @@ function readFallbackCheckpointMetadataResult(scope: string): StorageReadResult<
 }
 
 /** Reads checkpoint metadata and reports whether both configured stores could be checked. */
-export async function readLatestSessionCheckpointMetadataResult(scope: string): Promise<StorageReadResult<SessionCheckpointMetadataReadResult>> {
+export async function readLatestSessionCheckpointMetadataResult(
+  scope: string,
+): Promise<StorageReadResult<SessionCheckpointMetadataReadResult>> {
   if (!boundedString(scope, 256)) return { status: "missing" };
   const { openRecoveryDatabase, readSessionCheckpointMetadataDatabase } = await sessionStorageIdb();
   const fallback = readFallbackCheckpointMetadataResult(scope);
@@ -455,11 +549,15 @@ export async function readLatestSessionCheckpointMetadataResult(scope: string): 
     return recoveryReadUnavailable(error, fallback.status === "available" ? fallback.value : undefined);
   }
   if (fallback.status === "unavailable") return recoveryReadUnavailable(fallback.error, databaseResult ?? undefined);
-  if (fallback.status === "missing") return databaseResult ? { status: "available", value: databaseResult } : { status: "missing" };
+  if (fallback.status === "missing")
+    return databaseResult ? { status: "available", value: databaseResult } : { status: "missing" };
   if (!databaseResult) return { status: "available", value: fallback.value };
   return {
     status: "available",
-    value: compareSessionCheckpoints(databaseResult.checkpoint, fallback.value.checkpoint) >= 0 ? databaseResult : fallback.value,
+    value:
+      compareSessionCheckpoints(databaseResult.checkpoint, fallback.value.checkpoint) >= 0
+        ? databaseResult
+        : fallback.value,
   };
 }
 
@@ -469,20 +567,31 @@ export type SessionCheckpointLoadOptions = {
   lease?: SessionWindowLease;
 };
 
-function checkpointMatchesMetadata(checkpoint: SessionCheckpoint, metadata: SessionCheckpointMetadataReadResult): boolean {
+function checkpointMatchesMetadata(
+  checkpoint: SessionCheckpoint,
+  metadata: SessionCheckpointMetadataReadResult,
+): boolean {
   const expected = metadata.checkpoint;
-  if (!metadata.completeMetadata
-    || checkpoint.scope !== expected.scope
-    || checkpoint.checkpointId !== expected.checkpointId
-    || checkpoint.sequence !== expected.sequence
-    || checkpoint.committedAt !== expected.committedAt
-    || checkpoint.session.workspace !== expected.session.workspace
-    || JSON.stringify(checkpoint.session) !== JSON.stringify(expected.session)) return false;
+  if (
+    !metadata.completeMetadata ||
+    checkpoint.scope !== expected.scope ||
+    checkpoint.checkpointId !== expected.checkpointId ||
+    checkpoint.sequence !== expected.sequence ||
+    checkpoint.committedAt !== expected.committedAt ||
+    checkpoint.session.workspace !== expected.session.workspace ||
+    JSON.stringify(checkpoint.session) !== JSON.stringify(expected.session)
+  )
+    return false;
   const expectedKeys = [...expected.recoveryKeys].sort();
   const actualKeys = Object.keys(checkpoint.recoveries).sort();
-  if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key, index) => key !== actualKeys[index])) return false;
-  const expectedRevisions = Object.entries(expected.recoveryRevisions).sort(([left], [right]) => left.localeCompare(right));
-  const actualRevisions = Object.entries(checkpoint.recoveryRevisions).sort(([left], [right]) => left.localeCompare(right));
+  if (expectedKeys.length !== actualKeys.length || expectedKeys.some((key, index) => key !== actualKeys[index]))
+    return false;
+  const expectedRevisions = Object.entries(expected.recoveryRevisions).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+  const actualRevisions = Object.entries(checkpoint.recoveryRevisions).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
   if (JSON.stringify(expectedRevisions) !== JSON.stringify(actualRevisions)) return false;
   return expectedKeys.every((key) => {
     const snapshot = checkpoint.recoveries[key];
@@ -491,15 +600,17 @@ function checkpointMatchesMetadata(checkpoint: SessionCheckpoint, metadata: Sess
 }
 
 function sameSelectedCheckpointMetadata(left: SessionCheckpointMetadata, right: SessionCheckpointMetadata): boolean {
-  return left.scope === right.scope
-    && left.checkpointId === right.checkpointId
-    && left.sequence === right.sequence
-    && left.committedAt === right.committedAt
-    && left.session.workspace === right.session.workspace
-    && JSON.stringify(left.session) === JSON.stringify(right.session)
-    && JSON.stringify([...left.recoveryKeys].sort()) === JSON.stringify([...right.recoveryKeys].sort())
-    && JSON.stringify(Object.entries(left.recoveryRevisions).sort(([a], [b]) => a.localeCompare(b)))
-      === JSON.stringify(Object.entries(right.recoveryRevisions).sort(([a], [b]) => a.localeCompare(b)));
+  return (
+    left.scope === right.scope &&
+    left.checkpointId === right.checkpointId &&
+    left.sequence === right.sequence &&
+    left.committedAt === right.committedAt &&
+    left.session.workspace === right.session.workspace &&
+    JSON.stringify(left.session) === JSON.stringify(right.session) &&
+    JSON.stringify([...left.recoveryKeys].sort()) === JSON.stringify([...right.recoveryKeys].sort()) &&
+    JSON.stringify(Object.entries(left.recoveryRevisions).sort(([a], [b]) => a.localeCompare(b))) ===
+      JSON.stringify(Object.entries(right.recoveryRevisions).sort(([a], [b]) => a.localeCompare(b)))
+  );
 }
 
 function readFallbackCheckpointBodyResult(scope: string): StorageReadResult<SessionCheckpoint> {
@@ -518,7 +629,10 @@ function readFallbackCheckpointBodyResult(scope: string): StorageReadResult<Sess
 }
 
 /** Loads a selected checkpoint body only after validating its current metadata and source availability. */
-export async function loadSessionCheckpointResult(scope: string, options: SessionCheckpointLoadOptions = {}): Promise<StorageReadResult<SessionCheckpoint>> {
+export async function loadSessionCheckpointResult(
+  scope: string,
+  options: SessionCheckpointLoadOptions = {},
+): Promise<StorageReadResult<SessionCheckpoint>> {
   if (!boundedString(scope, 256) || (options.lease && options.lease.scope !== scope)) return { status: "missing" };
   const metadataResult = await readLatestSessionCheckpointMetadataResult(scope);
   if (metadataResult.status === "missing") return { status: "missing" };
@@ -533,26 +647,38 @@ export async function loadSessionCheckpointResult(scope: string, options: Sessio
   const leaseIsCurrent = async () => {
     if (!options.lease) return true;
     const registry = await readSessionRegistryInternal(Date.now());
-    return registry.registry.windows.some((entry) => sameSessionLease(entry, options.lease!) && entry.status === "open");
+    return registry.registry.windows.some(
+      (entry) => sameSessionLease(entry, options.lease!) && entry.status === "open",
+    );
   };
   const selectionIsStillCurrent = async (): Promise<boolean> => {
     const latest = await readLatestSessionCheckpointMetadataResult(scope);
-    return latest.status === "available" && sameSelectedCheckpointMetadata(metadata.checkpoint, latest.value.checkpoint);
+    return (
+      latest.status === "available" && sameSelectedCheckpointMetadata(metadata.checkpoint, latest.value.checkpoint)
+    );
   };
-  if (!await leaseIsCurrent()) return recoveryReadUnavailable(new Error("Checkpoint lease could not be verified."));
+  if (!(await leaseIsCurrent())) return recoveryReadUnavailable(new Error("Checkpoint lease could not be verified."));
 
   const fallback = readFallbackCheckpointBodyResult(scope);
   if (typeof indexedDB === "undefined") {
     if (fallback.status !== "available") return fallback;
     if (!checkpointMatchesMetadata(fallback.value, metadata)) {
-      return recoveryReadUnavailable(new Error("Fallback checkpoint does not match the selected metadata."), fallback.value);
+      return recoveryReadUnavailable(
+        new Error("Fallback checkpoint does not match the selected metadata."),
+        fallback.value,
+      );
     }
-    if (!await selectionIsStillCurrent() || !await leaseIsCurrent()) return recoveryReadUnavailable(new Error("Checkpoint selection changed while its fallback body was loading."));
+    if (!(await selectionIsStillCurrent()) || !(await leaseIsCurrent()))
+      return recoveryReadUnavailable(new Error("Checkpoint selection changed while its fallback body was loading."));
     return { status: "available", value: fallback.value };
   }
   const { openRecoveryDatabase, readSessionCheckpointDatabase } = await sessionStorageIdb();
   const database = await openRecoveryDatabase();
-  if (!database) return recoveryReadUnavailable(new Error("IndexedDB checkpoint body could not be read."), fallback.status === "available" ? fallback.value : undefined);
+  if (!database)
+    return recoveryReadUnavailable(
+      new Error("IndexedDB checkpoint body could not be read."),
+      fallback.status === "available" ? fallback.value : undefined,
+    );
   let databaseResult: SessionCheckpointReadResult | null;
   try {
     databaseResult = await readSessionCheckpointDatabase(database, scope);
@@ -562,19 +688,26 @@ export async function loadSessionCheckpointResult(scope: string, options: Sessio
   if (databaseResult) {
     const ordering = compareSessionCheckpoints(databaseResult.checkpoint, metadata.checkpoint);
     if (ordering > 0 || (ordering === 0 && !checkpointMatchesMetadata(databaseResult.checkpoint, metadata))) {
-      return recoveryReadUnavailable(new Error("IndexedDB checkpoint body changed after metadata selection."), fallback.status === "available" ? fallback.value : undefined);
+      return recoveryReadUnavailable(
+        new Error("IndexedDB checkpoint body changed after metadata selection."),
+        fallback.status === "available" ? fallback.value : undefined,
+      );
     }
   }
   if (databaseResult?.complete && checkpointMatchesMetadata(databaseResult.checkpoint, metadata)) {
-    if (!await selectionIsStillCurrent() || !await leaseIsCurrent()) return recoveryReadUnavailable(new Error("Checkpoint selection changed while its body was loading."));
+    if (!(await selectionIsStillCurrent()) || !(await leaseIsCurrent()))
+      return recoveryReadUnavailable(new Error("Checkpoint selection changed while its body was loading."));
     return { status: "available", value: databaseResult.checkpoint };
   }
   if (fallback.status === "available" && checkpointMatchesMetadata(fallback.value, metadata)) {
-    if (!await selectionIsStillCurrent() || !await leaseIsCurrent()) return recoveryReadUnavailable(new Error("Checkpoint selection changed while its fallback body was loading."));
+    if (!(await selectionIsStillCurrent()) || !(await leaseIsCurrent()))
+      return recoveryReadUnavailable(new Error("Checkpoint selection changed while its fallback body was loading."));
     return { status: "available", value: fallback.value };
   }
   return recoveryReadUnavailable(
-    fallback.status === "unavailable" ? fallback.error : new Error("Selected checkpoint body is missing or does not match its metadata."),
+    fallback.status === "unavailable"
+      ? fallback.error
+      : new Error("Selected checkpoint body is missing or does not match its metadata."),
     fallback.status === "available" ? fallback.value : undefined,
   );
 }
@@ -594,18 +727,29 @@ export async function flushSessionPersistence(): Promise<void> {
 export async function attachSessionWindow(input: AttachSessionWindowInput): Promise<SessionRegistryResult> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => attachSessionWindowInternal(input, false, lockHeld));
-    return result === false ? { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reason: "unavailable" as const } : result;
+    return result === false
+      ? { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reason: "unavailable" as const }
+      : result;
   });
 }
 
-export async function heartbeatSessionWindow(lease: SessionWindowLease, dirtyRecoveryKeys?: readonly string[], now = Date.now()): Promise<SessionRegistryUpdateResult> {
+export async function heartbeatSessionWindow(
+  lease: SessionWindowLease,
+  dirtyRecoveryKeys?: readonly string[],
+  now = Date.now(),
+): Promise<SessionRegistryUpdateResult> {
   return enqueueSessionPersistence(async () => {
-    const result = await withGlobalSessionLock((lockHeld) => updateSessionWindowInternal(lease, dirtyRecoveryKeys, now, lockHeld));
+    const result = await withGlobalSessionLock((lockHeld) =>
+      updateSessionWindowInternal(lease, dirtyRecoveryKeys, now, lockHeld),
+    );
     return result === false ? { ok: false, registry: emptySessionRegistry(), reason: "unavailable" as const } : result;
   });
 }
 
-export async function closeSessionWindow(lease: SessionWindowLease, options: { discardRecovery?: boolean; now?: number } = {}): Promise<SessionRegistryUpdateResult> {
+export async function closeSessionWindow(
+  lease: SessionWindowLease,
+  options: { discardRecovery?: boolean; now?: number } = {},
+): Promise<SessionRegistryUpdateResult> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => closeSessionWindowInternal(lease, options, lockHeld));
     return result === false ? { ok: false, registry: emptySessionRegistry(), reason: "unavailable" as const } : result;
@@ -629,21 +773,37 @@ export async function listRecoverableSessionCheckpoints(workspace?: string): Pro
   for (const candidate of [...databaseResults, ...fallbackResults]) {
     if (workspace !== undefined && candidate.checkpoint.session.workspace !== workspace) continue;
     const existing = byScope.get(candidate.checkpoint.scope);
-    const recoverable: RecoverableSession = { ...candidate, workspace: candidate.checkpoint.session.workspace, activeWindowIds: [], staleWindowIds: [], closedWindowIds: [] };
-    if (!existing || compareSessionCheckpoints(existing.checkpoint, candidate.checkpoint) < 0) byScope.set(candidate.checkpoint.scope, recoverable);
+    const recoverable: RecoverableSession = {
+      ...candidate,
+      workspace: candidate.checkpoint.session.workspace,
+      activeWindowIds: [],
+      staleWindowIds: [],
+      closedWindowIds: [],
+    };
+    if (!existing || compareSessionCheckpoints(existing.checkpoint, candidate.checkpoint) < 0)
+      byScope.set(candidate.checkpoint.scope, recoverable);
   }
   for (const candidate of byScope.values()) {
-    const windows = registry.registry.windows.filter((entry) => entry.scope === candidate.checkpoint.scope && entry.workspace === candidate.checkpoint.session.workspace);
+    const windows = registry.registry.windows.filter(
+      (entry) =>
+        entry.scope === candidate.checkpoint.scope && entry.workspace === candidate.checkpoint.session.workspace,
+    );
     const staleIds = new Set(registry.staleWindowIds);
-    candidate.activeWindowIds = windows.filter((entry) => entry.status === "open" && !staleIds.has(entry.windowId)).map((entry) => entry.windowId);
-    candidate.staleWindowIds = windows.filter((entry) => entry.status === "open" && staleIds.has(entry.windowId)).map((entry) => entry.windowId);
+    candidate.activeWindowIds = windows
+      .filter((entry) => entry.status === "open" && !staleIds.has(entry.windowId))
+      .map((entry) => entry.windowId);
+    candidate.staleWindowIds = windows
+      .filter((entry) => entry.status === "open" && staleIds.has(entry.windowId))
+      .map((entry) => entry.windowId);
     candidate.closedWindowIds = windows.filter((entry) => entry.status === "closed").map((entry) => entry.windowId);
   }
   return [...byScope.values()].sort((left, right) => compareSessionCheckpoints(right.checkpoint, left.checkpoint));
 }
 
 /** Lists recoverable candidates using checkpoint and ownership metadata only. */
-export async function listRecoverableSessionCheckpointCandidates(workspace?: string): Promise<RecoverableSessionCandidate[]> {
+export async function listRecoverableSessionCheckpointCandidates(
+  workspace?: string,
+): Promise<RecoverableSessionCandidate[]> {
   const { openRecoveryDatabase, readSessionCheckpointCandidatesDatabase } = await sessionStorageIdb();
   const database = await openRecoveryDatabase();
   const [databaseResults, fallbackResults, registry] = await Promise.all([
@@ -655,17 +815,25 @@ export async function listRecoverableSessionCheckpointCandidates(workspace?: str
   for (const candidate of [...databaseResults, ...fallbackResults]) {
     if (workspace !== undefined && candidate.checkpoint.session.workspace !== workspace) continue;
     const existing = byScope.get(candidate.checkpoint.scope);
-    if (!existing || compareSessionCheckpoints(existing.checkpoint, candidate.checkpoint) < 0) byScope.set(candidate.checkpoint.scope, candidate);
+    if (!existing || compareSessionCheckpoints(existing.checkpoint, candidate.checkpoint) < 0)
+      byScope.set(candidate.checkpoint.scope, candidate);
   }
   const staleIds = new Set(registry.staleWindowIds);
   const result: RecoverableSessionCandidate[] = [];
   for (const candidate of byScope.values()) {
-    const windows = registry.registry.windows.filter((entry) => entry.scope === candidate.checkpoint.scope && entry.workspace === candidate.checkpoint.session.workspace);
+    const windows = registry.registry.windows.filter(
+      (entry) =>
+        entry.scope === candidate.checkpoint.scope && entry.workspace === candidate.checkpoint.session.workspace,
+    );
     result.push({
       ...candidate,
       workspace: candidate.checkpoint.session.workspace,
-      activeWindowIds: windows.filter((entry) => entry.status === "open" && !staleIds.has(entry.windowId)).map((entry) => entry.windowId),
-      staleWindowIds: windows.filter((entry) => entry.status === "open" && staleIds.has(entry.windowId)).map((entry) => entry.windowId),
+      activeWindowIds: windows
+        .filter((entry) => entry.status === "open" && !staleIds.has(entry.windowId))
+        .map((entry) => entry.windowId),
+      staleWindowIds: windows
+        .filter((entry) => entry.status === "open" && staleIds.has(entry.windowId))
+        .map((entry) => entry.windowId),
       closedWindowIds: windows.filter((entry) => entry.status === "closed").map((entry) => entry.windowId),
     });
   }
@@ -682,16 +850,18 @@ export async function loadSessionCheckpoint(
   const leaseIsCurrent = async () => {
     if (!options.lease) return true;
     const registry = await readSessionRegistryInternal(Date.now());
-    return registry.registry.windows.some((entry) => sameSessionLease(entry, options.lease!) && entry.status === "open");
+    return registry.registry.windows.some(
+      (entry) => sameSessionLease(entry, options.lease!) && entry.status === "open",
+    );
   };
   // Avoid loading a recovery body when the caller's owner token was already
   // fenced. Recheck afterward so a takeover during the read cannot return a
   // checkpoint as writable under an expired lease.
-  if (!await leaseIsCurrent()) return null;
+  if (!(await leaseIsCurrent())) return null;
   const checkpoint = await readLatestSessionCheckpoint(scope);
   if (!checkpoint || checkpoint.scope !== scope) return null;
   if (options.expectedCheckpointId && checkpoint.checkpointId !== options.expectedCheckpointId) return null;
-  if (!await leaseIsCurrent()) return null;
+  if (!(await leaseIsCurrent())) return null;
   return checkpoint;
 }
 
@@ -699,16 +869,35 @@ export async function loadSessionCheckpoint(
 export async function claimSessionWindow(input: ClaimSessionWindowInput): Promise<ClaimSessionWindowResult> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => claimSessionWindowInternal(input, lockHeld));
-    return result === false ? { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reusedScope: false, reason: "unavailable" as const } : result;
+    return result === false
+      ? {
+          ok: false,
+          lease: null,
+          registry: emptySessionRegistry(),
+          staleWindowIds: [],
+          reusedScope: false,
+          reason: "unavailable" as const,
+        }
+      : result;
   });
 }
 
 /** Claims the exact metadata candidate selected by the user without loading any recovery bodies. */
-export async function claimRecoverableSessionCandidate(input: ClaimRecoverableSessionCandidateInput): Promise<ClaimRecoverableSessionCandidateResult> {
+export async function claimRecoverableSessionCandidate(
+  input: ClaimRecoverableSessionCandidateInput,
+): Promise<ClaimRecoverableSessionCandidateResult> {
   return enqueueSessionPersistence(async () => {
     const result = await withGlobalSessionLock((lockHeld) => claimRecoverableSessionCandidateInternal(input, lockHeld));
     return result === false
-      ? { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reusedScope: false, checkpoint: null, reason: "unavailable" as const }
+      ? {
+          ok: false,
+          lease: null,
+          registry: emptySessionRegistry(),
+          staleWindowIds: [],
+          reusedScope: false,
+          checkpoint: null,
+          reason: "unavailable" as const,
+        }
       : result;
   });
 }
@@ -727,21 +916,39 @@ export async function getRecoveryStorageUsage(): Promise<RecoveryStorageUsage> {
     database ? readRecoveryMetadataBytes(database) : Promise.resolve(0),
     Promise.resolve(readFallbackRecoveryEntries(getStorageSafe()).reduce((total, entry) => total + entry.bytes, 0)),
   ]);
-  return { indexedDbBytes, fallbackBytes, totalBytes: indexedDbBytes + fallbackBytes, limitBytes: MAX_RECOVERY_TOTAL_BYTES };
+  return {
+    indexedDbBytes,
+    fallbackBytes,
+    totalBytes: indexedDbBytes + fallbackBytes,
+    limitBytes: MAX_RECOVERY_TOTAL_BYTES,
+  };
 }
 
-async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lockHeld = false): Promise<SessionCheckpointResult> {
-  const { openRecoveryDatabase, readRecoveryMetadataBytes, readCheckpointRecoveryBytes, writeSessionCheckpointDatabase } = await sessionStorageIdb();
+async function commitSessionCheckpointInternal(
+  input: SessionCheckpointInput,
+  lockHeld = false,
+): Promise<SessionCheckpointResult> {
+  const {
+    openRecoveryDatabase,
+    readRecoveryMetadataBytes,
+    readCheckpointRecoveryBytes,
+    writeSessionCheckpointDatabase,
+  } = await sessionStorageIdb();
   if (!boundedString(input.scope, 256)) return invalidCheckpointResult("invalid");
   const session = parseSessionValue(input.session);
   if (!session) return invalidCheckpointResult("invalid");
   const now = nonNegativeTimestamp(input.now) ?? Date.now();
   const registryResult = await readSessionRegistryInternal(now);
   const lease = input.lease;
-  if (lease && !registryResult.registry.windows.some((entry) => sameSessionLease(entry, lease) && entry.status === "open")) {
+  if (
+    lease &&
+    !registryResult.registry.windows.some((entry) => sameSessionLease(entry, lease) && entry.status === "open")
+  ) {
     return invalidCheckpointResult("invalid");
   }
-  const liveOwner = registryResult.registry.windows.find((entry) => entry.scope === input.scope && entry.status === "open");
+  const liveOwner = registryResult.registry.windows.find(
+    (entry) => entry.scope === input.scope && entry.status === "open",
+  );
   if (liveOwner && (!lease || !sameSessionLease(liveOwner, lease))) return invalidCheckpointResult("conflict");
   const database = await openRecoveryDatabase();
   if (typeof indexedDB !== "undefined" && !database) return invalidCheckpointResult("unavailable");
@@ -754,7 +961,15 @@ async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lo
   const checkpoint = build.checkpoint;
   const protectedRecoveryKeys = build.protectedRecoveryKeys;
   const databaseResult = database
-    ? await writeSessionCheckpointDatabase(database, checkpoint, build.recoveries, build.baselines, protectedRecoveryKeys, MAX_RECOVERY_TOTAL_BYTES, lease)
+    ? await writeSessionCheckpointDatabase(
+        database,
+        checkpoint,
+        build.recoveries,
+        build.baselines,
+        protectedRecoveryKeys,
+        MAX_RECOVERY_TOTAL_BYTES,
+        lease,
+      )
     : { saved: false, skipped: true, evictedKeys: [] as string[] };
   let fallbackResult = { saved: false, skipped: true, evictedKeys: [] as string[] };
   if (databaseResult.saved) {
@@ -767,27 +982,41 @@ async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lo
     const scopedBytes = database
       ? await readCheckpointRecoveryBytes(database, input.scope)
       : fallbackCheckpointStoredBytes(input.scope);
-    const fallbackBudget = Math.min(MAX_FALLBACK_CHECKPOINT_BYTES, Math.max(0, MAX_RECOVERY_TOTAL_BYTES - indexedDbBytesBefore));
-    const preflightBytes = estimateMetadataBytes(checkpoint)
-      + (scopedBytes ?? 0)
-      + Object.values(build.recoveries).reduce((total, snapshot) => total + recoverySnapshotSizeBytes(snapshot), 0)
-      + Object.values(build.baselines).reduce((total, baseline) => total + recoveryBaselineSizeBytes(baseline), 0);
+    const fallbackBudget = Math.min(
+      MAX_FALLBACK_CHECKPOINT_BYTES,
+      Math.max(0, MAX_RECOVERY_TOTAL_BYTES - indexedDbBytesBefore),
+    );
+    const preflightBytes =
+      estimateMetadataBytes(checkpoint) +
+      (scopedBytes ?? 0) +
+      Object.values(build.recoveries).reduce((total, snapshot) => total + recoverySnapshotSizeBytes(snapshot), 0) +
+      Object.values(build.baselines).reduce((total, baseline) => total + recoveryBaselineSizeBytes(baseline), 0);
     if (preflightBytes <= fallbackBudget && getStorageSafe()) {
       const previousFullRead = await loadSessionCheckpointResult(input.scope, {
         ...(previousResult ? { expected: previousResult.checkpoint } : {}),
       });
-      if (previousFullRead.status === "unavailable"
-        || (previousResult && previousFullRead.status !== "available")
-        || (!previousResult && previousFullRead.status === "available")) {
+      if (
+        previousFullRead.status === "unavailable" ||
+        (previousResult && previousFullRead.status !== "available") ||
+        (!previousResult && previousFullRead.status === "available")
+      ) {
         return invalidCheckpointResult("unavailable");
       }
       const previousFull = previousFullRead.status === "available" ? previousFullRead.value : null;
       const recoveries: Record<string, RecoverySnapshot> = {};
-      const tabsByKey = new Map(checkpoint.session.tabs.map((tab) => [recoveryStorageKey(tab.id, checkpoint.scope), tab]));
+      const tabsByKey = new Map(
+        checkpoint.session.tabs.map((tab) => [recoveryStorageKey(tab.id, checkpoint.scope), tab]),
+      );
       for (const key of checkpoint.recoveryKeys) {
         const snapshot = build.recoveries[key] ?? previousFull?.recoveries[key];
         const tab = tabsByKey.get(key);
-        if (!snapshot || !tab || snapshot.tabId !== tab.id || snapshot.path !== tab.path || snapshot.revision !== tab.revision) {
+        if (
+          !snapshot ||
+          !tab ||
+          snapshot.tabId !== tab.id ||
+          snapshot.path !== tab.path ||
+          snapshot.revision !== tab.revision
+        ) {
           build.missingRecoveryKeys.push(key);
           continue;
         }
@@ -812,17 +1041,27 @@ async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lo
     }
   }
   if (!databaseResult.saved && lease) {
-    await mutateSessionRegistryFallback((current) => updateRegistryForLease(current, lease, session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, input.scope)), now), lockHeld);
+    await mutateSessionRegistryFallback(
+      (current) =>
+        updateRegistryForLease(
+          current,
+          lease,
+          session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, input.scope)),
+          now,
+        ),
+      lockHeld,
+    );
   }
   const fallbackDurability = fallbackResult.saved;
   const databaseDurability = databaseResult.saved;
-  const durability: SessionCheckpointResult["durability"] = databaseDurability && fallbackDurability
-    ? "both"
-    : databaseDurability
-      ? "indexeddb"
-      : fallbackDurability
-        ? "fallback"
-        : "none";
+  const durability: SessionCheckpointResult["durability"] =
+    databaseDurability && fallbackDurability
+      ? "both"
+      : databaseDurability
+        ? "indexeddb"
+        : fallbackDurability
+          ? "fallback"
+          : "none";
   const ok = durability !== "none";
   const storageAvailable = Boolean(database || getStorageSafe());
   const fallbackMutationAvailable = Boolean(database || getSessionLockManager());
@@ -835,7 +1074,15 @@ async function commitSessionCheckpointInternal(input: SessionCheckpointInput, lo
     durability,
     fallback: fallbackResult.saved ? "committed" : fallbackResult.skipped ? "skipped" : "failed",
     evictedKeys: [...new Set([...fallbackResult.evictedKeys, ...databaseResult.evictedKeys])],
-    reason: ok ? (build.missingRecoveryKeys.length ? "missing-recovery" : undefined) : !storageAvailable || !fallbackMutationAvailable ? "unavailable" : (Boolean(database && databaseResult.skipped) || fallbackResult.skipped) ? "quota" : "unavailable",
+    reason: ok
+      ? build.missingRecoveryKeys.length
+        ? "missing-recovery"
+        : undefined
+      : !storageAvailable || !fallbackMutationAvailable
+        ? "unavailable"
+        : (database && databaseResult.skipped) || fallbackResult.skipped
+          ? "quota"
+          : "unavailable",
     missingRecoveryKeys: build.missingRecoveryKeys,
   };
 }
@@ -846,10 +1093,19 @@ function buildSessionCheckpoint(
   previousResult: SessionCheckpointMetadataReadResult | null,
   registry: SessionRegistry,
   now: number,
-): { checkpoint: SessionCheckpointMetadata | null; recoveries: Record<string, RecoverySnapshot>; baselines: Record<string, RecoveryBaseline>; missingRecoveryKeys: string[]; protectedRecoveryKeys: Set<string>; removedRecoveryKeys: string[] } {
+): {
+  checkpoint: SessionCheckpointMetadata | null;
+  recoveries: Record<string, RecoverySnapshot>;
+  baselines: Record<string, RecoveryBaseline>;
+  missingRecoveryKeys: string[];
+  protectedRecoveryKeys: Set<string>;
+  removedRecoveryKeys: string[];
+} {
   const previous = previousResult?.checkpoint ?? null;
   const currentTabs = new Map(session.tabs.map((tab) => [tab.id, tab]));
-  const dirtyKeys = new Set(session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, input.scope)));
+  const dirtyKeys = new Set(
+    session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, input.scope)),
+  );
   const protectedRecoveryKeys = new Set<string>([
     ...dirtyKeys,
     ...(input.protectedRecoveryKeys ?? []).filter(isRecoveryStorageKey),
@@ -859,14 +1115,14 @@ function buildSessionCheckpoint(
   for (const candidate of input.recoveries ?? []) {
     const snapshot = parseRecovery(candidate);
     const tab = currentTabs.get(candidate.tabId);
-    if (!snapshot || !tab || !tab.dirty || snapshot.tabId !== candidate.tabId || snapshot.path !== tab.path) continue;
+    if (!snapshot || !tab?.dirty || snapshot.tabId !== candidate.tabId || snapshot.path !== tab.path) continue;
     updates.set(recoveryStorageKey(snapshot.tabId, input.scope), snapshot);
   }
   const baselines: Record<string, RecoveryBaseline> = {};
   for (const candidate of input.baselines ?? []) {
     const baseline = parseRecoveryBaseline(candidate);
     const tab = currentTabs.get(candidate.tabId);
-    if (!baseline || !tab || !tab.dirty || baseline.tabId !== candidate.tabId || baseline.path !== tab.path) continue;
+    if (!baseline || !tab?.dirty || baseline.tabId !== candidate.tabId || baseline.path !== tab.path) continue;
     baselines[recoveryBaselineKey(baseline.tabId, input.scope)] = baseline;
   }
   const removed = new Set((input.recoveryKeysToRemove ?? []).filter(isRecoveryStorageKey));
@@ -884,11 +1140,19 @@ function buildSessionCheckpoint(
     }
     const next = updates.get(key);
     const previousTab = previous?.session.tabs.find((candidate) => candidate.id === tab.id);
-    const hasPrevious = Boolean(previousResult?.completeMetadata
-      && previous?.recoveryKeys.includes(key)
-      && previous.recoveryRevisions[key] === tab.revision
-      && previousTab?.path === tab.path);
-    const validNext = Boolean(next && next.tabId === tab.id && next.path === tab.path && next.revision === tab.revision && next.revision > tab.savedRevision);
+    const hasPrevious = Boolean(
+      previousResult?.completeMetadata &&
+        previous?.recoveryKeys.includes(key) &&
+        previous.recoveryRevisions[key] === tab.revision &&
+        previousTab?.path === tab.path,
+    );
+    const validNext = Boolean(
+      next &&
+        next.tabId === tab.id &&
+        next.path === tab.path &&
+        next.revision === tab.revision &&
+        next.revision > tab.savedRevision,
+    );
     if (removed.has(key) || (!validNext && !hasPrevious)) {
       missingRecoveryKeys.push(key);
       continue;
@@ -897,11 +1161,14 @@ function buildSessionCheckpoint(
     recoveryKeys.push(key);
     recoveryRevisions[key] = tab.revision;
   }
-  const removedRecoveryKeys = [...new Set([
-    ...((previous?.recoveryKeys ?? []).filter((key) => !recoveryKeys.includes(key))),
-    ...[...removed].filter((key) => sameRecoveryScope(key, input.scope)),
-  ])];
-  if (missingRecoveryKeys.length) return { checkpoint: null, recoveries, baselines, missingRecoveryKeys, protectedRecoveryKeys, removedRecoveryKeys };
+  const removedRecoveryKeys = [
+    ...new Set([
+      ...(previous?.recoveryKeys ?? []).filter((key) => !recoveryKeys.includes(key)),
+      ...[...removed].filter((key) => sameRecoveryScope(key, input.scope)),
+    ]),
+  ];
+  if (missingRecoveryKeys.length)
+    return { checkpoint: null, recoveries, baselines, missingRecoveryKeys, protectedRecoveryKeys, removedRecoveryKeys };
   const sequence = (previous?.sequence ?? 0) + 1;
   const checkpoint: SessionCheckpointMetadata = {
     version: SESSION_CHECKPOINT_SCHEMA_VERSION,
@@ -928,13 +1195,19 @@ function fallbackCheckpointForm(checkpoint: SessionCheckpoint, baselines: Record
  * write receives just the new baselines so unchanged baselines are not
  * re-cloned on every commit.
  */
-function carryForwardCheckpointBaselines(baselines: Record<string, RecoveryBaseline>, scope: string, checkpoint: SessionCheckpoint, previous: SessionCheckpoint | null): void {
+function carryForwardCheckpointBaselines(
+  baselines: Record<string, RecoveryBaseline>,
+  scope: string,
+  checkpoint: SessionCheckpoint,
+  previous: SessionCheckpoint | null,
+): void {
   for (const [key, snapshot] of Object.entries(checkpoint.recoveries)) {
     if (snapshot.version !== 2 || snapshot.savedRevision === undefined) continue;
     const baselineKey = recoveryBaselineKey(snapshot.tabId, scope);
     if (baselines[baselineKey]) continue;
     const source = !snapshot.savedContentUnavailable ? snapshot : previous?.recoveries[key];
-    if (!source || source.version !== 2 || source.savedRevision !== snapshot.savedRevision || source.savedContentUnavailable) continue;
+    if (source?.version !== 2 || source.savedRevision !== snapshot.savedRevision || source.savedContentUnavailable)
+      continue;
     baselines[baselineKey] = {
       version: 1,
       tabId: source.tabId,
@@ -948,8 +1221,22 @@ function carryForwardCheckpointBaselines(baselines: Record<string, RecoveryBasel
   }
 }
 
-function invalidCheckpointResult(reason: SessionCheckpointResult["reason"], missingRecoveryKeys: string[] = []): SessionCheckpointResult {
-  return { ok: false, complete: false, checkpoint: null, updatedRecoveryKeys: [], removedRecoveryKeys: [], durability: "none", fallback: "failed", evictedKeys: [], missingRecoveryKeys, reason };
+function invalidCheckpointResult(
+  reason: SessionCheckpointResult["reason"],
+  missingRecoveryKeys: string[] = [],
+): SessionCheckpointResult {
+  return {
+    ok: false,
+    complete: false,
+    checkpoint: null,
+    updatedRecoveryKeys: [],
+    removedRecoveryKeys: [],
+    durability: "none",
+    fallback: "failed",
+    evictedKeys: [],
+    missingRecoveryKeys,
+    reason,
+  };
 }
 
 function estimateMetadataBytes(checkpoint: SessionCheckpointMetadata): number {
@@ -966,7 +1253,8 @@ function estimateJsonBytes(value: unknown): number {
   if (typeof value === "string") return estimateJsonStringBytes(value);
   if (typeof value === "number") return Number.isFinite(value) ? String(value).length : 4;
   if (typeof value === "boolean") return value ? 4 : 5;
-  if (Array.isArray(value)) return 2 + value.reduce((total, item, index) => total + (index ? 1 : 0) + estimateJsonBytes(item), 0);
+  if (Array.isArray(value))
+    return 2 + value.reduce((total, item, index) => total + (index ? 1 : 0) + estimateJsonBytes(item), 0);
   if (isRecord(value)) {
     let total = 2;
     let first = true;
@@ -984,7 +1272,15 @@ function estimateJsonStringBytes(value: string): number {
   let bytes = 2;
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
-    if (code === 0x22 || code === 0x5c || code === 0x08 || code === 0x09 || code === 0x0a || code === 0x0c || code === 0x0d) {
+    if (
+      code === 0x22 ||
+      code === 0x5c ||
+      code === 0x08 ||
+      code === 0x09 ||
+      code === 0x0a ||
+      code === 0x0c ||
+      code === 0x0d
+    ) {
       bytes += 2;
     } else if (code < 0x20) {
       bytes += 6;
@@ -1009,7 +1305,10 @@ function estimateJsonStringBytes(value: string): number {
   return bytes;
 }
 
-async function discardSessionCheckpointInternal(scope: string, lockHeld = false): Promise<DiscardSessionCheckpointResult> {
+async function discardSessionCheckpointInternal(
+  scope: string,
+  lockHeld = false,
+): Promise<DiscardSessionCheckpointResult> {
   const { discardSessionCheckpointDatabase, openRecoveryDatabase } = await sessionStorageIdb();
   if (!boundedString(scope, 256)) return { ok: false, removedKeys: [], reason: "invalid" };
   const database = await openRecoveryDatabase();
@@ -1046,24 +1345,45 @@ async function discardSessionCheckpointInternal(scope: string, lockHeld = false)
   return { ok: true, removedKeys: [...removedKeys] };
 }
 
-async function claimSessionWindowInternal(input: ClaimSessionWindowInput, lockHeld = false): Promise<ClaimSessionWindowResult> {
+async function claimSessionWindowInternal(
+  input: ClaimSessionWindowInput,
+  lockHeld = false,
+): Promise<ClaimSessionWindowResult> {
   const { openRecoveryDatabase } = await sessionStorageIdb();
   const candidates = await listRecoverableSessionCheckpointCandidates(input.workspace);
-  const preferred = input.preferredScope ? candidates.find((candidate) => candidate.checkpoint.scope === input.preferredScope && candidate.completeMetadata
-    && candidate.activeWindowIds.length === 0
-    && (candidate.closedWindowIds.length > 0 || (input.allowStale === true && candidate.staleWindowIds.length > 0))) : undefined;
-  const reusable = preferred ?? candidates.find((candidate) => candidate.completeMetadata
-    && candidate.activeWindowIds.length === 0
-    && (candidate.closedWindowIds.length > 0 || (input.allowStale === true && candidate.staleWindowIds.length > 0)));
+  const preferred = input.preferredScope
+    ? candidates.find(
+        (candidate) =>
+          candidate.checkpoint.scope === input.preferredScope &&
+          candidate.completeMetadata &&
+          candidate.activeWindowIds.length === 0 &&
+          (candidate.closedWindowIds.length > 0 || (input.allowStale === true && candidate.staleWindowIds.length > 0)),
+      )
+    : undefined;
+  const reusable =
+    preferred ??
+    candidates.find(
+      (candidate) =>
+        candidate.completeMetadata &&
+        candidate.activeWindowIds.length === 0 &&
+        (candidate.closedWindowIds.length > 0 || (input.allowStale === true && candidate.staleWindowIds.length > 0)),
+    );
   if (reusable) {
-    const claimed = await claimRecoverableSessionCandidateInternal({
-      windowId: input.windowId,
-      workspace: input.workspace,
-      candidate: { scope: reusable.checkpoint.scope, checkpointId: reusable.checkpoint.checkpointId, sequence: reusable.checkpoint.sequence },
-      dirtyRecoveryKeys: input.dirtyRecoveryKeys,
-      allowStale: input.allowStale,
-      now: input.now,
-    }, lockHeld);
+    const claimed = await claimRecoverableSessionCandidateInternal(
+      {
+        windowId: input.windowId,
+        workspace: input.workspace,
+        candidate: {
+          scope: reusable.checkpoint.scope,
+          checkpointId: reusable.checkpoint.checkpointId,
+          sequence: reusable.checkpoint.sequence,
+        },
+        dirtyRecoveryKeys: input.dirtyRecoveryKeys,
+        allowStale: input.allowStale,
+        now: input.now,
+      },
+      lockHeld,
+    );
     const { checkpoint: _checkpoint, ...claimResult } = claimed;
     return claimResult;
   }
@@ -1074,9 +1394,25 @@ async function claimSessionWindowInternal(input: ClaimSessionWindowInput, lockHe
   return { ...attached, reusedScope: false };
 }
 
-async function claimRecoverableSessionCandidateInternal(input: ClaimRecoverableSessionCandidateInput, lockHeld = false): Promise<ClaimRecoverableSessionCandidateResult> {
-  const unavailable: ClaimRecoverableSessionCandidateResult = { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reusedScope: false, checkpoint: null, reason: "unavailable" };
-  if (!boundedString(input.windowId, 256) || !boundedString(input.candidate.scope, 256) || typeof input.workspace !== "string" || input.workspace.length > MAX_PATH_LENGTH) {
+async function claimRecoverableSessionCandidateInternal(
+  input: ClaimRecoverableSessionCandidateInput,
+  lockHeld = false,
+): Promise<ClaimRecoverableSessionCandidateResult> {
+  const unavailable: ClaimRecoverableSessionCandidateResult = {
+    ok: false,
+    lease: null,
+    registry: emptySessionRegistry(),
+    staleWindowIds: [],
+    reusedScope: false,
+    checkpoint: null,
+    reason: "unavailable",
+  };
+  if (
+    !boundedString(input.windowId, 256) ||
+    !boundedString(input.candidate.scope, 256) ||
+    typeof input.workspace !== "string" ||
+    input.workspace.length > MAX_PATH_LENGTH
+  ) {
     return { ...unavailable, reason: "invalid" };
   }
   const { claimRecoverableSessionWindowDatabase, openRecoveryDatabase } = await sessionStorageIdb();
@@ -1108,45 +1444,83 @@ async function claimRecoverableSessionWindowFallback(
   lockHeld: boolean,
 ): Promise<{ result: SessionRegistryResult; checkpoint: SessionCheckpointMetadata | null }> {
   const fresh = await readSessionCheckpointMetadataFallback(input.candidate.scope);
-  if (!fresh?.completeMetadata
-    || fresh.checkpoint.checkpointId !== input.candidate.checkpointId
-    || fresh.checkpoint.sequence !== input.candidate.sequence
-    || fresh.checkpoint.session.workspace !== input.workspace) {
-    return { result: { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reason: "conflict" }, checkpoint: null };
+  if (
+    !fresh?.completeMetadata ||
+    fresh.checkpoint.checkpointId !== input.candidate.checkpointId ||
+    fresh.checkpoint.sequence !== input.candidate.sequence ||
+    fresh.checkpoint.session.workspace !== input.workspace
+  ) {
+    return {
+      result: { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reason: "conflict" },
+      checkpoint: null,
+    };
   }
   const now = nonNegativeTimestamp(input.now) ?? Date.now();
   const registry = await readSessionRegistryInternal(now);
-  const scopeWindows = registry.registry.windows.filter((entry) => entry.scope === input.candidate.scope && entry.workspace === input.workspace);
-  const activeWindows = scopeWindows.filter((entry) => entry.status === "open" && now - entry.heartbeatAt <= SESSION_WINDOW_LEASE_MS);
-  const staleWindows = scopeWindows.filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS);
+  const scopeWindows = registry.registry.windows.filter(
+    (entry) => entry.scope === input.candidate.scope && entry.workspace === input.workspace,
+  );
+  const activeWindows = scopeWindows.filter(
+    (entry) => entry.status === "open" && now - entry.heartbeatAt <= SESSION_WINDOW_LEASE_MS,
+  );
+  const staleWindows = scopeWindows.filter(
+    (entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS,
+  );
   const closedWindows = scopeWindows.filter((entry) => entry.status === "closed");
   if (activeWindows.length || (!closedWindows.length && !(input.allowStale && staleWindows.length))) {
-    return { result: { ok: false, lease: null, registry: registry.registry, staleWindowIds: registry.staleWindowIds, reason: "conflict" }, checkpoint: null };
+    return {
+      result: {
+        ok: false,
+        lease: null,
+        registry: registry.registry,
+        staleWindowIds: registry.staleWindowIds,
+        reason: "conflict",
+      },
+      checkpoint: null,
+    };
   }
-  const dirtyRecoveryKeys = fresh.checkpoint.session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, fresh.checkpoint.scope));
-  const attached = await attachSessionWindowInternal({
-    windowId: input.windowId,
-    scope: fresh.checkpoint.scope,
-    workspace: input.workspace,
-    dirtyRecoveryKeys: [...dirtyRecoveryKeys, ...(input.dirtyRecoveryKeys ?? [])],
-    now: input.now,
-  }, Boolean(input.allowStale && staleWindows.length), lockHeld);
+  const dirtyRecoveryKeys = fresh.checkpoint.session.tabs
+    .filter((tab) => tab.dirty)
+    .map((tab) => recoveryStorageKey(tab.id, fresh.checkpoint.scope));
+  const attached = await attachSessionWindowInternal(
+    {
+      windowId: input.windowId,
+      scope: fresh.checkpoint.scope,
+      workspace: input.workspace,
+      dirtyRecoveryKeys: [...dirtyRecoveryKeys, ...(input.dirtyRecoveryKeys ?? [])],
+      now: input.now,
+    },
+    Boolean(input.allowStale && staleWindows.length),
+    lockHeld,
+  );
   return { result: attached, checkpoint: attached.ok ? fresh.checkpoint : null };
 }
 
-async function attachSessionWindowInternal(input: AttachSessionWindowInput, takeOverStaleScope = false, lockHeld = false): Promise<SessionRegistryResult> {
+async function attachSessionWindowInternal(
+  input: AttachSessionWindowInput,
+  takeOverStaleScope = false,
+  lockHeld = false,
+): Promise<SessionRegistryResult> {
   const { mutateSessionRegistryDatabase, openRecoveryDatabase } = await sessionStorageIdb();
-  if (!boundedString(input.windowId, 256) || !boundedString(input.scope, 256) || typeof input.workspace !== "string" || input.workspace.length > MAX_PATH_LENGTH) {
+  if (
+    !boundedString(input.windowId, 256) ||
+    !boundedString(input.scope, 256) ||
+    typeof input.workspace !== "string" ||
+    input.workspace.length > MAX_PATH_LENGTH
+  ) {
     return { ok: false, lease: null, registry: emptySessionRegistry(), staleWindowIds: [], reason: "invalid" };
   }
   const now = nonNegativeTimestamp(input.now) ?? Date.now();
   const lease: SessionWindowLease = { windowId: input.windowId, scope: input.scope, leaseId: makeSessionId() };
   const database = await openRecoveryDatabase();
   const mutate = (current: SessionRegistry): SessionRegistry | null => {
-    const liveOwner = current.windows.find((entry) => entry.scope === input.scope
-      && entry.status === "open"
-      && !(takeOverStaleScope && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS)
-      && entry.windowId !== input.windowId);
+    const liveOwner = current.windows.find(
+      (entry) =>
+        entry.scope === input.scope &&
+        entry.status === "open" &&
+        !(takeOverStaleScope && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS) &&
+        entry.windowId !== input.windowId,
+    );
     if (liveOwner) return null;
     const record: SessionRegistry["windows"][number] = {
       ...lease,
@@ -1158,38 +1532,73 @@ async function attachSessionWindowInternal(input: AttachSessionWindowInput, take
     };
     const windows = current.windows
       .filter((entry) => entry.windowId !== input.windowId)
-      .map((entry) => takeOverStaleScope
-        && entry.scope === input.scope
-        && entry.status === "open"
-        && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS
-        ? { ...entry, status: "closed" as const, closedAt: now, heartbeatAt: now }
-        : entry);
+      .map((entry) =>
+        takeOverStaleScope &&
+        entry.scope === input.scope &&
+        entry.status === "open" &&
+        now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS
+          ? { ...entry, status: "closed" as const, closedAt: now, heartbeatAt: now }
+          : entry,
+      );
     const boundedWindows = compactSessionWindows([...windows, record]);
     if (!boundedWindows) return null;
-    return { version: SESSION_REGISTRY_SCHEMA_VERSION, revision: current.revision + 1, updatedAt: now, windows: boundedWindows };
+    return {
+      version: SESSION_REGISTRY_SCHEMA_VERSION,
+      revision: current.revision + 1,
+      updatedAt: now,
+      windows: boundedWindows,
+    };
   };
   const fallbackRegistry = parseSessionRegistry(readStorage(SESSION_REGISTRY_STORAGE_KEY));
-  const databaseResult = database ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry) : { registry: emptySessionRegistry(), saved: false };
-  const databaseConflict = Boolean(database && databaseResult.registry.windows.some((entry) => entry.scope === input.scope && entry.status === "open" && entry.windowId !== input.windowId));
-  const fallbackResult = database && databaseResult.saved
-    ? { registry: databaseResult.registry, saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld) }
-    : databaseConflict
-      ? { registry: databaseResult.registry, saved: false }
-      : await mutateSessionRegistryFallback(mutate, lockHeld);
+  const databaseResult = database
+    ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry)
+    : { registry: emptySessionRegistry(), saved: false };
+  const databaseConflict = Boolean(
+    database &&
+      databaseResult.registry.windows.some(
+        (entry) => entry.scope === input.scope && entry.status === "open" && entry.windowId !== input.windowId,
+      ),
+  );
+  const fallbackResult =
+    database && databaseResult.saved
+      ? {
+          registry: databaseResult.registry,
+          saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld),
+        }
+      : databaseConflict
+        ? { registry: databaseResult.registry, saved: false }
+        : await mutateSessionRegistryFallback(mutate, lockHeld);
   const registry = databaseResult.saved ? databaseResult.registry : fallbackResult.registry;
   const ok = databaseResult.saved || fallbackResult.saved;
-  const liveOwner = registry.windows.some((entry) => entry.scope === input.scope && entry.status === "open" && entry.windowId !== input.windowId);
+  const liveOwner = registry.windows.some(
+    (entry) => entry.scope === input.scope && entry.status === "open" && entry.windowId !== input.windowId,
+  );
   const capacityReached = registry.windows.length >= MAX_SESSION_WINDOWS && !liveOwner;
   return {
     ok,
     lease: ok ? lease : null,
     registry,
-    staleWindowIds: registry.windows.filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS).map((entry) => entry.windowId),
-    ...(ok ? {} : { reason: liveOwner ? "conflict" as const : capacityReached ? "capacity" as const : "unavailable" as const }),
+    staleWindowIds: registry.windows
+      .filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS)
+      .map((entry) => entry.windowId),
+    ...(ok
+      ? {}
+      : {
+          reason: liveOwner
+            ? ("conflict" as const)
+            : capacityReached
+              ? ("capacity" as const)
+              : ("unavailable" as const),
+        }),
   };
 }
 
-async function updateSessionWindowInternal(lease: SessionWindowLease, dirtyRecoveryKeys: readonly string[] | undefined, now: number, lockHeld = false): Promise<SessionRegistryUpdateResult> {
+async function updateSessionWindowInternal(
+  lease: SessionWindowLease,
+  dirtyRecoveryKeys: readonly string[] | undefined,
+  now: number,
+  lockHeld = false,
+): Promise<SessionRegistryUpdateResult> {
   const { mutateSessionRegistryDatabase, openRecoveryDatabase } = await sessionStorageIdb();
   const database = await openRecoveryDatabase();
   let openLeaseObserved = false;
@@ -1197,25 +1606,47 @@ async function updateSessionWindowInternal(lease: SessionWindowLease, dirtyRecov
     const record = current.windows.find((entry) => sameSessionLease(entry, lease) && entry.status === "open");
     if (!record) return null;
     openLeaseObserved = true;
-    const nextRecord: SessionRegistry["windows"][number] = { ...record, heartbeatAt: now, dirtyRecoveryKeys: dirtyRecoveryKeys ? [...new Set(dirtyRecoveryKeys.filter(isRecoveryStorageKey))] : record.dirtyRecoveryKeys };
-    return { version: SESSION_REGISTRY_SCHEMA_VERSION, revision: current.revision + 1, updatedAt: now, windows: current.windows.map((entry) => sameSessionLease(entry, lease) ? nextRecord : entry) };
+    const nextRecord: SessionRegistry["windows"][number] = {
+      ...record,
+      heartbeatAt: now,
+      dirtyRecoveryKeys: dirtyRecoveryKeys
+        ? [...new Set(dirtyRecoveryKeys.filter(isRecoveryStorageKey))]
+        : record.dirtyRecoveryKeys,
+    };
+    return {
+      version: SESSION_REGISTRY_SCHEMA_VERSION,
+      revision: current.revision + 1,
+      updatedAt: now,
+      windows: current.windows.map((entry) => (sameSessionLease(entry, lease) ? nextRecord : entry)),
+    };
   };
   const fallbackRead = readSessionRegistryFallback();
   const fallbackRegistry = fallbackRead.readSucceeded ? fallbackRead.registry : null;
-  const databaseResult = database ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry) : { registry: emptySessionRegistry(), saved: false, readSucceeded: false };
-  const fallbackResult = database && databaseResult.saved
-    ? { registry: databaseResult.registry, saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld), readSucceeded: fallbackRead.readSucceeded }
-    : await mutateSessionRegistryFallback(mutate, lockHeld);
+  const databaseResult = database
+    ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry)
+    : { registry: emptySessionRegistry(), saved: false, readSucceeded: false };
+  const fallbackResult =
+    database && databaseResult.saved
+      ? {
+          registry: databaseResult.registry,
+          saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld),
+          readSucceeded: fallbackRead.readSucceeded,
+        }
+      : await mutateSessionRegistryFallback(mutate, lockHeld);
   const ok = databaseResult.saved || fallbackResult.saved;
   const registry = databaseResult.saved ? databaseResult.registry : fallbackResult.registry;
   const registryReadSucceeded = database
     ? databaseResult.readSucceeded && fallbackRead.readSucceeded && fallbackResult.readSucceeded
     : fallbackResult.readSucceeded;
-  const reason = registryReadSucceeded && !openLeaseObserved ? "stale-lease" as const : "unavailable" as const;
+  const reason = registryReadSucceeded && !openLeaseObserved ? ("stale-lease" as const) : ("unavailable" as const);
   return { ok, registry, ...(ok ? {} : { reason }) };
 }
 
-async function closeSessionWindowInternal(lease: SessionWindowLease, options: { discardRecovery?: boolean; now?: number }, lockHeld = false): Promise<SessionRegistryUpdateResult> {
+async function closeSessionWindowInternal(
+  lease: SessionWindowLease,
+  options: { discardRecovery?: boolean; now?: number },
+  lockHeld = false,
+): Promise<SessionRegistryUpdateResult> {
   const { mutateSessionRegistryDatabase, openRecoveryDatabase } = await sessionStorageIdb();
   const now = nonNegativeTimestamp(options.now) ?? Date.now();
   const database = await openRecoveryDatabase();
@@ -1224,41 +1655,61 @@ async function closeSessionWindowInternal(lease: SessionWindowLease, options: { 
     const record = current.windows.find((entry) => sameSessionLease(entry, lease));
     if (!record) return null;
     openLeaseObserved = record.status === "open";
-    const otherOpenOwner = current.windows.some((entry) => entry.scope === lease.scope && entry.status === "open" && !sameSessionLease(entry, lease));
+    const otherOpenOwner = current.windows.some(
+      (entry) => entry.scope === lease.scope && entry.status === "open" && !sameSessionLease(entry, lease),
+    );
     const keepClosedDirtyRecord = !options.discardRecovery && record.dirtyRecoveryKeys.length > 0;
     let windows = keepClosedDirtyRecord
-      ? current.windows.map((entry) => sameSessionLease(entry, lease) ? { ...entry, status: "closed" as const, closedAt: now, heartbeatAt: now } : entry)
+      ? current.windows.map((entry) =>
+          sameSessionLease(entry, lease)
+            ? { ...entry, status: "closed" as const, closedAt: now, heartbeatAt: now }
+            : entry,
+        )
       : current.windows.filter((entry) => !sameSessionLease(entry, lease));
     if (options.discardRecovery && !otherOpenOwner) {
-      windows = windows.filter((entry) => !(entry.scope === lease.scope && entry.status === "closed" && entry.dirtyRecoveryKeys.length > 0));
+      windows = windows.filter(
+        (entry) => !(entry.scope === lease.scope && entry.status === "closed" && entry.dirtyRecoveryKeys.length > 0),
+      );
     }
     return { version: SESSION_REGISTRY_SCHEMA_VERSION, revision: current.revision + 1, updatedAt: now, windows };
   };
   const fallbackRead = readSessionRegistryFallback();
   const fallbackRegistry = fallbackRead.readSucceeded ? fallbackRead.registry : null;
-  const databaseResult = database ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry) : { registry: emptySessionRegistry(), saved: false, readSucceeded: false };
-  const fallbackResult = database && databaseResult.saved
-    ? { registry: databaseResult.registry, saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld), readSucceeded: fallbackRead.readSucceeded }
-    : await mutateSessionRegistryFallback(mutate, lockHeld);
+  const databaseResult = database
+    ? await mutateSessionRegistryDatabase(database, mutate, fallbackRegistry)
+    : { registry: emptySessionRegistry(), saved: false, readSucceeded: false };
+  const fallbackResult =
+    database && databaseResult.saved
+      ? {
+          registry: databaseResult.registry,
+          saved: await writeSessionRegistryFallback(databaseResult.registry, lockHeld),
+          readSucceeded: fallbackRead.readSucceeded,
+        }
+      : await mutateSessionRegistryFallback(mutate, lockHeld);
   const ok = databaseResult.saved || fallbackResult.saved;
   const registry = databaseResult.saved ? databaseResult.registry : fallbackResult.registry;
   const registryReadSucceeded = database
     ? databaseResult.readSucceeded && fallbackRead.readSucceeded && fallbackResult.readSucceeded
     : fallbackResult.readSucceeded;
-  const reason = registryReadSucceeded && !openLeaseObserved ? "stale-lease" as const : "unavailable" as const;
+  const reason = registryReadSucceeded && !openLeaseObserved ? ("stale-lease" as const) : ("unavailable" as const);
   return { ok, registry, ...(ok ? {} : { reason }) };
 }
 
-async function readSessionRegistryInternal(now: number): Promise<{ registry: SessionRegistry; staleWindowIds: string[] }> {
+async function readSessionRegistryInternal(
+  now: number,
+): Promise<{ registry: SessionRegistry; staleWindowIds: string[] }> {
   const { openRecoveryDatabase, readSessionRegistryDatabase } = await sessionStorageIdb();
   const database = await openRecoveryDatabase();
   const [databaseRegistry, fallbackRegistry] = await Promise.all([
     database ? readSessionRegistryDatabase(database) : Promise.resolve(null),
     Promise.resolve(parseSessionRegistry(readStorage(SESSION_REGISTRY_STORAGE_KEY))),
   ]);
-  const registry = databaseRegistry && fallbackRegistry
-    ? mergeSessionRegistries(databaseRegistry, fallbackRegistry)
-    : databaseRegistry ?? fallbackRegistry ?? emptySessionRegistry();
-  const staleWindowIds = registry.windows.filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS).map((entry) => entry.windowId);
+  const registry =
+    databaseRegistry && fallbackRegistry
+      ? mergeSessionRegistries(databaseRegistry, fallbackRegistry)
+      : (databaseRegistry ?? fallbackRegistry ?? emptySessionRegistry());
+  const staleWindowIds = registry.windows
+    .filter((entry) => entry.status === "open" && now - entry.heartbeatAt > SESSION_WINDOW_LEASE_MS)
+    .map((entry) => entry.windowId);
   return { registry, staleWindowIds };
 }

@@ -96,8 +96,8 @@ jobs:
           cache: npm
       - run: npm ci
       # Node 24 runs everything. The other supported engines run what can behave
-      # differently between Node versions: the version and bundle-budget scripts,
-      # the unit tests, type checks and the production website build.
+      # differently between Node versions: the release scripts, every unit test,
+      # type checks and the production website build.
       - name: Full check
         if: matrix.node == 24
         run: npm run check
@@ -105,9 +105,8 @@ jobs:
         if: matrix.node != 24
         run: |
           npm run release:version:check
-          node --test scripts/check-bundle-budget.test.mjs
-          npm run desktop:test
-          npm run test --workspace @pude/web
+          node scripts/verify-notice-versions.mjs
+          npm test
           npm run typecheck --workspace @pude/web
           npm run web:build
       - if: matrix.node == 24
@@ -127,14 +126,14 @@ jobs:
       - name: Make apt downloads fail fast and retry
         if: matrix.node == 24
         run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit != 'true'
         timeout-minutes: 15
-        run: bash scripts/ci-retry.sh 3 240 npx playwright install --with-deps --only-shell chromium
+        run: bash scripts/ci-retry.sh 3 240 npx playwright install --with-deps --only-shell chromium webkit
       - name: Install Playwright system dependencies
         if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit == 'true'
         timeout-minutes: 15
-        run: bash scripts/ci-retry.sh 3 240 npx playwright install-deps chromium
+        run: bash scripts/ci-retry.sh 3 240 npx playwright install-deps chromium webkit
       - if: matrix.node == 24
         run: npm run test:e2e --workspace @pude/desktop
       - if: failure() && matrix.node == 24
@@ -264,6 +263,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: website
+    permissions:
+      contents: read # Looks up whether this version's GitHub Release is published
     concurrency:
       group: website-deploy
       cancel-in-progress: false
@@ -276,10 +277,24 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
+      # The site enables downloads only for a published release of the version it
+      # shows, so a version bump on main deploys as a release candidate until then.
+      - name: Find the published release of this version
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(node -p "require('./package.json').version")"
+          if [ "$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null)" = false ]; then
+            echo "url=https://github.com/$GITHUB_REPOSITORY/releases/tag/$tag" >> "$GITHUB_OUTPUT"
+          else
+            echo "No published release for $tag yet; the site shows it as a release candidate."
+          fi
       - run: npm run web:build
         env:
-          VITE_RELEASE_URL: ${{ vars.VITE_RELEASE_URL }}
-      - run: npx --yes wrangler@4.158.0 deploy
+          VITE_RELEASE_URL: ${{ steps.release.outputs.url }}
+      # npx runs the wrangler version pinned in the root package.json.
+      - run: npx --no-install wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -1,13 +1,7 @@
 export default function BrandMark(props: { size?: number; class?: string }) {
   const size = () => props.size ?? 28;
   return (
-    <svg
-      class={props.class ?? "brand-mark"}
-      width={size()}
-      height={size()}
-      viewBox="0 0 32 32"
-      aria-hidden="true"
-    >
+    <svg class={props.class ?? "brand-mark"} width={size()} height={size()} viewBox="0 0 32 32" aria-hidden="true">
       <rect x="5" y="9" width="11" height="2.6" rx="1.3" fill="currentColor" />
       <rect x="3" y="14.7" width="11" height="2.6" rx="1.3" fill="currentColor" opacity="0.8" />
       <rect x="7" y="20.4" width="6" height="2.6" rx="1.3" fill="currentColor" opacity="0.6" />

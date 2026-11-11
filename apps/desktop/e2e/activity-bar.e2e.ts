@@ -57,8 +57,10 @@ test("dragging the resizer follows the pointer past the activity bar", async ({ 
   await page.mouse.down();
   await page.mouse.move(400, resizer!.y + 100);
   await page.mouse.up();
-  await expect.poll(async () => {
-    const sidebar = await page.locator(".sidebar").boundingBox();
-    return sidebar!.x + sidebar!.width;
-  }).toBe(400);
+  await expect
+    .poll(async () => {
+      const sidebar = await page.locator(".sidebar").boundingBox();
+      return sidebar!.x + sidebar!.width;
+    })
+    .toBe(400);
 });

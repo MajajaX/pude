@@ -31,7 +31,9 @@ const totalTimeoutMs = Number(options.get("total-timeout-ms") ?? 30 * 60_000);
 const closeGraceMs = 5_000;
 const maxCaptureBytes = 64 * 1024 * 1024;
 
-if (![testTimeoutMs, buildTimeoutMs, listTimeoutMs, totalTimeoutMs].every((value) => Number.isInteger(value) && value > 0)) {
+if (
+  ![testTimeoutMs, buildTimeoutMs, listTimeoutMs, totalTimeoutMs].every((value) => Number.isInteger(value) && value > 0)
+) {
   throw new Error("timeout values must be positive integer milliseconds");
 }
 
@@ -62,31 +64,39 @@ process.on("SIGTERM", () => handleCancellation("SIGTERM"));
 function ensureTimeRemaining(label) {
   if (cancelled) throw new Error(`cancelled by ${cancelSignal}`);
   const remainingMs = totalDeadline - Date.now();
-  if (remainingMs <= 0) throw new Error(`overall diagnostics deadline of ${totalTimeoutMs} ms exceeded before ${label}`);
+  if (remainingMs <= 0)
+    throw new Error(`overall diagnostics deadline of ${totalTimeoutMs} ms exceeded before ${label}`);
   return remainingMs;
 }
 
 function writeLog(content) {
   const chunk = Buffer.isBuffer(content) ? content : Buffer.from(content);
   process.stdout.write(chunk);
-  logQueue = logQueue.then(() => new Promise((resolveWrite, rejectWrite) => {
-    logStream.write(chunk, (error) => (error ? rejectWrite(error) : resolveWrite()));
-  }));
+  logQueue = logQueue.then(
+    () =>
+      new Promise((resolveWrite, rejectWrite) => {
+        logStream.write(chunk, (error) => (error ? rejectWrite(error) : resolveWrite()));
+      }),
+  );
   return logQueue;
 }
 
 async function killTree(child) {
   if (!child.pid) return;
   if (process.platform === "win32") {
-    const killer = spawnSync("powershell.exe", [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      resolve(root, "scripts/kill-process-tree.ps1"),
-      "-RootProcessId",
-      String(child.pid),
-    ], { encoding: "utf8", timeout: 4_000, windowsHide: true });
+    const killer = spawnSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        resolve(root, "scripts/kill-process-tree.ps1"),
+        "-RootProcessId",
+        String(child.pid),
+      ],
+      { encoding: "utf8", timeout: 4_000, windowsHide: true },
+    );
     if (killer.error) await writeLog(`[PROCESS CLEANUP] PowerShell tree cleanup reported: ${killer.error.message}\n`);
   } else {
     try {
@@ -137,7 +147,8 @@ async function run(command, args, { label, timeoutMs, captureStdout = false } = 
   const timeoutPromise = new Promise((resolveTimeout) => {
     deadline = setTimeout(async () => {
       timedOut = true;
-      const deadlineName = effectiveTimeoutMs < timeoutMs ? "the remaining overall diagnostics deadline" : `${timeoutMs} ms`;
+      const deadlineName =
+        effectiveTimeoutMs < timeoutMs ? "the remaining overall diagnostics deadline" : `${timeoutMs} ms`;
       await writeLog(`\n[TIMEOUT] ${label} exceeded ${deadlineName}; terminating its process tree.\n`);
       await killTree(child);
       const closed = await Promise.race([
@@ -145,7 +156,9 @@ async function run(command, args, { label, timeoutMs, captureStdout = false } = 
         new Promise((resolveGrace) => setTimeout(() => resolveGrace({ graceExpired: true }), closeGraceMs)),
       ]);
       if (closed.graceExpired) {
-        await writeLog(`[TIMEOUT] ${label} did not close its output pipes within ${closeGraceMs} ms; forcing stream close.\n`);
+        await writeLog(
+          `[TIMEOUT] ${label} did not close its output pipes within ${closeGraceMs} ms; forcing stream close.\n`,
+        );
         await killTree(child);
         child.stdout.destroy();
         child.stderr.destroy();
@@ -169,7 +182,9 @@ async function run(command, args, { label, timeoutMs, captureStdout = false } = 
 
   if (cancelled) throw new Error(`cancelled by ${cancelSignal}`);
   if (captureOverflow) throw new Error(`${label} output exceeded ${maxCaptureBytes} bytes; see ${logPath}`);
-  await writeLog(`\n[EXIT] ${label}: code=${exit.code ?? "null"}, signal=${exit.signal ?? "none"}${timedOut ? ", timed out" : ""}${exit.forcedClose ? ", pipes forcibly closed" : ""}\n`);
+  await writeLog(
+    `\n[EXIT] ${label}: code=${exit.code ?? "null"}, signal=${exit.signal ?? "none"}${timedOut ? ", timed out" : ""}${exit.forcedClose ? ", pipes forcibly closed" : ""}\n`,
+  );
   return { ...exit, timedOut, stdout: captured };
 }
 
@@ -181,31 +196,25 @@ async function finishLog() {
 }
 
 try {
-  await writeLog(`Rust test diagnostics: ${new Date().toISOString()}\nManifest: ${manifestPath}\nProfile: ${profile}\nPer-test timeout: ${testTimeoutMs} ms\nTotal timeout: ${totalTimeoutMs} ms\n`);
-  const metadataResult = await run(cargo, [
-    "metadata",
-    "--locked",
-    "--manifest-path",
-    manifestPath,
-    "--no-deps",
-    "--format-version",
-    "1",
-  ], { label: "inspect Cargo test targets", timeoutMs: listTimeoutMs, captureStdout: true });
+  await writeLog(
+    `Rust test diagnostics: ${new Date().toISOString()}\nManifest: ${manifestPath}\nProfile: ${profile}\nPer-test timeout: ${testTimeoutMs} ms\nTotal timeout: ${totalTimeoutMs} ms\n`,
+  );
+  const metadataResult = await run(
+    cargo,
+    ["metadata", "--locked", "--manifest-path", manifestPath, "--no-deps", "--format-version", "1"],
+    { label: "inspect Cargo test targets", timeoutMs: listTimeoutMs, captureStdout: true },
+  );
   if (metadataResult.code !== 0 || metadataResult.timedOut) throw new Error("Cargo metadata failed or timed out");
   const metadata = JSON.parse(metadataResult.stdout);
   const packageInfo = metadata.packages.find((candidate) => resolve(candidate.manifest_path) === manifestPath);
   if (!packageInfo) throw new Error(`Cargo metadata omitted ${manifestPath}`);
   const hasDoctests = packageInfo.targets.some((target) => target.doctest === true);
 
-  const build = await run(cargo, [
-    "test",
-    "--locked",
-    ...profileArgs,
-    "--manifest-path",
-    manifestPath,
-    "--no-run",
-    "--message-format=json",
-  ], { label: "compile test binaries", timeoutMs: buildTimeoutMs, captureStdout: true });
+  const build = await run(
+    cargo,
+    ["test", "--locked", ...profileArgs, "--manifest-path", manifestPath, "--no-run", "--message-format=json"],
+    { label: "compile test binaries", timeoutMs: buildTimeoutMs, captureStdout: true },
+  );
   if (build.code !== 0 || build.timedOut) throw new Error("Cargo test compilation failed or timed out");
 
   const executables = new Set();
@@ -243,7 +252,9 @@ try {
       });
       const summary = result.stdout.match(/test result: \S+\. (\d+) passed; (\d+) failed; (\d+) ignored;/);
       if (result.timedOut || result.code !== 0 || !summary) {
-        failures.push(`${testName}${result.timedOut ? " timed out" : ` exited with ${result.code ?? "an invalid test summary"}`}`);
+        failures.push(
+          `${testName}${result.timedOut ? " timed out" : ` exited with ${result.code ?? "an invalid test summary"}`}`,
+        );
       } else if (Number(summary[3]) > 0 && Number(summary[1]) === 0) {
         ignoredTests += 1;
         await writeLog(`[IGNORED] ${testName}\n`);
@@ -255,7 +266,9 @@ try {
     }
   }
 
-  await writeLog(`\n===== Rust unit/integration test result =====\nDiscovered: ${totalTests}\nPassed: ${passedTests}\nIgnored: ${ignoredTests}\nFailed: ${failures.length}\n`);
+  await writeLog(
+    `\n===== Rust unit/integration test result =====\nDiscovered: ${totalTests}\nPassed: ${passedTests}\nIgnored: ${ignoredTests}\nFailed: ${failures.length}\n`,
+  );
   if (totalTests === 0) throw new Error("No Rust unit or integration tests were discovered");
   if (failures.length > 0) {
     for (const failure of failures) await writeLog(`FAIL: ${failure}\n`);
@@ -263,16 +276,11 @@ try {
   }
 
   if (hasDoctests) {
-    const doctests = await run(cargo, [
-      "test",
-      "--locked",
-      ...profileArgs,
-      "--manifest-path",
-      manifestPath,
-      "--doc",
-      "--",
-      "--test-threads=1",
-    ], { label: "documentation tests (bounded suite deadline)", timeoutMs: buildTimeoutMs });
+    const doctests = await run(
+      cargo,
+      ["test", "--locked", ...profileArgs, "--manifest-path", manifestPath, "--doc", "--", "--test-threads=1"],
+      { label: "documentation tests (bounded suite deadline)", timeoutMs: buildTimeoutMs },
+    );
     if (doctests.code !== 0 || doctests.timedOut) {
       throw new Error(`Rust documentation tests failed or timed out; complete diagnostics: ${logPath}`);
     }
@@ -280,7 +288,9 @@ try {
     await writeLog("\nNo Rust documentation-test target exists; skipped cargo test --doc.\n");
   }
 
-  await writeLog(`\nNon-ignored Rust tests passed; ${ignoredTests} test(s) were ignored. Complete diagnostics: ${logPath}\n`);
+  await writeLog(
+    `\nNon-ignored Rust tests passed; ${ignoredTests} test(s) were ignored. Complete diagnostics: ${logPath}\n`,
+  );
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   if (cancelled) {

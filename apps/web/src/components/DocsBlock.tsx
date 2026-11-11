@@ -1,7 +1,6 @@
 import { For, Match, Show, Switch } from "solid-js";
 import type { DocBlock } from "../i18n-docs";
 import { blockSource, highlightLine, inlineParts } from "../lib/docs-source";
-import { scroll } from "../lib/scroll-progress";
 
 export type DocsViewMode = "preview" | "source";
 
@@ -16,15 +15,13 @@ type BlockProps = {
 };
 
 function Inline(props: { text: string }) {
-  return (
-    <For each={inlineParts(props.text)}>{(part) => (part.code ? <code>{part.text}</code> : <>{part.text}</>)}</For>
-  );
+  return <For each={inlineParts(props.text)}>{(part) => (part.code ? <code>{part.text}</code> : part.text)}</For>;
 }
 
 function SourceInline(props: { text: string }) {
   return (
     <For each={inlineParts(props.text)}>
-      {(part) => (part.code ? <span class="md-code">{part.raw}</span> : <>{part.raw}</>)}
+      {(part) => (part.code ? <span class="md-code">{part.raw}</span> : part.raw)}
     </For>
   );
 }
@@ -178,12 +175,7 @@ function PreviewBlock(props: BlockProps) {
 
 export default function DocsBlock(props: BlockProps) {
   return (
-    <div
-      class={`doc-block doc-block-${props.block.t}`}
-      id={props.anchor}
-      data-line={props.line}
-      use:scroll="appear"
-    >
+    <div class={`doc-block doc-block-${props.block.t}`} id={props.anchor} data-line={props.line} use:scroll="appear">
       <Show when={props.mode === "source"} fallback={<PreviewBlock {...props} />}>
         <SourceBlock {...props} />
       </Show>

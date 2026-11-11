@@ -14,13 +14,18 @@ const openNativeWorkspace = async (page: Page, exitListenerDelayMs: number) => {
       __TAURI_INTERNALS__: {
         metadata: { currentWindow: { label: "main" }, currentWebview: { label: "main", windowLabel: "main" } },
         plugins: {},
-        transformCallback: (callback: unknown) => { const id = nextId++; callbacks.set(id, callback); return id; },
+        transformCallback: (callback: unknown) => {
+          const id = nextId++;
+          callbacks.set(id, callback);
+          return id;
+        },
         unregisterCallback: (id: number) => callbacks.delete(id),
         convertFileSrc: (path: string) => path,
         invoke: (command: string, args: Record<string, unknown>) => {
           const isExitListener = command === "plugin:event|listen" && args.event === "terminal-exit";
           const result = commands[command]?.(args) ?? null;
-          if (isExitListener && listenDelay > 0) return new Promise((resolve) => setTimeout(() => resolve(nextId++), listenDelay));
+          if (isExitListener && listenDelay > 0)
+            return new Promise((resolve) => setTimeout(() => resolve(nextId++), listenDelay));
           return Promise.resolve(isExitListener ? nextId++ : result);
         },
       },
@@ -38,8 +43,13 @@ const bannerCount = async (page: Page) => {
   return rows.split("\n").filter((line) => line.trim() === "pude terminal").length;
 };
 
-for (const [timing, delay] of [["before", 0], ["after", 50]] as const) {
-  test(`a new terminal tab prints one banner when the exit listener resolves ${timing} xterm's write timer`, async ({ page }) => {
+for (const [timing, delay] of [
+  ["before", 0],
+  ["after", 50],
+] as const) {
+  test(`a new terminal tab prints one banner when the exit listener resolves ${timing} xterm's write timer`, async ({
+    page,
+  }) => {
     await openNativeWorkspace(page, delay);
     await expect(page.locator(".terminal-session:visible").getByRole("status")).toContainText("Ready");
     await page.getByRole("button", { name: "New terminal", exact: true }).click();

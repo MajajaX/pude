@@ -8,7 +8,7 @@ use serde::Serialize;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 #[cfg(unix)]
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 #[cfg(unix)]
@@ -29,6 +29,7 @@ use uuid::Uuid;
 
 mod app_log;
 mod app_update;
+mod atomic_save;
 mod blocking;
 #[cfg(target_os = "macos")]
 mod dock_menu;
@@ -41,6 +42,7 @@ mod git_ignore_file;
 mod git_repository;
 mod git_runtime;
 mod git_stash;
+mod git_status;
 #[cfg(test)]
 mod ipc_contracts;
 #[cfg(windows)]
@@ -66,6 +68,12 @@ mod terminal;
 mod watcher;
 mod window_visibility;
 mod workspace_file;
+
+use atomic_save::{
+    format_atomic_save_error, hard_links_unsupported, inspect_atomic_save_target, path_lock,
+    save_file_atomically, save_lock_key,
+};
+use git_status::{parse_git_commit_files, parse_git_status};
 
 use blocking::BlockingClass;
 use document_encoding::{
@@ -2600,247 +2608,6 @@ async fn create_git_worktree(
     })
 }
 
-#[cfg(test)]
-mod git_worktree_start_point_tests {
-    use super::*;
-
-    struct TempRepo {
-        base: PathBuf,
-        repository: PathBuf,
-    }
-
-    impl TempRepo {
-        fn new() -> Self {
-            let base = std::env::temp_dir().join(format!("pude-worktree-start-{}", Uuid::new_v4()));
-            let path = base.join("repository");
-            fs::create_dir_all(&path).expect("temporary repository directory should be created");
-            let repository = Self {
-                base,
-                repository: path,
-            };
-            repository.git(&["init", "--quiet", "--initial-branch=main"]);
-            repository.git(&["config", "user.name", "Pude Test"]);
-            repository.git(&["config", "user.email", "pude-test@example.invalid"]);
-            fs::write(
-                repository.path().join("tracked.txt"),
-                "worktree start point test\n",
-            )
-            .expect("tracked test file should be written");
-            repository.git(&["add", "tracked.txt"]);
-            repository.git(&["commit", "--quiet", "-m", "initial commit"]);
-            repository
-        }
-
-        fn path(&self) -> &Path {
-            &self.repository
-        }
-
-        fn git(&self, args: &[&str]) -> String {
-            self.git_at(self.path(), args)
-        }
-
-        fn git_at(&self, directory: &Path, args: &[&str]) -> String {
-            let output = Command::new("git")
-                .current_dir(directory)
-                .args(args)
-                .output()
-                .expect("Git should start");
-            assert!(
-                output.status.success(),
-                "git {args:?} failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            String::from_utf8_lossy(&output.stdout).trim().to_string()
-        }
-
-        fn resolve_start_point(&self, start_point: &str) -> Result<Option<OsString>, GitErrorInfo> {
-            let runtime = GitCoordinator::new();
-            let request = runtime.begin_request(self.path(), None);
-            resolve_start_point_commit(start_point, "worktree", self.path(), &runtime, &request)
-        }
-    }
-
-    impl Drop for TempRepo {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.base);
-        }
-    }
-
-    #[test]
-    fn git_ignored_paths_follow_rules_tracking_and_cache_invalidation() {
-        let repository = TempRepo::new();
-        fs::create_dir(repository.path().join("src")).unwrap();
-        fs::create_dir(repository.path().join("node_modules")).unwrap();
-        fs::write(
-            repository.path().join(".gitignore"),
-            "*.log\n!keep.log\ntracked.txt\nnode_modules/\n",
-        )
-        .unwrap();
-        fs::write(repository.path().join("src/.gitignore"), "nested.txt\n").unwrap();
-        fs::write(repository.path().join(".git/info/exclude"), "private.txt\n").unwrap();
-        let names = [
-            "tracked.txt",
-            "cache.log",
-            "keep.log",
-            "繁體 中文.log",
-            "src/nested.txt",
-            "node_modules",
-            "private.txt",
-            "untracked.txt",
-        ];
-        let mut paths: Vec<String> = names
-            .iter()
-            .map(|name| {
-                let path = repository.path().join(name);
-                if !path.is_dir() {
-                    fs::write(&path, "fixture").unwrap();
-                }
-                wire_path(&path)
-            })
-            .collect();
-        #[cfg(unix)]
-        {
-            let name = OsString::from("line\nbreak.log");
-            let path = repository.path().join(name);
-            fs::write(&path, "fixture").unwrap();
-            paths.push(wire_path(&path));
-        }
-        let global_excludes = repository.base.join("global-ignore");
-        fs::write(&global_excludes, "global.txt\n").unwrap();
-        repository.git(&[
-            "config",
-            "core.excludesFile",
-            global_excludes.to_str().unwrap(),
-        ]);
-        let global_path = repository.path().join("global.txt");
-        fs::write(&global_path, "fixture").unwrap();
-        paths.push(wire_path(&global_path));
-        let runtime = GitCoordinator::new();
-        let request = runtime.begin_request(repository.path(), None);
-        let ignored =
-            git_ignored_paths_sync(repository.path(), &paths, &runtime, &request).unwrap();
-        for index in [1, 3, 4, 5, 6] {
-            assert!(ignored.contains(&paths[index]), "missing {}", paths[index]);
-        }
-        for index in [0, 2, 7] {
-            assert!(
-                !ignored.contains(&paths[index]),
-                "unexpected {}",
-                paths[index]
-            );
-        }
-        for path in &paths[8..] {
-            assert!(ignored.contains(path), "missing {path}");
-        }
-        // Different stdin must not reuse the preceding query's cached result.
-        assert!(
-            git_ignored_paths_sync(repository.path(), &paths[7..8], &runtime, &request)
-                .unwrap()
-                .is_empty()
-        );
-        fs::write(repository.path().join(".gitignore"), "").unwrap();
-        runtime.invalidate(repository.path(), GitDirtyScope::WORKTREE);
-        assert!(
-            !git_ignored_paths_sync(repository.path(), &paths, &runtime, &request)
-                .unwrap()
-                .contains(&paths[1])
-        );
-        assert!(git_ignored_paths_sync(
-            repository.path(),
-            &[wire_path(&repository.base.join("outside.log"))],
-            &runtime,
-            &request
-        )
-        .unwrap()
-        .is_empty());
-    }
-
-    #[test]
-    fn start_point_resolves_only_commits_and_treats_option_like_names_as_revisions() {
-        let repository = TempRepo::new();
-        let head_oid = repository.git(&["rev-parse", "HEAD"]);
-        repository.git(&["update-ref", "refs/heads/--help", "HEAD"]);
-
-        assert_eq!(
-            repository
-                .resolve_start_point("HEAD")
-                .expect("HEAD should resolve")
-                .expect("HEAD should resolve to an object ID"),
-            OsString::from(&head_oid)
-        );
-        assert_eq!(
-            repository
-                .resolve_start_point("--help")
-                .expect("an option-like branch name should be treated as a revision")
-                .expect("the option-like branch should resolve to an object ID"),
-            OsString::from(&head_oid)
-        );
-        assert!(repository
-            .resolve_start_point("HEAD:tracked.txt")
-            .expect_err("a blob must not be accepted as a worktree start point")
-            .message
-            .contains("existing commit"));
-        assert!(repository
-            .resolve_start_point("missing-start-point")
-            .is_err());
-        assert!(repository
-            .resolve_start_point(" ")
-            .expect("an empty start point should use the current HEAD")
-            .is_none());
-    }
-
-    #[test]
-    fn worktree_add_creates_the_requested_branch_and_rejects_existing_destination() {
-        let repository = TempRepo::new();
-        let runtime = GitCoordinator::new();
-        let request = runtime.begin_request(repository.path(), None);
-        let branch = "feature/integration-worktree";
-        let requested_path = wire_path(&repository.base.join("worktree"));
-
-        validate_worktree_branch(branch, repository.path(), &runtime, &request)
-            .expect("valid branch name should pass validation");
-        assert_eq!(
-            validate_worktree_branch("invalid branch", repository.path(), &runtime, &request)
-                .expect_err("invalid branch names should be rejected")
-                .kind,
-            GitErrorKind::Failed
-        );
-        let destination = git_worktree_destination(repository.path(), &requested_path)
-            .expect("new destination should pass path validation");
-        let initial_head = repository.git(&["rev-parse", "HEAD"]);
-        let output = git_execute(
-            &runtime,
-            repository.path(),
-            vec![
-                OsString::from("worktree"),
-                OsString::from("add"),
-                OsString::from("-b"),
-                OsString::from(branch),
-                destination.as_os_str().to_os_string(),
-            ],
-            &request,
-        )
-        .expect("git worktree add should succeed");
-        assert!(output.success);
-        assert!(destination.is_dir(), "worktree directory should be created");
-        assert_eq!(
-            repository.git_at(&destination, &["branch", "--show-current"]),
-            branch
-        );
-        assert_eq!(
-            repository.git_at(&destination, &["rev-parse", "HEAD"]),
-            initial_head,
-            "new worktree should start at the repository's current HEAD"
-        );
-        assert_eq!(
-            git_worktree_destination(repository.path(), &requested_path)
-                .expect_err("an existing worktree destination should be rejected")
-                .kind,
-            GitErrorKind::Failed
-        );
-    }
-}
-
 #[tauri::command]
 async fn git_diff(
     workspace: String,
@@ -3703,352 +3470,6 @@ fn format_limited_read_error(action: &str, error: LimitedReadError) -> String {
     }
 }
 
-fn save_lock_key(path: &Path) -> PathBuf {
-    if let Ok(path) = fs::canonicalize(path) {
-        return path;
-    }
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let file_name = path.file_name().unwrap_or_default();
-    fs::canonicalize(parent)
-        .map(|parent| parent.join(file_name))
-        .unwrap_or_else(|_| path.to_path_buf())
-}
-
-fn path_lock(
-    locks: &Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>,
-    path: &Path,
-) -> Result<Arc<Mutex<()>>, String> {
-    let mut locks = locks
-        .lock()
-        .map_err(|_| "Unable to lock save state.".to_string())?;
-    // A Weak entry is useful only while a caller owns or waits on the mutex.
-    // Reap dead entries opportunistically while holding the registry lock so a
-    // new caller cannot observe a stale key and create an untracked lock.
-    locks.retain(|_, lock| lock.strong_count() > 0);
-    if let Some(lock) = locks
-        .iter()
-        .find(|(registered_path, _)| path_eq(registered_path, path))
-        .and_then(|(_, lock)| Weak::upgrade(lock))
-    {
-        return Ok(lock);
-    }
-    let lock = Arc::new(Mutex::new(()));
-    locks.insert(path.to_path_buf(), Arc::downgrade(&lock));
-    Ok(lock)
-}
-
-#[derive(Debug)]
-enum AtomicSaveError {
-    Conflict,
-    Symlink,
-    Io(io::Error),
-    CommittedButNotDurable(io::Error),
-}
-
-fn format_atomic_save_error(error: AtomicSaveError) -> String {
-    match error {
-        AtomicSaveError::Conflict => {
-            "Unable to save file. It changed on disk while saving; reload or compare before saving."
-                .to_string()
-        }
-        AtomicSaveError::Symlink => {
-            "Unable to save file. Symlink targets are not replaced automatically.".to_string()
-        }
-        AtomicSaveError::Io(error) => format!("Unable to save file. {error}"),
-        AtomicSaveError::CommittedButNotDurable(error) => format!(
-            "The file was replaced, but its folder could not be synced to storage. Reopen the file to confirm the saved contents. {error}"
-        ),
-    }
-}
-
-fn inspect_atomic_save_target(path: &Path) -> Result<Option<FileSnapshot>, AtomicSaveError> {
-    match fs::symlink_metadata(path) {
-        Ok(metadata)
-            if metadata.file_type().is_symlink() || is_windows_reparse_point(&metadata) =>
-        {
-            Err(AtomicSaveError::Symlink)
-        }
-        Ok(_) => filesystem::save_file_metadata(path)
-            .map(Some)
-            .map_err(|_| AtomicSaveError::Conflict),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(AtomicSaveError::Io(error)),
-    }
-}
-
-fn save_file_atomically(
-    path: &Path,
-    bytes: &[u8],
-    expected: Option<&FileSnapshot>,
-) -> Result<(), AtomicSaveError> {
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let initial = inspect_atomic_save_target(path)?;
-    if initial.as_ref() != expected {
-        return Err(AtomicSaveError::Conflict);
-    }
-    let original_metadata = if expected.is_some() {
-        Some(fs::symlink_metadata(path).map_err(AtomicSaveError::Io)?)
-    } else {
-        None
-    };
-    if let Some(metadata) = original_metadata.as_ref() {
-        if metadata.permissions().readonly() {
-            return Err(AtomicSaveError::Io(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "the destination file is read-only",
-            )));
-        }
-        #[cfg(unix)]
-        if metadata.mode() & 0o222 == 0 {
-            return Err(AtomicSaveError::Io(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "the destination file has no write permission bits",
-            )));
-        }
-    }
-    let (temporary_path, mut temporary_file) =
-        create_unique_temp_file(parent).map_err(AtomicSaveError::Io)?;
-
-    let write_result = (|| {
-        temporary_file
-            .write_all(bytes)
-            .map_err(AtomicSaveError::Io)?;
-        temporary_file.sync_all().map_err(AtomicSaveError::Io)?;
-        if let (Some(metadata), Some(snapshot)) = (original_metadata.as_ref(), expected) {
-            fs::set_permissions(&temporary_path, metadata.permissions())
-                .map_err(AtomicSaveError::Io)?;
-            copy_platform_file_metadata(path, &temporary_file, snapshot)?;
-            temporary_file.sync_all().map_err(AtomicSaveError::Io)?;
-        }
-        Ok::<(), AtomicSaveError>(())
-    })();
-
-    if let Err(error) = write_result {
-        drop(temporary_file);
-        let _ = fs::remove_file(&temporary_path);
-        return Err(error);
-    }
-    let current = match inspect_atomic_save_target(path) {
-        Ok(current) => current,
-        Err(error) => {
-            drop(temporary_file);
-            let _ = fs::remove_file(&temporary_path);
-            return Err(error);
-        }
-    };
-    if current.as_ref() != expected {
-        drop(temporary_file);
-        let _ = fs::remove_file(&temporary_path);
-        return Err(AtomicSaveError::Conflict);
-    }
-    drop(temporary_file);
-    if let Err(error) = atomic_replace(&temporary_path, path, expected.is_some()) {
-        let _ = fs::remove_file(&temporary_path);
-        return Err(AtomicSaveError::Io(error));
-    }
-    sync_parent_directory(parent).map_err(AtomicSaveError::CommittedButNotDurable)?;
-    Ok(())
-}
-
-fn copy_platform_file_metadata(
-    original_path: &Path,
-    _replacement: &File,
-    expected: &FileSnapshot,
-) -> Result<(), AtomicSaveError> {
-    let mut options = OpenOptions::new();
-    options.read(true);
-    #[cfg(unix)]
-    options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
-    #[cfg(windows)]
-    options.custom_flags(0x0020_0000); // FILE_FLAG_OPEN_REPARSE_POINT
-    let original = options.open(original_path).map_err(AtomicSaveError::Io)?;
-    let metadata = original.metadata().map_err(AtomicSaveError::Io)?;
-    if is_windows_reparse_point(&metadata)
-        || opened_file_identity(&original, &metadata).map_err(AtomicSaveError::Io)?
-            != expected.identity
-    {
-        return Err(AtomicSaveError::Conflict);
-    }
-    #[cfg(target_os = "macos")]
-    copy_macos_file_metadata(&original, _replacement).map_err(AtomicSaveError::Io)?;
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn copy_macos_file_metadata(original: &File, replacement: &File) -> io::Result<()> {
-    use std::os::fd::AsRawFd;
-    use std::os::raw::{c_int, c_void};
-
-    #[link(name = "System")]
-    extern "C" {
-        fn fcopyfile(from_fd: c_int, to_fd: c_int, state: *mut c_void, flags: u32) -> c_int;
-    }
-
-    const COPYFILE_ACL: u32 = 1 << 0;
-    const COPYFILE_XATTR: u32 = 1 << 2;
-    let copied = unsafe {
-        fcopyfile(
-            original.as_raw_fd(),
-            replacement.as_raw_fd(),
-            std::ptr::null_mut(),
-            COPYFILE_ACL | COPYFILE_XATTR,
-        )
-    };
-    if copied == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
-}
-
-fn create_unique_temp_file(parent: &Path) -> io::Result<(PathBuf, File)> {
-    for _ in 0..16 {
-        let temporary_path = parent.join(format!(".pude-tmp-{}.tmp", Uuid::new_v4()));
-        match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary_path)
-        {
-            Ok(file) => return Ok((temporary_path, file)),
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(error),
-        }
-    }
-    Err(io::Error::new(
-        io::ErrorKind::AlreadyExists,
-        "unable to create a unique temporary file",
-    ))
-}
-
-#[cfg(not(windows))]
-fn atomic_replace(temporary: &Path, destination: &Path, replace_existing: bool) -> io::Result<()> {
-    if replace_existing {
-        return fs::rename(temporary, destination);
-    }
-    #[cfg(target_os = "macos")]
-    {
-        use std::ffi::CString;
-        use std::os::raw::c_int;
-        use std::os::unix::ffi::OsStrExt;
-
-        #[link(name = "System")]
-        extern "C" {
-            fn renamex_np(from: *const i8, to: *const i8, flags: u32) -> c_int;
-        }
-        const RENAME_EXCL: u32 = 0x0000_0004;
-        let temporary = CString::new(temporary.as_os_str().as_bytes())
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid temporary path"))?;
-        let destination = CString::new(destination.as_os_str().as_bytes())
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid destination path"))?;
-        let renamed = unsafe { renamex_np(temporary.as_ptr(), destination.as_ptr(), RENAME_EXCL) };
-        if renamed == 0 {
-            Ok(())
-        } else {
-            Err(io::Error::last_os_error())
-        }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        match fs::hard_link(temporary, destination) {
-            Ok(()) => {}
-            Err(error) if hard_links_unsupported(&error) => {
-                copy_into_new_file(temporary, destination)?
-            }
-            Err(error) => return Err(error),
-        }
-        fs::remove_file(temporary)
-    }
-}
-
-/// Filesystems such as FAT, exFAT and some network shares cannot hard link.
-pub(crate) fn hard_links_unsupported(error: &io::Error) -> bool {
-    #[cfg(unix)]
-    let platform_code = matches!(error.raw_os_error(), Some(libc::EPERM));
-    // ERROR_INVALID_FUNCTION and ERROR_NOT_SUPPORTED.
-    #[cfg(windows)]
-    let platform_code = matches!(error.raw_os_error(), Some(1 | 50));
-    error.kind() == io::ErrorKind::Unsupported || platform_code
-}
-
-#[cfg(all(not(windows), not(target_os = "macos")))]
-fn copy_into_new_file(source: &Path, destination: &Path) -> io::Result<()> {
-    let mut source = File::open(source)?;
-    let mut new_file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(destination)?;
-    let copied = io::copy(&mut source, &mut new_file).and_then(|_| new_file.sync_all());
-    if copied.is_err() {
-        let _ = fs::remove_file(destination);
-    }
-    copied
-}
-
-#[cfg(windows)]
-fn atomic_replace(temporary: &Path, destination: &Path, replace_existing: bool) -> io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
-
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn MoveFileExW(existing: *const u16, replacement: *const u16, flags: u32) -> i32;
-        fn ReplaceFileW(
-            replaced_file_name: *const u16,
-            replacement_file_name: *const u16,
-            backup_file_name: *const u16,
-            replace_flags: u32,
-            exclude: *mut std::ffi::c_void,
-            reserved: *mut std::ffi::c_void,
-        ) -> i32;
-    }
-
-    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
-    let temporary: Vec<u16> = temporary.as_os_str().encode_wide().chain(Some(0)).collect();
-    let destination: Vec<u16> = destination
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect();
-    let replaced = unsafe {
-        if replace_existing {
-            ReplaceFileW(
-                destination.as_ptr(),
-                temporary.as_ptr(),
-                std::ptr::null(),
-                0,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            )
-        } else {
-            MoveFileExW(
-                temporary.as_ptr(),
-                destination.as_ptr(),
-                MOVEFILE_WRITE_THROUGH,
-            )
-        }
-    };
-    if replaced == 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
-}
-
-#[cfg(unix)]
-fn sync_parent_directory(parent: &Path) -> io::Result<()> {
-    File::open(parent)?.sync_all()
-}
-
-#[cfg(windows)]
-fn sync_parent_directory(_parent: &Path) -> io::Result<()> {
-    Ok(())
-}
-
 // The frontend already knows from `git status` whether the path is
 // untracked (worktreeStatus == "?"). `untracked_hint` lets it skip the extra
 // `git status` process here; when no hint is provided the behavior is
@@ -4123,159 +3544,6 @@ fn git_success_message_runtime(output: &GitCommandOutput) -> String {
     } else {
         stdout
     }
-}
-
-fn parse_git_status(bytes: &[u8]) -> ParsedGitStatus {
-    let mut entries = bytes.split(|byte| *byte == 0);
-    let mut parsed = ParsedGitStatus::default();
-    let mut branch_head = None;
-    let mut branch_oid = None;
-
-    while let Some(entry) = entries.next() {
-        if entry.is_empty() {
-            continue;
-        }
-        if let Some(value) = entry.strip_prefix(b"# branch.head ") {
-            branch_head = Some(String::from_utf8_lossy(value).into_owned());
-            continue;
-        }
-        if let Some(value) = entry.strip_prefix(b"# branch.oid ") {
-            branch_oid = Some(String::from_utf8_lossy(value).into_owned());
-            continue;
-        }
-        if let Some(value) = entry.strip_prefix(b"# branch.upstream ") {
-            parsed.upstream = Some(String::from_utf8_lossy(value).into_owned());
-            continue;
-        }
-        if let Some(value) = entry.strip_prefix(b"# branch.ab ") {
-            if let Ok(value) = std::str::from_utf8(value) {
-                let mut counts = value.split_whitespace();
-                parsed.ahead = counts
-                    .next()
-                    .and_then(|count| count.strip_prefix('+'))
-                    .and_then(|count| count.parse().ok());
-                parsed.behind = counts
-                    .next()
-                    .and_then(|count| count.strip_prefix('-'))
-                    .and_then(|count| count.parse().ok());
-            }
-            continue;
-        }
-        if entry.starts_with(b"# ") {
-            continue;
-        }
-        if let Some(fields) = split_git_record(entry, 9, b"1 ") {
-            let status = fields[1];
-            parsed.files.push(GitFileStatus {
-                path: wire_path_bytes(fields[8]),
-                index_status: status_char_byte(status.first().copied()),
-                worktree_status: status_char_byte(status.get(1).copied()),
-                original_path: None,
-                conflict: false,
-            });
-            continue;
-        }
-        if let Some(fields) = split_git_record(entry, 10, b"2 ") {
-            let status = fields[1];
-            let original_path = entries
-                .next()
-                .filter(|path| !path.is_empty())
-                .map(wire_path_bytes);
-            parsed.files.push(GitFileStatus {
-                path: wire_path_bytes(fields[9]),
-                index_status: status_char_byte(status.first().copied()),
-                worktree_status: status_char_byte(status.get(1).copied()),
-                original_path,
-                conflict: false,
-            });
-            continue;
-        }
-        if let Some(fields) = split_git_record(entry, 11, b"u ") {
-            let status = fields[1];
-            parsed.files.push(GitFileStatus {
-                path: wire_path_bytes(fields[10]),
-                index_status: status_char_byte(status.first().copied()),
-                worktree_status: status_char_byte(status.get(1).copied()),
-                original_path: None,
-                conflict: true,
-            });
-            continue;
-        }
-        if let Some(path) = entry.strip_prefix(b"? ") {
-            parsed.files.push(GitFileStatus {
-                path: wire_path_bytes(path),
-                index_status: None,
-                worktree_status: Some("?".to_string()),
-                original_path: None,
-                conflict: false,
-            });
-        }
-    }
-
-    parsed.branch = branch_head
-        .as_ref()
-        .filter(|value| !value.is_empty() && value.as_str() != "(detached)")
-        .cloned();
-    parsed.head_oid = branch_oid
-        .as_ref()
-        .filter(|value| !value.is_empty() && value.as_str() != "(initial)")
-        .cloned();
-    parsed.repository_state = if branch_oid.as_deref() == Some("(initial)") {
-        GitRepositoryState::Unborn
-    } else if branch_head.as_deref() == Some("(detached)") {
-        GitRepositoryState::Detached
-    } else if parsed.branch.is_some() {
-        GitRepositoryState::Normal
-    } else {
-        GitRepositoryState::Unknown
-    };
-    parsed
-}
-
-fn split_git_record<'a>(
-    entry: &'a [u8],
-    field_count: usize,
-    prefix: &[u8],
-) -> Option<Vec<&'a [u8]>> {
-    if !entry.starts_with(prefix) {
-        return None;
-    }
-    let fields: Vec<&[u8]> = entry.splitn(field_count, |byte| *byte == b' ').collect();
-    (fields.len() == field_count).then_some(fields)
-}
-
-fn status_char_byte(value: Option<u8>) -> Option<String> {
-    value
-        .filter(|character| *character != b'.' && *character != b' ')
-        .map(|character| char::from(character).to_string())
-}
-
-fn parse_git_commit_files(bytes: &[u8]) -> Vec<GitCommitFile> {
-    let mut fields = bytes
-        .split(|byte| *byte == 0)
-        .filter(|field| !field.is_empty());
-    let mut files = Vec::new();
-    while let Some(status_bytes) = fields.next() {
-        let status = String::from_utf8_lossy(status_bytes).trim().to_string();
-        let Some(first_path_bytes) = fields.next() else {
-            break;
-        };
-        if status.is_empty() || first_path_bytes.is_empty() {
-            continue;
-        }
-        let first_path = wire_path_bytes(first_path_bytes);
-        let is_rename_or_copy = status.starts_with('R') || status.starts_with('C');
-        let renamed_path = is_rename_or_copy
-            .then(|| fields.next().map(wire_path_bytes))
-            .flatten();
-        let path = renamed_path.clone().unwrap_or_else(|| first_path.clone());
-        files.push(GitCommitFile {
-            path,
-            status,
-            original_path: is_rename_or_copy.then_some(first_path),
-        });
-    }
-    files
 }
 
 fn timestamp(time: SystemTime) -> Option<u128> {
@@ -4691,8 +3959,8 @@ fn mark_window_shown(window: tauri::WebviewWindow) -> Result<(), String> {
 }
 
 #[tauri::command(async)]
-fn log_frontend_error(message: String, source: Option<String>) {
-    app_log::log_frontend_diagnostic(&message, source.as_deref());
+fn log_frontend_error(message: String) {
+    app_log::log_frontend_diagnostic(&message);
 }
 
 #[tauri::command(async)]
@@ -5654,5 +4922,246 @@ mod git_upstream_status_tests {
         let untracked = parse_git_status(b"# branch.head main\0");
         assert!(untracked.upstream.is_none());
         assert_eq!((untracked.ahead, untracked.behind), (None, None));
+    }
+}
+
+#[cfg(test)]
+mod git_worktree_start_point_tests {
+    use super::*;
+
+    struct TempRepo {
+        base: PathBuf,
+        repository: PathBuf,
+    }
+
+    impl TempRepo {
+        fn new() -> Self {
+            let base = std::env::temp_dir().join(format!("pude-worktree-start-{}", Uuid::new_v4()));
+            let path = base.join("repository");
+            fs::create_dir_all(&path).expect("temporary repository directory should be created");
+            let repository = Self {
+                base,
+                repository: path,
+            };
+            repository.git(&["init", "--quiet", "--initial-branch=main"]);
+            repository.git(&["config", "user.name", "Pude Test"]);
+            repository.git(&["config", "user.email", "pude-test@example.invalid"]);
+            fs::write(
+                repository.path().join("tracked.txt"),
+                "worktree start point test\n",
+            )
+            .expect("tracked test file should be written");
+            repository.git(&["add", "tracked.txt"]);
+            repository.git(&["commit", "--quiet", "-m", "initial commit"]);
+            repository
+        }
+
+        fn path(&self) -> &Path {
+            &self.repository
+        }
+
+        fn git(&self, args: &[&str]) -> String {
+            self.git_at(self.path(), args)
+        }
+
+        fn git_at(&self, directory: &Path, args: &[&str]) -> String {
+            let output = Command::new("git")
+                .current_dir(directory)
+                .args(args)
+                .output()
+                .expect("Git should start");
+            assert!(
+                output.status.success(),
+                "git {args:?} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        }
+
+        fn resolve_start_point(&self, start_point: &str) -> Result<Option<OsString>, GitErrorInfo> {
+            let runtime = GitCoordinator::new();
+            let request = runtime.begin_request(self.path(), None);
+            resolve_start_point_commit(start_point, "worktree", self.path(), &runtime, &request)
+        }
+    }
+
+    impl Drop for TempRepo {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.base);
+        }
+    }
+
+    #[test]
+    fn git_ignored_paths_follow_rules_tracking_and_cache_invalidation() {
+        let repository = TempRepo::new();
+        fs::create_dir(repository.path().join("src")).unwrap();
+        fs::create_dir(repository.path().join("node_modules")).unwrap();
+        fs::write(
+            repository.path().join(".gitignore"),
+            "*.log\n!keep.log\ntracked.txt\nnode_modules/\n",
+        )
+        .unwrap();
+        fs::write(repository.path().join("src/.gitignore"), "nested.txt\n").unwrap();
+        fs::write(repository.path().join(".git/info/exclude"), "private.txt\n").unwrap();
+        let names = [
+            "tracked.txt",
+            "cache.log",
+            "keep.log",
+            "繁體 中文.log",
+            "src/nested.txt",
+            "node_modules",
+            "private.txt",
+            "untracked.txt",
+        ];
+        let mut paths: Vec<String> = names
+            .iter()
+            .map(|name| {
+                let path = repository.path().join(name);
+                if !path.is_dir() {
+                    fs::write(&path, "fixture").unwrap();
+                }
+                wire_path(&path)
+            })
+            .collect();
+        #[cfg(unix)]
+        {
+            let name = OsString::from("line\nbreak.log");
+            let path = repository.path().join(name);
+            fs::write(&path, "fixture").unwrap();
+            paths.push(wire_path(&path));
+        }
+        let global_excludes = repository.base.join("global-ignore");
+        fs::write(&global_excludes, "global.txt\n").unwrap();
+        repository.git(&[
+            "config",
+            "core.excludesFile",
+            global_excludes.to_str().unwrap(),
+        ]);
+        let global_path = repository.path().join("global.txt");
+        fs::write(&global_path, "fixture").unwrap();
+        paths.push(wire_path(&global_path));
+        let runtime = GitCoordinator::new();
+        let request = runtime.begin_request(repository.path(), None);
+        let ignored =
+            git_ignored_paths_sync(repository.path(), &paths, &runtime, &request).unwrap();
+        for index in [1, 3, 4, 5, 6] {
+            assert!(ignored.contains(&paths[index]), "missing {}", paths[index]);
+        }
+        for index in [0, 2, 7] {
+            assert!(
+                !ignored.contains(&paths[index]),
+                "unexpected {}",
+                paths[index]
+            );
+        }
+        for path in &paths[8..] {
+            assert!(ignored.contains(path), "missing {path}");
+        }
+        // Different stdin must not reuse the preceding query's cached result.
+        assert!(
+            git_ignored_paths_sync(repository.path(), &paths[7..8], &runtime, &request)
+                .unwrap()
+                .is_empty()
+        );
+        fs::write(repository.path().join(".gitignore"), "").unwrap();
+        runtime.invalidate(repository.path(), GitDirtyScope::WORKTREE);
+        assert!(
+            !git_ignored_paths_sync(repository.path(), &paths, &runtime, &request)
+                .unwrap()
+                .contains(&paths[1])
+        );
+        assert!(git_ignored_paths_sync(
+            repository.path(),
+            &[wire_path(&repository.base.join("outside.log"))],
+            &runtime,
+            &request
+        )
+        .unwrap()
+        .is_empty());
+    }
+
+    #[test]
+    fn start_point_resolves_only_commits_and_treats_option_like_names_as_revisions() {
+        let repository = TempRepo::new();
+        let head_oid = repository.git(&["rev-parse", "HEAD"]);
+        repository.git(&["update-ref", "refs/heads/--help", "HEAD"]);
+
+        assert_eq!(
+            repository
+                .resolve_start_point("HEAD")
+                .expect("HEAD should resolve")
+                .expect("HEAD should resolve to an object ID"),
+            OsString::from(&head_oid)
+        );
+        assert_eq!(
+            repository
+                .resolve_start_point("--help")
+                .expect("an option-like branch name should be treated as a revision")
+                .expect("the option-like branch should resolve to an object ID"),
+            OsString::from(&head_oid)
+        );
+        assert!(repository
+            .resolve_start_point("HEAD:tracked.txt")
+            .expect_err("a blob must not be accepted as a worktree start point")
+            .message
+            .contains("existing commit"));
+        assert!(repository
+            .resolve_start_point("missing-start-point")
+            .is_err());
+        assert!(repository
+            .resolve_start_point(" ")
+            .expect("an empty start point should use the current HEAD")
+            .is_none());
+    }
+
+    #[test]
+    fn worktree_add_creates_the_requested_branch_and_rejects_existing_destination() {
+        let repository = TempRepo::new();
+        let runtime = GitCoordinator::new();
+        let request = runtime.begin_request(repository.path(), None);
+        let branch = "feature/integration-worktree";
+        let requested_path = wire_path(&repository.base.join("worktree"));
+
+        validate_worktree_branch(branch, repository.path(), &runtime, &request)
+            .expect("valid branch name should pass validation");
+        assert_eq!(
+            validate_worktree_branch("invalid branch", repository.path(), &runtime, &request)
+                .expect_err("invalid branch names should be rejected")
+                .kind,
+            GitErrorKind::Failed
+        );
+        let destination = git_worktree_destination(repository.path(), &requested_path)
+            .expect("new destination should pass path validation");
+        let initial_head = repository.git(&["rev-parse", "HEAD"]);
+        let output = git_execute(
+            &runtime,
+            repository.path(),
+            vec![
+                OsString::from("worktree"),
+                OsString::from("add"),
+                OsString::from("-b"),
+                OsString::from(branch),
+                destination.as_os_str().to_os_string(),
+            ],
+            &request,
+        )
+        .expect("git worktree add should succeed");
+        assert!(output.success);
+        assert!(destination.is_dir(), "worktree directory should be created");
+        assert_eq!(
+            repository.git_at(&destination, &["branch", "--show-current"]),
+            branch
+        );
+        assert_eq!(
+            repository.git_at(&destination, &["rev-parse", "HEAD"]),
+            initial_head,
+            "new worktree should start at the repository's current HEAD"
+        );
+        assert_eq!(
+            git_worktree_destination(repository.path(), &requested_path)
+                .expect_err("an existing worktree destination should be rejected")
+                .kind,
+            GitErrorKind::Failed
+        );
     }
 }

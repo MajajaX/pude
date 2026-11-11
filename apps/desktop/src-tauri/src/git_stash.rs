@@ -6,11 +6,10 @@ use serde::Serialize;
 use tauri::State;
 
 use crate::git_diff::{
-    next_context_lines, INITIAL_DIFF_CONTEXT_LINES, MAX_DIFF_CONTEXT_LINES, MAX_DIFF_STDOUT_BYTES,
+    diff_spec, next_context_lines, INITIAL_DIFF_CONTEXT_LINES, MAX_DIFF_CONTEXT_LINES,
 };
 use crate::git_runtime::{
-    GitCommandSpec, GitCoordinator, GitErrorInfo, GitErrorKind, GitReadKind, GitReadRequest,
-    RequestHandle, DEFAULT_STDERR_LIMIT,
+    GitCoordinator, GitErrorInfo, GitErrorKind, GitReadKind, GitReadRequest, RequestHandle,
 };
 use crate::{
     cached_git_repository_root, decode_wire_path, git_error_info, git_read_shared,
@@ -296,9 +295,7 @@ fn stash_diff(
     };
     args.push(OsString::from("--"));
     args.push(file_path.as_os_str().to_os_string());
-    let mut spec = GitCommandSpec::read(repository_root, args);
-    spec.stdout_limit = MAX_DIFF_STDOUT_BYTES;
-    spec.stderr_limit = DEFAULT_STDERR_LIMIT.min(128 * 1024);
+    let spec = diff_spec(repository_root, args);
     let output = runtime
         .read_shared_for(
             GitReadRequest::new(repository_root, GitReadKind::History, spec),

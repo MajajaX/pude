@@ -15,9 +15,8 @@ export function RecentProjectsList(props: RecentProjectsListProps) {
   const headingId = createUniqueId();
   const [focusedPath, setFocusedPath] = createSignal<string>();
   const rows = new Map<string, HTMLDivElement>();
-  const activePath = () => props.entries.some((entry) => entry.path === focusedPath())
-    ? focusedPath()
-    : props.entries[0]?.path;
+  const activePath = () =>
+    props.entries.some((entry) => entry.path === focusedPath()) ? focusedPath() : props.entries[0]?.path;
 
   const focusEntry = (path: string) => {
     setFocusedPath(path);
@@ -33,40 +32,63 @@ export function RecentProjectsList(props: RecentProjectsListProps) {
     }
     const index = props.entries.findIndex((candidate) => candidate.path === entry.path);
     if (index < 0) return;
-    const nextIndex = event.key === "ArrowDown" ? Math.min(props.entries.length - 1, index + 1)
-      : event.key === "ArrowUp" ? Math.max(0, index - 1)
-        : event.key === "Home" ? 0
-          : event.key === "End" ? props.entries.length - 1
-            : undefined;
+    const nextIndex =
+      event.key === "ArrowDown"
+        ? Math.min(props.entries.length - 1, index + 1)
+        : event.key === "ArrowUp"
+          ? Math.max(0, index - 1)
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? props.entries.length - 1
+              : undefined;
     if (nextIndex === undefined) return;
     event.preventDefault();
     const next = props.entries[nextIndex];
     if (next) focusEntry(next.path);
   };
 
-  return <section class="recent-section">
-    <h2 class="recent-heading" id={headingId}>{props.label}</h2>
-    <div role="tree" aria-labelledby={headingId}>
-      <For each={props.entries}>{(entry, index) => (
-        <div
-          ref={(element) => rows.set(entry.path, element)}
-          class="tree-row tree-row-directory"
-          role="treeitem"
-          aria-level={1}
-          aria-posinset={index() + 1}
-          aria-setsize={props.entries.length}
-          aria-label={t("Open {name}", { name: entry.name })}
-          title={entry.path}
-          tabIndex={activePath() === entry.path ? 0 : -1}
-          onFocus={() => setFocusedPath(entry.path)}
-          onKeyDown={(event) => handleKeyDown(entry, event)}
-          onDblClick={() => props.onOpen(entry)}
-        >
-          <button class="tree-chevron" tabIndex={-1} aria-label={t("Open {name}", { name: entry.name })} onClick={() => props.onOpen(entry)}><Icon name="chevron-right" size={13} /></button>
-          <span class="tree-kind"><Icon name={props.icon} size={15} /></span>
-          <button class="tree-label" tabIndex={-1} onClick={() => props.onOpen(entry)}>{entry.name}</button>
-        </div>
-      )}</For>
-    </div>
-  </section>;
+  return (
+    <section class="recent-section">
+      <h2 class="recent-heading" id={headingId}>
+        {props.label}
+      </h2>
+      <div role="tree" aria-labelledby={headingId}>
+        <For each={props.entries}>
+          {(entry, index) => (
+            <div
+              ref={(element) => rows.set(entry.path, element)}
+              class="tree-row tree-row-directory"
+              role="treeitem"
+              aria-level={1}
+              aria-posinset={index() + 1}
+              aria-setsize={props.entries.length}
+              aria-label={t("Open {name}", { name: entry.name })}
+              title={entry.path}
+              tabIndex={activePath() === entry.path ? 0 : -1}
+              onFocus={() => setFocusedPath(entry.path)}
+              onKeyDown={(event) => handleKeyDown(entry, event)}
+              onDblClick={() => props.onOpen(entry)}
+            >
+              <button
+                type="button"
+                class="tree-chevron"
+                tabIndex={-1}
+                aria-label={t("Open {name}", { name: entry.name })}
+                onClick={() => props.onOpen(entry)}
+              >
+                <Icon name="chevron-right" size={13} />
+              </button>
+              <span class="tree-kind">
+                <Icon name={props.icon} size={15} />
+              </span>
+              <button type="button" class="tree-label" tabIndex={-1} onClick={() => props.onOpen(entry)}>
+                {entry.name}
+              </button>
+            </div>
+          )}
+        </For>
+      </div>
+    </section>
+  );
 }

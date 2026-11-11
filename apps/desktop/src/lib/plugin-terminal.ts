@@ -14,11 +14,7 @@ type ActiveTerminalWriter = {
 
 let activeTerminalWriter: ActiveTerminalWriter | undefined;
 
-export function registerActivePluginTerminal(
-  workspace: string,
-  sessionId: string,
-  write: TerminalWriter,
-): () => void {
+export function registerActivePluginTerminal(workspace: string, sessionId: string, write: TerminalWriter): () => void {
   const registration = { workspace, sessionId, write };
   activeTerminalWriter = registration;
   return () => {

@@ -19,13 +19,15 @@ export function createPluginEditorEditTransaction(
   if (expectedRevision !== currentRevision) return undefined;
   let previousEnd = -1;
   for (const edit of edits) {
-    if (!Number.isSafeInteger(edit.from)
-        || !Number.isSafeInteger(edit.to)
-        || edit.from < 0
-        || edit.from < previousEnd
-        || edit.to < edit.from
-        || edit.to > state.doc.length
-        || typeof edit.insert !== "string") {
+    if (
+      !Number.isSafeInteger(edit.from) ||
+      !Number.isSafeInteger(edit.to) ||
+      edit.from < 0 ||
+      edit.from < previousEnd ||
+      edit.to < edit.from ||
+      edit.to > state.doc.length ||
+      typeof edit.insert !== "string"
+    ) {
       return undefined;
     }
     previousEnd = edit.to;
@@ -33,5 +35,8 @@ export function createPluginEditorEditTransaction(
   // Editor documents always store LF-normalized text; plugin inserts must
   // not introduce raw carriage returns or the line-ending map would no
   // longer describe every separator in the document.
-  return state.update({ changes: edits.map((edit) => ({ from: edit.from, to: edit.to, insert: normalizeDocumentContent(edit.insert) })), annotations: isolated ? isolateHistory.of("full") : undefined });
+  return state.update({
+    changes: edits.map((edit) => ({ from: edit.from, to: edit.to, insert: normalizeDocumentContent(edit.insert) })),
+    annotations: isolated ? isolateHistory.of("full") : undefined,
+  });
 }

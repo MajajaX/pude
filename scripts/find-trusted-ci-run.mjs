@@ -1,7 +1,8 @@
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-const jobsThatMayBeSkipped = ["Workflow lint"];
+// Workflow lint runs only for workflow changes, and the website deploy is opt-in.
+const jobsThatMayBeSkipped = ["Workflow lint", "Deploy website"];
 const jobsThatMustHaveRun = ["Web and tooling (", "Rust formatting", "Rust (", "Security"];
 
 /** A run is trusted only when the whole suite ran for its commit and every job succeeded. */
@@ -10,7 +11,9 @@ export function isFullyValidated(jobs) {
   const everyJobPassed = jobs.every(
     (job) => job.conclusion === "success" || (job.conclusion === "skipped" && jobsThatMayBeSkipped.includes(job.name)),
   );
-  const everyRequiredJobPresent = jobsThatMustHaveRun.every((prefix) => jobs.some((job) => job.name.startsWith(prefix)));
+  const everyRequiredJobPresent = jobsThatMustHaveRun.every((prefix) =>
+    jobs.some((job) => job.name.startsWith(prefix)),
+  );
   return everyJobPassed && everyRequiredJobPresent;
 }
 
@@ -53,7 +56,11 @@ async function main() {
     console.warn(`Could not look up an earlier CI run, so the full suite will run: ${error.message}`);
   }
 
-  console.log(run ? `Reusing the complete CI run ${run.html_url} for ${sha}.` : `No complete CI run exists for ${sha}; the full suite will run.`);
+  console.log(
+    run
+      ? `Reusing the complete CI run ${run.html_url} for ${sha}.`
+      : `No complete CI run exists for ${sha}; the full suite will run.`,
+  );
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `found=${run ? "true" : "false"}\n`);
 }
 

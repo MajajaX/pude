@@ -22,7 +22,9 @@ function write(terminal: Terminal, data: string): Promise<void> {
 }
 
 afterEach(() => {
-  terminals.splice(0).forEach((terminal) => terminal.dispose());
+  terminals.splice(0).forEach((terminal) => {
+    terminal.dispose();
+  });
 });
 
 describe("xterm VT terminal", () => {
@@ -99,7 +101,6 @@ describe("xterm VT terminal", () => {
     expect(terminal.buffer.normal.length).toBe(4);
     expect(terminal.buffer.normal.getLine(2)?.translateToString(true)).toBe("line-11");
   });
-
 });
 
 describe("terminal to PTY wiring", () => {

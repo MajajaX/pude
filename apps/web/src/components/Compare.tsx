@@ -1,7 +1,6 @@
 import { For, Show } from "solid-js";
 import { BENCHMARK, formatMegabytes, formatRatio, formatSeconds, sizeMetric, type LaunchTimes } from "../benchmark";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
 
 const MEGABYTES_PER_DOT = 5;
 const DOT_COLUMNS = 40;
@@ -38,10 +37,30 @@ function Highlights() {
     const memory = sizeMetric("memory");
     const copy = t().compare.highlights;
     return [
-      { ratio: formatRatio(download.pude, download.vscode), label: copy.installerMacos, pude: formatMegabytes(download.pude), vscode: formatMegabytes(download.vscode) },
-      { ratio: formatRatio(disk.pude, disk.vscode), label: copy.sizeOnDisk, pude: formatMegabytes(disk.pude), vscode: formatMegabytes(disk.vscode) },
-      { ratio: formatRatio(memory.pude, memory.vscode), label: copy.memory, pude: formatMegabytes(memory.pude), vscode: formatMegabytes(memory.vscode) },
-      { ratio: formatRatio(launch.pude.ready, launch.vscode.ready), label: copy.launch, pude: formatSeconds(launch.pude.ready), vscode: formatSeconds(launch.vscode.ready) },
+      {
+        ratio: formatRatio(download.pude, download.vscode),
+        label: copy.installerMacos,
+        pude: formatMegabytes(download.pude),
+        vscode: formatMegabytes(download.vscode),
+      },
+      {
+        ratio: formatRatio(disk.pude, disk.vscode),
+        label: copy.sizeOnDisk,
+        pude: formatMegabytes(disk.pude),
+        vscode: formatMegabytes(disk.vscode),
+      },
+      {
+        ratio: formatRatio(memory.pude, memory.vscode),
+        label: copy.memory,
+        pude: formatMegabytes(memory.pude),
+        vscode: formatMegabytes(memory.vscode),
+      },
+      {
+        ratio: formatRatio(launch.pude.ready, launch.vscode.ready),
+        label: copy.launch,
+        pude: formatSeconds(launch.pude.ready),
+        vscode: formatSeconds(launch.vscode.ready),
+      },
     ];
   };
   return (
@@ -112,7 +131,11 @@ function SizeChart() {
 
 function TimelineLane(props: { series: Series; times: LaunchTimes }) {
   return (
-    <div class={`compare-lane is-${props.series}`} tabindex="0" aria-label={`${SERIES_NAMES[props.series]}: ${t().compare.launch.tip(props.times.window, props.times.ready)}`}>
+    <div
+      class={`compare-lane is-${props.series}`}
+      tabindex="0"
+      aria-label={`${SERIES_NAMES[props.series]}: ${t().compare.launch.tip(props.times.window, props.times.ready)}`}
+    >
       <span class="compare-lane-name">
         <span class={`compare-swatch is-${props.series}`} aria-hidden="true" />
         {SERIES_NAMES[props.series]}
@@ -121,7 +144,10 @@ function TimelineLane(props: { series: Series; times: LaunchTimes }) {
         <span class="compare-lane-starting" style={{ width: percentOfTimeline(props.times.window) }} />
         <span
           class="compare-lane-drawing"
-          style={{ left: percentOfTimeline(props.times.window), width: percentOfTimeline(props.times.ready - props.times.window) }}
+          style={{
+            left: percentOfTimeline(props.times.window),
+            width: percentOfTimeline(props.times.ready - props.times.window),
+          }}
         />
         <span class="compare-lane-ready" style={{ left: percentOfTimeline(props.times.ready) }} />
         <span class="compare-lane-label" style={{ left: percentOfTimeline(props.times.ready) }}>
@@ -155,9 +181,18 @@ function LaunchChart() {
         </div>
       </div>
       <div class="compare-timeline-key">
-        <span><span class="compare-key-starting" aria-hidden="true" />{t().compare.launch.starting}</span>
-        <span><span class="compare-key-drawing" aria-hidden="true" />{t().compare.launch.drawing}</span>
-        <span><span class="compare-key-ready" aria-hidden="true" />{t().compare.launch.ready}</span>
+        <span>
+          <span class="compare-key-starting" aria-hidden="true" />
+          {t().compare.launch.starting}
+        </span>
+        <span>
+          <span class="compare-key-drawing" aria-hidden="true" />
+          {t().compare.launch.drawing}
+        </span>
+        <span>
+          <span class="compare-key-ready" aria-hidden="true" />
+          {t().compare.launch.ready}
+        </span>
       </div>
     </article>
   );
@@ -174,8 +209,18 @@ function DataTable() {
         vscode: formatMegabytes(metric.vscode),
         ratio: formatRatio(metric.pude, metric.vscode),
       })),
-      { label: copy().windowShown, pude: formatSeconds(pude.window), vscode: formatSeconds(vscode.window), ratio: formatRatio(pude.window, vscode.window) },
-      { label: copy().ready, pude: formatSeconds(pude.ready), vscode: formatSeconds(vscode.ready), ratio: formatRatio(pude.ready, vscode.ready) },
+      {
+        label: copy().windowShown,
+        pude: formatSeconds(pude.window),
+        vscode: formatSeconds(vscode.window),
+        ratio: formatRatio(pude.window, vscode.window),
+      },
+      {
+        label: copy().ready,
+        pude: formatSeconds(pude.ready),
+        vscode: formatSeconds(vscode.ready),
+        ratio: formatRatio(pude.ready, vscode.ready),
+      },
     ];
   };
   return (
@@ -186,7 +231,7 @@ function DataTable() {
           <thead>
             <tr>
               <th scope="col">{copy().metric}</th>
-              <th scope="col">pude {BENCHMARK.pudeVersion}</th>
+              <th scope="col">pude</th>
               <th scope="col">VS Code {BENCHMARK.vscodeVersion}</th>
               <th scope="col">{copy().difference}</th>
             </tr>

@@ -85,8 +85,8 @@ pub fn log_error(message: &str) {
 
 /// Log a diagnostic produced by `diagnostics.ts`. The command deliberately
 /// accepts only its small stage/kind/code grammar and rejects all source data.
-pub fn log_frontend_diagnostic(message: &str, source: Option<&str>) {
-    if source.is_some() || !is_safe_frontend_diagnostic(message) || !allow_frontend_diagnostic() {
+pub fn log_frontend_diagnostic(message: &str) {
+    if !is_safe_frontend_diagnostic(message) || !allow_frontend_diagnostic() {
         return;
     }
     let Some(dir) = resolved_log_dir() else {

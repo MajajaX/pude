@@ -16,13 +16,23 @@ function file(path: string, overrides: Partial<GitFileStatus> = {}): GitFileStat
 }
 
 function untrackedFiles(count: number): GitFileStatus[] {
-  return Array.from({ length: count }, (_, index) => file(`src/generated-${index}.ts`, { indexStatus: null, worktreeStatus: "?" }));
+  return Array.from({ length: count }, (_, index) =>
+    file(`src/generated-${index}.ts`, { indexStatus: null, worktreeStatus: "?" }),
+  );
 }
 
 describe("git status virtualization", () => {
   it("treats a status as unchanged only when every file field matches", () => {
-    const files = [file("src/a.ts"), file("src/b.ts", { indexStatus: "R", worktreeStatus: null, originalPath: "src/old.ts" })];
-    expect(sameGitStatusFiles(files, files.map((item) => ({ ...item })))).toBe(true);
+    const files = [
+      file("src/a.ts"),
+      file("src/b.ts", { indexStatus: "R", worktreeStatus: null, originalPath: "src/old.ts" }),
+    ];
+    expect(
+      sameGitStatusFiles(
+        files,
+        files.map((item) => ({ ...item })),
+      ),
+    ).toBe(true);
     expect(sameGitStatusFiles(files, files.slice(0, 1))).toBe(false);
     expect(sameGitStatusFiles([file("src/a.ts")], [file("src/c.ts")])).toBe(false);
     expect(sameGitStatusFiles([file("src/a.ts")], [file("src/a.ts", { indexStatus: "M" })])).toBe(false);
@@ -77,7 +87,9 @@ describe("git status virtualization", () => {
 
     expect(rows).toHaveLength(count + 1);
     expect(layout.totalHeight).toBe(GIT_STATUS_HEADER_HEIGHT + count * GIT_STATUS_FILE_ROW_HEIGHT);
-    expect(window.end - window.start).toBeLessThanOrEqual(Math.ceil(viewportHeight / GIT_STATUS_FILE_ROW_HEIGHT) + 2 * 8 + 1);
+    expect(window.end - window.start).toBeLessThanOrEqual(
+      Math.ceil(viewportHeight / GIT_STATUS_FILE_ROW_HEIGHT) + 2 * 8 + 1,
+    );
     expect(window.end - window.start).toBeGreaterThan(0);
   });
 
@@ -98,7 +110,12 @@ describe("git status virtualization", () => {
     ]);
     const layout = layoutGitStatusRows(rows);
 
-    expect(layout.offsets).toEqual([0, GIT_STATUS_HEADER_HEIGHT, GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT, GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT + GIT_STATUS_HEADER_HEIGHT]);
+    expect(layout.offsets).toEqual([
+      0,
+      GIT_STATUS_HEADER_HEIGHT,
+      GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT,
+      GIT_STATUS_HEADER_HEIGHT + GIT_STATUS_FILE_ROW_HEIGHT + GIT_STATUS_HEADER_HEIGHT,
+    ]);
     expect(rows.map(gitStatusRowHeight)).toEqual([32, 30, 32, 30]);
 
     const window = gitStatusWindow(rows, layout, 999999, 100, 8);

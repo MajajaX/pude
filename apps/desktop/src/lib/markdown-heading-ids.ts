@@ -1,5 +1,9 @@
 export function markdownHeadingSlug(text: string): string {
-  const slug = text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
+  const slug = text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+    .replace(/\s/g, "-");
   return slug || "section";
 }
 

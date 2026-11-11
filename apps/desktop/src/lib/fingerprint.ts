@@ -18,7 +18,7 @@ const FNV_PRIME_LO = 0x000001b3;
 
 // Multiply two uint32 values, returning the low and high 32-bit halves of the
 // exact 64-bit product. Partial products stay below 2^33, so doubles are exact.
-function multiplyUint32(x: number, y: number): [number, number] {
+export function multiplyUint32(x: number, y: number): [number, number] {
   const xLow = x & 0xffff;
   const xHigh = x >>> 16;
   const yLow = y & 0xffff;
@@ -28,7 +28,8 @@ function multiplyUint32(x: number, y: number): [number, number] {
   const highHigh = xHigh * yHigh;
   const sum = lowLow + (middle & 0xffff) * 0x10000;
   const low = sum >>> 0;
-  const high = (highHigh + (middle >>> 16) + Math.floor(sum / 0x100000000)) >>> 0;
+  // `middle` can reach 2^33, so divide instead of `>>> 16`, which would drop its top bit.
+  const high = (highHigh + Math.floor(middle / 0x10000) + Math.floor(sum / 0x100000000)) >>> 0;
   return [low, high];
 }
 

@@ -6,6 +6,7 @@ const fullSuite = [
   { name: "Detect changes", conclusion: "success" },
   { name: "Web and tooling (Node 22)", conclusion: "success" },
   { name: "Web and tooling (Node 24)", conclusion: "success" },
+  { name: "Web and tooling (Node 26)", conclusion: "success" },
   { name: "Rust formatting", conclusion: "success" },
   { name: "Rust (ubuntu-latest)", conclusion: "success" },
   { name: "Rust (macos-latest)", conclusion: "success" },
@@ -13,10 +14,16 @@ const fullSuite = [
   { name: "Security / npm advisories", conclusion: "success" },
   { name: "Workflow lint", conclusion: "skipped" },
   { name: "CI result", conclusion: "success" },
+  { name: "Deploy website", conclusion: "skipped" },
 ];
 
-test("a run where every job passed is trusted, even without workflow lint", () => {
+test("a run where every job passed is trusted, even without workflow lint or a website deploy", () => {
   assert.equal(isFullyValidated(fullSuite), true);
+});
+
+test("a failed website deploy is not trusted", () => {
+  const failed = fullSuite.map((job) => (job.name === "Deploy website" ? { ...job, conclusion: "failure" } : job));
+  assert.equal(isFullyValidated(failed), false);
 });
 
 test("a run with a skipped test job was filtered by changed paths and is not trusted", () => {

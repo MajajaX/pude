@@ -30,7 +30,7 @@ pub fn diff_args(
     }
     args.push(OsString::from("--"));
     if untracked {
-        args.push(OsString::from(null_device_path()));
+        args.push(OsString::from(crate::null_device_path()));
     }
     args.push(file_path.as_os_str().to_os_string());
     args
@@ -92,7 +92,7 @@ pub fn read_git_commit_diff(
 ) -> Result<GitCommandOutput, GitErrorInfo> {
     let commit = require_commit_object_id(commit)?;
     let context_lines = context_lines.min(MAX_DIFF_CONTEXT_LINES);
-    let mut spec = GitCommandSpec::read(
+    let spec = diff_spec(
         repository,
         vec![
             OsString::from("show"),
@@ -105,8 +105,6 @@ pub fn read_git_commit_diff(
             file_path.as_os_str().to_os_string(),
         ],
     );
-    spec.stdout_limit = MAX_DIFF_STDOUT_BYTES;
-    spec.stderr_limit = DEFAULT_STDERR_LIMIT.min(128 * 1024);
     let output = runtime
         .read_shared_for(
             GitReadRequest::new(repository, GitReadKind::History, spec),
@@ -124,17 +122,6 @@ pub fn next_context_lines(context_lines: usize) -> Option<usize> {
             .max(context_lines + 1)
             .min(MAX_DIFF_CONTEXT_LINES),
     )
-}
-
-fn null_device_path() -> &'static str {
-    #[cfg(windows)]
-    {
-        "NUL"
-    }
-    #[cfg(not(windows))]
-    {
-        "/dev/null"
-    }
 }
 
 #[cfg(test)]

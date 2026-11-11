@@ -7,9 +7,13 @@ const mac = { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", plat
 
 test("Windows 11 and newer x64 PCs receive the Windows installer", () => {
   for (const platformVersion of ["13.0.0", "19.0.0"]) {
-    assert.deepEqual(recommendInstaller(windows, { platform: "Windows", platformVersion, architecture: "x86", bitness: "64" }), {
-      platform: "windows", message: "windowsRecommended",
-    });
+    assert.deepEqual(
+      recommendInstaller(windows, { platform: "Windows", platformVersion, architecture: "x86", bitness: "64" }),
+      {
+        platform: "windows",
+        message: "windowsRecommended",
+      },
+    );
   }
 });
 
@@ -23,21 +27,30 @@ test("Windows 10, older Windows, ARM and 32-bit systems are not recommended", ()
     assert.deepEqual(recommendInstaller(windows, hints), { platform: null, message: "windowsUnsupported" });
   }
   assert.deepEqual(recommendInstaller({ userAgent: "Mozilla/5.0 (Windows NT 6.1; Win64; x64)" }), {
-    platform: null, message: "windowsUnsupported",
+    platform: null,
+    message: "windowsUnsupported",
   });
 });
 
 test("Windows user-agent strings never claim to distinguish Windows 10 from 11", () => {
   assert.deepEqual(recommendInstaller(windows), { platform: "windows", message: "windowsConfirm" });
-  assert.deepEqual(recommendInstaller(windows, { platformVersion: "not-a-version", architecture: "x86", bitness: "64" }), {
-    platform: "windows", message: "windowsConfirm",
-  });
+  assert.deepEqual(
+    recommendInstaller(windows, { platformVersion: "not-a-version", architecture: "x86", bitness: "64" }),
+    {
+      platform: "windows",
+      message: "windowsConfirm",
+    },
+  );
 });
 
 test("Apple Silicon on supported macOS is recommended despite a frozen Intel user agent", () => {
-  assert.deepEqual(recommendInstaller(mac, { platform: "macOS", platformVersion: "14.6.0", architecture: "arm", bitness: "64" }), {
-    platform: "macos", message: "macosRecommended",
-  });
+  assert.deepEqual(
+    recommendInstaller(mac, { platform: "macOS", platformVersion: "14.6.0", architecture: "arm", bitness: "64" }),
+    {
+      platform: "macos",
+      message: "macosRecommended",
+    },
+  );
 });
 
 test("Intel Macs and known macOS versions below 14 have no recommended native installer", () => {
@@ -45,13 +58,15 @@ test("Intel Macs and known macOS versions below 14 have no recommended native in
     { platformVersion: "15.0.0", architecture: "x86", bitness: "64" },
     { platformVersion: "13.6.0", architecture: "arm", bitness: "64" },
     { platformVersion: "15.0.0", architecture: "arm", bitness: "32" },
-  ]) assert.deepEqual(recommendInstaller(mac, hints), { platform: null, message: "macosUnsupported" });
+  ])
+    assert.deepEqual(recommendInstaller(mac, hints), { platform: null, message: "macosUnsupported" });
 });
 
 test("Safari and incomplete client hints ask users to confirm macOS and Apple Silicon", () => {
   assert.deepEqual(recommendInstaller(mac), { platform: "macos", message: "macosConfirm" });
   assert.deepEqual(recommendInstaller(mac, { architecture: "arm", bitness: "64" }), {
-    platform: "macos", message: "macosConfirm",
+    platform: "macos",
+    message: "macosConfirm",
   });
 });
 
@@ -63,7 +78,8 @@ test("mobile devices, desktop-mode iPads, Linux and ChromeOS do not receive a de
     { userAgent: "Mozilla/5.0 (X11; Linux x86_64)", platform: "Linux x86_64" },
     { userAgent: "Mozilla/5.0 (X11; CrOS x86_64)", platform: "Linux x86_64" },
     { ...windows, userAgentData: { platform: "Windows", mobile: true } },
-  ]) assert.deepEqual(recommendInstaller(browser), { platform: null, message: "unsupported" });
+  ])
+    assert.deepEqual(recommendInstaller(browser), { platform: null, message: "unsupported" });
 });
 
 test("an unknown device is asked to choose an installer", () => {
@@ -86,8 +102,16 @@ test("detailed hints are requested from the browser and refine the OS fallback",
 
 test("unavailable or declined client hints keep OS selection usable", async () => {
   assert.deepEqual(await detectDownloadRecommendation(windows), { platform: "windows", message: "windowsConfirm" });
-  assert.deepEqual(await detectDownloadRecommendation({
-    ...mac,
-    userAgentData: { platform: "macOS", getHighEntropyValues: async () => { throw new Error("denied"); } },
-  }), { platform: "macos", message: "macosConfirm" });
+  assert.deepEqual(
+    await detectDownloadRecommendation({
+      ...mac,
+      userAgentData: {
+        platform: "macOS",
+        getHighEntropyValues: async () => {
+          throw new Error("denied");
+        },
+      },
+    }),
+    { platform: "macos", message: "macosConfirm" },
+  );
 });

@@ -39,16 +39,18 @@ describe("IoLimiter", () => {
     const started: number[] = [];
     let active = 0;
     let maxActive = 0;
-    const tasks = gates.map((gate, index) => limiter.run(async () => {
-      started.push(index);
-      active += 1;
-      maxActive = Math.max(maxActive, active);
-      try {
-        return await gate.promise;
-      } finally {
-        active -= 1;
-      }
-    }));
+    const tasks = gates.map((gate, index) =>
+      limiter.run(async () => {
+        started.push(index);
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        try {
+          return await gate.promise;
+        } finally {
+          active -= 1;
+        }
+      }),
+    );
 
     await waitFor(() => started.length === 2);
     expect(started).toEqual([0, 1]);
@@ -76,10 +78,14 @@ describe("IoLimiter", () => {
     const ids = ["occupied", "current-1", "current-2", "current-3", "current-4", "normal"];
     const gates = new Map(ids.map((id) => [id, deferred<string>()]));
     const started: string[] = [];
-    const task = (id: string) => limiter.run(() => {
-      started.push(id);
-      return gates.get(id)!.promise;
-    }, { priority: id.startsWith("current") ? "current-document" : "normal" });
+    const task = (id: string) =>
+      limiter.run(
+        () => {
+          started.push(id);
+          return gates.get(id)!.promise;
+        },
+        { priority: id.startsWith("current") ? "current-document" : "normal" },
+      );
 
     const tasks = [task("occupied")];
     await waitFor(() => started.length === 1);
@@ -91,7 +97,14 @@ describe("IoLimiter", () => {
       await waitFor(() => started.includes(id === "current-4" ? "current-4" : nextExpected(id)));
     }
 
-    await expect(Promise.all(tasks)).resolves.toEqual(["occupied", "normal", "current-1", "current-2", "current-3", "current-4"]);
+    await expect(Promise.all(tasks)).resolves.toEqual([
+      "occupied",
+      "normal",
+      "current-1",
+      "current-2",
+      "current-3",
+      "current-4",
+    ]);
     expect(started).toEqual(["occupied", "current-1", "current-2", "current-3", "normal", "current-4"]);
     expect(limiter.pendingCount).toBe(0);
   });
@@ -117,7 +130,12 @@ describe("IoLimiter", () => {
 
     let oldBackendCalls = 0;
     let generationIsCurrent = true;
-    const stale = limiter.run(async () => { oldBackendCalls += 1; }, { isCurrent: () => generationIsCurrent });
+    const stale = limiter.run(
+      async () => {
+        oldBackendCalls += 1;
+      },
+      { isCurrent: () => generationIsCurrent },
+    );
     generationIsCurrent = false;
     activeGate.resolve();
     await active;
@@ -129,10 +147,13 @@ describe("IoLimiter", () => {
     const lateGate = deferred<string>();
     let lateGenerationIsCurrent = true;
     let startedLateBackend = 0;
-    const late = limiter.run(() => {
-      startedLateBackend += 1;
-      return lateGate.promise;
-    }, { isCurrent: () => lateGenerationIsCurrent });
+    const late = limiter.run(
+      () => {
+        startedLateBackend += 1;
+        return lateGate.promise;
+      },
+      { isCurrent: () => lateGenerationIsCurrent },
+    );
     await waitFor(() => startedLateBackend === 1);
     lateGenerationIsCurrent = false;
     lateGate.resolve("old workspace");
@@ -171,7 +192,11 @@ describe("IoLimiter", () => {
 
     firstGate.resolve("same-result");
     await expect(Promise.all([first, joined, anotherGeneration, anotherSemantics, anotherPath])).resolves.toEqual([
-      "same-result", "same-result", "new-generation", "metadata", "other-path",
+      "same-result",
+      "same-result",
+      "new-generation",
+      "metadata",
+      "other-path",
     ]);
     expect(sameKeyCalls).toBe(1);
     expect(newGenerationCalls).toBe(1);
@@ -209,10 +234,20 @@ describe("IoLimiter", () => {
     const limiter = new IoLimiter({ maxConcurrent: 1, maxPending: 4 });
     const activeGate = deferred<void>();
     let writes = 0;
-    const active = limiter.run(async () => { writes += 1; await activeGate.promise; return "active"; });
+    const active = limiter.run(async () => {
+      writes += 1;
+      await activeGate.promise;
+      return "active";
+    });
     await waitFor(() => limiter.activeCount === 1);
-    const firstWrite = limiter.run(async () => { writes += 1; return "write"; });
-    const secondWrite = limiter.run(async () => { writes += 1; return "write"; });
+    const firstWrite = limiter.run(async () => {
+      writes += 1;
+      return "write";
+    });
+    const secondWrite = limiter.run(async () => {
+      writes += 1;
+      return "write";
+    });
     expect(limiter.pendingCount).toBe(2);
 
     const activeResult = expect(active).rejects.toBeInstanceOf(IoDisposedError);
@@ -248,25 +283,37 @@ describe("withBusyRetry", () => {
 
   it("retries BUSY errors and gives up at the configured retry budget", async () => {
     let attempts = 0;
-    const result = await withBusyRetry(async () => {
-      attempts += 1;
-      if (attempts < 3) throw new Error("BUSY: file queue is full");
-      return "done";
-    }, { baseDelayMs: 1 });
+    const result = await withBusyRetry(
+      async () => {
+        attempts += 1;
+        if (attempts < 3) throw new Error("BUSY: file queue is full");
+        return "done";
+      },
+      { baseDelayMs: 1 },
+    );
     expect(result).toBe("done");
     expect(attempts).toBe(3);
 
     const busy = new Error("BUSY: file queue is full");
-    await expect(withBusyRetry(async () => { throw busy; }, { maxRetries: 2, baseDelayMs: 1 })).rejects.toBe(busy);
+    await expect(
+      withBusyRetry(
+        async () => {
+          throw busy;
+        },
+        { maxRetries: 2, baseDelayMs: 1 },
+      ),
+    ).rejects.toBe(busy);
   });
 
   it("does not retry other errors", async () => {
     let attempts = 0;
     const failure = new Error("ENOENT");
-    await expect(withBusyRetry(async () => {
-      attempts += 1;
-      throw failure;
-    })).rejects.toBe(failure);
+    await expect(
+      withBusyRetry(async () => {
+        attempts += 1;
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
     expect(attempts).toBe(1);
   });
 });

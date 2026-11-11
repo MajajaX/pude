@@ -1,9 +1,13 @@
 import { createSignal, onMount } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 import { version } from "../../package.json";
-import { getAssetDownloadUrl, getSiteRelease, INSTALLERS, REPOSITORY_URL, type InstallerPlatform } from "../release-info";
+import {
+  getAssetDownloadUrl,
+  getSiteRelease,
+  INSTALLERS,
+  REPOSITORY_URL,
+  type InstallerPlatform,
+} from "../release-info";
 import { detectDownloadRecommendation, recommendInstaller, NO_RECOMMENDATION } from "../lib/download-platform";
 import BrandMark from "./BrandMark";
 
@@ -44,9 +48,15 @@ export default function Footer() {
           <h2 class="section-title">{t().cta.title}</h2>
           <p class="section-sub">{t().cta.sub}</p>
           <div class="download-selector" role="group" aria-label={t().cta.selectInstaller}>
-            <button type="button" aria-pressed={selection() === "auto"} onClick={() => setSelection("auto")}>{t().cta.auto}</button>
-            <button type="button" aria-pressed={selection() === "windows"} onClick={() => setSelection("windows")}>Windows x64</button>
-            <button type="button" aria-pressed={selection() === "macos"} onClick={() => setSelection("macos")}>macOS Apple Silicon</button>
+            <button type="button" aria-pressed={selection() === "auto"} onClick={() => setSelection("auto")}>
+              {t().cta.auto}
+            </button>
+            <button type="button" aria-pressed={selection() === "windows"} onClick={() => setSelection("windows")}>
+              Windows x64
+            </button>
+            <button type="button" aria-pressed={selection() === "macos"} onClick={() => setSelection("macos")}>
+              macOS Apple Silicon
+            </button>
           </div>
           <p class="download-recommendation" aria-live="polite">
             {recommendationText()}
@@ -86,7 +96,9 @@ export default function Footer() {
                 <a href={getAssetDownloadUrl(releaseUrl, INSTALLERS.windows)}>{t().cta.buttons.windows}</a>
                 <a href={getAssetDownloadUrl(releaseUrl, INSTALLERS.macos)}>{t().cta.buttons.macos}</a>
               </div>
-              <p class="cta-note"><a href={releaseUrl}>{t().cta.allReleases}</a></p>
+              <p class="cta-note">
+                <a href={releaseUrl}>{t().cta.allReleases}</a>
+              </p>
             </>
           )}
         </div>

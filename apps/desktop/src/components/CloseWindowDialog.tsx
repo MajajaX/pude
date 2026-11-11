@@ -37,7 +37,7 @@ export function CloseWindowDialog(props: {
   });
 
   onMount(() => {
-    if (dialog) modalFocus = activateModalFocus(dialog, { initialFocus: () => props.busy ? null : cancelButton });
+    if (dialog) modalFocus = activateModalFocus(dialog, { initialFocus: () => (props.busy ? null : cancelButton) });
   });
 
   onCleanup(() => {
@@ -47,7 +47,9 @@ export function CloseWindowDialog(props: {
   return (
     <div class="modal-backdrop">
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="modal"
         role="dialog"
         aria-modal="true"
@@ -59,17 +61,46 @@ export function CloseWindowDialog(props: {
         <div class="modal-heading">
           <div>
             <span class="modal-kicker">{t("UNSAVED CHANGES")}</span>
-            <h2 id="close-window-title">{props.projectName ? t("Close {projectName}?", { projectName: props.projectName }) : t("Close window?")}</h2>
+            <h2 id="close-window-title">
+              {props.projectName ? t("Close {projectName}?", { projectName: props.projectName }) : t("Close window?")}
+            </h2>
           </div>
         </div>
         <div class="conflict-body">
-          <p id="close-window-description">{props.projectName ? t("This project's files have unsaved changes. Closing also ends its terminals.") : t("One or more projects have unsaved changes.")}</p>
+          <p id="close-window-description">
+            {props.projectName
+              ? t("This project's files have unsaved changes. Closing also ends its terminals.")
+              : t("One or more projects have unsaved changes.")}
+          </p>
         </div>
         <div class="modal-footer conflict-actions">
-          <button ref={(element) => { cancelButton = element; }} class="secondary-button" disabled={props.busy} onClick={props.onCancel}>{t("Cancel")}</button>
-          <button class="secondary-button" disabled={props.busy} onClick={props.onDiscard}>{t("Discard")}</button>
-          <button class={props.onPreserve ? "secondary-button" : "primary-button"} disabled={props.busy} onClick={props.onSave}>{props.busy ? t("Working…") : props.projectName ? t("Save project") : t("Save all")}</button>
-          {props.onPreserve && <button class="primary-button" disabled={props.busy} onClick={props.onPreserve}>{t("Keep changes & close")}</button>}
+          <button
+            type="button"
+            ref={(element) => {
+              cancelButton = element;
+            }}
+            class="secondary-button"
+            disabled={props.busy}
+            onClick={props.onCancel}
+          >
+            {t("Cancel")}
+          </button>
+          <button type="button" class="secondary-button" disabled={props.busy} onClick={props.onDiscard}>
+            {t("Discard")}
+          </button>
+          <button
+            type="button"
+            class={props.onPreserve ? "secondary-button" : "primary-button"}
+            disabled={props.busy}
+            onClick={props.onSave}
+          >
+            {props.busy ? t("Working…") : props.projectName ? t("Save project") : t("Save all")}
+          </button>
+          {props.onPreserve && (
+            <button type="button" class="primary-button" disabled={props.busy} onClick={props.onPreserve}>
+              {t("Keep changes & close")}
+            </button>
+          )}
         </div>
       </section>
     </div>

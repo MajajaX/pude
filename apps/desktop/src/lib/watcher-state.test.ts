@@ -41,8 +41,16 @@ describe("watcher event buffer", () => {
     const buffer = createWatcherEventBuffer();
     buffer.endBuffering();
     expect(buffer.record({ sessionId: "old", sequence: 9, paths: [], changes: [] }).accepted).toBe(true);
-    expect(buffer.record({ sessionId: "new", sequence: 1, paths: [], changes: [] })).toMatchObject({ accepted: true, dispatch: true, needsRescan: true });
-    expect(buffer.record({ sessionId: "new", sequence: 2, paths: [], changes: [] })).toMatchObject({ accepted: true, dispatch: true, needsRescan: false });
+    expect(buffer.record({ sessionId: "new", sequence: 1, paths: [], changes: [] })).toMatchObject({
+      accepted: true,
+      dispatch: true,
+      needsRescan: true,
+    });
+    expect(buffer.record({ sessionId: "new", sequence: 2, paths: [], changes: [] })).toMatchObject({
+      accepted: true,
+      dispatch: true,
+      needsRescan: false,
+    });
   });
 
   it("does not make an old snapshot current after a reset", () => {

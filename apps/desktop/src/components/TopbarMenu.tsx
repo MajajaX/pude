@@ -35,7 +35,9 @@ export function TopbarMenu(props: {
     const items = menuItems();
     if (!items.length) return;
     const nextIndex = ((index % items.length) + items.length) % items.length;
-    items.forEach((item, itemIndex) => { item.tabIndex = itemIndex === nextIndex ? 0 : -1; });
+    items.forEach((item, itemIndex) => {
+      item.tabIndex = itemIndex === nextIndex ? 0 : -1;
+    });
     items[nextIndex].focus({ preventScroll: true });
   };
 
@@ -56,8 +58,7 @@ export function TopbarMenu(props: {
     if (props.open) {
       focusMenuItem(focusLastWhenOpened ? menuItems().length - 1 : 0);
       focusLastWhenOpened = false;
-    }
-    else props.onToggle();
+    } else props.onToggle();
   };
 
   const handleMenuKeyDown = (event: KeyboardEvent) => {
@@ -71,12 +72,16 @@ export function TopbarMenu(props: {
 
     if (event.key === "Tab") {
       const items = menuItems();
-      const allControls = Array.from(document.querySelectorAll<HTMLElement>(tabCandidateSelector))
-        .filter((element) => isVisible(element));
+      const allControls = Array.from(document.querySelectorAll<HTMLElement>(tabCandidateSelector)).filter((element) =>
+        isVisible(element),
+      );
       const triggerIndex = trigger ? allControls.indexOf(trigger) : -1;
       const lastItemIndex = items.length ? allControls.indexOf(items[items.length - 1]) : -1;
       const next = event.shiftKey
-        ? allControls.slice(0, triggerIndex).filter((element) => element.tabIndex >= 0).at(-1)
+        ? allControls
+            .slice(0, triggerIndex)
+            .filter((element) => element.tabIndex >= 0)
+            .at(-1)
         : allControls.slice(lastItemIndex + 1).find((element) => element.tabIndex >= 0 && !menu?.contains(element));
 
       event.preventDefault();
@@ -97,13 +102,19 @@ export function TopbarMenu(props: {
   const handleMenuFocusIn = (event: FocusEvent) => {
     const items = menuItems();
     const focusedIndex = items.indexOf(event.target as HTMLElement);
-    if (focusedIndex >= 0) items.forEach((item, index) => { item.tabIndex = index === focusedIndex ? 0 : -1; });
+    if (focusedIndex >= 0)
+      items.forEach((item, index) => {
+        item.tabIndex = index === focusedIndex ? 0 : -1;
+      });
   };
 
   return (
     <div class="topbar-menu" onClick={(event) => event.stopPropagation()}>
       <button
-        ref={(element) => { trigger = element; props.triggerRef?.(element); }}
+        ref={(element) => {
+          trigger = element;
+          props.triggerRef?.(element);
+        }}
         classList={{ "topbar-menu-trigger": true, "topbar-menu-trigger-open": props.open }}
         type="button"
         aria-haspopup="menu"
@@ -117,7 +128,9 @@ export function TopbarMenu(props: {
       </button>
       <Show when={props.open}>
         <div
-          ref={(element) => { menu = element; }}
+          ref={(element) => {
+            menu = element;
+          }}
           class="topbar-menu-popover"
           id={menuId}
           role="menu"
@@ -132,17 +145,14 @@ export function TopbarMenu(props: {
   );
 }
 
-export function TopbarMenuItem(props: {
-  icon: IconName;
-  label: string;
-  shortcut?: string;
-  onSelect: () => void;
-}) {
+export function TopbarMenuItem(props: { icon: IconName; label: string; shortcut?: string; onSelect: () => void }) {
   return (
     <button class="topbar-menu-item" type="button" role="menuitem" tabIndex={-1} onClick={props.onSelect}>
       <Icon name={props.icon} size={14} />
       <span>{props.label}</span>
-      <Show when={props.shortcut}><kbd>{props.shortcut}</kbd></Show>
+      <Show when={props.shortcut}>
+        <kbd>{props.shortcut}</kbd>
+      </Show>
     </button>
   );
 }

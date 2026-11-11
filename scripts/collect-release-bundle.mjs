@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const [platform, outputDirectory, ...extraArguments] = process.argv.slice(2);
 if (!new Set(["windows", "macos"]).has(platform) || !outputDirectory) {
-  throw new Error("usage: collect-release-bundle.mjs <windows|macos> <output-directory> --bundle-root <cargo-target-directory>");
+  throw new Error(
+    "usage: collect-release-bundle.mjs <windows|macos> <output-directory> --bundle-root <cargo-target-directory>",
+  );
 }
 
 if (extraArguments.length !== 2 || extraArguments[0] !== "--bundle-root" || !extraArguments[1]) {
@@ -23,12 +25,24 @@ if (isWithin(bundleRoot, outputRoot) || isWithin(outputRoot, bundleRoot)) {
 const bundleFiles = {
   windows: [
     { directory: /(?:^|\/)release\/bundle\/nsis\//, extension: ".exe", outputName: "pude-windows-x64-setup.exe" },
-    { directory: /(?:^|\/)release\/bundle\/nsis\//, extension: ".exe.sig", outputName: "pude-windows-x64-setup.exe.sig" },
+    {
+      directory: /(?:^|\/)release\/bundle\/nsis\//,
+      extension: ".exe.sig",
+      outputName: "pude-windows-x64-setup.exe.sig",
+    },
   ],
   macos: [
     { directory: /(?:^|\/)release\/bundle\/dmg\//, extension: ".dmg", outputName: "pude-macos-arm64.dmg" },
-    { directory: /(?:^|\/)release\/bundle\/macos\//, extension: ".app.tar.gz", outputName: "pude-macos-arm64.app.tar.gz" },
-    { directory: /(?:^|\/)release\/bundle\/macos\//, extension: ".app.tar.gz.sig", outputName: "pude-macos-arm64.app.tar.gz.sig" },
+    {
+      directory: /(?:^|\/)release\/bundle\/macos\//,
+      extension: ".app.tar.gz",
+      outputName: "pude-macos-arm64.app.tar.gz",
+    },
+    {
+      directory: /(?:^|\/)release\/bundle\/macos\//,
+      extension: ".app.tar.gz.sig",
+      outputName: "pude-macos-arm64.app.tar.gz.sig",
+    },
   ],
 }[platform];
 const matches = bundleFiles.map(() => []);
@@ -69,4 +83,6 @@ for (const [index, { outputName }] of bundleFiles.entries()) {
 for (const legalFile of ["LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
   await copyFile(resolve(root, legalFile), join(outputRoot, legalFile));
 }
-console.log(`Collected ${bundleFiles.map(({ outputName }) => outputName).join(", ")}, LICENSE, THIRD_PARTY_NOTICES.md, and THIRD_PARTY_LICENSES.md into ${outputRoot}.`);
+console.log(
+  `Collected ${bundleFiles.map(({ outputName }) => outputName).join(", ")}, LICENSE, THIRD_PARTY_NOTICES.md, and THIRD_PARTY_LICENSES.md into ${outputRoot}.`,
+);

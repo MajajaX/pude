@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { parseSemver } from "../shared/semver.mjs";
+import {
+  getPublishedReleaseUrl,
+  isValidReleaseTag,
+  LATEST_RELEASE_URL,
+  parseSemver,
+  TAGGED_RELEASE_PREFIX,
+} from "../shared/release-validation.mjs";
+import { REPOSITORY } from "../shared/repository.mjs";
 
 const [releaseUrl, ...options] = process.argv.slice(2);
 let platform = "all";
@@ -14,52 +21,22 @@ if (!["all", "windows", "macos"].includes(platform)) {
   process.exit(2);
 }
 if (!releaseUrl) {
-  console.error("usage: verify-published-release.mjs <https://github.com/MajajaX/pude/releases/latest|.../tag/vX.Y.Z[-pre][+build]> [--platform windows|macos|all] [--draft]");
+  console.error(
+    `usage: verify-published-release.mjs <${LATEST_RELEASE_URL}|${TAGGED_RELEASE_PREFIX}vX.Y.Z> [--platform windows|macos|all] [--draft]`,
+  );
   process.exit(2);
 }
 
-function isValidTag(tag) {
-  return tag.startsWith("v") && parseSemver(tag.slice(1)) !== undefined;
-}
-
-let url;
-try {
-  url = new URL(releaseUrl);
-} catch {
-  console.error("release URL must be an absolute GitHub Releases URL");
+const validatedUrl = getPublishedReleaseUrl(releaseUrl);
+if (!validatedUrl) {
+  console.error(`release URL must exactly match ${LATEST_RELEASE_URL} or ${TAGGED_RELEASE_PREFIX}v<canonical-semver>`);
   process.exit(1);
 }
-
-const latestPath = "/MajajaX/pude/releases/latest";
-const versionedPrefix = "/MajajaX/pude/releases/tag/";
-const isLatest = url.pathname === latestPath;
-let requestedTag;
-if (url.pathname.startsWith(versionedPrefix)) {
-  const encodedTag = url.pathname.slice(versionedPrefix.length);
-  try {
-    requestedTag = decodeURIComponent(encodedTag);
-  } catch {
-    requestedTag = undefined;
-  }
-}
-
-if (
-  url.protocol !== "https:" ||
-  url.hostname !== "github.com" ||
-  url.port ||
-  url.username ||
-  url.password ||
-  url.search ||
-  url.hash ||
-  url.href !== releaseUrl ||
-  (!isLatest && (!requestedTag || !isValidTag(requestedTag) || url.pathname !== `${versionedPrefix}${requestedTag}`))
-) {
-  console.error("release URL must exactly match /MajajaX/pude/releases/latest or /MajajaX/pude/releases/tag/v<canonical-semver>");
-  process.exit(1);
-}
+const isLatest = validatedUrl === LATEST_RELEASE_URL;
+const requestedTag = isLatest ? undefined : validatedUrl.slice(TAGGED_RELEASE_PREFIX.length);
 
 if (expectDraft && isLatest) {
-  console.error("--draft verifies one tagged release, so the URL must be /MajajaX/pude/releases/tag/v<canonical-semver>");
+  console.error(`--draft verifies one tagged release, so the URL must be ${TAGGED_RELEASE_PREFIX}v<canonical-semver>`);
   process.exit(1);
 }
 
@@ -88,8 +65,10 @@ function requestApi(path, label) {
 
 /** The tag endpoint never returns drafts, so a draft is found in the release list. */
 function requestDraftRelease(tag) {
-  const releases = requestApi("repos/MajajaX/pude/releases?per_page=20", "draft release list");
-  const drafts = Array.isArray(releases) ? releases.filter((candidate) => candidate?.draft === true && candidate.tag_name === tag) : [];
+  const releases = requestApi(`repos/${REPOSITORY}/releases?per_page=20`, "draft release list");
+  const drafts = Array.isArray(releases)
+    ? releases.filter((candidate) => candidate?.draft === true && candidate.tag_name === tag)
+    : [];
   if (drafts.length !== 1) {
     console.error(`expected exactly one draft release for ${tag}, found ${drafts.length}`);
     process.exit(1);
@@ -98,23 +77,40 @@ function requestDraftRelease(tag) {
 }
 
 function requestAssetText(asset, label) {
-  return runGitHubApi(["-H", "Accept: application/octet-stream", `repos/MajajaX/pude/releases/assets/${asset.id}`], label);
+  return runGitHubApi(
+    ["-H", "Accept: application/octet-stream", `repos/${REPOSITORY}/releases/assets/${asset.id}`],
+    label,
+  );
 }
 
-const repository = requestApi("repos/MajajaX/pude", "repository visibility");
-if (repository.full_name !== "MajajaX/pude" || repository.private !== false || repository.visibility !== "public") {
-  console.error("The configured release must belong to the public MajajaX/pude repository.");
+const repository = requestApi(`repos/${REPOSITORY}`, "repository visibility");
+if (repository.full_name !== REPOSITORY || repository.private !== false || repository.visibility !== "public") {
+  console.error(`The configured release must belong to the public ${REPOSITORY} repository.`);
   process.exit(1);
 }
 const release = expectDraft
   ? requestDraftRelease(requestedTag)
-  : requestApi(isLatest ? "repos/MajajaX/pude/releases/latest" : `repos/MajajaX/pude/releases/tags/${encodeURIComponent(requestedTag)}`, "published release");
+  : requestApi(
+      isLatest
+        ? `repos/${REPOSITORY}/releases/latest`
+        : `repos/${REPOSITORY}/releases/tags/${encodeURIComponent(requestedTag)}`,
+      "published release",
+    );
 const releaseKind = expectDraft ? "draft" : "published";
 
 function urlHasOriginAndPath(value, hostname, expectedPath) {
   try {
     const candidate = new URL(value);
-    return candidate.protocol === "https:" && candidate.hostname === hostname && !candidate.port && !candidate.username && !candidate.password && !candidate.search && !candidate.hash && candidate.pathname === expectedPath;
+    return (
+      candidate.protocol === "https:" &&
+      candidate.hostname === hostname &&
+      !candidate.port &&
+      !candidate.username &&
+      !candidate.password &&
+      !candidate.search &&
+      !candidate.hash &&
+      candidate.pathname === expectedPath
+    );
   } catch {
     return false;
   }
@@ -129,20 +125,45 @@ function validDownloadUrl(value, tag, name) {
   try {
     const candidate = new URL(value);
     const segments = candidate.pathname.split("/").slice(1);
-    return candidate.protocol === "https:" && candidate.hostname === "github.com" && !candidate.port && !candidate.username && !candidate.password && !candidate.search && !candidate.hash && segments.length === 6 && segments[0] === "MajajaX" && segments[1] === "pude" && segments[2] === "releases" && segments[3] === "download" && isReleaseDownloadSegment(decodeURIComponent(segments[4]), tag) && decodeURIComponent(segments[5]) === name;
+    return (
+      candidate.protocol === "https:" &&
+      candidate.hostname === "github.com" &&
+      !candidate.port &&
+      !candidate.username &&
+      !candidate.password &&
+      !candidate.search &&
+      !candidate.hash &&
+      segments.length === 6 &&
+      `${segments[0]}/${segments[1]}` === REPOSITORY &&
+      segments[2] === "releases" &&
+      segments[3] === "download" &&
+      isReleaseDownloadSegment(decodeURIComponent(segments[4]), tag) &&
+      decodeURIComponent(segments[5]) === name
+    );
   } catch {
     return false;
   }
 }
 
 const actualTag = typeof release?.tag_name === "string" ? release.tag_name : "";
-const actualVersion = isValidTag(actualTag) ? parseSemver(actualTag.slice(1)) : undefined;
+const actualVersion = isValidReleaseTag(actualTag) ? parseSemver(actualTag.slice(1)) : undefined;
 let htmlTag;
 try {
   const htmlUrl = new URL(release.html_url);
-  const htmlPrefix = "/MajajaX/pude/releases/tag/";
-  htmlTag = htmlUrl.pathname.startsWith(htmlPrefix) ? decodeURIComponent(htmlUrl.pathname.slice(htmlPrefix.length)) : undefined;
-  if (htmlUrl.protocol !== "https:" || htmlUrl.hostname !== "github.com" || htmlUrl.port || htmlUrl.username || htmlUrl.password || htmlUrl.search || htmlUrl.hash) htmlTag = undefined;
+  const htmlPrefix = `/${REPOSITORY}/releases/tag/`;
+  htmlTag = htmlUrl.pathname.startsWith(htmlPrefix)
+    ? decodeURIComponent(htmlUrl.pathname.slice(htmlPrefix.length))
+    : undefined;
+  if (
+    htmlUrl.protocol !== "https:" ||
+    htmlUrl.hostname !== "github.com" ||
+    htmlUrl.port ||
+    htmlUrl.username ||
+    htmlUrl.password ||
+    htmlUrl.search ||
+    htmlUrl.hash
+  )
+    htmlTag = undefined;
 } catch {
   htmlTag = undefined;
 }
@@ -158,10 +179,10 @@ if (
   actualVersion.prerelease ||
   (requestedTag && actualTag !== requestedTag) ||
   !htmlPageMatches ||
-  !urlHasOriginAndPath(release.url, "api.github.com", `/repos/MajajaX/pude/releases/${release.id}`) ||
-  !urlHasOriginAndPath(release.assets_url, "api.github.com", `/repos/MajajaX/pude/releases/${release.id}/assets`)
+  !urlHasOriginAndPath(release.url, "api.github.com", `/repos/${REPOSITORY}/releases/${release.id}`) ||
+  !urlHasOriginAndPath(release.assets_url, "api.github.com", `/repos/${REPOSITORY}/releases/${release.id}/assets`)
 ) {
-  console.error(`GitHub API response is not a ${releaseKind} release from MajajaX/pude matching the configured route`);
+  console.error(`GitHub API response is not a ${releaseKind} release from ${REPOSITORY} matching the configured route`);
   process.exit(1);
 }
 
@@ -180,7 +201,7 @@ for (const asset of assets) {
     assetNames.has(asset.name) ||
     !Number.isSafeInteger(asset.size) ||
     asset.size <= 0 ||
-    !urlHasOriginAndPath(asset.url, "api.github.com", `/repos/MajajaX/pude/releases/assets/${asset.id}`) ||
+    !urlHasOriginAndPath(asset.url, "api.github.com", `/repos/${REPOSITORY}/releases/assets/${asset.id}`) ||
     !validDownloadUrl(asset.browser_download_url, actualTag, asset.name)
   ) {
     console.error("GitHub release contains a malformed, duplicate, empty, or cross-repository asset record");
@@ -191,7 +212,9 @@ for (const asset of assets) {
 
 const requiredAssets = [
   ...(platform !== "macos" ? ["pude-windows-x64-setup.exe", "pude-windows-x64-setup.exe.sig"] : []),
-  ...(platform !== "windows" ? ["pude-macos-arm64.dmg", "pude-macos-arm64.app.tar.gz", "pude-macos-arm64.app.tar.gz.sig"] : []),
+  ...(platform !== "windows"
+    ? ["pude-macos-arm64.dmg", "pude-macos-arm64.app.tar.gz", "pude-macos-arm64.app.tar.gz.sig"]
+    : []),
   "latest.json",
   "LICENSE",
   "THIRD_PARTY_NOTICES.md",
@@ -206,7 +229,10 @@ if (missing.length > 0) {
 
 const checksumFile = assets.find((asset) => asset.name === "SHA256SUMS.txt");
 const checksummedNames = new Set(
-  requestAssetText(checksumFile, "SHA256SUMS.txt").split(/\r?\n/).filter(Boolean).map((line) => line.split("  ")[1]),
+  requestAssetText(checksumFile, "SHA256SUMS.txt")
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => line.split("  ")[1]),
 );
 const unchecksummed = requiredAssets.filter((name) => name !== "SHA256SUMS.txt" && !checksummedNames.has(name));
 if (unchecksummed.length > 0) {
@@ -214,4 +240,6 @@ if (unchecksummed.length > 0) {
   process.exit(1);
 }
 
-console.log(`Verified ${releaseKind} release ${release.html_url} for ${platform}, with legal notices and SHA256 assets covering every download.`);
+console.log(
+  `Verified ${releaseKind} release ${release.html_url} for ${platform}, with legal notices and SHA256 assets covering every download.`,
+);

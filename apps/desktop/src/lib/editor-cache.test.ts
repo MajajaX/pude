@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { history, historyField, undo } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
-import { changedEditorSettings, estimateEditorDocumentCacheBytes, exceedsEditorStateBudget, hasEditorUndoHistory, leastRecentlyUsedEditor, leastRecentlyUsedReleasableDocument, serializeEditorHistory } from "./editor-cache";
+import {
+  changedEditorSettings,
+  estimateEditorDocumentCacheBytes,
+  exceedsEditorStateBudget,
+  hasEditorUndoHistory,
+  leastRecentlyUsedEditor,
+  leastRecentlyUsedReleasableDocument,
+  serializeEditorHistory,
+} from "./editor-cache";
 import { lineEndingMapFromString, lineEndingMapSlice, lineEndingMapStorageBytes } from "./line-ending-state";
 
 const settings = {
@@ -17,18 +25,23 @@ const settings = {
 
 describe("editor cache decisions", () => {
   it("reports only settings whose compartments need reconfiguration", () => {
-    expect(changedEditorSettings(settings, { ...settings, sidebarWidth: 320 } as typeof settings & { sidebarWidth: number })).toEqual([]);
+    expect(
+      changedEditorSettings(settings, { ...settings, sidebarWidth: 320 } as typeof settings & { sidebarWidth: number }),
+    ).toEqual([]);
     expect(changedEditorSettings(settings, { ...settings, wordWrap: true })).toEqual(["wordWrap"]);
     expect(changedEditorSettings(settings, { ...settings, fontSize: 16 })).toEqual(["fontSize"]);
   });
 
   it("chooses the least recently used non-active full state", () => {
-    const candidate = leastRecentlyUsedEditor([
-      { id: "active", lastUsed: 1, stateBytes: 100, hasState: true },
-      { id: "old", lastUsed: 2, stateBytes: 100, hasState: true },
-      { id: "new", lastUsed: 3, stateBytes: 100, hasState: true },
-      { id: "detached", lastUsed: 0, stateBytes: 100, hasState: false },
-    ], "active");
+    const candidate = leastRecentlyUsedEditor(
+      [
+        { id: "active", lastUsed: 1, stateBytes: 100, hasState: true },
+        { id: "old", lastUsed: 2, stateBytes: 100, hasState: true },
+        { id: "new", lastUsed: 3, stateBytes: 100, hasState: true },
+        { id: "detached", lastUsed: 0, stateBytes: 100, hasState: false },
+      ],
+      "active",
+    );
     expect(candidate?.id).toBe("old");
   });
 
@@ -57,7 +70,10 @@ describe("editor cache decisions", () => {
 
     const bytes = estimateEditorDocumentCacheBytes([
       {
-        texts: [{ identity: sharedText, codeUnits: 10 }, { identity: sharedText, codeUnits: 10 }],
+        texts: [
+          { identity: sharedText, codeUnits: 10 },
+          { identity: sharedText, codeUnits: 10 },
+        ],
         lineEndingMaps: maps,
         serializedHistoryBytes: 400,
         lineEndingHistoryEntries: 3,
@@ -65,7 +81,10 @@ describe("editor cache decisions", () => {
         hasState: true,
       },
       {
-        texts: [{ identity: changedText, codeUnits: 7 }, { identity: sharedText, codeUnits: 10 }],
+        texts: [
+          { identity: changedText, codeUnits: 7 },
+          { identity: sharedText, codeUnits: 10 },
+        ],
         lineEndingMaps: [map],
         serializedHistoryBytes: 200,
         lineEndingHistoryEntries: 2,
@@ -74,23 +93,21 @@ describe("editor cache decisions", () => {
       },
     ]);
 
-    expect(bytes).toBe(
-      20 + 14 + mapBytes
-      + 400 + 3 * 48 + 40 + 1024 + 2048
-      + 200 + 2 * 48 + 1024,
-    );
+    expect(bytes).toBe(20 + 14 + mapBytes + 400 + 3 * 48 + 40 + 1024 + 2048 + 200 + 2 * 48 + 1024);
   });
 
   it("keeps large Undo history estimates above the old fixed cap", () => {
     const historyBytes = 6 * 1024 * 1024;
-    const bytes = estimateEditorDocumentCacheBytes([{
-      texts: [],
-      lineEndingMaps: [],
-      serializedHistoryBytes: historyBytes,
-      lineEndingHistoryEntries: 1000,
-      selectionBytes: 32,
-      hasState: false,
-    }]);
+    const bytes = estimateEditorDocumentCacheBytes([
+      {
+        texts: [],
+        lineEndingMaps: [],
+        serializedHistoryBytes: historyBytes,
+        lineEndingHistoryEntries: 1000,
+        selectionBytes: 32,
+        hasState: false,
+      },
+    ]);
     expect(bytes).toBeGreaterThan(historyBytes);
     expect(bytes).toBe(historyBytes + 1000 * 48 + 32 + 1024);
   });
@@ -102,9 +119,20 @@ describe("editor cache decisions", () => {
     expect(serialized).toEqual(expect.objectContaining({ done: expect.any(Array), undone: expect.any(Array) }));
     expect(Object.keys(serialized as object)).not.toContain("doc");
 
-    const restored = EditorState.fromJSON({ doc: state.doc.toString(), selection: state.selection.toJSON(), history: serialized }, { extensions: history() }, { history: historyField });
+    const restored = EditorState.fromJSON(
+      { doc: state.doc.toString(), selection: state.selection.toJSON(), history: serialized },
+      { extensions: history() },
+      { history: historyField },
+    );
     let undone: EditorState | undefined;
-    expect(undo({ state: restored, dispatch: (transaction) => { undone = transaction.state; } })).toBe(true);
+    expect(
+      undo({
+        state: restored,
+        dispatch: (transaction) => {
+          undone = transaction.state;
+        },
+      }),
+    ).toBe(true);
     expect(undone?.doc.toString()).toBe("before");
   });
 
@@ -117,9 +145,18 @@ describe("editor cache decisions", () => {
     const serialized = serializeEditorHistory(state);
     expect(hasEditorUndoHistory(undefined, serialized)).toBe(true);
 
-    const restored = EditorState.fromJSON({ doc: state.doc.toString(), selection: state.selection.toJSON(), history: serialized }, { extensions: history() }, { history: historyField });
+    const restored = EditorState.fromJSON(
+      { doc: state.doc.toString(), selection: state.selection.toJSON(), history: serialized },
+      { extensions: history() },
+      { history: historyField },
+    );
     let undone: EditorState | undefined;
-    undo({ state: restored, dispatch: (transaction) => { undone = transaction.state; } });
+    undo({
+      state: restored,
+      dispatch: (transaction) => {
+        undone = transaction.state;
+      },
+    });
     expect(hasEditorUndoHistory(undone)).toBe(true);
     expect(undone?.doc.toString()).toBe("before");
 

@@ -73,7 +73,8 @@ void pude.commands.register(commandId, async () => {
 });`;
 
 const cloneCommands = "git clone https://github.com/MajajaX/pude.git\ncd pude\nnpm ci";
-const checkCommands = "npm run check\ncargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml";
+// Rust tests run one per process, as CI runs them; a plain `cargo test` can disagree.
+const checkCommands = "npm run check\nnode scripts/run-rust-tests.mjs";
 
 const en: DocsDict = {
   docsPage: {
@@ -147,8 +148,10 @@ const en: DocsDict = {
           },
           {
             t: "release-status",
-            available: "The home page recommends an installer for your OS. Confirm Windows 11 x64 or macOS 14+ Apple Silicon when your browser hides version or CPU details; both installers remain available to choose manually.",
-            unavailable: "No verified release download is configured yet. Downloads stay disabled until a release is published and verified.",
+            available:
+              "The home page recommends an installer for your OS. Confirm Windows 11 x64 or macOS 14+ Apple Silicon when your browser hides version or CPU details; both installers remain available to choose manually.",
+            unavailable:
+              "No verified release download is configured yet. Downloads stay disabled until a release is published and verified.",
           },
           { t: "h3", text: "Verify a download" },
           {
@@ -161,7 +164,10 @@ const en: DocsDict = {
             t: "p",
             text: "pude looks for a newer version on GitHub Releases about five seconds after startup, and again when you click `Check for updates` in `Help › About pude`. Turn the startup check off with `Check for updates on startup` in Settings. When a release is available, `Update [version]` appears beside the branch name at the lower left. Click it to download; the button shows `Downloading…`, then `Restart and update`. About keeps the same controls and release notes, and shows errors with a retry action. pude never downloads or installs an update by itself. The download is verified against its signature, and pude asks about unsaved changes before it restarts. You can also close pude, download the newer installer and run it.",
           },
-          { t: "note", text: "Releases are published as stable versions only. Versions before 0.1.1 have no in-app updates; install a newer version by hand once." },
+          {
+            t: "note",
+            text: "Releases are published as stable versions only. Versions before 0.1.1 have no in-app updates; install a newer version by hand once.",
+          },
         ],
       },
       {
@@ -212,10 +218,22 @@ const en: DocsDict = {
             ],
           },
           { t: "h3", text: "Project search" },
-          { t: "p", text: "Select the Search icon in the activity bar on the left edge of the window, between Explorer and Git, or press `⌘⇧F` (`Ctrl+Shift+F` on Windows); a short single-line selection in the editor becomes the query. `⌘P` (`Ctrl+P`) opens search in `Files` mode to go to a file by name. Choose `Text` for literal text or `Files` for names and relative paths; `Aa` matches case. Git-ignored files are excluded unless you enable `Include Git ignored files`. Results show the file name first, with its folder in a dimmer color and the line number beside it. Selecting a text result centers its match in the editor where scrolling allows, and highlights the matching text. Select `EXPLORER` or press Escape in the search input to return to files." },
-          { t: "p", text: "To replace, select the chevron beside `Text / Files` to show `Replace with`. `Replace all` (or Enter in that field) replaces every match in the project, including files beyond the listed results; hover a result and select its replace button to change only that file. pude asks before it changes files and then reports how many matches and files changed." },
-          { t: "note", text: "Replace uses the same literal text, `Aa` and Git-ignored rules as search. Files with unsaved edits are skipped and counted, open files without edits reload, and `Undo` cannot reverse a project-wide replacement. Replacing across files is available in the desktop app." },
-          { t: "note", text: "Search reads saved files on demand, without an index; save your edits first. It skips `.git` and symlinks. Text search skips binary, unsupported, unreadable and over-2-MiB files. Each query is limited to 300 results, 50,000 entries, 100 MiB read and eight seconds. Narrow your query if a limit notice appears." },
+          {
+            t: "p",
+            text: "Select the Search icon in the activity bar on the left edge of the window, between Explorer and Git, or press `⌘⇧F` (`Ctrl+Shift+F` on Windows); a short single-line selection in the editor becomes the query. `⌘P` (`Ctrl+P`) opens search in `Files` mode to go to a file by name. Choose `Text` for literal text or `Files` for names and relative paths; `Aa` matches case. Git-ignored files are excluded unless you enable `Include Git ignored files`. Results show the file name first, with its folder in a dimmer color and the line number beside it. Selecting a text result centers its match in the editor where scrolling allows, and highlights the matching text. Select `EXPLORER` or press Escape in the search input to return to files.",
+          },
+          {
+            t: "p",
+            text: "To replace, select the chevron beside `Text / Files` to show `Replace with`. `Replace all` (or Enter in that field) replaces every match in the project, including files beyond the listed results. Text results are grouped by file, and the replace button on a file's heading changes only that file. pude asks before it changes files and then reports how many matches and files changed.",
+          },
+          {
+            t: "note",
+            text: "Replace uses the same literal text, `Aa` and Git-ignored rules as search. Files with unsaved edits are skipped and counted, open files without edits reload, and `Undo` cannot reverse a project-wide replacement. Replacing across files is available in the desktop app.",
+          },
+          {
+            t: "note",
+            text: "Search reads saved files on demand, without an index; save your edits first. It skips `.git` and symlinks. Text search skips binary, unsupported, unreadable and over-2-MiB files. Each query is limited to 300 results, 50,000 entries, 100 MiB read and eight seconds. Narrow your query if a limit notice appears.",
+          },
           { t: "h3", text: "Edit" },
           {
             t: "list",
@@ -226,7 +244,7 @@ const en: DocsDict = {
               "Multiple cursors, undo and redo, and indentation come from CodeMirror 6. The editor highlights the current line, matching brackets and other copies of the selected text, closes brackets and quotes as you type, re-indents closing brackets, and folds blocks from the gutter. `⌘D` (`Ctrl+D`) adds the next match to the selection, `⌘⇧L` selects every match, and Alt-drag makes a column selection. Large-file mode leaves out folding and auto-closing.",
               "The command palette (`⌘⇧P`) shows each command's shortcut, matches words in any order and lists the commands you ran recently first. It includes editing commands such as `Sort Lines Ascending`, `Transform to Uppercase`, `Trim Trailing Whitespace`, `Fold All`, `Toggle Line Comment` and `Duplicate Line`, and view commands such as `Toggle Word Wrap` (`⌥Z`, `Alt+Z`), `Toggle Line Numbers` and `Toggle Whitespace`.",
               "`.env` and `.env.*` files have shell syntax highlighting for assignments, quoted strings, numbers, expansions and comments, and show `Dotenv` in the status bar. The same large-file limits apply.",
-              "`.env` files open as a table: each variable has a name field and a value field, each with a copy button, and `Line` copies the whole `NAME=value` line. Use `Add variable` in the toolbar or below the table to add a row after the last variable, before trailing comments. Right-click a row or use its actions menu to insert above or below. Rename, edit or delete variables, and generate random values in Hex, Base64URL, Base64, alphanumeric or UUIDv4 format. The default is 32-byte Base64URL; lengths range from 1 to 1,024 bytes or characters, with 16, 32 and 64 presets. `Generate key` in the toolbar works even in an empty file: copy the value or add it as a new variable. A row's ✦ button or actions menu generates a value for that row, including a new variable's row. The preview shows its character count. Preview, regenerate, copy, apply or cancel; format and length are saved locally, not the generated value. Outside a draft row or generator, Cmd/Ctrl+Z undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation are separate undo steps. Only the changed text is rewritten, and a value is quoted when it needs to be. The `Source / Table` button in the lower-right corner switches views, and every `.env` file in the project follows that choice. The table is off for files over 512 KiB.",
+              "`.env` files open as a table: each variable has a name field and a value field, each with a copy button, and `Line` copies the whole `NAME=value` line. Use `Add variable` in the toolbar or below the table to add a row after the last variable, before trailing comments. Right-click a row or use its actions menu to insert above or below. Rename, edit or delete variables, and generate random values in Hex, Base64URL, Base64, alphanumeric or UUIDv4 format. The default is 32-byte Base64URL; lengths range from 1 to 1,024 bytes or characters, with 16, 32 and 64 presets. `Generate key` in the toolbar works even in an empty file: copy the value or add it as a new variable. A row's ✦ button or actions menu generates a value for that row, including a new variable's row. The preview shows its character count. Preview, regenerate, copy, apply or cancel; format and length are saved locally, not the generated value. Outside a draft row or generator, Cmd/Ctrl+Z undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation are separate undo steps. Only the changed text is rewritten, and a value is quoted when it needs to be. The `Source / Table` button in the lower-right corner switches views, and every `.env` file in the project follows that choice. The table is off for files over 512 KiB. Values are masked each time the table opens; `Show values` in the toolbar reveals them, and a value you are editing always shows its text.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor, or press `⌘=` / `⌘-` (`Ctrl+=` / `Ctrl+-`), to set the font size between 11 and 24; `⌘0` (`Ctrl+0`) returns to 14.",
               "The interface uses the open-source Inter typeface; the editor, terminals and diffs use JetBrains Mono. Both are bundled with pude, so they look the same offline and on every platform. Chinese text falls back to the system font.",
               "Markdown opens as source. The `Source / Preview` button in the lower-right corner of the editor switches to a rendered preview, and every Markdown file in the project follows that choice. Preview uses the available editor width with smaller side margins and clear body text in both themes.",
@@ -238,13 +256,13 @@ const en: DocsDict = {
             items: [
               "UTF-8 and UTF-8 with BOM. Invalid UTF-8 and other encodings are refused rather than silently converted.",
               "Files over 5 MiB open in large-file mode: editing and search stay on, heavy parsing and preview turn off.",
-              "Text files are limited to 20 MiB. Supported images open in an image preview.",
+              "Text files are limited to 20 MiB. Supported images open in an image preview. A file reached through a symbolic link does not open; open its target instead.",
             ],
           },
           { t: "h3", text: "Saving safely" },
           {
             t: "p",
-            text: "Saves are queued per file and replace it atomically. Every line keeps its original LF or CRLF ending. If a file changes on disk while you have unsaved edits, pude offers `Compare`, `Reload from disk`, `Save As…` or `Keep editor version` — it never overwrites either side silently.",
+            text: "Saves are queued per file and replace it atomically. On macOS and Linux, a file with several hard links, or one owned by another user, is rewritten in place instead so its links and owner stay. Every line keeps its original LF or CRLF ending. If a file changes on disk while you have unsaved edits, pude offers `Compare`, `Reload from disk`, `Save As…` or `Keep editor version` — it never overwrites either side silently.",
           },
           {
             t: "p",
@@ -291,7 +309,7 @@ const en: DocsDict = {
           { t: "h2", text: "Terminal" },
           {
             t: "p",
-            text: "Toggle the panel with `` ⌘` `` (`` Ctrl+` `` on Windows) and add as many tabs as you need. Each tab loads xterm.js and starts its own PTY the first time it is shown.",
+            text: "Toggle the panel with `` Ctrl+` `` on every platform (on macOS, `` ⌘` `` stays the system shortcut for switching windows) and add as many tabs as you need. Each tab loads xterm.js and starts its own PTY the first time it is shown.",
           },
           {
             t: "list",
@@ -323,24 +341,48 @@ const en: DocsDict = {
             t: "table",
             head: ["Setting", "What it does"],
             rows: [
-              ["Language", "`System default` (default), `English` or `繁體中文`. System default picks Traditional Chinese when your system prefers it. Applies right away; Git, terminal and plugin messages keep their own language."],
+              [
+                "Language",
+                "`System default` (default), `English` or `繁體中文`. System default picks Traditional Chinese when your system prefers it. Applies right away; Git, terminal and plugin messages keep their own language.",
+              ],
               ["Theme", "`Dark` (default) or `Light`. The sun and moon button in the header switches it too."],
-              ["Font size", "Editor text size from 11 to 24, applied when you leave the field. `⌘` + scroll and `⌘=` / `⌘-` change it too."],
+              [
+                "Font size",
+                "Editor text size from 11 to 24, applied when you leave the field. `⌘` + scroll and `⌘=` / `⌘-` change it too.",
+              ],
               ["Tab size", "Width used for tabs and indentation, from 1 to 8."],
               ["Indent with spaces", "Indents with spaces; turn it off to indent with tab characters. On by default."],
               ["Word wrap", "Wraps long lines inside the editor. `⌥Z` (`Alt+Z`) toggles it."],
               ["Line numbers", "Shows the line number and fold gutter. On by default."],
               ["Show whitespace", "Marks spaces, tabs and trailing whitespace. Off by default."],
-              ["Close brackets and quotes automatically", "Types the closing `)`, `]`, `}` or quote for you. On by default."],
-              ["Trim trailing whitespace on save", "Removes spaces and tabs at line ends when you save the file shown in the editor. Off by default."],
-              ["End files with a newline on save", "Adds a final newline when you save the file shown in the editor. Off by default."],
-              ["Hide dot files", "Hides names starting with `.` in the Explorer. Off by default."],
-              ["Group Git ignored files", "Groups Git-ignored root items; also in the Explorer footer as `Group ignored`. On by default; remembered locally. Independent of project search’s include-ignored filter."],
-              ["Check for updates on startup", "Looks for a newer release shortly after startup. On by default."],
+              [
+                "Close brackets and quotes automatically",
+                "Types the closing `)`, `]`, `}` or quote for you. On by default.",
+              ],
+              [
+                "Trim trailing whitespace on save",
+                "Removes spaces and tabs at line ends when you save the file shown in the editor. Off by default.",
+              ],
+              [
+                "End files with a newline on save",
+                "Adds a final newline when you save the file shown in the editor. Off by default.",
+              ],
+              [
+                "Hide dot files",
+                "Hides names starting with `.` in the Explorer, but never a folder you opened. Off by default.",
+              ],
+              [
+                "Group Git ignored files",
+                "Groups Git-ignored root items; also in the Explorer footer as `Group ignored`. On by default; remembered locally. Independent of project search’s include-ignored filter.",
+              ],
               ["Watcher excluded paths", "Paths the file watcher ignores, such as build output."],
+              ["Check for updates on startup", "Looks for a newer release shortly after startup. On by default."],
             ],
           },
-          { t: "p", text: "Open Settings from `View › Settings` or with `⌘,` (`Ctrl+,`). Settings are grouped into Interface, Editor, Saving, Explorer and Updates. `Restore defaults` at the bottom asks for a second click, then resets everything except the language." },
+          {
+            t: "p",
+            text: "Open Settings from `View › Settings` or with `⌘,` (`Ctrl+,`). Settings are grouped into Interface, Editor, Saving, Explorer and Updates. `Restore defaults` at the bottom asks for a second click, then resets everything except the language.",
+          },
           { t: "h3", text: "Where your data lives" },
           {
             t: "list",
@@ -387,8 +429,12 @@ const en: DocsDict = {
               ["Copy / paste file or folder (focused Explorer row)", "`⌘C` / `⌘V`", "`Ctrl+C` / `Ctrl+V`"],
               ["Toggle word wrap", "`⌥Z`", "`Alt+Z`"],
               ["Markdown source / preview", "`⌘⇧V`", "`Ctrl+Shift+V`"],
-              ["Toggle terminal", "`` ⌘` ``", "`` Ctrl+` ``"],
-              ["Font size", "`⌘=` / `⌘-` / `⌘0`, or `⌘` + scroll", "`Ctrl+=` / `Ctrl+-` / `Ctrl+0`, or `Ctrl` + scroll"],
+              ["Toggle terminal", "`` ⌃` ``", "`` Ctrl+` ``"],
+              [
+                "Font size",
+                "`⌘=` / `⌘-` / `⌘0`, or `⌘` + scroll",
+                "`Ctrl+=` / `Ctrl+-` / `Ctrl+0`, or `Ctrl` + scroll",
+              ],
             ],
           },
           { t: "note", text: "Custom key bindings are planned." },
@@ -431,9 +477,17 @@ const en: DocsDict = {
             t: "table",
             head: ["Permission", "Calls", "Notes"],
             rows: [
-              ["`editor.read`", "`getText`, `getTextRange`, `getSelection`, `getCursor`, `getFileInfo`", "Up to 128 Ki code units per call"],
+              [
+                "`editor.read`",
+                "`getText`, `getTextRange`, `getSelection`, `getCursor`, `getFileInfo`",
+                "Up to 128 Ki code units per call",
+              ],
               ["`editor.write`", "`applyEdits(revision, edits)`", "Up to 1,000 edits; normal undo and dirty state"],
-              ["`workspace.read`", "`list`, `readFile`, `getFileInfo`, `readFileRange`", "128 KiB per read; ranges for larger files"],
+              [
+                "`workspace.read`",
+                "`list`, `readFile`, `getFileInfo`, `readFileRange`",
+                "128 KiB per read; ranges for larger files",
+              ],
               ["`workspace.write`", "`writeFile`", "Conflict-checked; never deletes"],
               ["`commands.register`", "`commands.register`", "Declared commands only"],
               ["`ui.*`", "`ui.notify`, `ui.statusBar`, `ui.quickPick`", "Rendered by pude, bounded text"],
@@ -481,7 +535,10 @@ const en: DocsDict = {
             text: "The browser shell uses an in-memory demo workspace. It does not exercise native files, Git, terminals or plugin installation.",
           },
           { t: "h3", text: "Before a pull request" },
-          { t: "p", text: "Include documentation with every feature or behavior change: update `docs/product-spec.md`, `CHANGELOG.md`, the README and both website languages where affected. Cover shortcuts, settings, limits, permissions and platform differences; review screenshots and SEO metadata. Explain unaffected surfaces in the PR and preserve historical benchmark versions and dates." },
+          {
+            t: "p",
+            text: "Include documentation with every feature or behavior change: update `docs/product-spec.md`, `CHANGELOG.md`, the README and both website languages where affected. Cover shortcuts, settings, limits, permissions and platform differences; review screenshots and SEO metadata. Explain unaffected surfaces in the PR and preserve historical benchmark versions and dates.",
+          },
           { t: "code", lang: "bash", code: checkCommands },
         ],
       },
@@ -565,7 +622,8 @@ const zhHant: DocsDict = {
           },
           {
             t: "release-status",
-            available: "首頁下載區會依作業系統推薦安裝檔。瀏覽器隱藏版本或處理器資訊時，請確認為 Windows 11 x64 或 macOS 14 以上 Apple Silicon；也能手動選擇兩種安裝檔。",
+            available:
+              "首頁下載區會依作業系統推薦安裝檔。瀏覽器隱藏版本或處理器資訊時，請確認為 Windows 11 x64 或 macOS 14 以上 Apple Silicon；也能手動選擇兩種安裝檔。",
             unavailable: "尚未設定經核實的版本下載入口；正式版本發布並通過驗證前，下載入口會保持停用。",
           },
           { t: "h3", text: "驗證下載檔" },
@@ -630,10 +688,22 @@ const zhHant: DocsDict = {
             ],
           },
           { t: "h3", text: "專案搜尋" },
-          { t: "p", text: "選取視窗左緣活動列中位於檔案總管與 Git 之間的搜尋圖示，或按 `⌘⇧F`（Windows 為 `Ctrl+Shift+F`）；若編輯器中選取了一小段單行文字，會直接作為搜尋內容。`⌘P`（`Ctrl+P`）會以 `Files` 模式開啟搜尋，依名稱跳至檔案。`Text` 搜尋文字，`Files` 搜尋檔名與相對路徑，`Aa` 切換區分大小寫。預設排除 Git 忽略的檔案，勾選 `Include Git ignored files` 可納入。結果先顯示檔名，所在資料夾以較淡的顏色列在旁邊，並附上行號。選取文字結果會開啟檔案，在可捲動的範圍內將命中處置中，並反白標示文字；選擇 `EXPLORER` 或在搜尋欄按 Escape 可回到檔案列表。" },
-          { t: "p", text: "要取代時，按 `Text / Files` 旁的箭頭顯示 `Replace with`。`Replace all`（或在該欄按 Enter）會取代整個專案的所有符合項目，包括清單以外的檔案；將滑鼠移到某筆結果上按取代按鈕，則只取代那個檔案。pude 會先請你確認，完成後告訴你取代了幾處、幾個檔案。" },
-          { t: "note", text: "取代沿用搜尋的純文字比對、`Aa` 與 Git 忽略規則。有未儲存修改的檔案會略過並計數，沒有修改的已開啟檔案會重新載入；全專案取代無法用 `Undo` 復原。跨檔案取代僅在桌面版提供。" },
-          { t: "note", text: "搜尋按需讀取已儲存的檔案，不建立索引；請先儲存修改。它不搜尋 `.git`，也不跟隨符號連結。文字搜尋略過二進位、不支援、無法讀取及超過 2 MiB 的檔案。每次最多 300 筆結果、50,000 個項目、讀取 100 MiB 或執行八秒；出現限制提示時請縮小搜尋範圍。" },
+          {
+            t: "p",
+            text: "選取視窗左緣活動列中位於檔案總管與 Git 之間的搜尋圖示，或按 `⌘⇧F`（Windows 為 `Ctrl+Shift+F`）；若編輯器中選取了一小段單行文字，會直接作為搜尋內容。`⌘P`（`Ctrl+P`）會以 `Files` 模式開啟搜尋，依名稱跳至檔案。`Text` 搜尋文字，`Files` 搜尋檔名與相對路徑，`Aa` 切換區分大小寫。預設排除 Git 忽略的檔案，勾選 `Include Git ignored files` 可納入。結果先顯示檔名，所在資料夾以較淡的顏色列在旁邊，並附上行號。選取文字結果會開啟檔案，在可捲動的範圍內將命中處置中，並反白標示文字；選擇 `EXPLORER` 或在搜尋欄按 Escape 可回到檔案列表。",
+          },
+          {
+            t: "p",
+            text: "要取代時，按 `Text / Files` 旁的箭頭顯示 `Replace with`。`Replace all`（或在該欄按 Enter）會取代整個專案的所有符合項目，包括清單以外的檔案。文字結果會依檔案分組，按檔案標題上的取代按鈕則只取代那個檔案。pude 會先請你確認，完成後告訴你取代了幾處、幾個檔案。",
+          },
+          {
+            t: "note",
+            text: "取代沿用搜尋的純文字比對、`Aa` 與 Git 忽略規則。有未儲存修改的檔案會略過並計數，沒有修改的已開啟檔案會重新載入；全專案取代無法用 `Undo` 復原。跨檔案取代僅在桌面版提供。",
+          },
+          {
+            t: "note",
+            text: "搜尋按需讀取已儲存的檔案，不建立索引；請先儲存修改。它不搜尋 `.git`，也不跟隨符號連結。文字搜尋略過二進位、不支援、無法讀取及超過 2 MiB 的檔案。每次最多 300 筆結果、50,000 個項目、讀取 100 MiB 或執行八秒；出現限制提示時請縮小搜尋範圍。",
+          },
           { t: "h3", text: "編輯" },
           {
             t: "list",
@@ -644,7 +714,7 @@ const zhHant: DocsDict = {
               "多游標、復原與重做、縮排由 CodeMirror 6 提供。編輯器會標示目前所在行、對應的括號以及與選取內容相同的文字，輸入時自動補上右括號與引號，輸入右括號時自動調整縮排，並可從行號欄摺疊區塊。`⌘D`（`Ctrl+D`）將下一個相符項目加入選取，`⌘⇧L` 選取所有相符項目，按住 Alt 拖曳可進行欄選取。大型檔案模式不提供摺疊與自動補括號。",
               "命令面板（`⌘⇧P`）會顯示每個指令的快捷鍵，關鍵字可不分順序比對，最近執行過的指令排在最前面。面板中包含 `Sort Lines Ascending`、`Transform to Uppercase`、`Trim Trailing Whitespace`、`Fold All`、`Toggle Line Comment`、`Duplicate Line` 等編輯指令，以及 `Toggle Word Wrap`（`⌥Z`、`Alt+Z`）、`Toggle Line Numbers`、`Toggle Whitespace` 等檢視指令。",
               "`.env` 與 `.env.*` 支援 shell 語法高亮，包括變數賦值、引號、數字、變數展開與註解，狀態列顯示 `Dotenv`；沿用相同的大型檔案限制。",
-              "`.env` 檔會以表格開啟：每個變數都有名稱與值兩個輸入框，各自附有複製按鈕，`整行` 則複製整行 `NAME=value`。工具列或表格下方的 `新增變數` 會在最後一個變數之後、結尾註解之前新增一列。對列按右鍵或開啟列操作選單，可在上方或下方插入。可以改名、修改或刪除變數，並產生 Hex、Base64URL、Base64、英數字或 UUIDv4 格式的隨機值。預設為 32 位元組的 Base64URL；長度可設定為 1 至 1,024 位元組或字元，並提供 16、32、64 預設值。工具列的 `產生金鑰` 連空白檔案也能使用，可以複製產生的值，或新增為變數。列上的 ✦ 按鈕或列操作選單會為該列產生值，新增中的那一列也一樣。預覽會顯示字元數。可預覽、重新產生、複製、套用或取消；格式和長度會儲存在本機，產生的值不會作為偏好設定儲存。不在草稿列或產生器中時，Cmd/Ctrl+Z 可復原，Shift+Cmd/Ctrl+Z 或 Ctrl+Y 可重做；插入、刪除與產生各自是獨立的復原步驟。只會改寫變動的文字，值需要時會自動加上引號。編輯器右下角的 `原始碼 / 表格` 按鈕可切換檢視，同一個專案裡的 `.env` 檔都會沿用這個選擇。超過 512 KiB 的檔案不提供表格檢視。",
+              "`.env` 檔會以表格開啟：每個變數都有名稱與值兩個輸入框，各自附有複製按鈕，`整行` 則複製整行 `NAME=value`。工具列或表格下方的 `新增變數` 會在最後一個變數之後、結尾註解之前新增一列。對列按右鍵或開啟列操作選單，可在上方或下方插入。可以改名、修改或刪除變數，並產生 Hex、Base64URL、Base64、英數字或 UUIDv4 格式的隨機值。預設為 32 位元組的 Base64URL；長度可設定為 1 至 1,024 位元組或字元，並提供 16、32、64 預設值。工具列的 `產生金鑰` 連空白檔案也能使用，可以複製產生的值，或新增為變數。列上的 ✦ 按鈕或列操作選單會為該列產生值，新增中的那一列也一樣。預覽會顯示字元數。可預覽、重新產生、複製、套用或取消；格式和長度會儲存在本機，產生的值不會作為偏好設定儲存。不在草稿列或產生器中時，Cmd/Ctrl+Z 可復原，Shift+Cmd/Ctrl+Z 或 Ctrl+Y 可重做；插入、刪除與產生各自是獨立的復原步驟。只會改寫變動的文字，值需要時會自動加上引號。編輯器右下角的 `原始碼 / 表格` 按鈕可切換檢視，同一個專案裡的 `.env` 檔都會沿用這個選擇。超過 512 KiB 的檔案不提供表格檢視。每次開啟表格時值都會遮蔽，按工具列的 `顯示值` 才會顯示；正在編輯的值一律顯示原文。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，或按 `⌘=` / `⌘-`（`Ctrl+=` / `Ctrl+-`），可將字體大小調整為 11 到 24；`⌘0`（`Ctrl+0`）還原為 14。",
               "介面使用開源字型 Inter，編輯器、終端機與差異檢視使用 JetBrains Mono。兩者都隨 pude 內建，離線與各平台顯示一致；中文會使用系統字型。",
               "Markdown 預設顯示原始碼；編輯器右下角的 `Source / Preview` 按鈕可切換為渲染預覽，同一個專案裡的 Markdown 檔都會沿用這個選擇。預覽會使用編輯區可用寬度，縮小兩側留白，並在深淺主題使用清晰的內文字色。",
@@ -656,13 +726,13 @@ const zhHant: DocsDict = {
             items: [
               "UTF-8 與含 BOM 的 UTF-8。無效的 UTF-8 或其他編碼會被拒絕，不會默默轉碼。",
               "超過 5 MiB 的檔案以大型檔案模式開啟：保留編輯與搜尋，關閉重型解析與預覽。",
-              "文字檔上限為 20 MiB；支援的圖片會以圖片預覽開啟。",
+              "文字檔上限為 20 MiB；支援的圖片會以圖片預覽開啟。透過符號連結開啟的檔案不支援，請直接開啟連結指向的檔案。",
             ],
           },
           { t: "h3", text: "安全地儲存" },
           {
             t: "p",
-            text: "每個檔案的儲存會依序排隊，並以原子化方式取代原檔。每一行都保留原本的 LF 或 CRLF。若檔案在你尚未儲存時被外部修改，pude 會提供 `Compare`、`Reload from disk`、`Save As…` 或 `Keep editor version`——絕不默默覆寫任何一方。",
+            text: "每個檔案的儲存會依序排隊，並以原子化方式取代原檔。在 macOS 與 Linux 上，有多個硬連結或屬於其他使用者的檔案，會改為直接覆寫原檔，以保留連結與擁有者。每一行都保留原本的 LF 或 CRLF。若檔案在你尚未儲存時被外部修改，pude 會提供 `Compare`、`Reload from disk`、`Save As…` 或 `Keep editor version`——絕不默默覆寫任何一方。",
           },
           {
             t: "p",
@@ -709,7 +779,7 @@ const zhHant: DocsDict = {
           { t: "h2", text: "終端機" },
           {
             t: "p",
-            text: "用 `` ⌘` ``（Windows 為 `` Ctrl+` ``）切換面板，需要幾個分頁就開幾個。每個分頁第一次顯示時，才會載入 xterm.js 並啟動自己的 PTY。",
+            text: "在所有平台都用 `` Ctrl+` `` 切換面板（macOS 的 `` ⌘` `` 保留給系統切換視窗），需要幾個分頁就開幾個。每個分頁第一次顯示時，才會載入 xterm.js 並啟動自己的 PTY。",
           },
           {
             t: "list",
@@ -741,7 +811,10 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["設定", "作用"],
             rows: [
-              ["語言（Language）", "`跟隨系統`（預設）、`English` 或 `繁體中文`。跟隨系統時，若系統偏好語言為繁體中文就使用繁體中文。切換後立即生效；Git、終端機與外掛的訊息維持原本的語言。"],
+              [
+                "語言（Language）",
+                "`跟隨系統`（預設）、`English` 或 `繁體中文`。跟隨系統時，若系統偏好語言為繁體中文就使用繁體中文。切換後立即生效；Git、終端機與外掛的訊息維持原本的語言。",
+              ],
               ["Theme", "`Dark`（預設）或 `Light`；標題列的太陽／月亮按鈕也能切換。"],
               ["Font size", "編輯器字體大小，範圍 11 到 24，離開欄位時套用；也可以用 `⌘` + 滾輪或 `⌘=` / `⌘-` 調整。"],
               ["Tab size", "Tab 與縮排的寬度，範圍 1 到 8。"],
@@ -752,13 +825,19 @@ const zhHant: DocsDict = {
               ["Close brackets and quotes automatically", "輸入時自動補上 `)`、`]`、`}` 或引號，預設開啟。"],
               ["Trim trailing whitespace on save", "儲存編輯器中顯示的檔案時，移除每行結尾的空格與 Tab，預設關閉。"],
               ["End files with a newline on save", "儲存編輯器中顯示的檔案時，在結尾補上換行，預設關閉。"],
-              ["Hide dot files", "在檔案總管中隱藏以 `.` 開頭的名稱，預設關閉。"],
-              ["Group Git ignored files", "將根目錄的 Git 忽略項目分組，檔案總管底部的 `Group ignored` 也能切換；預設開啟，選擇會儲存在本機，與專案搜尋的納入忽略檔案選項各自獨立。"],
-              ["Check for updates on startup", "啟動後不久檢查是否有新版本，預設開啟。"],
+              ["Hide dot files", "在檔案總管中隱藏以 `.` 開頭的名稱，但不會隱藏你開啟的資料夾本身，預設關閉。"],
+              [
+                "Group Git ignored files",
+                "將根目錄的 Git 忽略項目分組，檔案總管底部的 `Group ignored` 也能切換；預設開啟，選擇會儲存在本機，與專案搜尋的納入忽略檔案選項各自獨立。",
+              ],
               ["Watcher excluded paths", "檔案監看要忽略的路徑，例如建置輸出。"],
+              ["Check for updates on startup", "啟動後不久檢查是否有新版本，預設開啟。"],
             ],
           },
-          { t: "p", text: "從 `View › Settings`（繁體中文介面為 `檢視 › 設定`）或 `⌘,`（`Ctrl+,`）開啟設定。設定分為介面、編輯器、儲存、檔案總管與更新幾組；最下方的 `Restore defaults` 需要再按一次確認，會還原語言以外的所有設定。本文件中的介面名稱以英文介面為準；切換為繁體中文後，選單與按鈕會顯示對應的中文名稱。" },
+          {
+            t: "p",
+            text: "從 `View › Settings`（繁體中文介面為 `檢視 › 設定`）或 `⌘,`（`Ctrl+,`）開啟設定。設定分為介面、編輯器、儲存、檔案總管與更新幾組；最下方的 `Restore defaults` 需要再按一次確認，會還原語言以外的所有設定。本文件中的介面名稱以英文介面為準；切換為繁體中文後，選單與按鈕會顯示對應的中文名稱。",
+          },
           { t: "h3", text: "資料存放位置" },
           {
             t: "list",
@@ -805,7 +884,7 @@ const zhHant: DocsDict = {
               ["複製／貼上檔案或資料夾（檔案總管的列取得焦點時）", "`⌘C` / `⌘V`", "`Ctrl+C` / `Ctrl+V`"],
               ["切換自動換行", "`⌥Z`", "`Alt+Z`"],
               ["Markdown 原始碼／預覽", "`⌘⇧V`", "`Ctrl+Shift+V`"],
-              ["切換終端機", "`` ⌘` ``", "`` Ctrl+` ``"],
+              ["切換終端機", "`` ⌃` ``", "`` Ctrl+` ``"],
               ["字體大小", "`⌘=` / `⌘-` / `⌘0`，或 `⌘` + 滾輪", "`Ctrl+=` / `Ctrl+-` / `Ctrl+0`，或 `Ctrl` + 滾輪"],
             ],
           },
@@ -849,9 +928,17 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["權限", "呼叫", "說明"],
             rows: [
-              ["`editor.read`", "`getText`、`getTextRange`、`getSelection`、`getCursor`、`getFileInfo`", "每次最多 128 Ki 個字碼單位"],
+              [
+                "`editor.read`",
+                "`getText`、`getTextRange`、`getSelection`、`getCursor`、`getFileInfo`",
+                "每次最多 128 Ki 個字碼單位",
+              ],
               ["`editor.write`", "`applyEdits(revision, edits)`", "最多 1,000 筆編輯；走一般的復原與未儲存狀態"],
-              ["`workspace.read`", "`list`、`readFile`、`getFileInfo`、`readFileRange`", "每次 128 KiB；大型檔案以範圍讀取"],
+              [
+                "`workspace.read`",
+                "`list`、`readFile`、`getFileInfo`、`readFileRange`",
+                "每次 128 KiB；大型檔案以範圍讀取",
+              ],
               ["`workspace.write`", "`writeFile`", "會檢查衝突；不提供刪除"],
               ["`commands.register`", "`commands.register`", "僅限已宣告的命令"],
               ["`ui.*`", "`ui.notify`、`ui.statusBar`、`ui.quickPick`", "由 pude 繪製，文字長度有限"],
@@ -899,7 +986,10 @@ const zhHant: DocsDict = {
             text: "瀏覽器殼層使用記憶體中的示範工作區，不會測到原生檔案、Git、終端機或外掛安裝。",
           },
           { t: "h3", text: "送出 Pull Request 前" },
-          { t: "p", text: "每個功能或行為變更都要在同一個 PR 更新相關文件：`docs/product-spec.md`、`CHANGELOG.md`、README 與中英文網站。補上快捷鍵、設定、限制、權限與平台差異，檢查截圖及 SEO metadata；未受影響的地方要在 PR 說明原因。歷史效能數字須保留原本量測的版本與日期。" },
+          {
+            t: "p",
+            text: "每個功能或行為變更都要在同一個 PR 更新相關文件：`docs/product-spec.md`、`CHANGELOG.md`、README 與中英文網站。補上快捷鍵、設定、限制、權限與平台差異，檢查截圖及 SEO metadata；未受影響的地方要在 PR 說明原因。歷史效能數字須保留原本量測的版本與日期。",
+          },
           { t: "code", lang: "bash", code: checkCommands },
         ],
       },

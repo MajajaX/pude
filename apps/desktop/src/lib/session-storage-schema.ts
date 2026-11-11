@@ -275,30 +275,62 @@ export type SessionCheckpointReadResult = {
   source: "indexeddb" | "fallback";
 };
 
-export function createSessionMetadata(workspace: string, activeTabId: string | undefined, tabs: readonly EditorTab[], root: DirectoryEntry, expandedPaths?: string[]): SessionMetadata {
-  const persistedTabs = retainSessionTabs(tabs.map(({ id, path, name, pinned, dirty, lineEnding, lineEndings, savedLineEndings, bom, savedBom, encoding, language, cursorLine, cursorColumn, revision, savedRevision, contentVersion, diskModifiedAt, diskSize, diskFingerprint, diskIdentity }) => ({
-    id,
-    path,
-    name,
-    pinned: pinned === true,
-    dirty,
-    lineEnding,
-    lineEndings,
-    savedLineEndings,
-    bom,
-    savedBom,
-    encoding,
-    language,
-    cursorLine,
-    cursorColumn,
-    revision,
-    savedRevision,
-    contentVersion,
-    diskModifiedAt,
-    diskSize,
-    diskFingerprint,
-    diskIdentity,
-  })));
+export function createSessionMetadata(
+  workspace: string,
+  activeTabId: string | undefined,
+  tabs: readonly EditorTab[],
+  root: DirectoryEntry,
+  expandedPaths?: string[],
+): SessionMetadata {
+  const persistedTabs = retainSessionTabs(
+    tabs.map(
+      ({
+        id,
+        path,
+        name,
+        pinned,
+        dirty,
+        lineEnding,
+        lineEndings,
+        savedLineEndings,
+        bom,
+        savedBom,
+        encoding,
+        language,
+        cursorLine,
+        cursorColumn,
+        revision,
+        savedRevision,
+        contentVersion,
+        diskModifiedAt,
+        diskSize,
+        diskFingerprint,
+        diskIdentity,
+      }) => ({
+        id,
+        path,
+        name,
+        pinned: pinned === true,
+        dirty,
+        lineEnding,
+        lineEndings,
+        savedLineEndings,
+        bom,
+        savedBom,
+        encoding,
+        language,
+        cursorLine,
+        cursorColumn,
+        revision,
+        savedRevision,
+        contentVersion,
+        diskModifiedAt,
+        diskSize,
+        diskFingerprint,
+        diskIdentity,
+      }),
+    ),
+  );
   const ids = new Set(persistedTabs.map((tab) => tab.id));
   return {
     version: SESSION_SCHEMA_VERSION,
@@ -329,14 +361,26 @@ export function parseSessionValue(value: unknown): SessionMetadata | null {
       }
       ids.add(candidate.id);
       const folders = Array.isArray(candidate.folders) ? uniqueStrings(candidate.folders, MAX_WORKSPACE_FOLDERS) : [];
-      const workspaceFile = boundedString(candidate.workspaceFile, MAX_PATH_LENGTH) ? candidate.workspaceFile : undefined;
-      projects.push({ id: candidate.id, workspace: session.workspace,
-        ...(folders.length ? { folders } : {}), ...(workspaceFile ? { workspaceFile } : {}),
-        activeTabId: session.activeTabId, tabs: session.tabs, expandedPaths: session.expandedPaths });
+      const workspaceFile = boundedString(candidate.workspaceFile, MAX_PATH_LENGTH)
+        ? candidate.workspaceFile
+        : undefined;
+      projects.push({
+        id: candidate.id,
+        workspace: session.workspace,
+        ...(folders.length ? { folders } : {}),
+        ...(workspaceFile ? { workspaceFile } : {}),
+        activeTabId: session.activeTabId,
+        tabs: session.tabs,
+        expandedPaths: session.expandedPaths,
+      });
     }
-    return createWindowSessionMetadata(projects, typeof value.activeProjectId === "string" ? value.activeProjectId : undefined);
+    return createWindowSessionMetadata(
+      projects,
+      typeof value.activeProjectId === "string" ? value.activeProjectId : undefined,
+    );
   }
-  if (typeof value.workspace !== "string" || value.workspace.length > MAX_PATH_LENGTH || !Array.isArray(value.tabs)) return null;
+  if (typeof value.workspace !== "string" || value.workspace.length > MAX_PATH_LENGTH || !Array.isArray(value.tabs))
+    return null;
   const tabs: PersistedTab[] = [];
   const ids = new Set<string>();
   const paths = new Set<string>();
@@ -353,22 +397,34 @@ export function parseSessionValue(value: unknown): SessionMetadata | null {
   const expandedPaths = Array.isArray(value.expandedPaths)
     ? uniqueStrings(value.expandedPaths, MAX_CLEAN_TABS * 20)
     : [];
-  const activeTabId = typeof value.activeTabId === "string" && ids.has(value.activeTabId) ? value.activeTabId : undefined;
+  const activeTabId =
+    typeof value.activeTabId === "string" && ids.has(value.activeTabId) ? value.activeTabId : undefined;
   return { version: SESSION_SCHEMA_VERSION, workspace: value.workspace, activeTabId, tabs, expandedPaths };
 }
 
-export function createWindowSessionMetadata(projects: readonly ProjectSessionMetadata[], activeProjectId?: string): SessionMetadata {
+export function createWindowSessionMetadata(
+  projects: readonly ProjectSessionMetadata[],
+  activeProjectId?: string,
+): SessionMetadata {
   const retained = retainSessionTabs(projects.flatMap((project) => project.tabs));
   const retainedIds = new Set(retained.map((tab) => tab.id));
   const normalized = projects.map((project) => {
     const tabs = project.tabs.filter((tab) => retainedIds.has(tab.id));
-    return { ...project, tabs, activeTabId: tabs.some((tab) => tab.id === project.activeTabId) ? project.activeTabId : undefined };
+    return {
+      ...project,
+      tabs,
+      activeTabId: tabs.some((tab) => tab.id === project.activeTabId) ? project.activeTabId : undefined,
+    };
   });
   const active = normalized.find((project) => project.id === activeProjectId) ?? normalized[0];
   return {
-    version: SESSION_SCHEMA_VERSION, projects: normalized, activeProjectId: active?.id,
-    workspace: active?.workspace ?? "", activeTabId: active?.activeTabId,
-    tabs: normalized.flatMap((project) => project.tabs), expandedPaths: active?.expandedPaths ?? [],
+    version: SESSION_SCHEMA_VERSION,
+    projects: normalized,
+    activeProjectId: active?.id,
+    workspace: active?.workspace ?? "",
+    activeTabId: active?.activeTabId,
+    tabs: normalized.flatMap((project) => project.tabs),
+    expandedPaths: active?.expandedPaths ?? [],
   };
 }
 
@@ -392,12 +448,15 @@ export function serializeCursorPositions(positions: Record<string, CursorPositio
 export function parseRecovery(raw: unknown): RecoverySnapshot | null {
   if (typeof raw === "string" && raw.length > MAX_RECOVERY_BYTES * 2 + 8192) return null;
   const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (!isRecord(value)
-    || (value.version !== 1 && value.version !== 2)
-    || !boundedString(value.tabId, 256)
-    || !boundedString(value.path, MAX_PATH_LENGTH)
-    || typeof value.content !== "string"
-    || (value.version === 1 && typeof value.savedContent !== "string" && value.savedContentUnavailable !== true)) return null;
+  if (
+    !isRecord(value) ||
+    (value.version !== 1 && value.version !== 2) ||
+    !boundedString(value.tabId, 256) ||
+    !boundedString(value.path, MAX_PATH_LENGTH) ||
+    typeof value.content !== "string" ||
+    (value.version === 1 && typeof value.savedContent !== "string" && value.savedContentUnavailable !== true)
+  )
+    return null;
   const revision = nonNegativeInteger(value.revision);
   if (revision === undefined) return null;
   let savedRevision: number | undefined;
@@ -410,13 +469,15 @@ export function parseRecovery(raw: unknown): RecoverySnapshot | null {
   // inline savedContent references a separately stored baseline; until it is
   // resolved the snapshot behaves like the large-document unavailable form.
   const inlineSavedContent = typeof value.savedContent === "string";
-  const savedContentUnavailable = value.savedContentUnavailable === true || (value.version === 2 && !inlineSavedContent);
-  const hasTextMetadata = typeof value.lineEndings === "string"
-    || typeof value.savedLineEndings === "string"
-    || typeof value.bom === "boolean"
-    || typeof value.savedBom === "boolean"
-    || savedContentUnavailable
-    || typeof value.encoding === "string";
+  const savedContentUnavailable =
+    value.savedContentUnavailable === true || (value.version === 2 && !inlineSavedContent);
+  const hasTextMetadata =
+    typeof value.lineEndings === "string" ||
+    typeof value.savedLineEndings === "string" ||
+    typeof value.bom === "boolean" ||
+    typeof value.savedBom === "boolean" ||
+    savedContentUnavailable ||
+    typeof value.encoding === "string";
   const snapshot: RecoverySnapshot = {
     version: value.version,
     tabId: value.tabId,
@@ -427,13 +488,23 @@ export function parseRecovery(raw: unknown): RecoverySnapshot | null {
     ...(savedRevision === undefined ? {} : { savedRevision }),
     ...(savedContentUnavailable ? { savedContentUnavailable: true as const } : {}),
     lineEnding,
-    ...(hasTextMetadata ? {
-      lineEndings: normalizeLineEndingMap(value.content, typeof value.lineEndings === "string" ? value.lineEndings : undefined, lineEnding),
-      savedLineEndings: normalizeLineEndingMap(inlineSavedContent ? value.savedContent : "", typeof value.savedLineEndings === "string" ? value.savedLineEndings : undefined, lineEnding),
-      bom: value.bom === true,
-      savedBom: value.savedBom === true || (value.savedBom === undefined && value.bom === true),
-      encoding: value.encoding === "UTF-8 BOM" ? "UTF-8 BOM" : "UTF-8",
-    } : {}),
+    ...(hasTextMetadata
+      ? {
+          lineEndings: normalizeLineEndingMap(
+            value.content,
+            typeof value.lineEndings === "string" ? value.lineEndings : undefined,
+            lineEnding,
+          ),
+          savedLineEndings: normalizeLineEndingMap(
+            inlineSavedContent ? value.savedContent : "",
+            typeof value.savedLineEndings === "string" ? value.savedLineEndings : undefined,
+            lineEnding,
+          ),
+          bom: value.bom === true,
+          savedBom: value.savedBom === true || (value.savedBom === undefined && value.bom === true),
+          encoding: value.encoding === "UTF-8 BOM" ? "UTF-8 BOM" : "UTF-8",
+        }
+      : {}),
   };
   return recoverySnapshotSizeBytes(snapshot) <= MAX_RECOVERY_BYTES ? snapshot : null;
 }
@@ -442,18 +513,27 @@ export function recoverySnapshotSizeBytes(snapshot: RecoverySnapshot): number {
   // IndexedDB stores strings through structured clone. Use the UTF-16 size
   // upper bound so checking the limit does not scan or copy the document.
   return (
-    snapshot.tabId.length
-    + snapshot.path.length
-    + snapshot.content.length
-    + (snapshot.savedContentUnavailable ? 0 : snapshot.savedContent.length)
-    + (snapshot.lineEndings?.length ?? 0)
-    + (snapshot.savedLineEndings?.length ?? 0)
-  ) * 2 + 256;
+    (snapshot.tabId.length +
+      snapshot.path.length +
+      snapshot.content.length +
+      (snapshot.savedContentUnavailable ? 0 : snapshot.savedContent.length) +
+      (snapshot.lineEndings?.length ?? 0) +
+      (snapshot.savedLineEndings?.length ?? 0)) *
+      2 +
+    256
+  );
 }
 
 /** Retain the edited text when a full baseline would exceed the per-document budget. */
 export function compactRecoverySnapshot(snapshot: RecoverySnapshot): RecoverySnapshot | null {
-  if ((snapshot.version !== 1 && snapshot.version !== 2) || !boundedString(snapshot.tabId, 256) || !boundedString(snapshot.path, MAX_PATH_LENGTH) || typeof snapshot.content !== "string" || typeof snapshot.savedContent !== "string") return null;
+  if (
+    (snapshot.version !== 1 && snapshot.version !== 2) ||
+    !boundedString(snapshot.tabId, 256) ||
+    !boundedString(snapshot.path, MAX_PATH_LENGTH) ||
+    typeof snapshot.content !== "string" ||
+    typeof snapshot.savedContent !== "string"
+  )
+    return null;
   if (recoverySnapshotSizeBytes(snapshot) <= MAX_RECOVERY_BYTES) return parseRecovery(snapshot);
   // v2 already stores the baseline by reference; without the inline baseline
   // there is nothing left to compact.
@@ -511,11 +591,14 @@ export function sameRecoveryStorageScope(key: string, scope: string): boolean {
 
 export function parseRecoveryBaseline(raw: unknown): RecoveryBaseline | null {
   const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (!isRecord(value)
-    || value.version !== 1
-    || !boundedString(value.tabId, 256)
-    || !boundedString(value.path, MAX_PATH_LENGTH)
-    || typeof value.savedContent !== "string") return null;
+  if (
+    !isRecord(value) ||
+    value.version !== 1 ||
+    !boundedString(value.tabId, 256) ||
+    !boundedString(value.path, MAX_PATH_LENGTH) ||
+    typeof value.savedContent !== "string"
+  )
+    return null;
   const savedRevision = nonNegativeInteger(value.savedRevision);
   if (savedRevision === undefined) return null;
   const baseline: RecoveryBaseline = {
@@ -534,11 +617,13 @@ export function parseRecoveryBaseline(raw: unknown): RecoveryBaseline | null {
 export function recoveryBaselineSizeBytes(baseline: RecoveryBaseline): number {
   // Same UTF-16 structured-clone upper bound as recoverySnapshotSizeBytes.
   return (
-    baseline.tabId.length
-    + baseline.path.length
-    + baseline.savedContent.length
-    + (baseline.savedLineEndings?.length ?? 0)
-  ) * 2 + 256;
+    (baseline.tabId.length +
+      baseline.path.length +
+      baseline.savedContent.length +
+      (baseline.savedLineEndings?.length ?? 0)) *
+      2 +
+    256
+  );
 }
 
 /**
@@ -546,9 +631,17 @@ export function recoveryBaselineSizeBytes(baseline: RecoveryBaseline): number {
  * baseline record is missing or stale keep the savedContentUnavailable form,
  * which restore already handles by re-reading the baseline from disk.
  */
-export function resolveRecoveryBaseline(snapshot: RecoverySnapshot | null, baseline: RecoveryBaseline | null | undefined): RecoverySnapshot | null {
-  if (!snapshot || snapshot.version !== 2 || !snapshot.savedContentUnavailable || !baseline) return snapshot;
-  if (baseline.tabId !== snapshot.tabId || baseline.path !== snapshot.path || baseline.savedRevision !== snapshot.savedRevision) return snapshot;
+export function resolveRecoveryBaseline(
+  snapshot: RecoverySnapshot | null,
+  baseline: RecoveryBaseline | null | undefined,
+): RecoverySnapshot | null {
+  if (snapshot?.version !== 2 || !snapshot.savedContentUnavailable || !baseline) return snapshot;
+  if (
+    baseline.tabId !== snapshot.tabId ||
+    baseline.path !== snapshot.path ||
+    baseline.savedRevision !== snapshot.savedRevision
+  )
+    return snapshot;
   const { savedContentUnavailable: _unavailable, ...rest } = snapshot;
   return {
     ...rest,
@@ -578,15 +671,29 @@ export function sessionCheckpointMetadataStorageKey(scope: string): string {
   return `${SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX}${encodeURIComponent(scope)}`;
 }
 
-export function parseSessionCheckpoint(raw: unknown, baselines?: Record<string, RecoveryBaseline>): SessionCheckpoint | null {
+export function parseSessionCheckpoint(
+  raw: unknown,
+  baselines?: Record<string, RecoveryBaseline>,
+): SessionCheckpoint | null {
   const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (!isRecord(value)
-    || (value.version !== SESSION_CHECKPOINT_SCHEMA_VERSION && value.version !== LEGACY_SESSION_CHECKPOINT_SCHEMA_VERSION)
-    || !boundedString(value.scope, 256)
-    || !boundedString(value.checkpointId, 512)) return null;
+  if (
+    !isRecord(value) ||
+    (value.version !== SESSION_CHECKPOINT_SCHEMA_VERSION &&
+      value.version !== LEGACY_SESSION_CHECKPOINT_SCHEMA_VERSION) ||
+    !boundedString(value.scope, 256) ||
+    !boundedString(value.checkpointId, 512)
+  )
+    return null;
   const sequence = nonNegativeInteger(value.sequence);
   const committedAt = nonNegativeTimestamp(value.committedAt);
-  if (sequence === undefined || committedAt === undefined || !isRecord(value.session) || !isRecord(value.recoveryRevisions) || !isRecord(value.recoveries)) return null;
+  if (
+    sequence === undefined ||
+    committedAt === undefined ||
+    !isRecord(value.session) ||
+    !isRecord(value.recoveryRevisions) ||
+    !isRecord(value.recoveries)
+  )
+    return null;
   // Fallback checkpoints embed their baselines next to the recoveries so the
   // JSON stays self-contained; database checkpoints pass them separately.
   const resolvedBaselines = baselines ?? parseInlineBaselines(value.baselines);
@@ -597,7 +704,7 @@ export function parseSessionCheckpoint(raw: unknown, baselines?: Record<string, 
   for (const [key, revision] of Object.entries(value.recoveryRevisions)) {
     if (!isRecoveryStorageKey(key) || !key.includes(":")) continue;
     const tab = tabsByRecoveryKey.get(key);
-    if (!tab || !tab.dirty) return null;
+    if (!tab?.dirty) return null;
     if (revision === null) {
       recoveryRevisions[key] = null;
       continue;
@@ -611,7 +718,15 @@ export function parseSessionCheckpoint(raw: unknown, baselines?: Record<string, 
     if (!isRecoveryStorageKey(key) || !key.includes(":")) continue;
     const snapshot = resolveRecoveryBaseline(parseRecovery(candidate), resolvedBaselines?.[key]);
     const tab = tabsByRecoveryKey.get(key);
-    if (!snapshot || !tab || !tab.dirty || recoveryRevisions[key] !== snapshot.revision || recoveryStorageKey(snapshot.tabId, value.scope) !== key || snapshot.path !== tab.path || snapshot.revision !== tab.revision) return null;
+    if (
+      !snapshot ||
+      !tab?.dirty ||
+      recoveryRevisions[key] !== snapshot.revision ||
+      recoveryStorageKey(snapshot.tabId, value.scope) !== key ||
+      snapshot.path !== tab.path ||
+      snapshot.revision !== tab.revision
+    )
+      return null;
     recoveries[key] = snapshot;
   }
   for (const [key, revision] of Object.entries(recoveryRevisions)) {
@@ -636,22 +751,34 @@ export function parseSessionCheckpointMetadata(
   source: "indexeddb" | "fallback" = "indexeddb",
 ): SessionCheckpointMetadataReadResult | null {
   const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (!isRecord(value)
-    || (value.version !== SESSION_CHECKPOINT_SCHEMA_VERSION && value.version !== LEGACY_SESSION_CHECKPOINT_SCHEMA_VERSION)
-    || !boundedString(value.scope, 256)
-    || !boundedString(value.checkpointId, 512)) return null;
+  if (
+    !isRecord(value) ||
+    (value.version !== SESSION_CHECKPOINT_SCHEMA_VERSION &&
+      value.version !== LEGACY_SESSION_CHECKPOINT_SCHEMA_VERSION) ||
+    !boundedString(value.scope, 256) ||
+    !boundedString(value.checkpointId, 512)
+  )
+    return null;
   const sequence = nonNegativeInteger(value.sequence);
   const committedAt = nonNegativeTimestamp(value.committedAt);
-  if (sequence === undefined || committedAt === undefined || !isRecord(value.session) || !isRecord(value.recoveryRevisions)) return null;
+  if (
+    sequence === undefined ||
+    committedAt === undefined ||
+    !isRecord(value.session) ||
+    !isRecord(value.recoveryRevisions)
+  )
+    return null;
 
   const session = parseSessionValue(value.session);
   if (!session || session.workspace.length > MAX_PATH_LENGTH) return null;
 
-  const tabsByRecoveryKey = new Map(session.tabs.map((tab) => [recoveryStorageKey(tab.id, value.scope as string), tab]));
+  const tabsByRecoveryKey = new Map(
+    session.tabs.map((tab) => [recoveryStorageKey(tab.id, value.scope as string), tab]),
+  );
   const recoveryRevisions: Record<string, number | null> = {};
   for (const [key, revision] of Object.entries(value.recoveryRevisions)) {
     const tab = tabsByRecoveryKey.get(key);
-    if (!isRecoveryStorageKey(key) || !sameRecoveryScope(key, value.scope as string) || !tab || !tab.dirty) return null;
+    if (!isRecoveryStorageKey(key) || !sameRecoveryScope(key, value.scope as string) || !tab?.dirty) return null;
     if (revision === null) {
       recoveryRevisions[key] = null;
       continue;
@@ -661,9 +788,15 @@ export function parseSessionCheckpointMetadata(
     recoveryRevisions[key] = parsedRevision;
   }
 
-  const expectedKeys = session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, value.scope as string));
+  const expectedKeys = session.tabs
+    .filter((tab) => tab.dirty)
+    .map((tab) => recoveryStorageKey(tab.id, value.scope as string));
   const suppliedKeys = recoveryKeys ?? Object.keys(recoveryRevisions);
-  const keys = [...new Set(suppliedKeys.filter((key) => isRecoveryStorageKey(key) && sameRecoveryScope(key, value.scope as string)))].sort();
+  const keys = [
+    ...new Set(
+      suppliedKeys.filter((key) => isRecoveryStorageKey(key) && sameRecoveryScope(key, value.scope as string)),
+    ),
+  ].sort();
   const missingRecoveryKeys = expectedKeys.filter((key) => {
     const tab = tabsByRecoveryKey.get(key);
     const revision = recoveryRevisions[key];
@@ -696,14 +829,23 @@ function parseInlineBaselines(raw: unknown): Record<string, RecoveryBaseline> | 
 
 export function parseSessionRegistry(raw: unknown): SessionRegistry | null {
   const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (!isRecord(value) || value.version !== SESSION_REGISTRY_SCHEMA_VERSION || !Array.isArray(value.windows)) return null;
+  if (!isRecord(value) || value.version !== SESSION_REGISTRY_SCHEMA_VERSION || !Array.isArray(value.windows))
+    return null;
   const revision = nonNegativeInteger(value.revision);
   const updatedAt = nonNegativeTimestamp(value.updatedAt);
   if (revision === undefined || updatedAt === undefined) return null;
   const windows: SessionWindowRecord[] = [];
   const seenLeases = new Set<string>();
   for (const candidate of value.windows) {
-    if (!isRecord(candidate) || !boundedString(candidate.windowId, 256) || !boundedString(candidate.scope, 256) || typeof candidate.workspace !== "string" || candidate.workspace.length > MAX_PATH_LENGTH || !boundedString(candidate.leaseId, 512)) continue;
+    if (
+      !isRecord(candidate) ||
+      !boundedString(candidate.windowId, 256) ||
+      !boundedString(candidate.scope, 256) ||
+      typeof candidate.workspace !== "string" ||
+      candidate.workspace.length > MAX_PATH_LENGTH ||
+      !boundedString(candidate.leaseId, 512)
+    )
+      continue;
     const attachedAt = nonNegativeTimestamp(candidate.attachedAt);
     const heartbeatAt = nonNegativeTimestamp(candidate.heartbeatAt);
     const status = candidate.status === "closed" ? "closed" : candidate.status === "open" ? "open" : undefined;
@@ -713,7 +855,17 @@ export function parseSessionRegistry(raw: unknown): SessionRegistry | null {
       : [];
     const closedAt = nonNegativeTimestamp(candidate.closedAt);
     seenLeases.add(candidate.leaseId);
-    windows.push({ windowId: candidate.windowId, scope: candidate.scope, leaseId: candidate.leaseId, workspace: candidate.workspace, attachedAt, heartbeatAt, dirtyRecoveryKeys: [...new Set(dirtyRecoveryKeys)], status, ...(closedAt === undefined ? {} : { closedAt }) });
+    windows.push({
+      windowId: candidate.windowId,
+      scope: candidate.scope,
+      leaseId: candidate.leaseId,
+      workspace: candidate.workspace,
+      attachedAt,
+      heartbeatAt,
+      dirtyRecoveryKeys: [...new Set(dirtyRecoveryKeys)],
+      status,
+      ...(closedAt === undefined ? {} : { closedAt }),
+    });
   }
   return { version: SESSION_REGISTRY_SCHEMA_VERSION, revision, updatedAt, windows };
 }
@@ -744,19 +896,24 @@ export function retainSessionTabs<T extends { dirty: boolean }>(tabs: readonly T
   });
 }
 
-export function sessionCheckpointStatus(checkpoint: SessionCheckpoint, source: "indexeddb" | "fallback"): SessionCheckpointReadResult {
+export function sessionCheckpointStatus(
+  checkpoint: SessionCheckpoint,
+  source: "indexeddb" | "fallback",
+): SessionCheckpointReadResult {
   const missingRecoveryKeys = sessionDirtyRecoveryKeys(checkpoint).filter((key) => {
     const revision = checkpoint.recoveryRevisions[key];
     const snapshot = checkpoint.recoveries[key];
     const tab = checkpoint.session.tabs.find((candidate) => recoveryStorageKey(candidate.id, checkpoint.scope) === key);
-    return revision === undefined
-      || revision === null
-      || !snapshot
-      || snapshot.revision !== revision
-      || !tab
-      || snapshot.tabId !== tab.id
-      || snapshot.path !== tab.path
-      || snapshot.revision !== tab.revision;
+    return (
+      revision === undefined ||
+      revision === null ||
+      !snapshot ||
+      snapshot.revision !== revision ||
+      !tab ||
+      snapshot.tabId !== tab.id ||
+      snapshot.path !== tab.path ||
+      snapshot.revision !== tab.revision
+    );
   });
   return { checkpoint, complete: missingRecoveryKeys.length === 0, missingRecoveryKeys, source };
 }
@@ -784,7 +941,10 @@ export function mergeSessionRegistries(left: SessionRegistry, right: SessionRegi
       status: existing.status === "open" || record.status === "open" ? "open" : "closed",
       heartbeatAt: Math.max(existing.heartbeatAt, record.heartbeatAt),
       attachedAt: Math.min(existing.attachedAt, record.attachedAt),
-      closedAt: existing.closedAt === undefined || record.closedAt === undefined ? existing.closedAt ?? record.closedAt : Math.max(existing.closedAt, record.closedAt),
+      closedAt:
+        existing.closedAt === undefined || record.closedAt === undefined
+          ? (existing.closedAt ?? record.closedAt)
+          : Math.max(existing.closedAt, record.closedAt),
       dirtyRecoveryKeys: [...new Set([...existing.dirtyRecoveryKeys, ...record.dirtyRecoveryKeys])],
     });
   }
@@ -817,19 +977,36 @@ export function sameSessionLease(left: SessionWindowLease, right: SessionWindowL
   return left.windowId === right.windowId && left.scope === right.scope && left.leaseId === right.leaseId;
 }
 
-export function compareSessionCheckpoints(left: Pick<SessionCheckpoint, "sequence" | "committedAt" | "checkpointId">, right: Pick<SessionCheckpoint, "sequence" | "committedAt" | "checkpointId">): number {
+export function compareSessionCheckpoints(
+  left: Pick<SessionCheckpoint, "sequence" | "committedAt" | "checkpointId">,
+  right: Pick<SessionCheckpoint, "sequence" | "committedAt" | "checkpointId">,
+): number {
   if (left.sequence !== right.sequence) return left.sequence - right.sequence;
   if (left.committedAt !== right.committedAt) return left.committedAt - right.committedAt;
   return left.checkpointId.localeCompare(right.checkpointId);
 }
 
-export function updateRegistryForLease(registry: SessionRegistry, lease: SessionWindowLease, dirtyRecoveryKeys: string[], now: number): SessionRegistry | null {
+export function updateRegistryForLease(
+  registry: SessionRegistry,
+  lease: SessionWindowLease,
+  dirtyRecoveryKeys: string[],
+  now: number,
+): SessionRegistry | null {
   if (!registry.windows.some((entry) => sameSessionLease(entry, lease) && entry.status === "open")) return null;
   return {
     version: SESSION_REGISTRY_SCHEMA_VERSION,
     revision: registry.revision + 1,
     updatedAt: now,
-    windows: registry.windows.map((entry) => sameSessionLease(entry, lease) ? { ...entry, workspace: entry.workspace, heartbeatAt: now, dirtyRecoveryKeys: [...new Set(dirtyRecoveryKeys.filter(isRecoveryStorageKey))] } : entry),
+    windows: registry.windows.map((entry) =>
+      sameSessionLease(entry, lease)
+        ? {
+            ...entry,
+            workspace: entry.workspace,
+            heartbeatAt: now,
+            dirtyRecoveryKeys: [...new Set(dirtyRecoveryKeys.filter(isRecoveryStorageKey))],
+          }
+        : entry,
+    ),
   };
 }
 
@@ -847,7 +1024,12 @@ export function isSessionCheckpointStorageKey(key: string): boolean {
 }
 
 export function isPersistedRecoveryKey(key: string): boolean {
-  return isRecoveryStorageKey(key) || isSessionCheckpointStorageKey(key) || key.startsWith(SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX) || isRecoveryBaselineKey(key);
+  return (
+    isRecoveryStorageKey(key) ||
+    isSessionCheckpointStorageKey(key) ||
+    key.startsWith(SESSION_CHECKPOINT_METADATA_STORAGE_PREFIX) ||
+    isRecoveryBaselineKey(key)
+  );
 }
 
 export function sameRecoveryScope(key: string, scope: string): boolean {

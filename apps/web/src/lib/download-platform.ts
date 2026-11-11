@@ -37,8 +37,12 @@ export const NO_RECOMMENDATION: DownloadRecommendation = { platform: null, messa
 export function recommendInstaller(browser: DownloadNavigator, hints: ClientHints = {}): DownloadRecommendation {
   const userAgent = browser.userAgent;
   const platform = hints.platform || browser.userAgentData?.platform || browser.platform || "";
-  if (hints.mobile || browser.userAgentData?.mobile || /Android|iPhone|iPad|iPod/i.test(userAgent)
-    || (/Mac/i.test(platform) && (browser.maxTouchPoints ?? 0) > 1)) {
+  if (
+    hints.mobile ||
+    browser.userAgentData?.mobile ||
+    /Android|iPhone|iPad|iPod/i.test(userAgent) ||
+    (/Mac/i.test(platform) && (browser.maxTouchPoints ?? 0) > 1)
+  ) {
     return { platform: null, message: "unsupported" };
   }
 
@@ -47,13 +51,16 @@ export function recommendInstaller(browser: DownloadNavigator, hints: ClientHint
   const architecture = hints.architecture?.toLowerCase();
   const legacyWindowsVersion = userAgent.match(/Windows NT (\d+)(?:\.\d+)*/i)?.[1];
   if (/^Windows$/i.test(platform) || /Win/i.test(platform) || /Windows NT/i.test(userAgent)) {
-    if ((majorVersion !== undefined && majorVersion < 13)
-      || architecture === "arm" || hints.bitness === "32"
-      || (majorVersion === undefined && legacyWindowsVersion !== undefined && Number(legacyWindowsVersion) < 10)) {
+    if (
+      (majorVersion !== undefined && majorVersion < 13) ||
+      architecture === "arm" ||
+      hints.bitness === "32" ||
+      (majorVersion === undefined && legacyWindowsVersion !== undefined && Number(legacyWindowsVersion) < 10)
+    ) {
       return { platform: null, message: "windowsUnsupported" };
     }
-    const confirmed = majorVersion !== undefined && majorVersion >= 13
-      && architecture === "x86" && hints.bitness === "64";
+    const confirmed =
+      majorVersion !== undefined && majorVersion >= 13 && architecture === "x86" && hints.bitness === "64";
     return { platform: "windows", message: confirmed ? "windowsRecommended" : "windowsConfirm" };
   }
 
@@ -61,8 +68,8 @@ export function recommendInstaller(browser: DownloadNavigator, hints: ClientHint
     if ((majorVersion !== undefined && majorVersion < 14) || architecture === "x86" || hints.bitness === "32") {
       return { platform: null, message: "macosUnsupported" };
     }
-    const confirmed = majorVersion !== undefined && majorVersion >= 14
-      && architecture === "arm" && hints.bitness === "64";
+    const confirmed =
+      majorVersion !== undefined && majorVersion >= 14 && architecture === "arm" && hints.bitness === "64";
     return { platform: "macos", message: confirmed ? "macosRecommended" : "macosConfirm" };
   }
 
@@ -73,9 +80,7 @@ export function recommendInstaller(browser: DownloadNavigator, hints: ClientHint
 export async function detectDownloadRecommendation(browser: DownloadNavigator): Promise<DownloadRecommendation> {
   let hints: ClientHints = {};
   try {
-    hints = await browser.userAgentData?.getHighEntropyValues?.([
-      "platformVersion", "architecture", "bitness",
-    ]) ?? {};
+    hints = (await browser.userAgentData?.getHighEntropyValues?.(["platformVersion", "architecture", "bitness"])) ?? {};
   } catch {
     // A browser may decline detailed device information. Keep the OS fallback usable.
   }

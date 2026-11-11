@@ -36,8 +36,10 @@ const editors = [
     app: options.vscode,
     args: [
       options.folder,
-      "--user-data-dir", join(scratch, "vscode-data"),
-      "--extensions-dir", join(scratch, "vscode-extensions"),
+      "--user-data-dir",
+      join(scratch, "vscode-data"),
+      "--extensions-dir",
+      join(scratch, "vscode-extensions"),
       "--disable-workspace-trust",
       "--skip-welcome",
       "--skip-release-notes",
@@ -57,7 +59,9 @@ function median(numbers) {
 }
 
 function appVersion(app) {
-  return execFileSync("plutil", ["-extract", "CFBundleShortVersionString", "raw", join(app, "Contents/Info.plist")], { encoding: "utf8" }).trim();
+  return execFileSync("plutil", ["-extract", "CFBundleShortVersionString", "raw", join(app, "Contents/Info.plist")], {
+    encoding: "utf8",
+  }).trim();
 }
 
 function sizeOnDiskMB(app) {

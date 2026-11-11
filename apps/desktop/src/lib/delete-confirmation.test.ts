@@ -18,8 +18,6 @@ describe("delete confirmation", () => {
     expect(deleteConfirmationMessage("src", "mac", 2, false)).toBe(
       "Move src to the Trash? Affected open tabs will be closed.",
     );
-    expect(deleteConfirmationMessage("draft.ts", "linux", 0, false)).toBe(
-      "Move draft.ts to system trash?",
-    );
+    expect(deleteConfirmationMessage("draft.ts", "linux", 0, false)).toBe("Move draft.ts to system trash?");
   });
 });

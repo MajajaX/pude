@@ -510,10 +510,7 @@ fn terminal_start_sync(
             pixel_height: 0,
         })
         .map_err(|error| format!("Unable to create terminal. {error}"))?;
-    #[cfg(windows)]
-    let shell = windows_shell();
-    #[cfg(unix)]
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let shell = terminal_shell();
     #[cfg(windows)]
     let mut bootstrap_gate = TerminalBootstrapGate::new()
         .map_err(|error| format!("Unable to prepare the terminal startup gate. {error}"))?;
@@ -557,42 +554,18 @@ fn terminal_start_sync(
         .spawn_command(command)
         .map_err(|error| format!("Unable to start terminal. {error}"))?;
     #[cfg(windows)]
-    let process_tree = match TerminalProcessTree::attach(child.as_ref(), Some(&mut bootstrap_gate))
-    {
+    let attached = match TerminalProcessTree::attach(child.as_ref(), Some(&mut bootstrap_gate)) {
         Ok(mut process_tree) => {
             process_tree._startup_gate = Some(bootstrap_gate);
-            process_tree
+            Ok(process_tree)
         }
-        Err(error) => {
-            let tree_cleanup = match terminate_untracked_terminal_tree(child.as_ref()) {
-                Ok(()) => "Terminal process-tree fallback completed.".to_string(),
-                Err(error) => format!("Terminal process-tree fallback failed: {error}"),
-            };
-            let cleanup = match terminate_terminal_child(child.as_mut()) {
-                Ok(status) => format!("Terminal process was stopped: {status}."),
-                Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
-            };
-            return Err(format!(
-                "Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}"
-            ));
-        }
+        Err(error) => Err(error),
     };
     #[cfg(unix)]
-    let process_tree = match TerminalProcessTree::attach(child.as_ref()) {
+    let attached = TerminalProcessTree::attach(child.as_ref());
+    let process_tree = match attached {
         Ok(process_tree) => process_tree,
-        Err(error) => {
-            let tree_cleanup = match terminate_untracked_terminal_tree(child.as_ref()) {
-                Ok(()) => "Terminal process-tree fallback completed.".to_string(),
-                Err(error) => format!("Terminal process-tree fallback failed: {error}"),
-            };
-            let cleanup = match terminate_terminal_child(child.as_mut()) {
-                Ok(status) => format!("Terminal process was stopped: {status}."),
-                Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
-            };
-            return Err(format!(
-                "Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}"
-            ));
-        }
+        Err(error) => return Err(stop_unattached_terminal(child.as_mut(), &error)),
     };
     drop(pair.slave);
     let master = pair.master;
@@ -797,6 +770,20 @@ fn terminal_start_sync(
         );
     }
     Ok(id)
+}
+
+/// Stops a terminal whose process could not be placed in its cleanup scope, and
+/// describes what happened for the start error.
+fn stop_unattached_terminal(child: &mut (dyn Child + Send + Sync), error: &str) -> String {
+    let tree_cleanup = match terminate_untracked_terminal_tree(child) {
+        Ok(()) => "Terminal process-tree fallback completed.".to_string(),
+        Err(error) => format!("Terminal process-tree fallback failed: {error}"),
+    };
+    let cleanup = match terminate_terminal_child(child) {
+        Ok(status) => format!("Terminal process was stopped: {status}."),
+        Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
+    };
+    format!("Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}")
 }
 
 #[tauri::command]

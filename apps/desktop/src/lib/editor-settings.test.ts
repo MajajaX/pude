@@ -3,7 +3,16 @@ import { EDITOR_SETTING_KEYS, pickEditorSettings, sameEditorSettings } from "./e
 import { defaultSettings } from "./settings";
 import type { EditorSettings } from "../components/EditorPane";
 
-const settings: EditorSettings = { theme: "dark", fontSize: 14, tabSize: 2, insertSpaces: true, wordWrap: false, lineNumbers: true, showWhitespace: false, autoCloseBrackets: true };
+const settings: EditorSettings = {
+  theme: "dark",
+  fontSize: 14,
+  tabSize: 2,
+  insertSpaces: true,
+  wordWrap: false,
+  lineNumbers: true,
+  showWhitespace: false,
+  autoCloseBrackets: true,
+};
 
 describe("editor settings equality", () => {
   it("ignores object identity when editor fields are unchanged", () => {

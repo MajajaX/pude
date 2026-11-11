@@ -21,7 +21,7 @@ const loaders: Record<Exclude<Locale, "en">, () => Promise<{ default: Dictionary
 export function t(text: string, values?: Record<string, string | number | null | undefined>): string {
   const translated = dictionary()[text] ?? text;
   if (!values) return translated;
-  return translated.replace(/\{(\w+)\}/g, (match, name: string) => name in values ? String(values[name]) : match);
+  return translated.replace(/\{(\w+)\}/g, (match, name: string) => (name in values ? String(values[name]) : match));
 }
 
 /** Marks English text in a data table; it is translated where it is shown, with `t()`. */
@@ -43,7 +43,10 @@ export function translateMessage(message: string): string {
 }
 
 /** `auto` follows the system: Traditional Chinese regions get zh-Hant, everything else English. */
-export function resolveLocale(setting: LanguageSetting, languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages): Locale {
+export function resolveLocale(
+  setting: LanguageSetting,
+  languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages,
+): Locale {
   if (setting !== "auto") return setting;
   for (const tag of languages) {
     const lower = tag.toLowerCase();

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { MARKDOWN_PREVIEW_BUDGETS, parseMarkdown, parseMarkdownPreviewRange, reuseStableBlocks } from "./MarkdownPreview";
+import { MARKDOWN_PREVIEW_BUDGETS, parseMarkdownPreviewRange, reuseStableBlocks } from "./MarkdownPreview";
+
+/** Parse a whole string through the same entry point the preview uses. */
+const parseMarkdown = (content: string) =>
+  parseMarkdownPreviewRange(content.length, (from, to) => content.slice(from, to));
 
 function tableSource(columns: number, dataRows: number): string {
   const header = Array.from({ length: columns }, (_, index) => `h${index}`);
@@ -14,12 +18,14 @@ function tableSource(columns: number, dataRows: number): string {
 
 describe("Markdown preview", () => {
   it("parses GFM cells, alignment, escaped pipes, code-span pipes, and safe links", () => {
-    const parsed = parseMarkdown([
-      "| Name | Count | Rating | Note | Link |",
-      "| :--- | ---: | :---: | --- | --- |",
-      "| **Alpha** | 3 | 4.2 | `a|b` | [docs](https://example.com) |",
-      "| Beta | 12 | 3 | left \\| pipe | [bad](javascript:alert(1)) |",
-    ].join("\n"));
+    const parsed = parseMarkdown(
+      [
+        "| Name | Count | Rating | Note | Link |",
+        "| :--- | ---: | :---: | --- | --- |",
+        "| **Alpha** | 3 | 4.2 | `a|b` | [docs](https://example.com) |",
+        "| Beta | 12 | 3 | left \\| pipe | [bad](javascript:alert(1)) |",
+      ].join("\n"),
+    );
 
     expect(parsed.truncated).toBe(false);
     expect(parsed.blocks).toHaveLength(1);
@@ -42,10 +48,12 @@ describe("Markdown preview", () => {
       const parsed = parseMarkdown(`| Link |\n| --- |\n| [x](${href}) |`);
       const table = parsed.blocks[0];
       if (table?.kind !== "table") throw new Error("Expected a table");
-      return table.rowTokens[0][0].flatMap((token) => token.kind === "link" ? [token.href] : []);
+      return table.rowTokens[0][0].flatMap((token) => (token.kind === "link" ? [token.href] : []));
     };
-    for (const href of ["https://example.com", "http://example.com", "#section", "/docs/page"]) expect(linkHrefs(href)).toEqual([href]);
-    for (const href of ["//evil.example/path", "/\\evil.example", "\\\\evil.example", "javascript:alert(1)"]) expect(linkHrefs(href)).toEqual([]);
+    for (const href of ["https://example.com", "http://example.com", "#section", "/docs/page"])
+      expect(linkHrefs(href)).toEqual([href]);
+    for (const href of ["//evil.example/path", "/\\evil.example", "\\\\evil.example", "javascript:alert(1)"])
+      expect(linkHrefs(href)).toEqual([]);
   });
 
   it("reads at most one Mi UTF-16 code units and does not retain a split surrogate pair", () => {

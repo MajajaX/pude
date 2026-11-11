@@ -12,13 +12,15 @@ import {
 
 describe("plugin message limits", () => {
   it("accepts bounded JSON-like protocol envelopes", () => {
-    expect(isPluginMessageWithinLimit({
-      type: "api-request",
-      protocolVersion: 2,
-      requestId: "pude_1",
-      method: "ui.notify",
-      params: { message: "Saved" },
-    })).toBe(true);
+    expect(
+      isPluginMessageWithinLimit({
+        type: "api-request",
+        protocolVersion: 2,
+        requestId: "pude_1",
+        method: "ui.notify",
+        params: { message: "Saved" },
+      }),
+    ).toBe(true);
   });
 
   it("counts UTF-8 text and envelope overhead while keeping range responses below budget", () => {
@@ -32,13 +34,28 @@ describe("plugin message limits", () => {
     expect(isPluginMessageWithinLimit({ content: "x" }, 14)).toBe(false);
     expect(MAX_PLUGIN_API_V2_TEXT_RANGE_UNITS).toBe(128 * 1024);
     expect(MAX_PLUGIN_API_V2_FILE_RANGE_BYTES).toBe(128 * 1024);
-    expect(isPluginMessageWithinLimit({ content: "\u0001".repeat(MAX_PLUGIN_API_V2_TEXT_RANGE_UNITS) }, MAX_PLUGIN_RESPONSE_MESSAGE_BYTES)).toBe(true);
-    expect(isPluginMessageWithinLimit({ content: "\u0001".repeat(MAX_PLUGIN_API_V2_FILE_RANGE_BYTES) }, MAX_PLUGIN_RESPONSE_MESSAGE_BYTES)).toBe(true);
+    expect(
+      isPluginMessageWithinLimit(
+        { content: "\u0001".repeat(MAX_PLUGIN_API_V2_TEXT_RANGE_UNITS) },
+        MAX_PLUGIN_RESPONSE_MESSAGE_BYTES,
+      ),
+    ).toBe(true);
+    expect(
+      isPluginMessageWithinLimit(
+        { content: "\u0001".repeat(MAX_PLUGIN_API_V2_FILE_RANGE_BYTES) },
+        MAX_PLUGIN_RESPONSE_MESSAGE_BYTES,
+      ),
+    ).toBe(true);
   });
 
   it("rejects oversized, deep, cyclic, and non-JSON protocol values", () => {
     expect(isPluginMessageWithinLimit("x".repeat(MAX_PLUGIN_REQUEST_MESSAGE_BYTES))).toBe(false);
-    expect(isPluginMessageWithinLimit({ result: "x".repeat(MAX_PLUGIN_RESPONSE_MESSAGE_BYTES) }, MAX_PLUGIN_RESPONSE_MESSAGE_BYTES)).toBe(false);
+    expect(
+      isPluginMessageWithinLimit(
+        { result: "x".repeat(MAX_PLUGIN_RESPONSE_MESSAGE_BYTES) },
+        MAX_PLUGIN_RESPONSE_MESSAGE_BYTES,
+      ),
+    ).toBe(false);
 
     let nested: unknown = "leaf";
     for (let depth = 0; depth < 34; depth += 1) nested = { nested };

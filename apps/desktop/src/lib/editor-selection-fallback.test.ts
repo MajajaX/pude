@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { createEditorSelectionFallback, currentEditorSelectionFallback, editorSelectionFallbackAfterUpdate, EDITOR_SELECTION_FALLBACK_MAX_RANGES } from "./editor-selection-fallback";
+import {
+  createEditorSelectionFallback,
+  currentEditorSelectionFallback,
+  editorSelectionFallbackAfterUpdate,
+  EDITOR_SELECTION_FALLBACK_MAX_RANGES,
+} from "./editor-selection-fallback";
 import type { EditorTab } from "../types";
 
 const baseTab = (selectionFallback?: EditorTab["selectionFallback"]): EditorTab => ({
@@ -34,9 +39,12 @@ describe("editor selection fallback", () => {
     expect(fallback).toEqual({ revision: 12, contentVersion: 3, selection: original });
 
     const restoredSelection = currentEditorSelectionFallback(fallback, 12, 3, 10);
-    const state = EditorState.fromJSON({ doc: "0123456789", selection: restoredSelection }, {
-      extensions: [EditorState.allowMultipleSelections.of(true)],
-    });
+    const state = EditorState.fromJSON(
+      { doc: "0123456789", selection: restoredSelection },
+      {
+        extensions: [EditorState.allowMultipleSelections.of(true)],
+      },
+    );
     expect(state.selection.toJSON()).toEqual(original);
   });
 
@@ -53,7 +61,9 @@ describe("editor selection fallback", () => {
     expect(editorSelectionFallbackAfterUpdate(tab, { revision: 13 })).toBeUndefined();
     expect(editorSelectionFallbackAfterUpdate(tab, { contentVersion: 4 })).toBeUndefined();
     expect(editorSelectionFallbackAfterUpdate(tab, { content: "new text" })).toBeUndefined();
-    expect(editorSelectionFallbackAfterUpdate(tab, { content: "new text", selectionFallback: fallback })).toBeUndefined();
+    expect(
+      editorSelectionFallbackAfterUpdate(tab, { content: "new text", selectionFallback: fallback }),
+    ).toBeUndefined();
     expect(editorSelectionFallbackAfterUpdate(tab, { cursorLine: 2 })).toBeUndefined();
     expect(editorSelectionFallbackAfterUpdate(tab, { dirty: true })).toBe(fallback);
   });

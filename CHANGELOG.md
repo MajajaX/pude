@@ -6,6 +6,70 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `.env` table values are masked each time the table opens. **Show values** in the
+  toolbar reveals them, and a value being edited always shows its text.
+- If the interface fails to render, the window shows an error message and **Reload
+  window** instead of a broken screen; unsaved changes come back from recovery.
+- The command palette shows the **Edit: Replace** shortcut: **Ctrl+H** on Windows and
+  Linux, **⌥⌘F** on macOS.
+
+### Changed
+
+- The terminal panel toggles with **Ctrl+`** on every platform. On macOS, **Cmd+`**
+  stays the system shortcut for switching between pude windows.
+- Project search groups text results by file: each file shows its match count once,
+  and the replace button on its heading changes only that file.
+- Error notifications are marked in red, announced as alerts and stay at least 6
+  seconds; longer notifications stay up to 10 seconds.
+- **Watcher excluded paths** moved from **Updates** to **Explorer** in Settings.
+- On macOS and Linux, saving a file with several hard links, or one whose owner or
+  group the saving user cannot keep, rewrites it in place after the usual change check
+  instead of replacing it, so its links and owner stay.
+- Temporary save files left by a crash are removed from a folder the first time pude
+  saves there, once they are an hour old.
+- Git runs with English messages through `LC_MESSAGES` only, so hooks and filters keep
+  the user's character set.
+- The README and website list the 0.1.8 installer sizes (5.6 MB on macOS, 4.4 MB on
+  Windows); size on disk, memory and launch time remain the 0.1.2 measurements.
+- Dependency updates: Solid 1.9.19, Vite 8.3.8 and vite-plugin-solid 2.11.16, plus
+  fake-indexeddb 6.2.8, Playwright 1.65.0 and wrangler 4.160.0 for tests and deploys.
+- The website deploy job finds the published release of the current version by
+  itself, so no release URL has to be set by hand, and runs the wrangler version
+  pinned in `package.json`.
+- `npm run check` runs Biome, which now formats the TypeScript, JavaScript and CSS
+  sources, and checks that `THIRD_PARTY_NOTICES.md` lists every direct dependency at
+  its locked version. `npm test` runs every unit test, and the browser tests also run
+  in WebKit. `THIRD_PARTY_NOTICES.md` is now in English and lists the direct
+  dependencies it was missing.
+- The website's social preview image is a 99 KB JPEG instead of a 769 KB PNG.
+- Bundles are built only in the formats that are shipped or used for Linux source
+  builds; the unused MSI installer and its WiX fragment, the unused Windows signature
+  verifier and the October audit report were removed.
+- The macOS release script stops when the working tree has uncommitted changes or the
+  build produced no DMG.
+- The startup bundle budgets sit about 2% above the measured size (168,500 bytes for
+  the entry and 257,800 for all startup code), and raising one needs a reason in the
+  pull request.
+
+### Fixed
+
+- With **Hide dot files** on, an opened folder whose name starts with a dot, such as
+  `~/.config`, or a workspace folder like `.dotfiles` no longer shows an empty Explorer.
+- Commit and history ages round to the next unit: 59.7 minutes reads "1 hour ago",
+  not "60 minutes ago".
+- Clearing a number field in Settings keeps its value instead of setting the minimum.
+- Deleting the last variable of a CRLF `.env` file no longer leaves a stray carriage
+  return.
+- Ctrl+K Ctrl+O opens a folder on Linux, as on Windows.
+- The project replace summary and its confirmation for all files are translated in
+  Traditional Chinese.
+- Cmd/Ctrl+Shift+W and Cmd/Ctrl+Shift+G no longer close the tab or open Go to line.
+- Releases reuse a successful CI run on `main` whose only skipped jobs are workflow
+  lint and the optional website deploy, instead of always running the whole suite
+  again.
+
 ## [0.1.9] - 2026-11-11
 
 ### Added

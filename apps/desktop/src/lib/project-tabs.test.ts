@@ -4,7 +4,11 @@ import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } 
 describe("project tab navigation", () => {
   it("distinguishes equal project names and preserves Files", () => {
     const projects = [{ workspace: "/client/editor" }, { workspace: "/server/editor" }, { workspace: "" }];
-    expect(projects.map((project) => projectTabLabel(project, projects))).toEqual(["editor — client", "editor — server", "Files"]);
+    expect(projects.map((project) => projectTabLabel(project, projects))).toEqual([
+      "editor — client",
+      "editor — server",
+      "Files",
+    ]);
   });
 
   it("names workspaces after their file or first folder and lists every folder in the tooltip", () => {

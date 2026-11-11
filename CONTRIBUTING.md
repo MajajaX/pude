@@ -82,15 +82,17 @@ Run these from the repository root:
 | `npm run dev` | Start the desktop frontend browser shell on port 5173. |
 | `npm run tauri:dev` | Run the native Tauri desktop application. |
 | `npm run web:dev` | Start the public website on port 5174. |
-| `npm test` | Run the desktop Vitest suite. |
-| `npm run check` | Run the version check, desktop and web tests, bundle budget checks, web type checks, and both production builds. |
+| `npm test` | Run every unit test: the desktop Vitest suite, the website tests and the release script tests. |
+| `npm run lint` | Check formatting and lint rules with Biome, as CI does. |
+| `npm run format` | Format TypeScript, JavaScript and CSS with Biome. |
+| `npm run check` | Run Biome, the version and third-party notice checks, every unit test, the bundle budget check, type checks, and both production builds. |
 | `npm run build` | Build the desktop frontend. |
 | `npm run web:build` | Build the website. |
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. |
 | `node scripts/run-rust-tests.mjs` | Run the Rust test suite exactly as CI does: each test in its own process, with `Cargo.lock` unchanged. Plain `cargo test` shares one process and can disagree on process-group tests. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
 | `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
-| `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo. |
+| `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo in Chromium and WebKit (install them once with `npx playwright install chromium webkit`). |
 
 For a normal code change, run at least `npm run check` and the Rust test command.
 Run `npm run tauri:dev` for changes that touch the native bridge, filesystem
@@ -112,7 +114,8 @@ lockfile and fail if dependency resolution would change it.
 Follow the surrounding code rather than introducing a new framework or abstraction:
 
 - Keep TypeScript and SolidJS logic explicit, typed, and close to the component or
-  library responsibility it serves. Preserve the browser fallback when changing a
+  library responsibility it serves. Run `npm run format` before review; Biome sets the
+  formatting, and `npm run lint` must pass. Preserve the browser fallback when changing a
   native bridge call.
 - Keep Rust functions and modules small, return actionable errors, and preserve the
   existing platform-specific branches. Format Rust with `cargo fmt` before review.

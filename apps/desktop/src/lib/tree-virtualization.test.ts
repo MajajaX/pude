@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { flattenVisibleTree, treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type VirtualTreeEntry } from "./tree-virtualization";
+import { flattenVisibleTree } from "./flatten-visible-tree.testing";
+import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type VirtualTreeEntry } from "./tree-virtualization";
 
 function makeFlatTree(count: number): VirtualTreeEntry {
   return {
@@ -19,7 +20,12 @@ describe("tree virtualization", () => {
       children: [
         { name: "visible.ts", kind: "file" as const },
         { name: ".hidden.ts", kind: "file" as const },
-        { name: "src", kind: "directory" as const, expanded: true, children: [{ name: "main.ts", kind: "file" as const }] },
+        {
+          name: "src",
+          kind: "directory" as const,
+          expanded: true,
+          children: [{ name: "main.ts", kind: "file" as const }],
+        },
       ],
     };
 
@@ -96,7 +102,10 @@ describe("incremental visible tree model", () => {
 
   it("matches the full-flatten reference after expand, collapse, insert, delete, and hide changes", () => {
     const source: PathEntry = {
-      path: "/repo", name: "repo", kind: "directory", expanded: true,
+      path: "/repo",
+      name: "repo",
+      kind: "directory",
+      expanded: true,
       children: [
         { path: "/repo/src", name: "src", kind: "directory", expanded: false },
         { path: "/repo/readme.md", name: "readme.md", kind: "file" },
@@ -109,10 +118,16 @@ describe("incremental visible tree model", () => {
     const expanded: PathEntry = {
       ...source,
       children: [
-        { path: "/repo/src", name: "src", kind: "directory", expanded: true, children: [
-          { path: "/repo/src/main.ts", name: "main.ts", kind: "file" },
-          { path: "/repo/src/.secret", name: ".secret", kind: "file" },
-        ] },
+        {
+          path: "/repo/src",
+          name: "src",
+          kind: "directory",
+          expanded: true,
+          children: [
+            { path: "/repo/src/main.ts", name: "main.ts", kind: "file" },
+            { path: "/repo/src/.secret", name: ".secret", kind: "file" },
+          ],
+        },
         source.children![1] as PathEntry,
         { path: "/repo/.hidden", name: ".hidden", kind: "file" },
       ],
@@ -138,18 +153,27 @@ describe("incremental visible tree model", () => {
 
   it("keeps row indices current through reorder, move, rename, and delete", () => {
     const alpha: PathEntry = {
-      path: "/repo/alpha", name: "alpha", kind: "directory", expanded: true,
+      path: "/repo/alpha",
+      name: "alpha",
+      kind: "directory",
+      expanded: true,
       children: [{ path: "/repo/alpha/one.ts", name: "one.ts", kind: "file" }],
     };
     const beta: PathEntry = {
-      path: "/repo/beta", name: "beta", kind: "directory", expanded: true,
+      path: "/repo/beta",
+      name: "beta",
+      kind: "directory",
+      expanded: true,
       children: [
         { path: "/repo/beta/two.ts", name: "two.ts", kind: "file" },
         { path: "/repo/beta/three.ts", name: "three.ts", kind: "file" },
       ],
     };
     const initial: PathEntry = {
-      path: "/repo", name: "repo", kind: "directory", expanded: true,
+      path: "/repo",
+      name: "repo",
+      kind: "directory",
+      expanded: true,
       children: [alpha, beta],
     };
     const model = new VisibleTreeModel<PathEntry>(modelOptions);
@@ -175,7 +199,10 @@ describe("incremental visible tree model", () => {
     expect(model.indexOfPath("/repo/beta/one.ts")).toBe(4);
 
     const renamedBeta: PathEntry = {
-      path: "/repo/renamed", name: "renamed", kind: "directory", expanded: true,
+      path: "/repo/renamed",
+      name: "renamed",
+      kind: "directory",
+      expanded: true,
       children: moved.children![0]!.children!.map((entry) => ({
         ...entry,
         path: entry.path.replace("/repo/beta", "/repo/renamed"),
@@ -198,7 +225,10 @@ describe("incremental visible tree model", () => {
 
   it("indexes platform comparison keys using the configured path policy", () => {
     const root: PathEntry = {
-      path: "C:\\Repo", name: "Repo", kind: "directory", expanded: true,
+      path: "C:\\Repo",
+      name: "Repo",
+      kind: "directory",
+      expanded: true,
       children: [{ path: "C:\\Repo\\File.ts", name: "File.ts", kind: "file" }],
     };
     const model = new VisibleTreeModel<PathEntry>({ platform: "windows", casePolicy: "insensitive" });
@@ -247,7 +277,10 @@ describe("incremental visible tree model", () => {
     const branchCount = 1_000;
     const filesPerBranch = 100;
     const initial: PathEntry = {
-      path: "/repo", name: "repo", kind: "directory", expanded: true,
+      path: "/repo",
+      name: "repo",
+      kind: "directory",
+      expanded: true,
       children: Array.from({ length: branchCount }, (_, branchIndex) => ({
         path: `/repo/branch-${branchIndex}`,
         name: `branch-${branchIndex}`,
@@ -285,19 +318,32 @@ describe("incremental visible tree model", () => {
 
   it("splices one changed subtree and counts the unavoidable flat-array suffix shift", () => {
     const stableBranch: PathEntry = {
-      path: "/repo/stable", name: "stable", kind: "directory", expanded: true,
+      path: "/repo/stable",
+      name: "stable",
+      kind: "directory",
+      expanded: true,
       children: Array.from({ length: 500 }, (_, index) => ({
-        path: `/repo/stable/${index}.ts`, name: `${index}.ts`, kind: "file" as const,
+        path: `/repo/stable/${index}.ts`,
+        name: `${index}.ts`,
+        kind: "file" as const,
       })),
     };
     const editedBranch: PathEntry = {
-      path: "/repo/edited", name: "edited", kind: "directory", expanded: true,
+      path: "/repo/edited",
+      name: "edited",
+      kind: "directory",
+      expanded: true,
       children: Array.from({ length: 1_000 }, (_, index) => ({
-        path: `/repo/edited/${index}.ts`, name: `${index}.ts`, kind: "file" as const,
+        path: `/repo/edited/${index}.ts`,
+        name: `${index}.ts`,
+        kind: "file" as const,
       })),
     };
     const initial: PathEntry = {
-      path: "/repo", name: "repo", kind: "directory", expanded: true,
+      path: "/repo",
+      name: "repo",
+      kind: "directory",
+      expanded: true,
       children: [editedBranch, stableBranch],
     };
     const model = new VisibleTreeModel<PathEntry>(modelOptions);
@@ -307,7 +353,10 @@ describe("incremental visible tree model", () => {
     const changed: PathEntry = {
       ...initial,
       children: [
-        { ...editedBranch, children: [...editedBranch.children!, { path: "/repo/edited/new.ts", name: "new.ts", kind: "file" }] },
+        {
+          ...editedBranch,
+          children: [...editedBranch.children!, { path: "/repo/edited/new.ts", name: "new.ts", kind: "file" }],
+        },
         stableBranch,
       ],
     };
@@ -322,15 +371,20 @@ describe("incremental visible tree model", () => {
 });
 
 describe("tree keyboard navigation", () => {
-  const rows = flattenVisibleTree({
-    name: "workspace", kind: "directory", expanded: true,
-    children: [
-      { name: "src", kind: "directory", expanded: true, children: [{ name: "main.ts", kind: "file" }] },
-      { name: "empty", kind: "directory", expanded: true },
-      { name: "closed", kind: "directory", expanded: false },
-      { name: "link", kind: "symlink" },
-    ],
-  }, false);
+  const rows = flattenVisibleTree(
+    {
+      name: "workspace",
+      kind: "directory",
+      expanded: true,
+      children: [
+        { name: "src", kind: "directory", expanded: true, children: [{ name: "main.ts", kind: "file" }] },
+        { name: "empty", kind: "directory", expanded: true },
+        { name: "closed", kind: "directory", expanded: false },
+        { name: "link", kind: "symlink" },
+      ],
+    },
+    false,
+  );
 
   it("moves into a folder and back to the nearest parent without crossing siblings", () => {
     expect(treeKeyboardAction(rows, 1, "ArrowRight")).toEqual({ kind: "focus", index: 2 });
@@ -351,7 +405,13 @@ describe("tree keyboard navigation", () => {
     expect(treeKeyboardAction(rows, 0, "ArrowUp")).toEqual({ kind: "focus", index: 0 });
     expect(treeKeyboardAction(rows, 5, "ArrowDown")).toEqual({ kind: "focus", index: 5 });
     expect(treeKeyboardAction(rows, 0, "ArrowLeft")).toEqual({ kind: "toggle" });
-    expect(treeKeyboardAction(flattenVisibleTree({ name: "root", kind: "directory", expanded: false }, false), 0, "ArrowLeft")).toBeUndefined();
+    expect(
+      treeKeyboardAction(
+        flattenVisibleTree({ name: "root", kind: "directory", expanded: false }, false),
+        0,
+        "ArrowLeft",
+      ),
+    ).toBeUndefined();
     expect(treeKeyboardAction([], 0, "End")).toBeUndefined();
     expect(treeKeyboardAction(rows, -1, "Enter")).toBeUndefined();
     expect(treeKeyboardAction(rows, 2, "Tab")).toBeUndefined();
@@ -364,5 +424,45 @@ describe("tree keyboard navigation", () => {
     expect(treeKeyboardAction(large, 100_000, "ArrowLeft")).toEqual({ kind: "focus", index: 0 });
     const viewport = virtualTreeWindow(large.length, 100_000 * 27, 540, 27, 8);
     expect(viewport.end - viewport.start).toBeLessThanOrEqual(29);
+  });
+});
+
+describe("hidden dot files", () => {
+  const file = (path: string) => ({ name: path.split("/").pop()!, path, kind: "file" as const });
+
+  it("still shows an opened folder whose own name starts with a dot", () => {
+    const root = {
+      name: ".config",
+      path: "/home/u/.config",
+      kind: "directory" as const,
+      expanded: true,
+      children: [file("/home/u/.config/a.txt"), file("/home/u/.config/.hidden")],
+    };
+    const model = new VisibleTreeModel();
+    model.update(root, true);
+    expect(model.rows.map((row) => row.entry.name)).toEqual([".config", "a.txt"]);
+  });
+
+  it("still shows a workspace's opened dot folders but hides dot files inside them", () => {
+    const dotFolder = {
+      name: ".dotfiles",
+      path: "/home/u/.dotfiles",
+      kind: "directory" as const,
+      expanded: true,
+      children: [file("/home/u/.dotfiles/.zshrc"), file("/home/u/.dotfiles/README")],
+    };
+    const root = {
+      name: "Workspace",
+      path: "pude://workspace",
+      kind: "directory" as const,
+      expanded: true,
+      children: [dotFolder],
+    };
+    const model = new VisibleTreeModel();
+    model.update(root, true);
+    expect(model.rows.map((row) => row.entry.name)).toEqual(["Workspace", ".dotfiles", "README"]);
+    expect(model.rows.map((row) => row.entry.name)).toEqual(
+      flattenVisibleTree(root, true).map((row) => row.entry.name),
+    );
   });
 });

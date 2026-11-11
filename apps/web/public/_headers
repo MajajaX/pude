@@ -15,7 +15,7 @@
 # These files keep their names between releases: revalidate daily, serve stale meanwhile.
 /shots/*
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-/og-image.png
+/og-image.jpg
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800
 /pude-favicon.png
   Cache-Control: public, max-age=86400, stale-while-revalidate=604800

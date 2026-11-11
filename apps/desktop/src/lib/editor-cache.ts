@@ -52,11 +52,14 @@ export function hasEditorUndoHistory(
 ): boolean {
   if (additionalHistoryEntries > 0) return true;
   if (state) {
-    const value = state.field(historyField, false) as { done?: readonly unknown[]; undone?: readonly unknown[] } | undefined;
+    const value = state.field(historyField, false) as
+      | { done?: readonly unknown[]; undone?: readonly unknown[] }
+      | undefined;
     if ((value?.done?.length ?? 0) + (value?.undone?.length ?? 0) > 0) return true;
   }
   if (!serializedHistory || typeof serializedHistory !== "object") return false;
   const value = serializedHistory as { done?: unknown[]; undone?: unknown[] };
-  return (Array.isArray(value.done) ? value.done.length : 0)
-    + (Array.isArray(value.undone) ? value.undone.length : 0) > 0;
+  return (
+    (Array.isArray(value.done) ? value.done.length : 0) + (Array.isArray(value.undone) ? value.undone.length : 0) > 0
+  );
 }

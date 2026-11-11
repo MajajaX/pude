@@ -34,27 +34,25 @@ indexing. Features load only when you use them.
 
 Measured side by side with Visual Studio Code on the same Mac, opening the same folder.
 
-| | pude 0.1.2 | VS Code 1.140.0 | |
+| | pude | VS Code 1.140.0 | |
 | --- | ---: | ---: | --- |
-| Installer download · macOS Apple Silicon | 5.1 MB | 317.9 MB | 62× smaller |
-| Installer download · Windows x64 | 3.9 MB | 244.4 MB | 63× smaller |
+| Installer download · macOS Apple Silicon | 5.6 MB | 317.9 MB | 57× smaller |
+| Installer download · Windows x64 | 4.4 MB | 244.4 MB | 56× smaller |
 | Size on disk (macOS) | 10.5 MB | 911.6 MB | 87× smaller |
 | Launch until ready | 0.60 s | 1.11 s | 1.8× faster |
 | Memory with a folder open | 103 MB | 1,074 MB | 10× less |
 | Processes with a folder open | 6 | 12 | |
 
-Measured on 2026-10-15 on an Apple M5 Max with 64 GB of memory and macOS 27.0.1.
-Both editors open this repository; VS Code uses a fresh profile with no extensions
-added. Installer sizes are the official downloads. Launch time runs from launch until
-the window stops changing, and memory is the physical footprint of the app and all
-of its helper processes 15 seconds after launch, each the median of 7 runs. Quit
-pude, then reproduce the launch and memory numbers on your Mac with
+Installer sizes are the official pude 0.1.8 and VS Code downloads. Size on disk,
+launch time and memory were measured with pude 0.1.2 on 2026-10-15 on an Apple M5 Max
+with 64 GB of memory and macOS 27.0.1, and have not been re-measured since. Both
+editors open this repository; VS Code uses a fresh profile with no extensions added.
+Launch time runs from launch until the window stops changing, and memory is the
+physical footprint of the app and all of its helper processes 15 seconds after
+launch, each the median of 7 runs. Quit pude, then reproduce the launch and memory
+numbers on your Mac with
 `node scripts/benchmark/compare-vscode.mjs` (the terminal needs the Screen Recording
 permission).
-
-These numbers were measured with pude 0.1.2. Later releases are larger: the 0.1.7
-installers are 5.6 MB (macOS) and 4.3 MB (Windows), per the GitHub release assets.
-Launch time, memory and size on disk have not been re-measured since 0.1.2.
 
 ## Features
 
@@ -71,6 +69,7 @@ Launch time, memory and size on disk have not been re-measured since 0.1.2.
   source/preview toggle. Optional trim-trailing-whitespace and final-newline on save.
   `.env` files also open as a table of names and values with copy buttons for a name,
   a value or a whole line, random value generation and insertion above or below a row.
+  Values stay masked until you choose **Show values**.
 - **Command palette** — `⌘⇧P` / `Ctrl+Shift+P` lists 40+ commands with their shortcuts,
   such as sort lines, change case, toggle word wrap and go to file (`⌘P` / `Ctrl+P`),
   with recently used commands first.
@@ -81,9 +80,9 @@ Launch time, memory and size on disk have not been re-measured since 0.1.2.
 - **Explorer and project search** — an icon activity bar for Explorer, Search and Git,
   optional Git-ignored grouping, file operations including copy and paste across project
   tabs (a name in use becomes `name copy.ext`), **Add to .gitignore** from the context
-  menu, and on-demand text or file-path
-  search with `⌘⇧F` / `Ctrl+Shift+F`. Search reads saved files, respects Git ignores
-  by default and supports match case. Text results center and highlight the match.
+  menu, and on-demand text or file-path search with `⌘⇧F` / `Ctrl+Shift+F`. Search
+  reads saved files, respects Git ignores by default and supports match case. Text
+  results are grouped by file; opening one centers and highlights the match.
   Replace changes every match in the project or in one file, skipping files with
   unsaved edits.
 - **Safe saves** — atomic writes, preserved LF/CRLF line endings, external change

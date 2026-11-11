@@ -26,11 +26,7 @@ describe("Git history virtualization", () => {
     const visibleWindow = gitHistoryRenderWindow(count, 0, viewportHeight);
     const focusedIndex = count - 1;
     const focusRetainedWindow = gitHistoryRenderWindow(count, 0, viewportHeight, focusedIndex);
-    const bottomWindow = gitHistoryRenderWindow(
-      count,
-      count * GIT_HISTORY_ROW_HEIGHT,
-      viewportHeight,
-    );
+    const bottomWindow = gitHistoryRenderWindow(count, count * GIT_HISTORY_ROW_HEIGHT, viewportHeight);
 
     expect(bottomWindow.scrollTop).toBe(bottomWindow.maxScrollTop);
     expect(focusRetainedWindow.indexes).toContain(focusedIndex);
@@ -56,7 +52,9 @@ describe("Git history virtualization", () => {
     const focused = gitHistoryRenderWindow(1000, GIT_HISTORY_ROW_HEIGHT * 50, 440, 900);
 
     expect(sameGitHistoryRenderWindow(start, withinRow)).toBe(false);
-    expect(sameGitHistoryRenderWindow(withinRow, gitHistoryRenderWindow(1000, GIT_HISTORY_ROW_HEIGHT * 50 + 20, 440))).toBe(true);
+    expect(
+      sameGitHistoryRenderWindow(withinRow, gitHistoryRenderWindow(1000, GIT_HISTORY_ROW_HEIGHT * 50 + 20, 440)),
+    ).toBe(true);
     expect(sameGitHistoryRenderWindow(withinRow, nextRow)).toBe(false);
     expect(sameGitHistoryRenderWindow(start, focused)).toBe(false);
   });

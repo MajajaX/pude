@@ -132,10 +132,7 @@ describe("DirectoryRefreshCoordinator", () => {
   it("uses distinct request ID prefixes for separate coordinator instances", async () => {
     const first = createHarness();
     const second = createHarness();
-    await Promise.all([
-      first.coordinator.refresh("/workspace/a"),
-      second.coordinator.refresh("/workspace/a"),
-    ]);
+    await Promise.all([first.coordinator.refresh("/workspace/a"), second.coordinator.refresh("/workspace/a")]);
 
     expect(first.list.mock.calls[0][1]).not.toBe(second.list.mock.calls[0][1]);
   });

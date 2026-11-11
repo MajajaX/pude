@@ -43,7 +43,11 @@ export function markUserOpenedPath(intent: RestoreIntent, path: string): Restore
   return toReadonly(next);
 }
 
-export function shouldMergeRestoredTab(intent: RestoreIntent, persistedTab: PersistedTab, currentTabIds: ReadonlySet<string>): boolean {
+export function shouldMergeRestoredTab(
+  intent: RestoreIntent,
+  persistedTab: PersistedTab,
+  currentTabIds: ReadonlySet<string>,
+): boolean {
   if (intent.cancelledTabIds.has(persistedTab.id) || currentTabIds.has(persistedTab.id)) return false;
   return !intent.openedPaths.has(pathKey(persistedTab.path));
 }

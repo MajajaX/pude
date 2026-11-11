@@ -18,7 +18,9 @@ export type DirectoryRestoreResult = {
 };
 
 export async function restoreDirectoryTreeByLevel(options: DirectoryRestoreOptions): Promise<DirectoryRestoreResult> {
-  const maxConcurrent = Number.isFinite(options.maxConcurrent) ? Math.max(1, Math.floor(options.maxConcurrent ?? 1)) : 6;
+  const maxConcurrent = Number.isFinite(options.maxConcurrent)
+    ? Math.max(1, Math.floor(options.maxConcurrent ?? 1))
+    : 6;
   let tree = options.root;
   if (!options.isCurrent()) return { tree, applied: false, interrupted: true };
   options.onTree(tree, 0);
@@ -33,8 +35,13 @@ export async function restoreDirectoryTreeByLevel(options: DirectoryRestoreOptio
         const listing = await limitIo(() => withBusyRetry(() => options.listDirectory(entry.path)));
         return { path: entry.path, listing, failed: false };
       } catch (error) {
-        const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Unable to read directory.";
-        return { path: entry.path, listing: { entries: [], partialError: { kind: "metadata" as const, message } }, failed: true };
+        const message =
+          error instanceof Error ? error.message : typeof error === "string" ? error : "Unable to read directory.";
+        return {
+          path: entry.path,
+          listing: { entries: [], partialError: { kind: "metadata" as const, message } },
+          failed: true,
+        };
       }
     });
     if (!options.isCurrent()) return { tree, applied: false, interrupted: true };
@@ -54,15 +61,33 @@ export async function restoreDirectoryTreeByLevel(options: DirectoryRestoreOptio
       changed = true;
     }
     if (changed) options.onTree(tree, depth);
-    level = loaded.flatMap((result) => result.listing?.entries ? directoriesToLoad({ name: "level", path: result.path, kind: "directory", children: result.listing.entries, loaded: true }, options.expandedPaths, false) : []);
+    level = loaded.flatMap((result) =>
+      result.listing?.entries
+        ? directoriesToLoad(
+            { name: "level", path: result.path, kind: "directory", children: result.listing.entries, loaded: true },
+            options.expandedPaths,
+            false,
+          )
+        : [],
+    );
     depth += 1;
   }
   return { tree, applied: true, interrupted: false };
 }
 
-function directoriesToLoad(entry: DirectoryEntry, expandedPaths: ReadonlySet<string>, includeSelf: boolean): DirectoryEntry[] {
+function directoriesToLoad(
+  entry: DirectoryEntry,
+  expandedPaths: ReadonlySet<string>,
+  includeSelf: boolean,
+): DirectoryEntry[] {
   const result: DirectoryEntry[] = [];
-  if (includeSelf && entry.kind === "directory" && expandedPaths.has(pathKey(entry.path)) && (!entry.loaded || !entry.children)) result.push(entry);
+  if (
+    includeSelf &&
+    entry.kind === "directory" &&
+    expandedPaths.has(pathKey(entry.path)) &&
+    (!entry.loaded || !entry.children)
+  )
+    result.push(entry);
   for (const child of entry.children ?? []) {
     if (child.kind === "directory" && expandedPaths.has(pathKey(child.path))) {
       if (!child.loaded || !child.children) result.push(child);
@@ -72,7 +97,11 @@ function directoriesToLoad(entry: DirectoryEntry, expandedPaths: ReadonlySet<str
   return result;
 }
 
-function replaceDirectory(entry: DirectoryEntry, path: string, update: (entry: DirectoryEntry) => DirectoryEntry): DirectoryEntry {
+function replaceDirectory(
+  entry: DirectoryEntry,
+  path: string,
+  update: (entry: DirectoryEntry) => DirectoryEntry,
+): DirectoryEntry {
   if (pathKey(entry.path) === pathKey(path)) return update(entry);
   if (!entry.children?.length) return entry;
   let changed = false;
@@ -84,7 +113,11 @@ function replaceDirectory(entry: DirectoryEntry, path: string, update: (entry: D
   return changed ? { ...entry, children } : entry;
 }
 
-async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
   if (!items.length) return [];
   const results = new Array<R>(items.length);
   let nextIndex = 0;

@@ -28,7 +28,10 @@ test("only the tagged release page of the shown version claims a published relea
 });
 
 test("the latest release page cannot prove which version it serves", () => {
-  assert.deepEqual(releaseInfo.getSiteRelease(`${repository}/releases/latest`, "0.1.7"), { releaseUrl: undefined, stage: "candidate" });
+  assert.deepEqual(releaseInfo.getSiteRelease(`${repository}/releases/latest`, "0.1.7"), {
+    releaseUrl: undefined,
+    stage: "candidate",
+  });
 });
 
 test("a tag for another version, an invalid URL or no URL never claims publication", () => {

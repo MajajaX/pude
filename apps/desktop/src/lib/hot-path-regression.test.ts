@@ -6,10 +6,24 @@ import { history, insertNewline } from "@codemirror/commands";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import hotPathDataset from "../../tests/fixtures/hot-path-v1.json";
-import { computeDocumentDirty, createLineEndingMapExtension, lineEndingMapFromString, lineEndingMapLength, lineEndingMapOf, lineEndingMapStorageBytes, lineEndingMapToString, majorityLineEnding } from "./line-ending-state";
-import { createSessionMetadata, recoveryBaselineKey, recoveryStorageKey } from "./session-storage-schema";
-import { commitSessionCheckpoint, readLatestSessionCheckpoint, type RecoveryBaseline, type RecoverySnapshot } from "./session-storage";
-import { flattenVisibleTree, treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type VirtualTreeEntry } from "./tree-virtualization";
+import {
+  computeDocumentDirty,
+  createLineEndingMapExtension,
+  lineEndingMapFromString,
+  lineEndingMapOf,
+  lineEndingMapStorageBytes,
+  lineEndingMapToString,
+  majorityLineEnding,
+} from "./line-ending-state";
+import { createSessionMetadata, recoveryStorageKey } from "./session-storage-schema";
+import {
+  commitSessionCheckpoint,
+  readLatestSessionCheckpoint,
+  type RecoveryBaseline,
+  type RecoverySnapshot,
+} from "./session-storage";
+import { flattenVisibleTree } from "./flatten-visible-tree.testing";
+import { treeKeyboardAction, virtualTreeWindow, VisibleTreeModel, type VirtualTreeEntry } from "./tree-virtualization";
 import type { DirectoryEntry, EditorTab } from "../types";
 
 type NodeBenchmarkRuntime = {
@@ -52,12 +66,24 @@ const originalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(globalThi
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
 
-  get length(): number { return this.values.size; }
-  clear(): void { this.values.clear(); }
-  getItem(key: string): string | null { return this.values.get(key) ?? null; }
-  key(index: number): string | null { return [...this.values.keys()][index] ?? null; }
-  removeItem(key: string): void { this.values.delete(key); }
-  setItem(key: string, value: string): void { this.values.set(String(key), String(value)); }
+  get length(): number {
+    return this.values.size;
+  }
+  clear(): void {
+    this.values.clear();
+  }
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+  key(index: number): string | null {
+    return [...this.values.keys()][index] ?? null;
+  }
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
+  setItem(key: string, value: string): void {
+    this.values.set(String(key), String(value));
+  }
 }
 
 const browserLocalStorage = new MemoryStorage();
@@ -81,7 +107,10 @@ const benchmarkSourceFiles = [
   ["src/lib/session-storage-basic.ts", new URL("./session-storage-basic.ts", import.meta.url)],
   ["src/lib/recovery-database-status.ts", new URL("./recovery-database-status.ts", import.meta.url)],
   ["src-tauri/src/lsp_manager.rs", new URL("../../src-tauri/src/lsp_manager.rs", import.meta.url)],
-  ["src-tauri/tests/fixtures/lsp_burst_fixture.rs", new URL("../../src-tauri/tests/fixtures/lsp_burst_fixture.rs", import.meta.url)],
+  [
+    "src-tauri/tests/fixtures/lsp_burst_fixture.rs",
+    new URL("../../src-tauri/tests/fixtures/lsp_burst_fixture.rs", import.meta.url),
+  ],
   ["tests/fixtures/hot-path-v1.json", new URL("../../tests/fixtures/hot-path-v1.json", import.meta.url)],
 ] as const;
 let sourceSnapshotSha256: Promise<string> | undefined;
@@ -103,9 +132,8 @@ function getSourceSnapshotSha256(): Promise<string> {
 function summarizeTimes(times: readonly number[]): Pick<BenchmarkRoundSummary, "medianMs" | "p95Ms"> {
   const ordered = [...times].sort((left, right) => left - right);
   const middle = Math.floor(ordered.length / 2);
-  const medianMs = ordered.length % 2 === 0
-    ? ((ordered[middle - 1] ?? 0) + (ordered[middle] ?? 0)) / 2
-    : ordered[middle] ?? 0;
+  const medianMs =
+    ordered.length % 2 === 0 ? ((ordered[middle - 1] ?? 0) + (ordered[middle] ?? 0)) / 2 : (ordered[middle] ?? 0);
   const p95Ms = ordered[Math.ceil(0.95 * ordered.length) - 1] ?? 0;
   return { medianMs, p95Ms };
 }
@@ -253,30 +281,36 @@ describe("versioned hot-path regression dataset", () => {
     const expectedInsertIndex = dataset.enterLineNumber - 1;
     const expectedMarkers = dataset.markers.repeat(dataset.markerRepeat);
     const expectedInsertedMarker = expectedMarkers[expectedInsertIndex - 1] ?? dataset.markers[0];
-    const expectedAfterMarkers = expectedMarkers.slice(0, expectedInsertIndex)
-      + expectedInsertedMarker
-      + expectedMarkers.slice(expectedInsertIndex);
+    const expectedAfterMarkers =
+      expectedMarkers.slice(0, expectedInsertIndex) +
+      expectedInsertedMarker +
+      expectedMarkers.slice(expectedInsertIndex);
     const bytesBefore = lineEndingMapStorageBytes([before.map]);
 
     const result = await sampleOperation(
       "enter-line-ending-map-tie",
       () => {
         let next: EditorState | undefined;
-        const handled = insertNewline({ state, dispatch: (transaction) => { next = transaction.state; } });
+        const handled = insertNewline({
+          state,
+          dispatch: (transaction) => {
+            next = transaction.state;
+          },
+        });
         if (!handled || !next) throw new Error("CodeMirror Enter command did not dispatch.");
         const after = lineEndingMapOf(next, created.field);
         return { state: next, map: after.map, lf: after.lf, crlf: after.crlf };
       },
       ({ state: afterState, map, lf, crlf }) => {
         expect(afterState.doc.lines).toBe(state.doc.lines + 1);
-        expect(lineEndingMapLength(map)).toBe(afterState.doc.lines - 1);
+        expect(map.length).toBe(afterState.doc.lines - 1);
         expect(lineEndingMapToString(map)).toBe(expectedAfterMarkers);
         expect(lf + crlf).toBe(expectedAfterMarkers.length);
         const retainedBytes = lineEndingMapStorageBytes([before.map, map]);
         expect(retainedBytes - bytesBefore).toBeLessThanOrEqual(dataset.maxRetainedBytesAdded);
       },
       ({ map, lf, crlf }) => ({
-        markerCount: lineEndingMapLength(map),
+        markerCount: map.length,
         lf,
         crlf,
         retainedMapBytes: lineEndingMapStorageBytes([before.map, map]),
@@ -316,17 +350,24 @@ describe("versioned hot-path regression dataset", () => {
     };
     const changedRoot: PathEntry = { ...initial, children: changedChildren };
     model.update(changedRoot, false);
-    expect(model.rows.map((row) => row.entry.path)).toEqual(flattenVisibleTree(changedRoot, false).map((row) => row.entry.path));
+    expect(model.rows.map((row) => row.entry.path)).toEqual(
+      flattenVisibleTree(changedRoot, false).map((row) => row.entry.path),
+    );
     expect(model.rows[dataset.changedChildIndex + 1].entry.size).toBe(42);
     expect(model.stats.fullBuilds).toBe(dataset.expectedFullBuilds);
     expect(model.stats.rowsUpdated - beforeUpdate.rowsUpdated).toBe(dataset.expectedRowsUpdated);
-    expect(model.stats.visibleEntriesFlattened - beforeUpdate.visibleEntriesFlattened).toBe(dataset.expectedRowsFlattenedOnMetadataUpdate);
-    expect(model.stats.directChildEntriesVisited - beforeUpdate.directChildEntriesVisited)
-      .toBe(dataset.expectedDirectChildEntriesVisitedOnMetadataUpdate);
-    expect(model.stats.directChildEntriesCompared - beforeUpdate.directChildEntriesCompared)
-      .toBe(dataset.expectedDirectChildEntriesComparedOnMetadataUpdate);
-    expect(model.stats.pathKeysComputed - beforeUpdate.pathKeysComputed)
-      .toBe(dataset.expectedPathKeysComputedOnMetadataUpdate);
+    expect(model.stats.visibleEntriesFlattened - beforeUpdate.visibleEntriesFlattened).toBe(
+      dataset.expectedRowsFlattenedOnMetadataUpdate,
+    );
+    expect(model.stats.directChildEntriesVisited - beforeUpdate.directChildEntriesVisited).toBe(
+      dataset.expectedDirectChildEntriesVisitedOnMetadataUpdate,
+    );
+    expect(model.stats.directChildEntriesCompared - beforeUpdate.directChildEntriesCompared).toBe(
+      dataset.expectedDirectChildEntriesComparedOnMetadataUpdate,
+    );
+    expect(model.stats.pathKeysComputed - beforeUpdate.pathKeysComputed).toBe(
+      dataset.expectedPathKeysComputedOnMetadataUpdate,
+    );
 
     const alternateChildren = [...initial.children!] as PathEntry[];
     alternateChildren[dataset.changedChildIndex] = {
@@ -334,12 +375,14 @@ describe("versioned hot-path regression dataset", () => {
       size: 43,
     };
     const alternateRoot: PathEntry = { ...initial, children: alternateChildren };
-    const focusedKeys = Array.from({ length: dataset.lookupsPerSample }, (_, index) =>
-      model.rows[1 + ((index * 7919) % dataset.directChildCount)].pathKey,
+    const focusedKeys = Array.from(
+      { length: dataset.lookupsPerSample },
+      (_, index) => model.rows[1 + ((index * 7919) % dataset.directChildCount)].pathKey,
     );
     const beforeLookups = { ...model.stats };
     const treeSampleCount = benchmarkEnabled
-      ? hotPathDataset.benchmarkPlan.warmupSamples + hotPathDataset.benchmarkPlan.rounds * hotPathDataset.benchmarkPlan.samplesPerRound
+      ? hotPathDataset.benchmarkPlan.warmupSamples +
+        hotPathDataset.benchmarkPlan.rounds * hotPathDataset.benchmarkPlan.samplesPerRound
       : 1;
     let nextUpdateRoot = alternateRoot;
     let treeUpdateSample = 0;
@@ -370,7 +413,8 @@ describe("versioned hot-path regression dataset", () => {
             fullBuilds: model.stats.fullBuilds - beforeSample.fullBuilds,
             flattenedRows: model.stats.visibleEntriesFlattened - beforeSample.visibleEntriesFlattened,
             directChildEntriesVisited: model.stats.directChildEntriesVisited - beforeSample.directChildEntriesVisited,
-            directChildEntriesCompared: model.stats.directChildEntriesCompared - beforeSample.directChildEntriesCompared,
+            directChildEntriesCompared:
+              model.stats.directChildEntriesCompared - beforeSample.directChildEntriesCompared,
             pathKeysComputed: model.stats.pathKeysComputed - beforeSample.pathKeysComputed,
             rowsUpdated: model.stats.rowsUpdated - beforeSample.rowsUpdated,
             indexMapBuilds: model.stats.indexMapBuilds - beforeSample.indexMapBuilds,
@@ -388,7 +432,10 @@ describe("versioned hot-path regression dataset", () => {
         for (let index = 0; index < lookups.length; index += 1) {
           const actualRow = model.rows[lookups[index].index];
           expect(actualRow.pathKey).toBe(focusedKeys[index]);
-          expect(lookups[index].action).toEqual({ kind: "focus", index: Math.min(lookups[index].index + 1, model.rows.length - 1) });
+          expect(lookups[index].action).toEqual({
+            kind: "focus",
+            index: Math.min(lookups[index].index + 1, model.rows.length - 1),
+          });
           expect(lookups[index].windowRows).toContain(actualRow.entry.path);
         }
         expect(work.lookups).toBe(dataset.lookupsPerSample);
@@ -407,14 +454,18 @@ describe("versioned hot-path regression dataset", () => {
     expect(model.stats.fullBuilds).toBe(beforeLookups.fullBuilds);
     expect(model.stats.visibleEntriesFlattened - beforeLookups.visibleEntriesFlattened).toBe(0);
     expect(model.stats.indexMapBuilds).toBe(beforeLookups.indexMapBuilds);
-    expect(model.stats.directChildEntriesCompared - beforeUpdate.directChildEntriesCompared)
-      .toBe(dataset.expectedDirectChildEntriesComparedOnMetadataUpdate * (treeSampleCount + 1));
-    expect(model.stats.directChildEntriesVisited - beforeUpdate.directChildEntriesVisited)
-      .toBe(dataset.expectedDirectChildEntriesVisitedOnMetadataUpdate * (treeSampleCount + 1));
-    expect(model.stats.rowsUpdated - beforeUpdate.rowsUpdated)
-      .toBe(dataset.expectedRowsUpdated * (treeSampleCount + 1));
-    expect(model.stats.pathKeysComputed - beforeUpdate.pathKeysComputed)
-      .toBe(dataset.expectedPathKeysComputedOnMetadataUpdate * 2);
+    expect(model.stats.directChildEntriesCompared - beforeUpdate.directChildEntriesCompared).toBe(
+      dataset.expectedDirectChildEntriesComparedOnMetadataUpdate * (treeSampleCount + 1),
+    );
+    expect(model.stats.directChildEntriesVisited - beforeUpdate.directChildEntriesVisited).toBe(
+      dataset.expectedDirectChildEntriesVisitedOnMetadataUpdate * (treeSampleCount + 1),
+    );
+    expect(model.stats.rowsUpdated - beforeUpdate.rowsUpdated).toBe(
+      dataset.expectedRowsUpdated * (treeSampleCount + 1),
+    );
+    expect(model.stats.pathKeysComputed - beforeUpdate.pathKeysComputed).toBe(
+      dataset.expectedPathKeysComputedOnMetadataUpdate * 2,
+    );
     expect(model.stats.indexMapWrites).toBe(beforeLookups.indexMapWrites);
   });
 
@@ -423,27 +474,36 @@ describe("versioned hot-path regression dataset", () => {
     const scope = dataset.scope;
     const baselineText = (index: number) => `saved-${index}:`.padEnd(dataset.documentChars, "s");
     const contentText = (index: number) => `edited-${index}:`.padEnd(dataset.documentChars, "x");
-    const tabs = Array.from({ length: dataset.documentCount }, (_, index): EditorTab => ({
-      id: `hot-tab-${index}`,
-      path: `/workspace/src/file-${index}.ts`,
-      name: `file-${index}.ts`,
-      content: contentText(index),
-      savedContent: baselineText(index),
-      dirty: true,
-      lineEnding: "lf",
-      lineEndings: "",
-      savedLineEndings: "",
-      bom: false,
-      savedBom: false,
-      encoding: "UTF-8",
-      language: "TypeScript",
-      cursorLine: 1,
-      cursorColumn: 0,
-      revision: 2,
-      savedRevision: 1,
-      contentVersion: 1,
-    }));
-    const root: DirectoryEntry = { name: "workspace", path: "/workspace", kind: "directory", expanded: true, children: [] };
+    const tabs = Array.from(
+      { length: dataset.documentCount },
+      (_, index): EditorTab => ({
+        id: `hot-tab-${index}`,
+        path: `/workspace/src/file-${index}.ts`,
+        name: `file-${index}.ts`,
+        content: contentText(index),
+        savedContent: baselineText(index),
+        dirty: true,
+        lineEnding: "lf",
+        lineEndings: "",
+        savedLineEndings: "",
+        bom: false,
+        savedBom: false,
+        encoding: "UTF-8",
+        language: "TypeScript",
+        cursorLine: 1,
+        cursorColumn: 0,
+        revision: 2,
+        savedRevision: 1,
+        contentVersion: 1,
+      }),
+    );
+    const root: DirectoryEntry = {
+      name: "workspace",
+      path: "/workspace",
+      kind: "directory",
+      expanded: true,
+      children: [],
+    };
     const session = createSessionMetadata("/workspace", tabs[0].id, tabs, root);
     const makeRecovery = (tab: EditorTab): RecoverySnapshot => ({
       version: 2,
@@ -480,9 +540,11 @@ describe("versioned hot-path regression dataset", () => {
 
     const metadataOnlySession = {
       ...session,
-      tabs: session.tabs.map((tab, index) => index === 0 ? { ...tab, cursorLine: 2 } : tab),
+      tabs: session.tabs.map((tab, index) => (index === 0 ? { ...tab, cursorLine: 2 } : tab)),
     };
-    const metadataTrace = await traceRecoveryBodyPuts(() => commitSessionCheckpoint({ scope, session: metadataOnlySession, now: 10_001 }));
+    const metadataTrace = await traceRecoveryBodyPuts(() =>
+      commitSessionCheckpoint({ scope, session: metadataOnlySession, now: 10_001 }),
+    );
     expect(metadataTrace.result).toMatchObject({ ok: true, complete: true, updatedRecoveryKeys: [] });
     expect(metadataTrace.puts).toHaveLength(dataset.expectedUnchangedSnapshotPuts);
     expect(metadataTrace.bytes).toBe(0);
@@ -493,15 +555,17 @@ describe("versioned hot-path regression dataset", () => {
       revision: 3,
       content: `changed-${changedIndex}:`.padEnd(dataset.documentChars, "y"),
     };
-    const changedTabs = tabs.map((tab, index) => index === changedIndex ? changedTab : tab);
+    const changedTabs = tabs.map((tab, index) => (index === changedIndex ? changedTab : tab));
     const changedSession = createSessionMetadata("/workspace", tabs[0].id, changedTabs, root);
     const changedSnapshot = makeRecovery(changedTab);
-    const changedTrace = await traceRecoveryBodyPuts(() => commitSessionCheckpoint({
-      scope,
-      session: changedSession,
-      recoveries: [changedSnapshot],
-      now: 10_002,
-    }));
+    const changedTrace = await traceRecoveryBodyPuts(() =>
+      commitSessionCheckpoint({
+        scope,
+        session: changedSession,
+        recoveries: [changedSnapshot],
+        now: 10_002,
+      }),
+    );
     const changedKey = recoveryStorageKey(changedTab.id, scope);
     expect(changedTrace.result).toMatchObject({ ok: true, complete: true, updatedRecoveryKeys: [changedKey] });
     expect(changedTrace.puts).toHaveLength(dataset.expectedChangedSnapshotPuts);
@@ -509,15 +573,18 @@ describe("versioned hot-path regression dataset", () => {
     expect(changedTrace.bytes).toBeGreaterThan(0);
     expect(changedTrace.puts[0].store).toBe("snapshots");
     expect(changedTrace.bytes).toBeLessThanOrEqual(dataset.maxChangedSnapshotPutUtf8Bytes);
-    expect(changedTrace.puts.filter((put) => put.store === "baselines")).toHaveLength(dataset.expectedChangedBaselinePuts);
+    expect(changedTrace.puts.filter((put) => put.store === "baselines")).toHaveLength(
+      dataset.expectedChangedBaselinePuts,
+    );
     expect(dataset.expectedChangedBaselinePuts).toBe(0);
 
     const sampleCount = benchmarkEnabled
-      ? hotPathDataset.benchmarkPlan.warmupSamples + hotPathDataset.benchmarkPlan.rounds * hotPathDataset.benchmarkPlan.samplesPerRound
+      ? hotPathDataset.benchmarkPlan.warmupSamples +
+        hotPathDataset.benchmarkPlan.rounds * hotPathDataset.benchmarkPlan.samplesPerRound
       : 1;
     const checkpointUpdates = Array.from({ length: sampleCount }, (_, index) => {
       const nextTab: EditorTab = { ...changedTab, revision: changedTab.revision + index + 1 };
-      const nextTabs = changedTabs.map((tab, tabIndex) => tabIndex === changedIndex ? nextTab : tab);
+      const nextTabs = changedTabs.map((tab, tabIndex) => (tabIndex === changedIndex ? nextTab : tab));
       return {
         session: createSessionMetadata("/workspace", tabs[0].id, nextTabs, root),
         recovery: makeRecovery(nextTab),
@@ -554,9 +621,8 @@ describe("versioned hot-path regression dataset", () => {
       const key = recoveryStorageKey(tab.id, scope);
       expect(restored?.recoveries[key].content).toBe(tab.content);
       expect(restored?.recoveries[key].savedContent).toBe(baselineText(Number(tab.id.slice("hot-tab-".length))));
-      const expectedRevision = tab.id === changedTab.id
-        ? checkpointUpdates[sampleCount - 1].recovery.revision
-        : tab.revision;
+      const expectedRevision =
+        tab.id === changedTab.id ? checkpointUpdates[sampleCount - 1].recovery.revision : tab.revision;
       expect(restored?.recoveryRevisions[key]).toBe(expectedRevision);
     }
   });
@@ -570,14 +636,15 @@ describe("versioned hot-path regression dataset", () => {
 
   it("uses even-sample median averaging and nearest-rank P95", () => {
     expect(summarizeTimes([1, 2, 3, 4])).toEqual({ medianMs: 2.5, p95Ms: 4 });
-    expect(summarizeTimes(Array.from({ length: 30 }, (_, index) => index + 1)))
-      .toEqual({ medianMs: 15.5, p95Ms: 29 });
+    expect(summarizeTimes(Array.from({ length: 30 }, (_, index) => index + 1))).toEqual({ medianMs: 15.5, p95Ms: 29 });
   });
 });
 
 type RecoveryBodyPut = { store: "snapshots" | "baselines"; key: string; value: unknown; bytes: number };
 
-async function traceRecoveryBodyPuts<T>(operation: () => Promise<T>): Promise<{ result: T; puts: RecoveryBodyPut[]; bytes: number }> {
+async function traceRecoveryBodyPuts<T>(
+  operation: () => Promise<T>,
+): Promise<{ result: T; puts: RecoveryBodyPut[]; bytes: number }> {
   const originalPut = IDBObjectStore.prototype.put;
   const puts: RecoveryBodyPut[] = [];
   IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey): IDBRequest<IDBValidKey> {

@@ -48,7 +48,9 @@ type ControllerSetup = {
   };
 };
 
-const createController = (options: { readFile?: (path: string) => Promise<ReadFileResult>; liveTabs?: EditorTab[]; generation?: number } = {}): ControllerSetup => {
+const createController = (
+  options: { readFile?: (path: string) => Promise<ReadFileResult>; liveTabs?: EditorTab[]; generation?: number } = {},
+): ControllerSetup => {
   let items: EditorTab[] = [];
   const tabs = new Map<string, EditorTab>(options.liveTabs?.map((item) => [item.id, item]));
   const updates: { id: string; changes: Partial<EditorTab> }[] = [];

@@ -16,10 +16,11 @@ export function savedTabChanges(
   liveDocument: LiveDocumentState,
   result: SaveFileOutcome,
 ): Partial<EditorTab> {
-  const dirty = liveDocument.content !== snapshot.content
-    || liveDocument.lineEndings !== snapshot.lineEndings
-    || current.bom !== snapshot.bom
-    || current.encoding !== snapshot.encoding;
+  const dirty =
+    liveDocument.content !== snapshot.content ||
+    liveDocument.lineEndings !== snapshot.lineEndings ||
+    current.bom !== snapshot.bom ||
+    current.encoding !== snapshot.encoding;
 
   return {
     // The tab-level content may be an older fallback while CodeMirror owns
