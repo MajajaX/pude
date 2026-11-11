@@ -3,7 +3,11 @@ import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), Channel: vi.fn() }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn() }));
 
-afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); vi.clearAllMocks(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.resetModules();
+  vi.clearAllMocks();
+});
 
 it("sends one native stat request with the Rust request envelope for 100 files", async () => {
   vi.stubGlobal("window", { __TAURI_INTERNALS__: {} });

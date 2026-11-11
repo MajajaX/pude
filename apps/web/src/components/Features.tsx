@@ -1,7 +1,5 @@
 import { For } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 
 function followPointer(event: PointerEvent) {
   const card = event.currentTarget as HTMLElement;
@@ -12,7 +10,7 @@ function followPointer(event: PointerEvent) {
 
 export default function Features() {
   return (
-    <section id="features" class="features">
+    <section id="features">
       <div class="wrap">
         <div use:reveal>
           <span class="eyebrow">{t().features.eyebrow}</span>

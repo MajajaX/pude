@@ -9,12 +9,7 @@ import type {
   ReadFileResult,
   SaveFileResult,
 } from "../types";
-import type {
-  LspEvent,
-  PluginWorkspaceFileInfo,
-  PluginWorkspaceFileRange,
-  StatFileEntry,
-} from "./bridge";
+import type { LspEvent, PluginWorkspaceFileInfo, PluginWorkspaceFileRange, StatFileEntry } from "./bridge";
 
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 
@@ -66,12 +61,14 @@ const pluginManifestConsumer: PluginManifest = {
   permissions: ["editor.read", "process.spawn:lsp"],
   activationEvents: ["onStartupFinished"],
   contributes: { commands: [{ command: "example.run", title: "Run 🧪" }] },
-  lspServers: [{
-    serverId: "rust-analyzer",
-    language: "rust",
-    executable: "/usr/bin/rust-analyzer",
-    args: ["--stdio", "--label=🧪"],
-  }],
+  lspServers: [
+    {
+      serverId: "rust-analyzer",
+      language: "rust",
+      executable: "/usr/bin/rust-analyzer",
+      args: ["--stdio", "--label=🧪"],
+    },
+  ],
   networkDomains: ["packages.example.test"],
 };
 
@@ -143,8 +140,12 @@ describe("Rust Serde and TypeScript IPC contracts", () => {
     expect(ipcFixtures.gitOperationError).toEqual(gitErrorConsumer);
     expect(ipcFixtures.pluginManifest).toEqual(pluginManifestConsumer);
     expect(ipcFixtures.lspEvent).toEqual(lspEventConsumer);
-    expect({ ...ipcFixtures.pluginWorkspaceFileInfoResponse, revision: pluginFileRevision }).toEqual(pluginFileInfoConsumer);
-    expect({ ...ipcFixtures.pluginWorkspaceReadFileRangeResponse, revision: pluginFileRevision }).toEqual(pluginFileRangeConsumer);
+    expect({ ...ipcFixtures.pluginWorkspaceFileInfoResponse, revision: pluginFileRevision }).toEqual(
+      pluginFileInfoConsumer,
+    );
+    expect({ ...ipcFixtures.pluginWorkspaceReadFileRangeResponse, revision: pluginFileRevision }).toEqual(
+      pluginFileRangeConsumer,
+    );
     expect({
       ...ipcFixtures.statFilesMissingEntry,
       path: statMissingEntryConsumer.path,
@@ -255,9 +256,13 @@ describe("Rust Serde and TypeScript IPC contracts", () => {
 
     invokeMock.mockReset();
     let resolveRange!: (value: PluginWorkspaceFileRange) => void;
-    invokeMock.mockImplementation((command: string) => command === "plugin_workspace_read_file_range"
-      ? new Promise<PluginWorkspaceFileRange>((resolve) => { resolveRange = resolve; })
-      : Promise.resolve(undefined));
+    invokeMock.mockImplementation((command: string) =>
+      command === "plugin_workspace_read_file_range"
+        ? new Promise<PluginWorkspaceFileRange>((resolve) => {
+            resolveRange = resolve;
+          })
+        : Promise.resolve(undefined),
+    );
     const controller = new AbortController();
     const pendingRange = bridge.pluginWorkspaceReadFileRange(
       workspace,

@@ -1,3 +1,4 @@
+use crate::git_error_info as error;
 use crate::git_repository::RepositoryIdentity;
 use crate::git_runtime::{
     GitCommandOutput, GitCommandSpec, GitCoordinator, GitErrorInfo, GitErrorKind, RequestHandle,
@@ -14,7 +15,8 @@ const HISTORY_REQUEST_DEADLINE: Duration = Duration::from_secs(10);
 const HISTORY_MAX_CHILD_PROCESSES: usize = 32;
 const HISTORY_MAX_COMMITS_PER_REQUEST: usize = 500;
 const HISTORY_MAX_OUTPUT_BYTES_PER_REQUEST: usize = 8 * 1024 * 1024;
-const HISTORY_MAX_PAGE_SIZE: usize = 120;
+const HISTORY_MAX_PAGE_SIZE: usize = 200;
+const HISTORY_TIPS_PER_CHILD: usize = 100;
 const HISTORY_MAX_CURSORS: usize = 32;
 const HISTORY_MAX_CURSOR_BYTES: usize = 64 * 1024 * 1024;
 const HISTORY_MAX_CURSOR_STATE_BYTES: usize = 8 * 1024 * 1024;
@@ -423,20 +425,24 @@ fn read_ref_snapshot(
     let mut parsed_refs = parse_ref_snapshot(&refs.stdout);
     parsed_refs.sort_by(|left, right| left.name_bytes.cmp(&right.name_bytes));
 
-    let head = match budget.run_raw(
-        repository,
-        runtime,
-        request,
-        vec![
-            OsString::from("rev-parse"),
-            OsString::from("--verify"),
-            OsString::from("--quiet"),
-            OsString::from("HEAD"),
-        ],
-    )? {
-        Some(output) if output.success => parse_single_oid(&output.stdout),
-        Some(_) => None,
-        None => return Ok(None),
+    // The checked-out branch already names HEAD's commit, which saves a process.
+    let head = match parsed_refs.iter().find(|reference| reference.is_head) {
+        Some(reference) => reference.tip_oid.clone(),
+        None => match budget.run_raw(
+            repository,
+            runtime,
+            request,
+            vec![
+                OsString::from("rev-parse"),
+                OsString::from("--verify"),
+                OsString::from("--quiet"),
+                OsString::from("HEAD"),
+            ],
+        )? {
+            Some(output) if output.success => parse_single_oid(&output.stdout),
+            Some(_) => None,
+            None => return Ok(None),
+        },
     };
     Ok(Some(RefSnapshot {
         refs: parsed_refs,
@@ -606,22 +612,20 @@ fn resolve_pending_ref_tips(
         }
     }
 
-    for (tip_oid, references) in tips {
-        if let Some(commit) = commits_by_hash.get_mut(&tip_oid) {
-            add_ref_names(commit, &references);
-            continue;
-        }
-        if commits_by_hash.len() >= HISTORY_MAX_COMMITS_PER_REQUEST {
-            budget.mark_partial("The Git history request reached its 500 unique commit limit.");
-            break;
-        }
-        let Some(output) = budget.run_raw(
-            repository,
-            runtime,
-            request,
-            history_args(&[tip_oid.as_str()], 1, None),
-        )?
-        else {
+    tips.retain(
+        |tip_oid, references| match commits_by_hash.get_mut(tip_oid) {
+            Some(commit) => {
+                add_ref_names(commit, references);
+                false
+            }
+            None => true,
+        },
+    );
+
+    let capacity = HISTORY_MAX_COMMITS_PER_REQUEST.saturating_sub(commits_by_hash.len());
+    let wanted_oids: Vec<&str> = tips.keys().take(capacity).map(String::as_str).collect();
+    for tip_oids in wanted_oids.chunks(HISTORY_TIPS_PER_CHILD) {
+        let Some(output) = budget.run_raw(repository, runtime, request, tip_args(tip_oids))? else {
             break;
         };
         let output = output
@@ -632,16 +636,21 @@ fn resolve_pending_ref_tips(
             commits_by_hash,
             HISTORY_MAX_COMMITS_PER_REQUEST,
         );
-        if let Some(commit) = commits_by_hash.get_mut(&tip_oid) {
-            add_ref_names(commit, &references);
+        for tip_oid in tip_oids {
+            if let Some(commit) = commits_by_hash.get_mut(*tip_oid) {
+                add_ref_names(commit, &tips[*tip_oid]);
+            }
         }
+    }
+    if tips.len() > capacity {
+        budget.mark_partial("The Git history request reached its 500 unique commit limit.");
     }
     Ok(())
 }
 
 fn add_ref_names(commit: &mut GitCommit, references: &[String]) {
     for reference in references {
-        let display_name = short_ref_name(reference);
+        let display_name = decorated_ref_name(reference);
         if !commit.refs.contains(&display_name) {
             commit.refs.push(display_name);
         }
@@ -681,6 +690,20 @@ fn history_args(revisions: &[&str], limit: usize, skip: Option<usize>) -> Vec<Os
     args
 }
 
+/// Reads exactly the named commits, without walking to their parents.
+fn tip_args(tip_oids: &[&str]) -> Vec<OsString> {
+    let mut args = vec![
+        OsString::from("log"),
+        OsString::from("-z"),
+        OsString::from("--no-walk=unsorted"),
+        OsString::from("--date=short"),
+        OsString::from("--decorate=short"),
+        OsString::from(HISTORY_FORMAT),
+    ];
+    args.extend(tip_oids.iter().map(OsString::from));
+    args
+}
+
 fn merge_history(commits: Vec<GitCommit>, output: &mut HashMap<String, GitCommit>, limit: usize) {
     for commit in commits {
         if let Some(existing) = output.get_mut(&commit.hash) {
@@ -701,8 +724,7 @@ fn commit_page_into_state<'a>(
     state: &mut HistoryCursor,
     commits: impl Iterator<Item = &'a GitCommit>,
 ) {
-    let commits: Vec<&GitCommit> = commits.collect();
-    for commit in &commits {
+    for commit in commits {
         state.seen_oids.insert(commit.hash.clone());
     }
     state
@@ -711,19 +733,21 @@ fn commit_page_into_state<'a>(
     state.last_used = Instant::now();
 }
 
-fn short_ref_name(reference: &str) -> String {
+fn decorated_ref_name(reference: &str) -> String {
+    if let Some(tag) = reference.strip_prefix("refs/tags/") {
+        return format!("tag: {tag}");
+    }
     reference
         .strip_prefix("refs/heads/")
         .or_else(|| reference.strip_prefix("refs/remotes/"))
-        .or_else(|| reference.strip_prefix("refs/tags/"))
         .unwrap_or(reference)
         .to_string()
 }
 
 fn parse_git_commits(bytes: &[u8]) -> Vec<GitCommit> {
-    let fields: Vec<String> = bytes
+    let fields: Vec<_> = bytes
         .split(|byte| *byte == 0)
-        .map(|field| String::from_utf8_lossy(field).into_owned())
+        .map(String::from_utf8_lossy)
         .collect();
     fields
         .as_chunks::<HISTORY_FIELDS_PER_COMMIT>()
@@ -731,11 +755,7 @@ fn parse_git_commits(bytes: &[u8]) -> Vec<GitCommit> {
         .iter()
         .map(|fields| GitCommit {
             hash: fields[0].to_string(),
-            parents: fields[1]
-                .split_whitespace()
-                .filter(|parent| !parent.is_empty())
-                .map(str::to_string)
-                .collect(),
+            parents: fields[1].split_whitespace().map(str::to_string).collect(),
             short_hash: fields[2].to_string(),
             author: fields[3].to_string(),
             date: fields[4].to_string(),
@@ -770,7 +790,7 @@ fn order_git_commits_topologically(commits: Vec<GitCommit>) -> Vec<GitCommit> {
     let mut ready = BinaryHeap::new();
     for (index, commit) in commits.iter().enumerate() {
         if remaining_children[index] == 0 {
-            ready.push((commit.authored_at.clone(), commit.hash.clone(), index));
+            ready.push((commit.authored_at.as_str(), commit.hash.as_str(), index));
         }
     }
 
@@ -785,8 +805,8 @@ fn order_git_commits_topologically(commits: Vec<GitCommit>) -> Vec<GitCommit> {
             if remaining_children[parent_index] == 0 {
                 let parent = &commits[parent_index];
                 ready.push((
-                    parent.authored_at.clone(),
-                    parent.hash.clone(),
+                    parent.authored_at.as_str(),
+                    parent.hash.as_str(),
                     parent_index,
                 ));
             }
@@ -909,16 +929,6 @@ fn cursor_store_bytes(store: &HistoryCursorStore) -> usize {
         .map(HistoryCursor::estimated_bytes)
         .sum();
     cursor_bytes.saturating_add(store.active.values().copied().sum::<usize>())
-}
-
-fn error(kind: GitErrorKind, message: impl Into<String>) -> GitErrorInfo {
-    GitErrorInfo {
-        kind,
-        message: message.into(),
-        exit_code: None,
-        stream: None,
-        limit: None,
-    }
 }
 
 #[cfg(test)]
@@ -1169,8 +1179,8 @@ mod tests {
         let store = cursor_store().lock().expect("cursor store lock");
         let state = store.cursors.get(&cursor).expect("stored cursor");
         assert_eq!(
-            state.last_request_processes, 4,
-            "one quiet OID uses one child"
+            state.last_request_processes, 3,
+            "refs, the page and one child for the quiet tips"
         );
         assert!(state.last_request_output_bytes > 0);
     }
@@ -1304,6 +1314,42 @@ mod tests {
     }
 
     #[test]
+    fn tags_are_listed_once_in_decorated_form_beside_branches_and_head() {
+        let fixture = GitFixture::new();
+        let quiet_tip = fixture.commit("quiet", "quiet\n");
+        fixture.git(&["tag", "v0.1.0"]);
+        let newest = fixture.commit("newest", "newest\n");
+        fixture.git(&["tag", "v0.2.0"]);
+        fixture.git(&["tag", "--annotate", "--message", "release", "v0.2.1"]);
+        fixture.git(&["branch", "--move", "main"]);
+        fixture.git(&["branch", "feature"]);
+
+        let page = fixture.load(None, 1);
+        let sorted_refs = |hash: &str| {
+            let commit = page
+                .commits
+                .iter()
+                .find(|commit| commit.hash == hash)
+                .expect("tagged commit is visible");
+            let mut refs = commit.refs.clone();
+            refs.sort();
+            refs
+        };
+
+        assert_eq!(
+            sorted_refs(&newest),
+            vec![
+                "HEAD -> main",
+                "feature",
+                "main",
+                "tag: v0.2.0",
+                "tag: v0.2.1",
+            ]
+        );
+        assert_eq!(sorted_refs(&quiet_tip), vec!["tag: v0.1.0"]);
+    }
+
+    #[test]
     fn one_thousand_alias_refs_are_deduplicated_before_child_queries() {
         let fixture = GitFixture::new();
         let quiet_tip = fixture.commit("quiet root", "root\n");
@@ -1319,7 +1365,7 @@ mod tests {
         let cursor = page.cursor.expect("older busy history remains");
         let store = cursor_store().lock().expect("cursor store lock");
         let state = store.cursors.get(&cursor).expect("stored cursor");
-        assert_eq!(state.last_request_processes, 4);
+        assert_eq!(state.last_request_processes, 3);
         let quiet_commit = page
             .commits
             .iter()
@@ -1329,30 +1375,78 @@ mod tests {
     }
 
     #[test]
-    fn many_distinct_quiet_tips_stop_at_the_request_process_budget_explicitly() {
+    fn many_distinct_quiet_tips_are_read_in_one_batched_child() {
         let fixture = GitFixture::new();
         let mut tip_oids = Vec::new();
         tip_oids.push(fixture.commit("root", "root\n"));
-        for index in 0..99 {
+        for index in 0..79 {
             tip_oids.push(fixture.commit(&format!("quiet-{index}"), &format!("{index}\n")));
         }
         for (index, tip) in tip_oids.iter().enumerate() {
             fixture.git(&["branch", &format!("quiet-ref-{index:03}"), tip]);
         }
         let page = fixture.load(None, 1);
-        assert!(!page.complete);
-        assert!(!page.unresolved_refs.is_empty());
-        assert!(page.has_more);
-        assert!(page
+        assert!(page.complete, "{:?}", page.incomplete_reason);
+        assert!(page.unresolved_refs.is_empty());
+        for tip in &tip_oids {
+            let commit = page
+                .commits
+                .iter()
+                .find(|commit| &commit.hash == tip)
+                .expect("every quiet tip is in the first page");
+            assert!(!commit.refs.is_empty());
+        }
+        let cursor = page.cursor.expect("older walk remains");
+        let store = cursor_store().lock().expect("cursor store lock");
+        let state = store.cursors.get(&cursor).expect("stored cursor");
+        assert_eq!(state.last_request_processes, 3);
+    }
+
+    #[test]
+    fn quiet_tips_beyond_the_commit_limit_continue_in_the_next_page() {
+        let fixture = GitFixture::new();
+        let mut stream = String::new();
+        for index in 0..HISTORY_MAX_COMMITS_PER_REQUEST + 50 {
+            let message = format!("quiet-{index}");
+            stream.push_str(&format!(
+                "commit refs/heads/quiet-{index}\ncommitter T <t@example.test> {} +0000\ndata {}\n{message}\n\n",
+                1_700_000_000 + index,
+                message.len(),
+            ));
+        }
+        let mut import = Command::new("git")
+            .args(["fast-import", "--quiet"])
+            .current_dir(&fixture.path)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+            .expect("git fast-import");
+        std::io::Write::write_all(
+            import.stdin.as_mut().expect("fast-import stdin"),
+            stream.as_bytes(),
+        )
+        .expect("fast-import stream");
+        assert!(import.wait().expect("fast-import exit").success());
+
+        let first = fixture.load(None, 1);
+        assert_eq!(first.commits.len(), HISTORY_MAX_COMMITS_PER_REQUEST);
+        assert!(!first.complete);
+        assert!(first
             .incomplete_reason
             .as_deref()
             .unwrap()
-            .contains("32 process"));
-        let cursor = page.cursor.expect("partial result must remain resumable");
-        let store = cursor_store().lock().expect("cursor store lock");
-        let state = store.cursors.get(&cursor).expect("stored cursor");
-        assert_eq!(state.last_request_processes, HISTORY_MAX_CHILD_PROCESSES);
-        assert!(state.last_request_output_bytes <= HISTORY_MAX_OUTPUT_BYTES_PER_REQUEST);
+            .contains("500 unique commit"));
+        assert!(!first.unresolved_refs.is_empty());
+        let cursor = first.cursor.expect("partial result must remain resumable");
+
+        let second = fixture.load(Some(&cursor), 1);
+        assert!(second.unresolved_refs.is_empty());
+        let unique: HashSet<_> = first
+            .commits
+            .iter()
+            .chain(&second.commits)
+            .map(|commit| commit.hash.as_str())
+            .collect();
+        assert_eq!(unique.len(), HISTORY_MAX_COMMITS_PER_REQUEST + 50);
     }
 
     #[test]

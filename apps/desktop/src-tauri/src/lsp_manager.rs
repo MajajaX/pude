@@ -27,6 +27,7 @@ const STDERR_CHUNK_BYTES: usize = 4 * 1024;
 const MAX_SUPERVISOR_BATCH_EVENTS: usize = 64;
 const MAX_SUPERVISOR_BATCH_TIME: Duration = Duration::from_millis(4);
 const LSP_CLEANUP_BATCH_TIMEOUT: Duration = Duration::from_secs(15);
+#[cfg(unix)]
 const LSP_PROCESS_GROUP_CLEANUP_TIMEOUT: Duration = Duration::from_secs(2);
 /// Total wall-clock bound for one Windows LSP bootstrap attempt (pipe
 /// connect plus payload delivery). Overruns cancel the pending overlapped
@@ -292,6 +293,7 @@ struct SessionHandle {
     stopping: Arc<AtomicBool>,
     stop_requested: Arc<AtomicBool>,
     cleanup_worker_active: Arc<AtomicBool>,
+    #[cfg(unix)]
     process_group: Arc<AtomicI32>,
 }
 
@@ -2269,16 +2271,18 @@ fn complete_start(
                         stopping: Arc::new(AtomicBool::new(false)),
                         stop_requested: Arc::clone(&stop_requested),
                         cleanup_worker_active: Arc::new(AtomicBool::new(false)),
+                        #[cfg(unix)]
                         process_group: Arc::clone(&process_group),
                     },
                 );
                 (true, false)
             }
-            Some(mut entry) if entry.id == id => {
+            Some(entry) if entry.id == id => {
                 #[cfg(unix)]
-                {
-                    entry.pending_process_group = Some(process_group.load(Ordering::Acquire));
-                }
+                let entry = StartingEntry {
+                    pending_process_group: Some(process_group.load(Ordering::Acquire)),
+                    ..entry
+                };
                 state.starting.insert(session_key.clone(), entry);
                 (false, true)
             }
@@ -3079,9 +3083,8 @@ fn read_bounded_header_line(
             return Err("LSP frame header exceeds the size limit.".to_string());
         }
         let has_newline = available.get(length.saturating_sub(1)) == Some(&b'\n');
-        let bytes = available[..length].to_vec();
+        line.extend_from_slice(&available[..length]);
         reader.consume(length);
-        line.extend_from_slice(&bytes);
         if has_newline {
             return Ok(Some(line));
         }
@@ -5056,6 +5059,7 @@ mod tests {
             stop_requested: Arc::new(AtomicBool::new(false)),
             cleanup_worker_active: Arc::new(AtomicBool::new(false)),
             // No such process group: the fallback cleanup succeeds without signaling anything real.
+            #[cfg(unix)]
             process_group: Arc::new(AtomicI32::new(i32::MAX)),
         };
         let manager = LspManager::default();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGitGraph, type GitGraphSegment } from "./git-graph";
+import { buildGitGraph, orderCommitsAfterChildren, type GitGraphSegment } from "./git-graph";
 import type { GitCommit } from "../types";
 
 function commit(hash: string, parents: string[] = []): GitCommit {
@@ -32,7 +32,11 @@ describe("buildGitGraph", () => {
     const graph = buildGitGraph([commit("tip", ["middle"]), commit("middle", ["root"]), commit("root")]);
 
     expect(graph.laneCount).toBe(1);
-    expect(graph.rows.map(({ lane, color }) => [lane, color])).toEqual([[0, 0], [0, 0], [0, 0]]);
+    expect(graph.rows.map(({ lane, color }) => [lane, color])).toEqual([
+      [0, 0],
+      [0, 0],
+      [0, 0],
+    ]);
     expect(graph.rows[0].segments).toContainEqual({
       fromLane: 0,
       toLane: 0,
@@ -77,7 +81,13 @@ describe("buildGitGraph", () => {
     expect(feature.segments).toContainEqual({ fromLane: 0, toLane: 0, fromY: 0, toY: 1, color: 0 });
     expect(shared.color).toBe(main.color);
     expect(shared.segments).toContainEqual({ fromLane: 0, toLane: shared.lane, fromY: 0, toY: 0.5, color: main.color });
-    expect(shared.segments).toContainEqual({ fromLane: 1, toLane: shared.lane, fromY: 0, toY: 0.5, color: feature.color });
+    expect(shared.segments).toContainEqual({
+      fromLane: 1,
+      toLane: shared.lane,
+      fromY: 0,
+      toY: 0.5,
+      color: feature.color,
+    });
   });
 
   it("preserves the first-parent color when a merge parent is already active", () => {
@@ -91,7 +101,11 @@ describe("buildGitGraph", () => {
     const mergeColor = graph.rows[0].color;
     const shared = graph.rows[2];
 
-    expect(graph.rows[0].segments.some((segment) => segment.fromY === 0.5 && segment.color === mergeColor && segment.toY === 1)).toBe(true);
+    expect(
+      graph.rows[0].segments.some(
+        (segment) => segment.fromY === 0.5 && segment.color === mergeColor && segment.toY === 1,
+      ),
+    ).toBe(true);
     expect(shared.color).toBe(mergeColor);
     expect(shared.segments.some((segment) => segment.fromLane !== shared.lane && segment.toY === 0.5)).toBe(true);
   });
@@ -121,15 +135,18 @@ describe("buildGitGraph", () => {
     ]);
 
     expect(graph.rows.map((row) => row.lane)).toEqual([0, 1, 0, 0, 1, 0]);
-    expect(graph.rows[3].segments).toContainEqual({ fromLane: 1, toLane: 1, fromY: 0, toY: 1, color: graph.rows[1].color });
+    expect(graph.rows[3].segments).toContainEqual({
+      fromLane: 1,
+      toLane: 1,
+      fromY: 0,
+      toY: 1,
+      color: graph.rows[1].color,
+    });
     expect(graph.laneCount).toBe(2);
   });
 
   it("marks omitted parents with a dashed stub and keeps explicit roots clean", () => {
-    const graph = buildGitGraph([
-      commit("cutoff", ["not-loaded"]),
-      commit("root"),
-    ]);
+    const graph = buildGitGraph([commit("cutoff", ["not-loaded"]), commit("root")]);
 
     expect(graph.rows[0].hasHiddenParents).toBe(true);
     expect(graph.rows[0].segments).toContainEqual({
@@ -181,5 +198,46 @@ describe("buildGitGraph", () => {
         expect(segment.toLane).toBeLessThan(graph.laneCount);
       }
     }
+  });
+});
+
+describe("orderCommitsAfterChildren", () => {
+  const hashes = (commits: GitCommit[]) => commits.map(({ hash }) => hash);
+
+  it("leaves a list that already has children first unchanged", () => {
+    const commits = [
+      commit("merge", ["left", "right"]),
+      commit("left", ["root"]),
+      commit("right", ["root"]),
+      commit("root"),
+    ];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["merge", "left", "right", "root"]);
+  });
+
+  it("moves a tip listed ahead of its child to just after that child", () => {
+    const commits = [
+      commit("newest", ["middle"]),
+      commit("tagged", ["root"]),
+      commit("middle", ["tagged"]),
+      commit("other"),
+      commit("root"),
+    ];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["newest", "middle", "tagged", "other", "root"]);
+  });
+
+  it("waits for the last child and moves chained parents along with it", () => {
+    const commits = [
+      commit("grandparent"),
+      commit("parent", ["grandparent"]),
+      commit("first", ["parent"]),
+      commit("second", ["parent", "parent"]),
+    ];
+    expect(hashes(orderCommitsAfterChildren(commits))).toEqual(["first", "second", "parent", "grandparent"]);
+  });
+
+  it("keeps the graph connected across a relocated tip", () => {
+    const listed = [commit("newest", ["tagged"]), commit("tagged")].reverse();
+    expect(buildGitGraph(listed).rows.some((row) => row.hasHiddenParents)).toBe(true);
+    expect(buildGitGraph(orderCommitsAfterChildren(listed)).rows.some((row) => row.hasHiddenParents)).toBe(false);
   });
 });

@@ -19,13 +19,30 @@ describe("Traditional Chinese interface text", () => {
   it("translates every interface string in the source", () => {
     const keys = new Set<string>();
     for (const file of sourceFiles(sourceRoot)) {
-      for (const match of readFileSync(file, "utf8").matchAll(/\b(?:t|translatable)\(\s*("(?:[^"\\\n]|\\.)*")/g)) keys.add(JSON.parse(match[1]));
+      for (const match of readFileSync(file, "utf8").matchAll(/\b(?:t|translatable)\(\s*("(?:[^"\\\n]|\\.)*")/g))
+        keys.add(JSON.parse(match[1]));
     }
     expect(keys.size).toBeGreaterThan(500);
     expect([...keys].filter((key) => !(key in zhHant))).toEqual([]);
   });
 
+  it("translates every notification written as a plain string", () => {
+    const keys = new Set<string>();
+    for (const file of sourceFiles(sourceRoot)) {
+      for (const match of readFileSync(file, "utf8").matchAll(/\bnotify\(\s*("(?:[^"\\\n]|\\.)*")\s*\)/g))
+        keys.add(JSON.parse(match[1]));
+    }
+    expect([...keys].filter((key) => !(key in zhHant))).toEqual([]);
+  });
+
+  it("never builds a notification from a template literal, which cannot be translated", () => {
+    const offenders = sourceFiles(sourceRoot).filter((file) => /\bnotify\(\s*`/.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
   it("keeps the same placeholders as the English text", () => {
-    expect(Object.entries(zhHant).filter(([key, value]) => placeholders(key).join() !== placeholders(value).join())).toEqual([]);
+    expect(
+      Object.entries(zhHant).filter(([key, value]) => placeholders(key).join() !== placeholders(value).join()),
+    ).toEqual([]);
   });
 });

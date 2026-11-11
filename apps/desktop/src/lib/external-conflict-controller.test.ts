@@ -48,7 +48,9 @@ type ControllerSetup = {
   };
 };
 
-const createController = (options: { readFile?: (path: string) => Promise<ReadFileResult>; liveTabs?: EditorTab[]; generation?: number } = {}): ControllerSetup => {
+const createController = (
+  options: { readFile?: (path: string) => Promise<ReadFileResult>; liveTabs?: EditorTab[]; generation?: number } = {},
+): ControllerSetup => {
   let items: EditorTab[] = [];
   const tabs = new Map<string, EditorTab>(options.liveTabs?.map((item) => [item.id, item]));
   const updates: { id: string; changes: Partial<EditorTab> }[] = [];
@@ -154,6 +156,21 @@ describe("external conflict controller reload", () => {
     });
     expect(hooks.bumps).toEqual(["tab-1"]);
     expect(hooks.notifications).toEqual(["Reloaded file.ts"]);
+  });
+
+  it("records the disk identity, size and normalization state like a background reload", async () => {
+    const { controller, hooks } = createController({
+      liveTabs: [tab()],
+      readFile: () => Promise.resolve(file({ identity: "1:2" })),
+    });
+    controller.queue(tab());
+    await controller.reload();
+    expect(hooks.updates[0].changes).toMatchObject({
+      diskIdentity: "1:2",
+      estimatedBytes: 4,
+      normalizedContentVersion: 8,
+      normalizedSavedRevision: 4,
+    });
   });
 
   it("does nothing when no conflict is queued", async () => {

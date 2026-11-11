@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { RecoverableSessionCandidate, SessionCheckpoint, SessionCheckpointMetadata, SessionMetadata, SessionWindowLease } from "./session-storage";
+import type {
+  RecoverableSessionCandidate,
+  SessionCheckpoint,
+  SessionCheckpointMetadata,
+  SessionMetadata,
+  SessionWindowLease,
+} from "./session-storage";
 
 const storage = vi.hoisted(() => ({
-  metadata: vi.fn(), status: vi.fn(), candidates: vi.fn(), claim: vi.fn(), load: vi.fn(), close: vi.fn(),
-  metadataResult: vi.fn(), loadResult: vi.fn(),
-  registry: vi.fn(), readStorage: vi.fn(),
+  metadata: vi.fn(),
+  candidates: vi.fn(),
+  claim: vi.fn(),
+  load: vi.fn(),
+  close: vi.fn(),
+  metadataResult: vi.fn(),
+  loadResult: vi.fn(),
+  registry: vi.fn(),
+  readStorage: vi.fn(),
 }));
 vi.mock("./session-storage", async (original) => ({
-  ...await original<typeof import("./session-storage")>(),
-  readLatestSessionCheckpointMetadata: storage.metadata,
-  readLatestSessionCheckpointStatus: storage.status,
+  ...(await original<typeof import("./session-storage")>()),
   listRecoverableSessionCheckpointCandidates: storage.candidates,
   claimRecoverableSessionCandidate: storage.claim,
   loadSessionCheckpoint: storage.load,
@@ -22,10 +32,33 @@ vi.mock("./session-storage", async (original) => ({
 import { resolveStartupSession, validateStartupCheckpoint } from "./session-startup";
 
 function candidate(scope: string, state: "closed" | "stale" = "closed"): RecoverableSessionCandidate {
-  const session: SessionMetadata = { version: 2, workspace: "/workspace", tabs: [], expandedPaths: [], activeTabId: undefined };
-  const checkpoint: SessionCheckpointMetadata = { version: 2, scope, checkpointId: `${scope}-checkpoint`, sequence: 7, committedAt: 100, session, recoveryKeys: [], recoveryRevisions: {} };
-  return { checkpoint, completeMetadata: true, missingRecoveryKeys: [], source: "indexeddb", workspace: session.workspace,
-    activeWindowIds: [], staleWindowIds: state === "stale" ? ["previous"] : [], closedWindowIds: state === "closed" ? ["previous"] : [] };
+  const session: SessionMetadata = {
+    version: 2,
+    workspace: "/workspace",
+    tabs: [],
+    expandedPaths: [],
+    activeTabId: undefined,
+  };
+  const checkpoint: SessionCheckpointMetadata = {
+    version: 2,
+    scope,
+    checkpointId: `${scope}-checkpoint`,
+    sequence: 7,
+    committedAt: 100,
+    session,
+    recoveryKeys: [],
+    recoveryRevisions: {},
+  };
+  return {
+    checkpoint,
+    completeMetadata: true,
+    missingRecoveryKeys: [],
+    source: "indexeddb",
+    workspace: session.workspace,
+    activeWindowIds: [],
+    staleWindowIds: state === "stale" ? ["previous"] : [],
+    closedWindowIds: state === "closed" ? ["previous"] : [],
+  };
 }
 const full = (item: RecoverableSessionCandidate): SessionCheckpoint => ({ ...item.checkpoint, recoveries: {} });
 const lease = (scope: string): SessionWindowLease => ({ scope, windowId: "secondary", leaseId: "test-owner" });
@@ -34,7 +67,6 @@ describe("startup recovery selects metadata before loading bodies", () => {
   beforeEach(() => {
     for (const mock of Object.values(storage)) mock.mockReset();
     storage.metadata.mockResolvedValue(null);
-    storage.status.mockResolvedValue(null);
     storage.candidates.mockResolvedValue([]);
     storage.close.mockResolvedValue({ ok: true });
     storage.readStorage.mockReturnValue(null);
@@ -50,7 +82,12 @@ describe("startup recovery selects metadata before loading bodies", () => {
       return value ? { status: "available", value } : { status: "missing" };
     });
   });
-  const hooks = () => ({ readLegacy: vi.fn((): SessionMetadata | null => null), confirmStaleRecovery: vi.fn(async () => true), notify: vi.fn(), isCurrent: () => true });
+  const hooks = () => ({
+    readLegacy: vi.fn((): SessionMetadata | null => null),
+    confirmStaleRecovery: vi.fn(async () => true),
+    notify: vi.fn(),
+    isCurrent: () => true,
+  });
 
   it("loads only the fenced chosen candidate, without loading another workspace body", async () => {
     const selected = candidate("selected");
@@ -61,8 +98,15 @@ describe("startup recovery selects metadata before loading bodies", () => {
     const result = await resolveStartupSession("secondary", hooks());
     expect(result.scope).toBe("selected");
     expect(storage.load).toHaveBeenCalledTimes(1);
-    expect(storage.load).toHaveBeenCalledWith("selected", { expectedCheckpointId: "selected-checkpoint", lease: lease("selected") });
-    expect(storage.claim.mock.calls[0][0].candidate).toEqual({ scope: "selected", checkpointId: "selected-checkpoint", sequence: 7 });
+    expect(storage.load).toHaveBeenCalledWith("selected", {
+      expectedCheckpointId: "selected-checkpoint",
+      lease: lease("selected"),
+    });
+    expect(storage.claim.mock.calls[0][0].candidate).toEqual({
+      scope: "selected",
+      checkpointId: "selected-checkpoint",
+      sequence: 7,
+    });
     expect(storage.close).not.toHaveBeenCalled();
   });
 
@@ -86,8 +130,12 @@ describe("startup recovery selects metadata before loading bodies", () => {
     const result = await resolveStartupSession("secondary", options);
 
     expect(result).toMatchObject({
-      scope: "secondary", checkpoint: null, legacy: null, lease: null,
-      pendingReleaseLease: lease("selected"), recoveredSecondary: false,
+      scope: "secondary",
+      checkpoint: null,
+      legacy: null,
+      lease: null,
+      pendingReleaseLease: lease("selected"),
+      recoveredSecondary: false,
     });
     expect(result.startupError).toBeUndefined();
     expect(storage.claim).toHaveBeenCalledOnce();
@@ -134,14 +182,21 @@ describe("startup recovery selects metadata before loading bodies", () => {
     storage.candidates.mockResolvedValue([selected, candidate("next", "stale")]);
     storage.claim.mockResolvedValue({ ok: true, reusedScope: true, lease: lease("selected") });
     let current = true;
-    storage.load.mockImplementation(async () => { current = false; return full(selected); });
+    storage.load.mockImplementation(async () => {
+      current = false;
+      return full(selected);
+    });
     storage.close.mockRejectedValue(new Error("cleanup storage failure"));
 
     const result = await resolveStartupSession("secondary", { ...hooks(), isCurrent: () => current });
 
     expect(result).toMatchObject({
-      scope: "secondary", checkpoint: null, legacy: null, lease: null,
-      pendingReleaseLease: lease("selected"), recoveredSecondary: false,
+      scope: "secondary",
+      checkpoint: null,
+      legacy: null,
+      lease: null,
+      pendingReleaseLease: lease("selected"),
+      recoveredSecondary: false,
     });
     expect(storage.claim).toHaveBeenCalledOnce();
     expect(storage.close).toHaveBeenCalledOnce();
@@ -152,15 +207,22 @@ describe("startup recovery selects metadata before loading bodies", () => {
     storage.candidates.mockResolvedValue([selected, candidate("next", "stale")]);
     storage.claim.mockResolvedValue({ ok: true, reusedScope: true, lease: lease("selected") });
     let current = true;
-    storage.load.mockImplementation(async () => { current = false; return full(selected); });
+    storage.load.mockImplementation(async () => {
+      current = false;
+      return full(selected);
+    });
     storage.close.mockResolvedValue({ ok: false, reason: "unavailable" });
     const options = { ...hooks(), isCurrent: () => current };
 
     const result = await resolveStartupSession("secondary", options);
 
     expect(result).toMatchObject({
-      scope: "secondary", checkpoint: null, legacy: null, lease: null,
-      pendingReleaseLease: lease("selected"), recoveredSecondary: false,
+      scope: "secondary",
+      checkpoint: null,
+      legacy: null,
+      lease: null,
+      pendingReleaseLease: lease("selected"),
+      recoveredSecondary: false,
     });
     expect(storage.claim).toHaveBeenCalledOnce();
     expect(storage.close).toHaveBeenCalledOnce();
@@ -177,8 +239,12 @@ describe("startup recovery selects metadata before loading bodies", () => {
     const result = await resolveStartupSession("secondary", options);
 
     expect(result).toMatchObject({
-      scope: "secondary", checkpoint: null, legacy: null, lease: null,
-      pendingReleaseLease: lease("selected"), recoveredSecondary: false,
+      scope: "secondary",
+      checkpoint: null,
+      legacy: null,
+      lease: null,
+      pendingReleaseLease: lease("selected"),
+      recoveredSecondary: false,
     });
     expect(result.startupError).toBe(loadError);
     expect(storage.claim).toHaveBeenCalledOnce();
@@ -197,7 +263,7 @@ describe("startup recovery selects metadata before loading bodies", () => {
     expect(result.pendingReleaseLease).toEqual(lease("selected"));
     expect(result.lease).toBeNull();
     expect(result.checkpoint).toBeNull();
-    expect(Object.prototype.hasOwnProperty.call(result, "startupError")).toBe(true);
+    expect(Object.hasOwn(result, "startupError")).toBe(true);
     expect(result.startupError).toBeUndefined();
   });
 
@@ -258,7 +324,9 @@ describe("startup recovery selects metadata before loading bodies", () => {
     const selected = candidate("secondary");
     storage.metadata.mockResolvedValue({ checkpoint: selected.checkpoint });
     storage.load.mockResolvedValue(full(selected));
-    storage.readStorage.mockReturnValue(JSON.stringify({ version: 2, positions: { tab: { cursorLine: 12, cursorColumn: 4 } } }));
+    storage.readStorage.mockReturnValue(
+      JSON.stringify({ version: 2, positions: { tab: { cursorLine: 12, cursorColumn: 4 } } }),
+    );
 
     const result = await resolveStartupSession("secondary", hooks());
 
@@ -269,7 +337,9 @@ describe("startup recovery selects metadata before loading bodies", () => {
   it("captures legacy cursor positions from its scope", async () => {
     const options = hooks();
     options.readLegacy.mockReturnValue(candidate("legacy-scope").checkpoint.session);
-    storage.readStorage.mockReturnValue(JSON.stringify({ version: 2, positions: { legacyTab: { cursorLine: 3, cursorColumn: 8 } } }));
+    storage.readStorage.mockReturnValue(
+      JSON.stringify({ version: 2, positions: { legacyTab: { cursorLine: 3, cursorColumn: 8 } } }),
+    );
 
     const result = await resolveStartupSession("legacy-scope", options);
 
@@ -282,7 +352,9 @@ describe("startup recovery selects metadata before loading bodies", () => {
     storage.candidates.mockResolvedValue([selected]);
     storage.claim.mockResolvedValue({ ok: true, reusedScope: true, lease: lease("recovered-scope") });
     storage.load.mockResolvedValue(full(selected));
-    storage.readStorage.mockReturnValue(JSON.stringify({ version: 2, positions: { recoveredTab: { cursorLine: 6, cursorColumn: 2 } } }));
+    storage.readStorage.mockReturnValue(
+      JSON.stringify({ version: 2, positions: { recoveredTab: { cursorLine: 6, cursorColumn: 2 } } }),
+    );
 
     const result = await resolveStartupSession("new-window", hooks());
 
@@ -298,7 +370,10 @@ describe("startup recovery selects metadata before loading bodies", () => {
     options.readLegacy.mockReturnValue(selected.checkpoint.session);
 
     expect(await resolveStartupSession("secondary", options)).toMatchObject({
-      checkpoint: null, legacy: null, recoveryUnavailable: true, lease: null,
+      checkpoint: null,
+      legacy: null,
+      recoveryUnavailable: true,
+      lease: null,
     });
     expect(options.readLegacy).not.toHaveBeenCalled();
     expect(storage.candidates).not.toHaveBeenCalled();
@@ -309,7 +384,7 @@ describe("startup recovery selects metadata before loading bodies", () => {
     const options = hooks();
     const result = await resolveStartupSession("secondary", options);
     expect(result).toMatchObject({ checkpoint: null, legacy: null, recoveryUnavailable: true });
-    expect(Object.prototype.hasOwnProperty.call(result, "startupError")).toBe(true);
+    expect(Object.hasOwn(result, "startupError")).toBe(true);
     expect(options.readLegacy).not.toHaveBeenCalled();
     expect(storage.loadResult).not.toHaveBeenCalled();
     expect(storage.candidates).not.toHaveBeenCalled();
@@ -317,28 +392,62 @@ describe("startup recovery selects metadata before loading bodies", () => {
 
   it("retains the unavailable barrier when the workspace changed during metadata IO", async () => {
     storage.metadataResult.mockResolvedValue({ status: "unavailable" });
-    expect((await resolveStartupSession("secondary", { ...hooks(), isCurrent: () => false })).recoveryUnavailable).toBe(true);
+    expect((await resolveStartupSession("secondary", { ...hooks(), isCurrent: () => false })).recoveryUnavailable).toBe(
+      true,
+    );
   });
 
   it("does not discard unread dirty recovery when metadata IO is superseded", async () => {
     const selected = candidate("secondary");
-    selected.checkpoint.session.tabs = [{
-      id: "dirty", path: "/workspace/file.txt", name: "file.txt", encoding: "UTF-8", language: "Text",
-      dirty: true, revision: 2, savedRevision: 1,
-      contentVersion: 2, lineEnding: "lf", cursorLine: 1, cursorColumn: 1,
-    }];
+    selected.checkpoint.session.tabs = [
+      {
+        id: "dirty",
+        path: "/workspace/file.txt",
+        name: "file.txt",
+        encoding: "UTF-8",
+        language: "Text",
+        dirty: true,
+        revision: 2,
+        savedRevision: 1,
+        contentVersion: 2,
+        lineEnding: "lf",
+        cursorLine: 1,
+        cursorColumn: 1,
+      },
+    ];
     storage.metadata.mockResolvedValue({ checkpoint: selected.checkpoint });
-    expect((await resolveStartupSession("secondary", { ...hooks(), isCurrent: () => false })).recoveryUnavailable).toBe(true);
+    expect((await resolveStartupSession("secondary", { ...hooks(), isCurrent: () => false })).recoveryUnavailable).toBe(
+      true,
+    );
     expect(storage.loadResult).not.toHaveBeenCalled();
   });
 
   it("preserves a superseded legacy text session even when its metadata says clean", async () => {
     const options = hooks();
-    options.readLegacy.mockReturnValue({ version: 2, workspace: "/workspace", expandedPaths: [], tabs: [{
-      id: "legacy", path: "/workspace/file.txt", name: "file.txt", encoding: "UTF-8", language: "Text",
-      dirty: false, revision: 1, savedRevision: 1, contentVersion: 1, lineEnding: "lf", cursorLine: 1, cursorColumn: 1,
-    }] });
-    expect((await resolveStartupSession("secondary", { ...options, isCurrent: () => false })).recoveryUnavailable).toBe(true);
+    options.readLegacy.mockReturnValue({
+      version: 2,
+      workspace: "/workspace",
+      expandedPaths: [],
+      tabs: [
+        {
+          id: "legacy",
+          path: "/workspace/file.txt",
+          name: "file.txt",
+          encoding: "UTF-8",
+          language: "Text",
+          dirty: false,
+          revision: 1,
+          savedRevision: 1,
+          contentVersion: 1,
+          lineEnding: "lf",
+          cursorLine: 1,
+          cursorColumn: 1,
+        },
+      ],
+    });
+    expect((await resolveStartupSession("secondary", { ...options, isCurrent: () => false })).recoveryUnavailable).toBe(
+      true,
+    );
     expect(storage.loadResult).not.toHaveBeenCalled();
   });
 
@@ -350,23 +459,28 @@ describe("startup recovery selects metadata before loading bodies", () => {
 
     expect(result.recoveryUnavailable).toBe(true);
     expect(result.legacy).toBeNull();
-    expect(Object.prototype.hasOwnProperty.call(result, "startupError")).toBe(true);
+    expect(Object.hasOwn(result, "startupError")).toBe(true);
   });
 
-  it.each(["scope", "checkpointId", "sequence", "workspace"])("rejects a preferred body with mismatched %s", async (field) => {
-    const selected = candidate("secondary");
-    const checkpoint = full(selected);
-    if (field === "scope") checkpoint.scope = "other";
-    if (field === "checkpointId") checkpoint.checkpointId = "older";
-    if (field === "sequence") checkpoint.sequence -= 1;
-    if (field === "workspace") checkpoint.session = { ...checkpoint.session, workspace: "/other" };
-    storage.metadata.mockResolvedValue({ checkpoint: selected.checkpoint });
-    storage.load.mockResolvedValue(checkpoint);
+  it.each(["scope", "checkpointId", "sequence", "workspace"])(
+    "rejects a preferred body with mismatched %s",
+    async (field) => {
+      const selected = candidate("secondary");
+      const checkpoint = full(selected);
+      if (field === "scope") checkpoint.scope = "other";
+      if (field === "checkpointId") checkpoint.checkpointId = "older";
+      if (field === "sequence") checkpoint.sequence -= 1;
+      if (field === "workspace") checkpoint.session = { ...checkpoint.session, workspace: "/other" };
+      storage.metadata.mockResolvedValue({ checkpoint: selected.checkpoint });
+      storage.load.mockResolvedValue(checkpoint);
 
-    expect(await resolveStartupSession("secondary", hooks())).toMatchObject({
-      checkpoint: null, legacy: null, recoveryUnavailable: true,
-    });
-  });
+      expect(await resolveStartupSession("secondary", hooks())).toMatchObject({
+        checkpoint: null,
+        legacy: null,
+        recoveryUnavailable: true,
+      });
+    },
+  );
 
   it("revalidates a previously loaded body after ownership is acquired", async () => {
     const selected = candidate("secondary");
@@ -380,13 +494,24 @@ describe("startup recovery selects metadata before loading bodies", () => {
     expect(await validateStartupCheckpoint(full(selected), owner)).toBe(false);
   });
 
-  it.each(["closed", "replaced", "unavailable", "throw"])("rejects post-attach validation when ownership is %s", async (state) => {
-    const selected = candidate("secondary");
-    const owner = lease("secondary");
-    storage.metadataResult.mockResolvedValue({ status: "available", value: selected });
-    storage.registry.mockResolvedValue({ windows: [{ ...owner, status: state === "closed" ? "closed" : "open", leaseId: state === "replaced" ? "new-owner" : owner.leaseId }] });
-    if (state === "unavailable") storage.metadataResult.mockResolvedValue({ status: "unavailable" });
-    if (state === "throw") storage.registry.mockRejectedValue(undefined);
-    expect(await validateStartupCheckpoint(full(selected), owner)).toBe(false);
-  });
+  it.each(["closed", "replaced", "unavailable", "throw"])(
+    "rejects post-attach validation when ownership is %s",
+    async (state) => {
+      const selected = candidate("secondary");
+      const owner = lease("secondary");
+      storage.metadataResult.mockResolvedValue({ status: "available", value: selected });
+      storage.registry.mockResolvedValue({
+        windows: [
+          {
+            ...owner,
+            status: state === "closed" ? "closed" : "open",
+            leaseId: state === "replaced" ? "new-owner" : owner.leaseId,
+          },
+        ],
+      });
+      if (state === "unavailable") storage.metadataResult.mockResolvedValue({ status: "unavailable" });
+      if (state === "throw") storage.registry.mockRejectedValue(undefined);
+      expect(await validateStartupCheckpoint(full(selected), owner)).toBe(false);
+    },
+  );
 });

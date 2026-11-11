@@ -62,25 +62,27 @@ export function parseDiff(diff: string): DiffParseResult {
     return true;
   };
 
-  const lineStarts = (prefix: string): boolean => lineEnd - lineStart >= prefix.length && source.startsWith(prefix, lineStart);
+  const lineStarts = (prefix: string): boolean =>
+    lineEnd - lineStart >= prefix.length && source.startsWith(prefix, lineStart);
   const lineText = (): string => source.slice(lineStart, lineEnd);
   const lineBody = (): string => source.slice(lineStart + 1, lineEnd);
   const countFromHeader = (value: string | undefined): number => Math.max(0, Number(value ?? "1"));
-  const isHeader = (): boolean => lineStarts("diff ")
-    || lineStarts("index ")
-    || lineStarts("new file")
-    || lineStarts("deleted file")
-    || lineStarts("old mode")
-    || lineStarts("new mode")
-    || lineStarts("similarity index")
-    || lineStarts("rename from")
-    || lineStarts("rename to")
-    || lineStarts("---")
-    || lineStarts("+++")
-    || lineStarts("\\");
+  const isHeader = (): boolean =>
+    lineStarts("diff ") ||
+    lineStarts("index ") ||
+    lineStarts("new file") ||
+    lineStarts("deleted file") ||
+    lineStarts("old mode") ||
+    lineStarts("new mode") ||
+    lineStarts("similarity index") ||
+    lineStarts("rename from") ||
+    lineStarts("rename to") ||
+    lineStarts("---") ||
+    lineStarts("+++") ||
+    lineStarts("\\");
 
   advanceLine();
-  parse: while (hasLine) {
+  while (hasLine) {
     if (lineStarts("@@@")) {
       hunk = undefined;
       skippingCombinedHunk = true;
@@ -115,7 +117,7 @@ export function parseDiff(diff: string): DiffParseResult {
     if (lineStarts(" ") && hunk.oldRemaining > 0 && hunk.newRemaining > 0) {
       if (rows.length >= DIFF_PREVIEW_BUDGETS.maxRows) {
         truncated = true;
-        break parse;
+        break;
       }
       const text = lineBody();
       rows.push({ state: "context", left: text, right: text, leftNumber: oldNumber, rightNumber: newNumber });
@@ -133,7 +135,7 @@ export function parseDiff(diff: string): DiffParseResult {
       const rowBudget = DIFF_PREVIEW_BUDGETS.maxRows - rows.length;
       if (rowBudget === 0) {
         truncated = true;
-        break parse;
+        break;
       }
 
       const removed: StoredChangeLine[] = [];
@@ -171,7 +173,7 @@ export function parseDiff(diff: string): DiffParseResult {
       }
       if (pairCount > rowBudget) {
         truncated = true;
-        break parse;
+        break;
       }
       continue;
     }
@@ -196,12 +198,15 @@ export function toStackedDiffLines(rows: DiffRow[]): StackedDiffLine[] {
     if (row.state === "context") {
       flushChanges();
       const text = row.left ?? row.right;
-      if (text !== undefined) stacked.push({ kind: "context", text, oldNumber: row.leftNumber, newNumber: row.rightNumber });
+      if (text !== undefined)
+        stacked.push({ kind: "context", text, oldNumber: row.leftNumber, newNumber: row.rightNumber });
       continue;
     }
 
-    if (row.left !== undefined) removed.push({ kind: "removed", label: "BEFORE", text: row.left, oldNumber: row.leftNumber });
-    if (row.right !== undefined) added.push({ kind: "added", label: "AFTER", text: row.right, newNumber: row.rightNumber });
+    if (row.left !== undefined)
+      removed.push({ kind: "removed", label: "BEFORE", text: row.left, oldNumber: row.leftNumber });
+    if (row.right !== undefined)
+      added.push({ kind: "added", label: "AFTER", text: row.right, newNumber: row.rightNumber });
   }
   flushChanges();
   return stacked;

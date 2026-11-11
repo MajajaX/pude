@@ -48,15 +48,16 @@ let sharedFocusListener: ((event: FocusEvent) => void) | undefined;
 export function activateModalFocus(dialog: HTMLElement, options: ModalFocusOptions = {}): ModalFocusController {
   const configuredOrigin = resolveConfiguredOrigin(options.returnFocus);
   const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  const capturedOrigin = activeElement && activeElement.isConnected && activeElement !== document.body && activeElement !== document.documentElement
-    ? activeElement
-    : null;
+  const capturedOrigin =
+    activeElement?.isConnected && activeElement !== document.body && activeElement !== document.documentElement
+      ? activeElement
+      : null;
   const primaryOrigin = capturedOrigin ?? configuredOrigin;
   const origin: ModalOrigin = {
     target: primaryOrigin,
     containingModal: primaryOrigin?.closest<HTMLElement>(modalSelector) ?? null,
     fallbackTarget: capturedOrigin ? configuredOrigin : null,
-    fallbackContainingModal: capturedOrigin ? configuredOrigin?.closest<HTMLElement>(modalSelector) ?? null : null,
+    fallbackContainingModal: capturedOrigin ? (configuredOrigin?.closest<HTMLElement>(modalSelector) ?? null) : null,
   };
   const entry: ModalEntry = { dialog, origin, options };
   entries.push(entry);
@@ -83,36 +84,12 @@ export function activateModalFocus(dialog: HTMLElement, options: ModalFocusOptio
   return controller;
 }
 
-/** Compatibility helpers for callers being migrated to activateModalFocus. */
 export function isTopmostModal(dialog: HTMLElement | undefined): boolean {
   return Boolean(dialog && getTopmostModal() === dialog);
 }
 
-export function rememberModalFocus(dialog: HTMLElement | undefined, focusTarget: HTMLElement | null): void {
-  if (!dialog) return;
-  modalOrigins.set(dialog, {
-    target: focusTarget,
-    containingModal: focusTarget?.closest<HTMLElement>(modalSelector) ?? null,
-    fallbackTarget: null,
-    fallbackContainingModal: null,
-  });
-}
-
-export function restoreFocusAfterModalClose(dialog: HTMLElement | undefined, focusTarget: HTMLElement | null): void {
-  if (!dialog) return;
-  const origin = modalOrigins.get(dialog) ?? {
-    target: focusTarget,
-    containingModal: focusTarget?.closest<HTMLElement>(modalSelector) ?? null,
-    fallbackTarget: null,
-    fallbackContainingModal: null,
-  };
-  window.setTimeout(() => restoreFocusAfterModal({ ...origin, target: focusTarget ?? origin.target }), 0);
-}
-
 export function getModalFocusableElements(dialog: HTMLElement): HTMLElement[] {
-  return Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
-    .filter(isFocusable)
-    .sort(compareTabOrder);
+  return Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(isFocusable).sort(compareTabOrder);
 }
 
 function installSharedFocusListener(): void {
@@ -200,16 +177,21 @@ function restoreFocusAfterModal(origin: ModalOrigin): void {
   const topmost = getTopmostModal();
   if (topmost) {
     const target = resolveOrigin(origin);
-    if (target && target.isConnected && target.closest<HTMLElement>(modalSelector) === topmost && focusElement(target)) return;
+    if (target?.isConnected && target.closest<HTMLElement>(modalSelector) === topmost && focusElement(target)) return;
     focusFirstIn(topmost);
     return;
   }
 
   const target = resolveOrigin(origin);
-  if (target && target.isConnected && !target.closest(modalSelector) && focusElement(target)) return;
+  if (target?.isConnected && !target.closest(modalSelector) && focusElement(target)) return;
 
-  const fallback = resolveOrigin({ target: origin.fallbackTarget, containingModal: origin.fallbackContainingModal, fallbackTarget: null, fallbackContainingModal: null });
-  if (fallback && fallback.isConnected && !fallback.closest(modalSelector) && focusElement(fallback)) return;
+  const fallback = resolveOrigin({
+    target: origin.fallbackTarget,
+    containingModal: origin.fallbackContainingModal,
+    fallbackTarget: null,
+    fallbackContainingModal: null,
+  });
+  if (fallback?.isConnected && !fallback.closest(modalSelector) && focusElement(fallback)) return;
 
   focusSafeDocumentFallback();
 }
@@ -247,8 +229,9 @@ function focusSafeDocumentFallback(): void {
     if (focusElement(main)) return;
   }
 
-  const target = Array.from(document.querySelectorAll<HTMLElement>(focusableSelector))
-    .find((element) => isFocusable(element) && !element.closest(modalSelector));
+  const target = Array.from(document.querySelectorAll<HTMLElement>(focusableSelector)).find(
+    (element) => isFocusable(element) && !element.closest(modalSelector),
+  );
   if (target && focusElement(target)) return;
 
   if (document.body) {

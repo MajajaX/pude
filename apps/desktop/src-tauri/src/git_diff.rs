@@ -1,7 +1,8 @@
 use crate::git_runtime::{
-    GitCommandOutput, GitCommandSpec, GitCoordinator, GitErrorInfo, GitReadKind, GitReadRequest,
-    RequestHandle, DEFAULT_STDERR_LIMIT,
+    GitCommandOutput, GitCommandSpec, GitCoordinator, GitErrorInfo, GitErrorKind, GitReadKind,
+    GitReadRequest, RequestHandle, DEFAULT_STDERR_LIMIT,
 };
+use crate::git_stash::is_object_id;
 use std::ffi::OsString;
 use std::path::Path;
 
@@ -29,7 +30,7 @@ pub fn diff_args(
     }
     args.push(OsString::from("--"));
     if untracked {
-        args.push(OsString::from(null_device_path()));
+        args.push(OsString::from(crate::null_device_path()));
     }
     args.push(file_path.as_os_str().to_os_string());
     args
@@ -70,6 +71,17 @@ pub fn read_git_diff(
     }
 }
 
+pub fn require_commit_object_id(commit: &str) -> Result<&str, GitErrorInfo> {
+    if is_object_id(commit) {
+        Ok(commit)
+    } else {
+        Err(crate::git_error_info(
+            GitErrorKind::Failed,
+            "A commit must be identified by its full object ID.",
+        ))
+    }
+}
+
 pub fn read_git_commit_diff(
     runtime: &GitCoordinator,
     repository: &Path,
@@ -78,21 +90,21 @@ pub fn read_git_commit_diff(
     file_path: &Path,
     context_lines: usize,
 ) -> Result<GitCommandOutput, GitErrorInfo> {
+    let commit = require_commit_object_id(commit)?;
     let context_lines = context_lines.min(MAX_DIFF_CONTEXT_LINES);
-    let mut spec = GitCommandSpec::read(
+    let spec = diff_spec(
         repository,
         vec![
             OsString::from("show"),
             OsString::from("--no-ext-diff"),
             OsString::from(format!("--unified={context_lines}")),
             OsString::from("--format="),
+            OsString::from("--end-of-options"),
             OsString::from(commit),
             OsString::from("--"),
             file_path.as_os_str().to_os_string(),
         ],
     );
-    spec.stdout_limit = MAX_DIFF_STDOUT_BYTES;
-    spec.stderr_limit = DEFAULT_STDERR_LIMIT.min(128 * 1024);
     let output = runtime
         .read_shared_for(
             GitReadRequest::new(repository, GitReadKind::History, spec),
@@ -110,17 +122,6 @@ pub fn next_context_lines(context_lines: usize) -> Option<usize> {
             .max(context_lines + 1)
             .min(MAX_DIFF_CONTEXT_LINES),
     )
-}
-
-fn null_device_path() -> &'static str {
-    #[cfg(windows)]
-    {
-        "NUL"
-    }
-    #[cfg(not(windows))]
-    {
-        "/dev/null"
-    }
 }
 
 #[cfg(test)]
@@ -311,5 +312,23 @@ mod tests {
         .expect_err("Git must reject an unknown commit");
         assert_eq!(error.kind, GitErrorKind::Failed);
         assert!(error.message.contains("bad object") || error.message.contains("unknown revision"));
+    }
+
+    #[test]
+    fn commit_diff_rejects_anything_but_a_full_object_id() {
+        let fixture = GitFixture::new();
+        for commit in ["--output=injected.txt", "-p", "HEAD", "abc1234", ""] {
+            let error = read_git_commit_diff(
+                &fixture.runtime,
+                &fixture.path,
+                &fixture.request(),
+                commit,
+                Path::new("tracked.txt"),
+                INITIAL_DIFF_CONTEXT_LINES,
+            )
+            .expect_err("only full object IDs are accepted");
+            assert_eq!(error.kind, GitErrorKind::Failed, "{commit}");
+        }
+        assert!(!fixture.path.join("injected.txt").exists());
     }
 }

@@ -69,7 +69,13 @@ function dependencies(readDocument: (filePath: string) => Promise<ReadFileResult
     normalizeReadFile(file) {
       const content = normalizeDocumentContent(file.content);
       const lineEndings = normalizeLineEndingMap(content, file.lineEndings, file.lineEnding);
-      return { ...file, content, lineEndings, lineEnding: lineEndingFromMap(lineEndings, file.lineEnding), bom: file.bom === true };
+      return {
+        ...file,
+        content,
+        lineEndings,
+        lineEnding: lineEndingFromMap(lineEndings, file.lineEnding),
+        bom: file.bom === true,
+      };
     },
     createImageTab(imagePath, size): EditorTab {
       return {
@@ -110,21 +116,25 @@ describe("session restore documents", () => {
     );
 
     expect(readDocument).toHaveBeenCalledOnce();
-    expect(result).toMatchObject({ diskChangedSinceRecovery: true, orphaned: false, tab: {
-      id: tabId,
-      content: "edited\nline",
-      savedContent: "saved\nline",
-      dirty: true,
-      lineEndings: "c",
-      savedLineEndings: "c",
-      bom: true,
-      savedBom: true,
-      encoding: "UTF-8 BOM",
-      cursorLine: 3,
-      cursorColumn: 4,
-      normalizedContentVersion: 2,
-      normalizedSavedRevision: 1,
-    } });
+    expect(result).toMatchObject({
+      diskChangedSinceRecovery: true,
+      orphaned: false,
+      tab: {
+        id: tabId,
+        content: "edited\nline",
+        savedContent: "saved\nline",
+        dirty: true,
+        lineEndings: "c",
+        savedLineEndings: "c",
+        bom: true,
+        savedBom: true,
+        encoding: "UTF-8 BOM",
+        cursorLine: 3,
+        cursorColumn: 4,
+        normalizedContentVersion: 2,
+        normalizedSavedRevision: 1,
+      },
+    });
   });
 
   it("uses matching recovery content when the original file is missing", async () => {
@@ -133,16 +143,22 @@ describe("session restore documents", () => {
       undefined,
       scope,
       { [recoveryStorageKey(tabId, scope)]: recoverySnapshot() },
-      dependencies(async () => { throw new Error("Unable to read file. missing (os error 2)"); }),
+      dependencies(async () => {
+        throw new Error("Unable to read file. missing (os error 2)");
+      }),
     );
 
-    expect(result).toMatchObject({ diskChangedSinceRecovery: false, orphaned: true, tab: {
-      content: "edited\nline",
-      savedContent: "saved\nline",
-      dirty: true,
-      bom: true,
-      savedBom: true,
-    } });
+    expect(result).toMatchObject({
+      diskChangedSinceRecovery: false,
+      orphaned: true,
+      tab: {
+        content: "edited\nline",
+        savedContent: "saved\nline",
+        dirty: true,
+        bom: true,
+        savedBom: true,
+      },
+    });
   });
 
   it("keeps a non-missing body read failure observable instead of fabricating a tab", async () => {
@@ -152,7 +168,9 @@ describe("session restore documents", () => {
       undefined,
       scope,
       { [recoveryStorageKey(tabId, scope)]: recoverySnapshot() },
-      dependencies(async () => { throw failure; }),
+      dependencies(async () => {
+        throw failure;
+      }),
     );
 
     expect(result).toEqual({ status: "read-failed", tabId, path, error: failure });
@@ -173,8 +191,14 @@ describe("session restore documents", () => {
   });
 
   it("keeps a dirty legacy tab pending when recovery storage is unavailable, then retries the exact snapshot", async () => {
-    const snapshot = recoverySnapshot({ content: "original unread\r\nbody", lineEndings: "cc", bom: true, encoding: "UTF-8 BOM" });
-    const recoveryRead = vi.spyOn(sessionStorage, "readRecoveryStorageResult")
+    const snapshot = recoverySnapshot({
+      content: "original unread\r\nbody",
+      lineEndings: "cc",
+      bom: true,
+      encoding: "UTF-8 BOM",
+    });
+    const recoveryRead = vi
+      .spyOn(sessionStorage, "readRecoveryStorageResult")
       .mockResolvedValue({ status: "unavailable", error: new Error("temporary IDB fault"), observedValue: snapshot });
     const readDocument = vi.fn(async () => diskFile());
     const deps = dependencies(readDocument);
@@ -184,13 +208,16 @@ describe("session restore documents", () => {
 
     recoveryRead.mockResolvedValue({ status: "available", value: snapshot });
     const retried = await restorePersistedTab(persistedTab(), undefined, scope, undefined, deps);
-    expect(retried).toMatchObject({ tab: { content: "original unread\nbody", dirty: true, bom: true, encoding: "UTF-8 BOM" } });
+    expect(retried).toMatchObject({
+      tab: { content: "original unread\nbody", dirty: true, bom: true, encoding: "UTF-8 BOM" },
+    });
     expect(readDocument).toHaveBeenCalledOnce();
   });
 
   it("also blocks a clean legacy row when recovery may contain a newer dirty snapshot", async () => {
     const snapshot = recoverySnapshot({ content: "newer uncommitted text", revision: 5 });
-    const recoveryRead = vi.spyOn(sessionStorage, "readRecoveryStorageResult")
+    const recoveryRead = vi
+      .spyOn(sessionStorage, "readRecoveryStorageResult")
       .mockResolvedValue({ status: "unavailable", error: new Error("temporary IDB fault"), observedValue: snapshot });
     const cleanPersisted = persistedTab({ dirty: false, revision: 2, savedRevision: 1 });
     const readDocument = vi.fn(async () => diskFile());
@@ -213,9 +240,11 @@ describe("session restore documents", () => {
       savedContentUnavailable: true,
       savedRevision: 1,
     });
-    const recoveryRead = vi.spyOn(sessionStorage, "readRecoveryStorageResult")
+    const recoveryRead = vi
+      .spyOn(sessionStorage, "readRecoveryStorageResult")
       .mockResolvedValue({ status: "available", value: snapshot });
-    const baselineRead = vi.spyOn(sessionStorage, "readRecoveryBaselineResult")
+    const baselineRead = vi
+      .spyOn(sessionStorage, "readRecoveryBaselineResult")
       .mockResolvedValue({ status: "unavailable", error: new Error("temporary baseline fault") });
     const readDocument = vi.fn(async () => diskFile());
     const deps = dependencies(readDocument);
@@ -242,13 +271,16 @@ describe("session restore documents", () => {
     );
 
     expect(readDocument).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ orphaned: false, tab: {
-      id: tabId,
-      path: "/workspace/preview.png",
-      diskSize: 55,
-      cursorLine: 8,
-      cursorColumn: 2,
-      language: "Image",
-    } });
+    expect(result).toMatchObject({
+      orphaned: false,
+      tab: {
+        id: tabId,
+        path: "/workspace/preview.png",
+        diskSize: 55,
+        cursorLine: 8,
+        cursorColumn: 2,
+        language: "Image",
+      },
+    });
   });
 });

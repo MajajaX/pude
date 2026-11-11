@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { InstalledPlugin } from "../types";
-import { BUILTIN_COMMANDS, collectCommandPaletteItems, isPluginEventSubscriptionAllowed, isPluginLspEventForRun, languageEventName, parsePluginEventSubscriptions, pluginActivationMatches, queueCommandForStartingRun } from "./plugin-activation";
+import {
+  BUILTIN_COMMANDS,
+  collectCommandPaletteItems,
+  isPluginEventSubscriptionAllowed,
+  isPluginLspEventForRun,
+  languageEventName,
+  parsePluginEventSubscriptions,
+  pluginActivationMatches,
+  queueCommandForStartingRun,
+} from "./plugin-activation";
 import type { LspEvent } from "./bridge";
 
 const plugin = (overrides: Partial<InstalledPlugin> = {}): InstalledPlugin => ({
@@ -10,7 +19,13 @@ const plugin = (overrides: Partial<InstalledPlugin> = {}): InstalledPlugin => ({
   apiVersion: "2",
   entry: "dist/extension.js",
   permissions: ["commands.register"],
-  activationEvents: ["onCommand:pude.example.run", "onLanguage:typescript", "onFileOpen", "onFileSave", "onWorkspaceOpen"],
+  activationEvents: [
+    "onCommand:pude.example.run",
+    "onLanguage:typescript",
+    "onFileOpen",
+    "onFileSave",
+    "onWorkspaceOpen",
+  ],
   enabled: true,
   status: "inactive",
   source: "local",
@@ -20,11 +35,32 @@ const plugin = (overrides: Partial<InstalledPlugin> = {}): InstalledPlugin => ({
 
 describe("plugin activation events", () => {
   it("routes canonical Windows LSP replies only to the current plugin run and workspace", () => {
-    const run = { pluginId: "pude.example", pluginVersion: "1.0.0", apiVersion: "2", workspaceRoot: "C:\\work\\project", workspaceGeneration: 3, disposed: false };
-    const event: LspEvent = { type: "message", pluginId: run.pluginId, pluginVersion: run.pluginVersion, workspaceRoot: "\\\\?\\C:\\work\\project", language: "plaintext", serverId: "probe", message: { jsonrpc: "2.0", id: "initialize", result: {} } };
+    const run = {
+      pluginId: "pude.example",
+      pluginVersion: "1.0.0",
+      apiVersion: "2",
+      workspaceRoot: "C:\\work\\project",
+      workspaceGeneration: 3,
+      disposed: false,
+    };
+    const event: LspEvent = {
+      type: "message",
+      pluginId: run.pluginId,
+      pluginVersion: run.pluginVersion,
+      workspaceRoot: "\\\\?\\C:\\work\\project",
+      language: "plaintext",
+      serverId: "probe",
+      message: { jsonrpc: "2.0", id: "initialize", result: {} },
+    };
     const workspace = { workspaceRoot: run.workspaceRoot, canonicalWorkspaceRoot: event.workspaceRoot, generation: 3 };
     expect(isPluginLspEventForRun(run, event, workspace)).toBe(true);
-    for (const overrides of [{ pluginId: "pude.other" }, { pluginVersion: "2.0.0" }, { workspaceRoot: "\\\\?\\C:\\work\\other" }, { workspaceRoot: "\\\\?\\C:\\work\\project." }, { workspaceRoot: "\\\\?\\C:\\work\\Project" }]) {
+    for (const overrides of [
+      { pluginId: "pude.other" },
+      { pluginVersion: "2.0.0" },
+      { workspaceRoot: "\\\\?\\C:\\work\\other" },
+      { workspaceRoot: "\\\\?\\C:\\work\\project." },
+      { workspaceRoot: "\\\\?\\C:\\work\\Project" },
+    ]) {
       expect(isPluginLspEventForRun(run, { ...event, ...overrides }, workspace)).toBe(false);
     }
     expect(isPluginLspEventForRun(run, event, { ...workspace, generation: 4 })).toBe(false);
@@ -52,11 +88,19 @@ describe("plugin activation events", () => {
       activationEvents: ["onCommand:pude.legacy.run"],
       contributes: undefined,
     });
-    const disabled = plugin({ id: "pude.disabled", enabled: false, contributes: { commands: [{ command: "pude.disabled.run", title: "Disabled" }] } });
+    const disabled = plugin({
+      id: "pude.disabled",
+      enabled: false,
+      contributes: { commands: [{ command: "pude.disabled.run", title: "Disabled" }] },
+    });
     const items = collectCommandPaletteItems([enabled, legacy, disabled]);
     expect(items.slice(0, BUILTIN_COMMANDS.length)).toEqual(BUILTIN_COMMANDS);
-    expect(items).toContainEqual(expect.objectContaining({ id: "plugin:pude.example:pude.example.run", title: "Example: Run", source: "plugin" }));
-    expect(items).toContainEqual(expect.objectContaining({ id: "plugin:pude.legacy:pude.legacy.run", title: "pude.legacy.run", source: "plugin" }));
+    expect(items).toContainEqual(
+      expect.objectContaining({ id: "plugin:pude.example:pude.example.run", title: "Example: Run", source: "plugin" }),
+    );
+    expect(items).toContainEqual(
+      expect.objectContaining({ id: "plugin:pude.legacy:pude.legacy.run", title: "pude.legacy.run", source: "plugin" }),
+    );
     expect(items.some((item) => item.pluginId === "pude.disabled")).toBe(false);
   });
 
@@ -71,7 +115,9 @@ describe("plugin activation events", () => {
       expect(isPluginEventSubscriptionAllowed(installed, event)).toBe(true);
     }
     expect(isPluginEventSubscriptionAllowed({ ...installed, apiVersion: "1" }, "lsp.message")).toBe(false);
-    expect(isPluginEventSubscriptionAllowed({ ...installed, permissions: ["commands.register"] }, "lsp.state")).toBe(false);
+    expect(isPluginEventSubscriptionAllowed({ ...installed, permissions: ["commands.register"] }, "lsp.state")).toBe(
+      false,
+    );
     expect(isPluginEventSubscriptionAllowed({ ...installed, lspServers: [] }, "lsp.stderr")).toBe(false);
   });
 

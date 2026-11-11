@@ -1,15 +1,12 @@
 const LABEL_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
-const SENSITIVE_LABEL_SEGMENT = /(?:^|[._-])(token|secret|password|private|credential|bearer|sentinel|body|document|content|key)(?:$|[._-])/i;
+const SENSITIVE_LABEL_SEGMENT =
+  /(?:^|[._-])(token|secret|password|private|credential|bearer|sentinel|body|document|content|key)(?:$|[._-])/i;
 const MAX_DIAGNOSTIC_LENGTH = 192;
 const MAX_REPORTS_PER_MINUTE = 20;
 const REPORT_WINDOW_MS = 60_000;
 
 function safeLabel(value: unknown): string | undefined {
-  if (
-    typeof value !== "string" ||
-    !LABEL_PATTERN.test(value) ||
-    SENSITIVE_LABEL_SEGMENT.test(value)
-  ) {
+  if (typeof value !== "string" || !LABEL_PATTERN.test(value) || SENSITIVE_LABEL_SEGMENT.test(value)) {
     return undefined;
   }
   return value;
@@ -97,6 +94,11 @@ export function createDiagnosticRateLimiter(
 const allowDiagnostic = createDiagnosticRateLimiter();
 
 /** Share the write limit across frontend error paths without exposing error payloads. */
-export function emitDiagnostic(stage: string, error: unknown, sink: (message: string) => void = (message) => console.error(message), code?: unknown): void {
+export function emitDiagnostic(
+  stage: string,
+  error: unknown,
+  sink: (message: string) => void = (message) => console.error(message),
+  code?: unknown,
+): void {
   if (allowDiagnostic()) sink(formatDiagnostic(stage, error, code));
 }

@@ -1,5 +1,4 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
   "description": "Minimal Tauri API permissions for trusted pude application windows",
   "windows": ["main", "pude-*"],
@@ -37,9 +36,11 @@
     "allow-create-file",
     "allow-create-directory",
     "allow-rename-path",
+    "allow-copy-path",
     "allow-delete-path",
     "allow-git-status",
     "allow-get-git-ignored-paths",
+    "allow-add-to-gitignore",
     "allow-git-branches",
     "allow-git-commits",
     "allow-cancel-workspace",

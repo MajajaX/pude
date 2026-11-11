@@ -1,4 +1,7 @@
-import { setRecoveryDatabaseBlockedHandler as setBlockedHandler } from "./recovery-database-status";
+import {
+  setRecoveryDatabaseBlockedHandler as setBlockedHandler,
+  type RecoveryDatabaseBlockedHandler,
+} from "./recovery-database-status";
 import type * as SessionStorageRuntime from "./session-storage-runtime";
 
 type Runtime = typeof SessionStorageRuntime;
@@ -20,68 +23,84 @@ function loadSessionStorageRuntime(): Promise<Runtime> {
  * remains inside that single module instance, so back-to-back writes and
  * flushes preserve their existing ordering.
  */
-export function readRecoveryStorage(...args: Parameters<Runtime["readRecoveryStorage"]>): ReturnType<Runtime["readRecoveryStorage"]> {
+export function readRecoveryStorage(
+  ...args: Parameters<Runtime["readRecoveryStorage"]>
+): ReturnType<Runtime["readRecoveryStorage"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryStorage(...args));
 }
 
-export function readRecoveryStorageResult(...args: Parameters<Runtime["readRecoveryStorageResult"]>): ReturnType<Runtime["readRecoveryStorageResult"]> {
+export function readRecoveryStorageResult(
+  ...args: Parameters<Runtime["readRecoveryStorageResult"]>
+): ReturnType<Runtime["readRecoveryStorageResult"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryStorageResult(...args));
 }
 
-export function readRecoveryBaselineStorage(...args: Parameters<Runtime["readRecoveryBaselineStorage"]>): ReturnType<Runtime["readRecoveryBaselineStorage"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryBaselineStorage(...args));
-}
-
-export function readRecoveryBaselineResult(...args: Parameters<Runtime["readRecoveryBaselineResult"]>): ReturnType<Runtime["readRecoveryBaselineResult"]> {
+export function readRecoveryBaselineResult(
+  ...args: Parameters<Runtime["readRecoveryBaselineResult"]>
+): ReturnType<Runtime["readRecoveryBaselineResult"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readRecoveryBaselineResult(...args));
 }
 
-export function writeRecoveryStorage(...args: Parameters<Runtime["writeRecoveryStorage"]>): ReturnType<Runtime["writeRecoveryStorage"]> {
+export function writeRecoveryStorage(
+  ...args: Parameters<Runtime["writeRecoveryStorage"]>
+): ReturnType<Runtime["writeRecoveryStorage"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.writeRecoveryStorage(...args));
 }
 
-export function removeRecoveryStorage(...args: Parameters<Runtime["removeRecoveryStorage"]>): ReturnType<Runtime["removeRecoveryStorage"]> {
+export function removeRecoveryStorage(
+  ...args: Parameters<Runtime["removeRecoveryStorage"]>
+): ReturnType<Runtime["removeRecoveryStorage"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.removeRecoveryStorage(...args));
 }
 
-export function readLatestSessionCheckpointStatus(...args: Parameters<Runtime["readLatestSessionCheckpointStatus"]>): ReturnType<Runtime["readLatestSessionCheckpointStatus"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpointStatus(...args));
-}
-
-export function readLatestSessionCheckpoint(...args: Parameters<Runtime["readLatestSessionCheckpoint"]>): ReturnType<Runtime["readLatestSessionCheckpoint"]> {
+export function readLatestSessionCheckpoint(
+  ...args: Parameters<Runtime["readLatestSessionCheckpoint"]>
+): ReturnType<Runtime["readLatestSessionCheckpoint"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpoint(...args));
 }
 
-export function readLatestSessionCheckpointMetadata(...args: Parameters<Runtime["readLatestSessionCheckpointMetadata"]>): ReturnType<Runtime["readLatestSessionCheckpointMetadata"]> {
-  return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpointMetadata(...args));
-}
-
-export function readLatestSessionCheckpointMetadataResult(...args: Parameters<Runtime["readLatestSessionCheckpointMetadataResult"]>): ReturnType<Runtime["readLatestSessionCheckpointMetadataResult"]> {
+export function readLatestSessionCheckpointMetadataResult(
+  ...args: Parameters<Runtime["readLatestSessionCheckpointMetadataResult"]>
+): ReturnType<Runtime["readLatestSessionCheckpointMetadataResult"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.readLatestSessionCheckpointMetadataResult(...args));
 }
 
 /** Retains the async public signature while making the callback available immediately. */
-export async function setRecoveryDatabaseBlockedHandler(handler: Parameters<Runtime["setRecoveryDatabaseBlockedHandler"]>[0]): Promise<void> {
+export async function setRecoveryDatabaseBlockedHandler(
+  handler: RecoveryDatabaseBlockedHandler | undefined,
+): Promise<void> {
   setBlockedHandler(handler);
 }
 
-export function commitSessionCheckpoint(...args: Parameters<Runtime["commitSessionCheckpoint"]>): ReturnType<Runtime["commitSessionCheckpoint"]> {
+export function commitSessionCheckpoint(
+  ...args: Parameters<Runtime["commitSessionCheckpoint"]>
+): ReturnType<Runtime["commitSessionCheckpoint"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.commitSessionCheckpoint(...args));
 }
 
-export function flushSessionPersistence(...args: Parameters<Runtime["flushSessionPersistence"]>): ReturnType<Runtime["flushSessionPersistence"]> {
+export function flushSessionPersistence(
+  ...args: Parameters<Runtime["flushSessionPersistence"]>
+): ReturnType<Runtime["flushSessionPersistence"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.flushSessionPersistence(...args));
 }
 
-export function attachSessionWindow(...args: Parameters<Runtime["attachSessionWindow"]>): ReturnType<Runtime["attachSessionWindow"]> {
+export function attachSessionWindow(
+  ...args: Parameters<Runtime["attachSessionWindow"]>
+): ReturnType<Runtime["attachSessionWindow"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.attachSessionWindow(...args));
 }
 
-export function heartbeatSessionWindow(lease: Parameters<Runtime["heartbeatSessionWindow"]>[0], dirtyRecoveryKeys?: Parameters<Runtime["heartbeatSessionWindow"]>[1], now = Date.now()): ReturnType<Runtime["heartbeatSessionWindow"]> {
+export function heartbeatSessionWindow(
+  lease: Parameters<Runtime["heartbeatSessionWindow"]>[0],
+  dirtyRecoveryKeys?: Parameters<Runtime["heartbeatSessionWindow"]>[1],
+  now = Date.now(),
+): ReturnType<Runtime["heartbeatSessionWindow"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.heartbeatSessionWindow(lease, dirtyRecoveryKeys, now));
 }
 
-export function closeSessionWindow(...args: Parameters<Runtime["closeSessionWindow"]>): ReturnType<Runtime["closeSessionWindow"]> {
+export function closeSessionWindow(
+  ...args: Parameters<Runtime["closeSessionWindow"]>
+): ReturnType<Runtime["closeSessionWindow"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.closeSessionWindow(...args));
 }
 
@@ -89,35 +108,51 @@ export function readSessionRegistry(now = Date.now()): ReturnType<Runtime["readS
   return loadSessionStorageRuntime().then((runtime) => runtime.readSessionRegistry(now));
 }
 
-export function listRecoverableSessionCheckpoints(...args: Parameters<Runtime["listRecoverableSessionCheckpoints"]>): ReturnType<Runtime["listRecoverableSessionCheckpoints"]> {
+export function listRecoverableSessionCheckpoints(
+  ...args: Parameters<Runtime["listRecoverableSessionCheckpoints"]>
+): ReturnType<Runtime["listRecoverableSessionCheckpoints"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.listRecoverableSessionCheckpoints(...args));
 }
 
-export function listRecoverableSessionCheckpointCandidates(...args: Parameters<Runtime["listRecoverableSessionCheckpointCandidates"]>): ReturnType<Runtime["listRecoverableSessionCheckpointCandidates"]> {
+export function listRecoverableSessionCheckpointCandidates(
+  ...args: Parameters<Runtime["listRecoverableSessionCheckpointCandidates"]>
+): ReturnType<Runtime["listRecoverableSessionCheckpointCandidates"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.listRecoverableSessionCheckpointCandidates(...args));
 }
 
-export function loadSessionCheckpoint(...args: Parameters<Runtime["loadSessionCheckpoint"]>): ReturnType<Runtime["loadSessionCheckpoint"]> {
+export function loadSessionCheckpoint(
+  ...args: Parameters<Runtime["loadSessionCheckpoint"]>
+): ReturnType<Runtime["loadSessionCheckpoint"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.loadSessionCheckpoint(...args));
 }
 
-export function loadSessionCheckpointResult(...args: Parameters<Runtime["loadSessionCheckpointResult"]>): ReturnType<Runtime["loadSessionCheckpointResult"]> {
+export function loadSessionCheckpointResult(
+  ...args: Parameters<Runtime["loadSessionCheckpointResult"]>
+): ReturnType<Runtime["loadSessionCheckpointResult"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.loadSessionCheckpointResult(...args));
 }
 
-export function claimSessionWindow(...args: Parameters<Runtime["claimSessionWindow"]>): ReturnType<Runtime["claimSessionWindow"]> {
+export function claimSessionWindow(
+  ...args: Parameters<Runtime["claimSessionWindow"]>
+): ReturnType<Runtime["claimSessionWindow"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.claimSessionWindow(...args));
 }
 
-export function claimRecoverableSessionCandidate(...args: Parameters<Runtime["claimRecoverableSessionCandidate"]>): ReturnType<Runtime["claimRecoverableSessionCandidate"]> {
+export function claimRecoverableSessionCandidate(
+  ...args: Parameters<Runtime["claimRecoverableSessionCandidate"]>
+): ReturnType<Runtime["claimRecoverableSessionCandidate"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.claimRecoverableSessionCandidate(...args));
 }
 
-export function discardSessionCheckpoint(...args: Parameters<Runtime["discardSessionCheckpoint"]>): ReturnType<Runtime["discardSessionCheckpoint"]> {
+export function discardSessionCheckpoint(
+  ...args: Parameters<Runtime["discardSessionCheckpoint"]>
+): ReturnType<Runtime["discardSessionCheckpoint"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.discardSessionCheckpoint(...args));
 }
 
-export function getRecoveryStorageUsage(...args: Parameters<Runtime["getRecoveryStorageUsage"]>): ReturnType<Runtime["getRecoveryStorageUsage"]> {
+export function getRecoveryStorageUsage(
+  ...args: Parameters<Runtime["getRecoveryStorageUsage"]>
+): ReturnType<Runtime["getRecoveryStorageUsage"]> {
   return loadSessionStorageRuntime().then((runtime) => runtime.getRecoveryStorageUsage(...args));
 }
 

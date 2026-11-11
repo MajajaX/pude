@@ -1,11 +1,9 @@
 import { For } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 
 export default function Architecture() {
   return (
-    <section id="architecture" class="arch">
+    <section id="architecture">
       <div class="wrap">
         <div use:reveal>
           <span class="eyebrow">{t().architecture.eyebrow}</span>

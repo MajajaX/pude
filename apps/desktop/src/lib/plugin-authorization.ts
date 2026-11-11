@@ -1,3 +1,4 @@
+import { isAbsoluteWirePath } from "./path-identity";
 import { t, translatable } from "./i18n";
 import type { PluginLspServer, PluginManifest, PluginPermission } from "../types";
 
@@ -59,7 +60,10 @@ export type PluginPermissionReviewItem = {
   unavailableReason?: string;
 };
 
-export function pluginAuthorizationActionLabels(hasCurrentPlugin: boolean, selectedPermissionCount: number): {
+export function pluginAuthorizationActionLabels(
+  hasCurrentPlugin: boolean,
+  selectedPermissionCount: number,
+): {
   cancel: string;
   approve: string;
 } {
@@ -67,12 +71,22 @@ export function pluginAuthorizationActionLabels(hasCurrentPlugin: boolean, selec
   if (hasCurrentPlugin) {
     return {
       cancel: t("Keep current version"),
-      approve: count === 0 ? t("Update without permissions") : count === 1 ? t("Update with 1 permission") : t("Update with {count} permissions", { count }),
+      approve:
+        count === 0
+          ? t("Update without permissions")
+          : count === 1
+            ? t("Update with 1 permission")
+            : t("Update with {count} permissions", { count }),
     };
   }
   return {
     cancel: t("Cancel install"),
-    approve: count === 0 ? t("Install without permissions") : count === 1 ? t("Install with 1 permission") : t("Install with {count} permissions", { count }),
+    approve:
+      count === 0
+        ? t("Install without permissions")
+        : count === 1
+          ? t("Install with 1 permission")
+          : t("Install with {count} permissions", { count }),
   };
 }
 
@@ -138,9 +152,8 @@ const permissionLabels: Record<PluginPermission, string> = {
   "process.spawn:lsp": translatable("Start approved language servers"),
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value)
-  && typeof value === "object"
-  && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 function isPluginPermission(value: unknown): value is PluginPermission {
   return typeof value === "string" && allPermissions.has(value as PluginPermission);
@@ -157,7 +170,16 @@ export function normalizePluginNetworkDomain(value: string): string | null {
   if (!includesScheme && /[/:]/.test(trimmed)) return null;
   try {
     const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-    if (url.protocol !== "https:" || url.username || url.password || url.port || url.pathname !== "/" || url.search || url.hash) return null;
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.port ||
+      url.pathname !== "/" ||
+      url.search ||
+      url.hash
+    )
+      return null;
     return url.hostname.toLowerCase();
   } catch {
     return null;
@@ -169,12 +191,15 @@ function normalizeResourceScope(scope: PluginPermissionResourceScope): PluginPer
     const value = normalizePluginNetworkDomain(scope.value);
     return value ? { kind: "domain", value } : null;
   }
-  if (scope.kind !== "executable"
-      || !scope.serverId.trim()
-      || !scope.language.trim()
-      || !isAbsoluteExecutablePath(scope.executablePath)
-      || !Array.isArray(scope.args)
-      || scope.args.some((argument) => typeof argument !== "string" || argument.includes("\0"))) return null;
+  if (
+    scope.kind !== "executable" ||
+    !scope.serverId.trim() ||
+    !scope.language.trim() ||
+    !isAbsoluteWirePath(scope.executablePath) ||
+    !Array.isArray(scope.args) ||
+    scope.args.some((argument) => typeof argument !== "string" || argument.includes("\0"))
+  )
+    return null;
   return {
     kind: "executable",
     serverId: scope.serverId,
@@ -184,22 +209,24 @@ function normalizeResourceScope(scope: PluginPermissionResourceScope): PluginPer
   };
 }
 
-export function isAbsoluteExecutablePath(value: string): boolean {
-  return value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("\\\\");
-}
-
 function normalizeExecutablePath(value: string): string {
   return value.replace(/\\/g, "/").replace(/\/$/, "");
 }
 
-export function matchesResolvedPluginLspGrant(server: PluginResolvedLspServer, request: PluginPermissionGrantRequest): boolean {
+export function matchesResolvedPluginLspGrant(
+  server: PluginResolvedLspServer,
+  request: PluginPermissionGrantRequest,
+): boolean {
   const scope = request.resourceScope;
-  return request.permission === "process.spawn:lsp" && scope?.kind === "executable"
-    && server.workspaceRoot === request.workspaceRoot
-    && server.serverId === scope.serverId
-    && server.language === scope.language
-    && normalizeExecutablePath(server.executablePath) === normalizeExecutablePath(scope.executablePath)
-    && JSON.stringify(server.args) === JSON.stringify(scope.args);
+  return (
+    request.permission === "process.spawn:lsp" &&
+    scope?.kind === "executable" &&
+    server.workspaceRoot === request.workspaceRoot &&
+    server.serverId === scope.serverId &&
+    server.language === scope.language &&
+    normalizeExecutablePath(server.executablePath) === normalizeExecutablePath(scope.executablePath) &&
+    JSON.stringify(server.args) === JSON.stringify(scope.args)
+  );
 }
 
 function grantIdFor(request: PluginPermissionGrantRequest): string {
@@ -210,7 +237,12 @@ function grantIdFor(request: PluginPermissionGrantRequest): string {
     normalizeWorkspaceRoot(request.workspaceRoot),
     request.resourceScope?.kind === "domain" ? request.resourceScope.value : null,
     request.resourceScope?.kind === "executable"
-      ? [request.resourceScope.serverId, request.resourceScope.language, request.resourceScope.executablePath, request.resourceScope.args]
+      ? [
+          request.resourceScope.serverId,
+          request.resourceScope.language,
+          request.resourceScope.executablePath,
+          request.resourceScope.args,
+        ]
       : null,
   ]);
 }
@@ -221,12 +253,14 @@ function parseResourceScope(value: unknown): PluginPermissionResourceScope | und
   if (value.kind === "domain" && typeof value.value === "string") {
     return normalizeResourceScope({ kind: "domain", value: value.value });
   }
-  if (value.kind === "executable"
-      && typeof value.serverId === "string"
-      && typeof value.language === "string"
-      && typeof value.executablePath === "string"
-      && Array.isArray(value.args)
-      && value.args.every((argument) => typeof argument === "string")) {
+  if (
+    value.kind === "executable" &&
+    typeof value.serverId === "string" &&
+    typeof value.language === "string" &&
+    typeof value.executablePath === "string" &&
+    Array.isArray(value.args) &&
+    value.args.every((argument) => typeof argument === "string")
+  ) {
     return normalizeResourceScope({
       kind: "executable",
       serverId: value.serverId,
@@ -239,16 +273,23 @@ function parseResourceScope(value: unknown): PluginPermissionResourceScope | und
 }
 
 function parseGrant(value: unknown): PluginPermissionGrant | null {
-  if (!isRecord(value)
-      || typeof value.pluginId !== "string"
-      || !value.pluginId.trim()
-      || typeof value.pluginVersion !== "string"
-      || !value.pluginVersion.trim()
-      || !isPluginPermission(value.permission)
-      || (typeof value.workspaceRoot !== "string" && value.workspaceRoot !== null)
-      || typeof value.approvedAt !== "string"
-      || !Number.isFinite(Date.parse(value.approvedAt))) return null;
-  if (workspaceScopedPermissions.has(value.permission) && (typeof value.workspaceRoot !== "string" || value.workspaceRoot.length === 0)) return null;
+  if (
+    !isRecord(value) ||
+    typeof value.pluginId !== "string" ||
+    !value.pluginId.trim() ||
+    typeof value.pluginVersion !== "string" ||
+    !value.pluginVersion.trim() ||
+    !isPluginPermission(value.permission) ||
+    (typeof value.workspaceRoot !== "string" && value.workspaceRoot !== null) ||
+    typeof value.approvedAt !== "string" ||
+    !Number.isFinite(Date.parse(value.approvedAt))
+  )
+    return null;
+  if (
+    workspaceScopedPermissions.has(value.permission) &&
+    (typeof value.workspaceRoot !== "string" || value.workspaceRoot.length === 0)
+  )
+    return null;
   const scope = parseResourceScope(value.resourceScope);
   if (scope === null) return null;
   if (value.permission === "network" && scope?.kind !== "domain") return null;
@@ -275,7 +316,8 @@ export function parsePluginAuthorizationStore(value: unknown): PluginAuthorizati
   if (!isRecord(value) || value.version !== PLUGIN_AUTHORIZATION_STORE_VERSION || !Array.isArray(value.grants)) {
     return emptyPluginAuthorizationStore();
   }
-  const grants = value.grants.slice(0, MAX_AUTHORIZATION_GRANTS)
+  const grants = value.grants
+    .slice(0, MAX_AUTHORIZATION_GRANTS)
     .map(parseGrant)
     .filter((grant): grant is PluginPermissionGrant => Boolean(grant));
   return {
@@ -301,7 +343,10 @@ export function isPluginPermissionHighRisk(permission: PluginPermission): boolea
   return highRiskPermissions.has(permission);
 }
 
-function sameResourceScope(left: PluginPermissionResourceScope | undefined, right: PluginPermissionResourceScope | undefined): boolean {
+function sameResourceScope(
+  left: PluginPermissionResourceScope | undefined,
+  right: PluginPermissionResourceScope | undefined,
+): boolean {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
@@ -322,11 +367,14 @@ export function isPluginPermissionAuthorized(input: {
   const normalizedScope = parsedScope ?? undefined;
   if (input.permission === "network" && normalizedScope?.kind !== "domain") return false;
   if (input.permission === "process.spawn:lsp" && normalizedScope?.kind !== "executable") return false;
-  return input.store.grants.some((grant) => grant.pluginId === input.plugin.id
-    && grant.pluginVersion === input.plugin.version
-    && grant.permission === input.permission
-    && sameWorkspace(grant, input.workspaceRoot)
-    && sameResourceScope(grant.resourceScope, normalizedScope));
+  return input.store.grants.some(
+    (grant) =>
+      grant.pluginId === input.plugin.id &&
+      grant.pluginVersion === input.plugin.version &&
+      grant.permission === input.permission &&
+      sameWorkspace(grant, input.workspaceRoot) &&
+      sameResourceScope(grant.resourceScope, normalizedScope),
+  );
 }
 
 function manifestDomainList(manifest: PluginAuthorizationReviewManifest): string[] {
@@ -337,7 +385,10 @@ function manifestDomainList(manifest: PluginAuthorizationReviewManifest): string
     .filter((domain, index, domains) => domains.indexOf(domain) === index);
 }
 
-function manifestServers(manifest: PluginAuthorizationReviewManifest, workspaceRoot: string): Array<{
+function manifestServers(
+  manifest: PluginAuthorizationReviewManifest,
+  workspaceRoot: string,
+): Array<{
   serverId: string;
   language: string;
   executablePath: string;
@@ -345,19 +396,26 @@ function manifestServers(manifest: PluginAuthorizationReviewManifest, workspaceR
   available: boolean;
   unavailableReason?: string;
 }> {
-  return (manifest.lspServers ?? []).filter((server) => server
-    && typeof server.serverId === "string"
-    && typeof server.language === "string"
-    && typeof server.executable === "string"
-    && Array.isArray(server.args)
-    && server.args.every((argument) => typeof argument === "string" && !argument.includes("\0")))
+  return (manifest.lspServers ?? [])
+    .filter(
+      (server) =>
+        server &&
+        typeof server.serverId === "string" &&
+        typeof server.language === "string" &&
+        typeof server.executable === "string" &&
+        Array.isArray(server.args) &&
+        server.args.every((argument) => typeof argument === "string" && !argument.includes("\0")),
+    )
     .map((server) => {
-      const resolved = manifest.resolvedLspServers?.find((candidate) => candidate.serverId === server.serverId
-        && candidate.language === server.language
-        && JSON.stringify(candidate.args) === JSON.stringify(server.args));
+      const resolved = manifest.resolvedLspServers?.find(
+        (candidate) =>
+          candidate.serverId === server.serverId &&
+          candidate.language === server.language &&
+          JSON.stringify(candidate.args) === JSON.stringify(server.args),
+      );
       const canonicalPath = resolved?.executablePath;
       const scopeMatchesWorkspace = Boolean(resolved && resolved.workspaceRoot === workspaceRoot);
-      const hasCanonicalPath = Boolean(canonicalPath && isAbsoluteExecutablePath(canonicalPath));
+      const hasCanonicalPath = Boolean(canonicalPath && isAbsoluteWirePath(canonicalPath));
       return {
         serverId: server.serverId,
         language: server.language,
@@ -396,11 +454,14 @@ function hasMatchingGrant(
   pluginId: string,
   requireVersion: boolean,
 ): boolean {
-  return grants.some((grant) => grant.pluginId === pluginId
-    && grant.permission === request.permission
-    && (!requireVersion || grant.pluginVersion === request.pluginVersion)
-    && grant.workspaceRoot === request.workspaceRoot
-    && sameResourceScope(grant.resourceScope, request.resourceScope));
+  return grants.some(
+    (grant) =>
+      grant.pluginId === pluginId &&
+      grant.permission === request.permission &&
+      (!requireVersion || grant.pluginVersion === request.pluginVersion) &&
+      grant.workspaceRoot === request.workspaceRoot &&
+      sameResourceScope(grant.resourceScope, request.resourceScope),
+  );
 }
 
 export function buildPluginPermissionReview(input: {
@@ -426,13 +487,18 @@ export function buildPluginPermissionReview(input: {
           key: `${permission}:${domain}`,
           permission,
           label: `${t(permissionLabels[permission])} · ${domain}`,
-          details: [t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }), t("HTTPS requests to {domain} only", { domain })],
+          details: [
+            t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }),
+            t("HTTPS requests to {domain} only", { domain }),
+          ],
           added: added || domainAdded,
           previouslyGranted,
           requiresFreshApproval: !hasMatchingGrant(existingGrants, grantRequest, proposed.id, true),
           grantRequest,
           available: Boolean(grantRequest.workspaceRoot),
-          unavailableReason: grantRequest.workspaceRoot ? undefined : t("Open a workspace before granting network access."),
+          unavailableReason: grantRequest.workspaceRoot
+            ? undefined
+            : t("Open a workspace before granting network access."),
         });
       }
       if (!domains.length) {
@@ -462,17 +528,26 @@ export function buildPluginPermissionReview(input: {
           args: server.args,
         };
         const grantRequest = requestFor(proposed, permission, workspaceRoot, resourceScope);
-        const matchingServer = current?.resolvedLspServers?.some((candidate) => candidate.workspaceRoot === workspaceRoot
-          && candidate.serverId === server.serverId
-          && candidate.language === server.language
-          && normalizeExecutablePath(candidate.executablePath) === server.executablePath
-          && JSON.stringify(candidate.args) === JSON.stringify(server.args)) ?? false;
+        const matchingServer =
+          current?.resolvedLspServers?.some(
+            (candidate) =>
+              candidate.workspaceRoot === workspaceRoot &&
+              candidate.serverId === server.serverId &&
+              candidate.language === server.language &&
+              normalizeExecutablePath(candidate.executablePath) === server.executablePath &&
+              JSON.stringify(candidate.args) === JSON.stringify(server.args),
+          ) ?? false;
         const previouslyGranted = hasMatchingGrant(existingGrants, grantRequest, proposed.id, false);
         items.push({
           key: `${permission}:${server.serverId}`,
           permission,
           label: `${t(permissionLabels[permission])} · ${server.serverId}`,
-          details: [t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }), server.language, server.executablePath || t("Unresolved executable"), t("Arguments: {args}", { args: JSON.stringify(server.args) })],
+          details: [
+            t("Workspace: {path}", { path: grantRequest.workspaceRoot || t("No workspace") }),
+            server.language,
+            server.executablePath || t("Unresolved executable"),
+            t("Arguments: {args}", { args: JSON.stringify(server.args) }),
+          ],
           added: added || !matchingServer,
           previouslyGranted,
           requiresFreshApproval: !hasMatchingGrant(existingGrants, grantRequest, proposed.id, true),
@@ -492,7 +567,9 @@ export function buildPluginPermissionReview(input: {
           requiresFreshApproval: true,
           grantRequest: requestFor(proposed, permission, workspaceRoot),
           available: false,
-          unavailableReason: t("The manifest does not declare an absolute language-server executable and exact arguments."),
+          unavailableReason: t(
+            "The manifest does not declare an absolute language-server executable and exact arguments.",
+          ),
         });
       }
       continue;
@@ -521,7 +598,7 @@ function normalizeGrantRequest(request: PluginPermissionGrantRequest): PluginPer
   if (!request.pluginId.trim() || !request.pluginVersion.trim() || !isPluginPermission(request.permission)) return null;
   const resourceScope = request.resourceScope ? normalizeResourceScope(request.resourceScope) : undefined;
   const workspaceRoot = normalizeWorkspaceRoot(request.workspaceRoot);
-  if (workspaceScopedPermissions.has(request.permission) && (!workspaceRoot || !workspaceRoot.length)) return null;
+  if (workspaceScopedPermissions.has(request.permission) && !workspaceRoot?.length) return null;
   if (request.resourceScope && !resourceScope) return null;
   if (request.permission === "network" && resourceScope?.kind !== "domain") return null;
   if (request.permission === "process.spawn:lsp" && resourceScope?.kind !== "executable") return null;
@@ -560,11 +637,16 @@ export function replacePluginPermissionGrants(
 ): PluginAuthorizationStore | null {
   if (!pluginId.trim() || !pluginVersion.trim()) return null;
   const normalizedRequests = requests.map(normalizeGrantRequest);
-  if (normalizedRequests.some((request) => request === null
-      || request.pluginId !== pluginId
-      || request.pluginVersion !== pluginVersion)) return null;
+  if (
+    normalizedRequests.some(
+      (request) => request === null || request.pluginId !== pluginId || request.pluginVersion !== pluginVersion,
+    )
+  )
+    return null;
 
-  const currentVersionGrants = store.grants.filter((grant) => grant.pluginId === pluginId && grant.pluginVersion === pluginVersion);
+  const currentVersionGrants = store.grants.filter(
+    (grant) => grant.pluginId === pluginId && grant.pluginVersion === pluginVersion,
+  );
   const currentById = new Map(currentVersionGrants.map((grant) => [grant.id, grant]));
   const replacement = new Map<string, PluginPermissionGrant>();
   for (const request of normalizedRequests) {
@@ -579,12 +661,21 @@ export function replacePluginPermissionGrants(
   return { version: PLUGIN_AUTHORIZATION_STORE_VERSION, grants };
 }
 
-export function revokePluginPermissionGrant(store: PluginAuthorizationStore, grantId: string): PluginAuthorizationStore {
+export function revokePluginPermissionGrant(
+  store: PluginAuthorizationStore,
+  grantId: string,
+): PluginAuthorizationStore {
   return { version: PLUGIN_AUTHORIZATION_STORE_VERSION, grants: store.grants.filter((grant) => grant.id !== grantId) };
 }
 
-export function removePluginPermissionGrants(store: PluginAuthorizationStore, pluginId: string): PluginAuthorizationStore {
-  return { version: PLUGIN_AUTHORIZATION_STORE_VERSION, grants: store.grants.filter((grant) => grant.pluginId !== pluginId) };
+export function removePluginPermissionGrants(
+  store: PluginAuthorizationStore,
+  pluginId: string,
+): PluginAuthorizationStore {
+  return {
+    version: PLUGIN_AUTHORIZATION_STORE_VERSION,
+    grants: store.grants.filter((grant) => grant.pluginId !== pluginId),
+  };
 }
 
 export class PluginAuthorizationManager {
@@ -614,7 +705,9 @@ export class PluginAuthorizationManager {
   grant(requests: PluginPermissionGrantRequest[]): boolean {
     const normalizedRequests = requests.map(normalizeGrantRequest);
     if (normalizedRequests.some((request) => request === null)) return false;
-    const validRequests = normalizedRequests.filter((request): request is PluginPermissionGrantRequest => Boolean(request));
+    const validRequests = normalizedRequests.filter((request): request is PluginPermissionGrantRequest =>
+      Boolean(request),
+    );
     const existingIds = new Set(this.store.grants.map((grant) => grant.id));
     const newlyGranted = validRequests.filter((request) => !existingIds.has(grantIdFor(request)));
     if (this.store.grants.length + newlyGranted.length > MAX_AUTHORIZATION_GRANTS) return false;
@@ -640,11 +733,10 @@ export class PluginAuthorizationManager {
 
     const retainedIds = new Set(next.grants.map((grant) => grant.id));
     const previousIds = new Set(this.store.grants.map((grant) => grant.id));
-    const revoked = this.store.grants.filter((grant) => grant.pluginId === pluginId
-      && !retainedIds.has(grant.id));
-    const newlyGranted = next.grants.filter((grant) => grant.pluginId === pluginId
-      && grant.pluginVersion === pluginVersion
-      && !previousIds.has(grant.id));
+    const revoked = this.store.grants.filter((grant) => grant.pluginId === pluginId && !retainedIds.has(grant.id));
+    const newlyGranted = next.grants.filter(
+      (grant) => grant.pluginId === pluginId && grant.pluginVersion === pluginVersion && !previousIds.has(grant.id),
+    );
     if (this.persist && !this.persist(next)) return false;
     this.store = next;
     for (const grant of revoked) this.emit({ type: "revoke", grant });

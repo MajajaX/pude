@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as webRelease from "../../../web/src/release-info";
-import { parseSemver } from "../../../../shared/release-validation";
+import { parseSemver } from "../../../../shared/release-validation.mjs";
 import { publishedReleaseUrlCases, semverCases } from "../../../../shared/release-validation-cases";
 
 describe("shared release URL contract", () => {
@@ -28,22 +28,27 @@ describe("web release stage and download links", () => {
     expect(webRelease.getReleaseStage("0.1.0", "https://github.com/MajajaX/pude/releases/latest")).toBe("published");
     expect(webRelease.getReleaseStage("1.0.0")).toBe("candidate");
     expect(webRelease.getReleaseStage("1.0.0", "https://github.com/MajajaX/pude/releases/latest")).toBe("published");
-    expect(webRelease.getReleaseStage("1.0.0", webRelease.getPublishedReleaseUrl("javascript:alert(1)"))).toBe("candidate");
+    expect(webRelease.getReleaseStage("1.0.0", webRelease.getPublishedReleaseUrl("javascript:alert(1)"))).toBe(
+      "candidate",
+    );
   });
 
   it("only accepts a tagged release URL that matches the shown version", () => {
     const tagUrl = "https://github.com/MajajaX/pude/releases/tag/v0.1.2";
     expect(webRelease.getReleaseUrlForVersion(tagUrl, "0.1.2")).toBe(tagUrl);
     expect(webRelease.getReleaseUrlForVersion(tagUrl, "0.1.3")).toBeUndefined();
-    expect(webRelease.getReleaseUrlForVersion("https://github.com/MajajaX/pude/releases/latest", "0.1.2"))
-      .toBe("https://github.com/MajajaX/pude/releases/latest");
+    expect(webRelease.getReleaseUrlForVersion("https://github.com/MajajaX/pude/releases/latest", "0.1.2")).toBe(
+      "https://github.com/MajajaX/pude/releases/latest",
+    );
     expect(webRelease.getReleaseUrlForVersion("javascript:alert(1)", "0.1.2")).toBeUndefined();
   });
 
   it("builds direct installer links for latest and tagged releases", () => {
-    expect(webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/latest", "pude-macos-arm64.dmg"))
-      .toBe("https://github.com/MajajaX/pude/releases/latest/download/pude-macos-arm64.dmg");
-    expect(webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/tag/v0.1.0", "pude-macos-arm64.dmg"))
-      .toBe("https://github.com/MajajaX/pude/releases/download/v0.1.0/pude-macos-arm64.dmg");
+    expect(
+      webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/latest", "pude-macos-arm64.dmg"),
+    ).toBe("https://github.com/MajajaX/pude/releases/latest/download/pude-macos-arm64.dmg");
+    expect(
+      webRelease.getAssetDownloadUrl("https://github.com/MajajaX/pude/releases/tag/v0.1.0", "pude-macos-arm64.dmg"),
+    ).toBe("https://github.com/MajajaX/pude/releases/download/v0.1.0/pude-macos-arm64.dmg");
   });
 });

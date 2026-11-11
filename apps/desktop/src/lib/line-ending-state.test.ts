@@ -34,24 +34,51 @@ function latin1(bytes: Uint8Array): string {
 }
 
 function dispatch(state: EditorState, ...changes: { from: number; to?: number; insert?: string }[]): EditorState {
-  return state.update({ changes: changes.map((change) => ({ from: change.from, to: change.to ?? change.from, insert: change.insert ?? "" })) }).state;
+  return state.update({
+    changes: changes.map((change) => ({
+      from: change.from,
+      to: change.to ?? change.from,
+      insert: change.insert ?? "",
+    })),
+  }).state;
 }
 
 function undoOnce(state: EditorState): EditorState {
   let next = state;
-  expect(undo({ state, dispatch: (tr) => { next = tr.state; } })).toBe(true);
+  expect(
+    undo({
+      state,
+      dispatch: (tr) => {
+        next = tr.state;
+      },
+    }),
+  ).toBe(true);
   return next;
 }
 
 function redoOnce(state: EditorState): EditorState {
   let next = state;
-  expect(redo({ state, dispatch: (tr) => { next = tr.state; } })).toBe(true);
+  expect(
+    redo({
+      state,
+      dispatch: (tr) => {
+        next = tr.state;
+      },
+    }),
+  ).toBe(true);
   return next;
 }
 
 function runHistoryCommand(state: EditorState, command: typeof undoSelection | typeof redoSelection): EditorState {
   let next = state;
-  expect(command({ state, dispatch: (transaction) => { next = transaction.state; } })).toBe(true);
+  expect(
+    command({
+      state,
+      dispatch: (transaction) => {
+        next = transaction.state;
+      },
+    }),
+  ).toBe(true);
   return next;
 }
 
@@ -80,7 +107,9 @@ describe("transactional line-ending map", () => {
     const edited = dispatch(initial, { from: 0, insert: "X\n" }, { from: 6, to: 8, insert: "D!\n" });
     expect(edited.doc.toString()).toBe("X\nA\nB\nC\nD!\n");
     expect(mapOf(edited, field)).toBe("llcll");
-    expect(latin1(serializeDocumentBytes(edited.doc.toString(), mapOf(edited, field), false))).toBe("X\nA\nB\r\nC\nD!\n");
+    expect(latin1(serializeDocumentBytes(edited.doc.toString(), mapOf(edited, field), false))).toBe(
+      "X\nA\nB\r\nC\nD!\n",
+    );
   });
 
   it("matches repeated lines by position, not by content", () => {
@@ -189,7 +218,14 @@ describe("transactional line-ending map", () => {
     expect(mapState.history.done).toHaveLength(historyState.done.length);
 
     let remaining = state;
-    while (undo({ state: remaining, dispatch: (transaction) => { remaining = transaction.state; } })) {
+    while (
+      undo({
+        state: remaining,
+        dispatch: (transaction) => {
+          remaining = transaction.state;
+        },
+      })
+    ) {
       const currentMap = lineEndingMapOf(remaining, created.field).map;
       expect(currentMap.length).toBe(remaining.doc.lines - 1);
       expect(lineEndingMapOf(remaining, created.field).crlf).toBe(currentMap.length);
@@ -251,7 +287,9 @@ describe("transactional line-ending map", () => {
     const edited = transaction.state;
     expect(edited.doc.toString()).toBe("ALPHA\nbeta\nGAMMA!\ndelta\n");
     expect(mapOf(edited, field)).toBe("lclc");
-    expect(latin1(serializeDocumentBytes(edited.doc.toString(), mapOf(edited, field), false))).toBe("ALPHA\nbeta\r\nGAMMA!\ndelta\r\n");
+    expect(latin1(serializeDocumentBytes(edited.doc.toString(), mapOf(edited, field), false))).toBe(
+      "ALPHA\nbeta\r\nGAMMA!\ndelta\r\n",
+    );
 
     const undone = undoOnce(edited);
     expect(undone.doc.toString()).toBe("alpha\nbeta\ngamma\ndelta\n");
@@ -317,19 +355,38 @@ describe("transactional line-ending map", () => {
     const transaction = initial.update({ changes: { from: 4, to: 7, insert: "TWO" } });
     const state = transaction.state;
     expect(mapOf(state, field)).toBe("clc");
-    expect(lineEndingMapToString(reconcileLineEndingMapChanges(initial.doc, lineEndingMapOf(initial, field).map, transaction.changes, "lf"))).toBe("clc");
+    expect(
+      lineEndingMapToString(
+        reconcileLineEndingMapChanges(initial.doc, lineEndingMapOf(initial, field).map, transaction.changes, "lf"),
+      ),
+    ).toBe("clc");
   });
 
   it("treats metadata differences as dirty even when the text matches", () => {
     const text = Text.of(["alpha", "beta", "gamma"]);
     const base = { text, savedText: text };
-    expect(computeDocumentDirty({ ...base, lineEndings: "lc", savedLineEndings: "lc", bom: false, savedBom: false })).toBe(false);
+    expect(
+      computeDocumentDirty({ ...base, lineEndings: "lc", savedLineEndings: "lc", bom: false, savedBom: false }),
+    ).toBe(false);
     // Undoing back to identical text with a different separator map is dirty:
     // serializing it would produce different bytes.
-    expect(computeDocumentDirty({ ...base, lineEndings: "ll", savedLineEndings: "lc", bom: false, savedBom: false })).toBe(true);
-    expect(computeDocumentDirty({ ...base, lineEndings: "lc", savedLineEndings: "lc", bom: true, savedBom: false })).toBe(true);
+    expect(
+      computeDocumentDirty({ ...base, lineEndings: "ll", savedLineEndings: "lc", bom: false, savedBom: false }),
+    ).toBe(true);
+    expect(
+      computeDocumentDirty({ ...base, lineEndings: "lc", savedLineEndings: "lc", bom: true, savedBom: false }),
+    ).toBe(true);
     const changed = Text.of(["alpha", "beta!", "gamma"]);
-    expect(computeDocumentDirty({ text: changed, savedText: text, lineEndings: "lc", savedLineEndings: "lc", bom: false, savedBom: false })).toBe(true);
+    expect(
+      computeDocumentDirty({
+        text: changed,
+        savedText: text,
+        lineEndings: "lc",
+        savedLineEndings: "lc",
+        bom: false,
+        savedBom: false,
+      }),
+    ).toBe(true);
   });
 
   it("compares independent roots exactly and handles string/rope forms", () => {
@@ -366,10 +423,12 @@ describe("transactional line-ending map", () => {
     const originalMap = lineEndingMapOf(initial, field).map;
     const firstBreak = initial.doc.line(initial.doc.lines - 2).to;
     const finalLine = initial.doc.line(initial.doc.lines);
-    const transaction = initial.update({ changes: [
-      { from: firstBreak, to: firstBreak + 1, insert: "" },
-      { from: finalLine.from + 2, insert: "\n" },
-    ] });
+    const transaction = initial.update({
+      changes: [
+        { from: firstBreak, to: firstBreak + 1, insert: "" },
+        { from: finalLine.from + 2, insert: "\n" },
+      ],
+    });
     const changedMap = lineEndingMapOf(transaction.state, field).map;
     const metrics = { comparedMarkers: 0, sharedLeafMarkersSkipped: 0 };
 
@@ -386,14 +445,15 @@ describe("transactional line-ending map", () => {
     // Models the editor-side baseline update after a save completes while
     // the user keeps typing: only the saved revision's baseline moves.
     const { state: initial, field } = makeState("alpha\nbeta\n", "lc");
-    const dirty = (state: EditorState, saved: EditorState) => computeDocumentDirty({
-      text: state.doc,
-      savedText: saved.doc,
-      lineEndings: mapOf(state, field),
-      savedLineEndings: mapOf(saved, field),
-      bom: false,
-      savedBom: false,
-    });
+    const dirty = (state: EditorState, saved: EditorState) =>
+      computeDocumentDirty({
+        text: state.doc,
+        savedText: saved.doc,
+        lineEndings: mapOf(state, field),
+        savedLineEndings: mapOf(saved, field),
+        bom: false,
+        savedBom: false,
+      });
 
     const edited = dispatch(initial, { from: 0, to: 5, insert: "ALPHA" });
     expect(dirty(edited, initial)).toBe(true);
@@ -437,7 +497,10 @@ describe("transactional line-ending map", () => {
     const originalMap = lineEndingMapOf(initial, field).map;
     const first = initial.update({ changes: { from: 1, insert: "\nnew" }, userEvent: "input.paste" }).state;
     const firstMap = lineEndingMapOf(first, field).map;
-    const second = first.update({ changes: { from: first.doc.length, insert: "\nend" }, userEvent: "input.paste" }).state;
+    const second = first.update({
+      changes: { from: first.doc.length, insert: "\nend" },
+      userEvent: "input.paste",
+    }).state;
     const secondMap = lineEndingMapOf(second, field).map;
     const historyJSON = serializeEditorHistory(second);
     const portableHistory = lineEndingMapOf(second, field).history;
@@ -486,14 +549,16 @@ describe("transactional line-ending map", () => {
 
     // Save As advances the saved baseline without changing the live history.
     const savedText = Text.of(savedContent.split("\n"));
-    expect(computeDocumentDirty({
-      text: edited.doc,
-      savedText,
-      lineEndings: savedLineEndings,
-      savedLineEndings,
-      bom: savedBom,
-      savedBom,
-    })).toBe(false);
+    expect(
+      computeDocumentDirty({
+        text: edited.doc,
+        savedText,
+        lineEndings: savedLineEndings,
+        savedLineEndings,
+        bom: savedBom,
+        savedBom,
+      }),
+    ).toBe(false);
 
     const historyJSON = serializeEditorHistory(edited);
     expect(historyJSON).toBeDefined();
@@ -510,30 +575,36 @@ describe("transactional line-ending map", () => {
     expect(Array.from(serializeDocumentBytes(typed.doc.toString(), mapOf(typed, restoredMap.field), savedBom))).toEqual(
       Array.from(Uint8Array.from([0xef, 0xbb, 0xbf, ...new TextEncoder().encode("alpha\r\nBETA\ngamma-next")])),
     );
-    expect(computeDocumentDirty({
-      text: typed.doc,
-      savedText,
-      lineEndings: mapOf(typed, restoredMap.field),
-      savedLineEndings,
-      bom: savedBom,
-      savedBom,
-    })).toBe(true);
+    expect(
+      computeDocumentDirty({
+        text: typed.doc,
+        savedText,
+        lineEndings: mapOf(typed, restoredMap.field),
+        savedLineEndings,
+        bom: savedBom,
+        savedBom,
+      }),
+    ).toBe(true);
 
     restored = undoOnce(typed);
     expect(restored.doc.toString()).toBe(savedContent);
     expect(mapOf(restored, restoredMap.field)).toBe(savedLineEndings);
-    expect(computeDocumentDirty({
-      text: restored.doc,
-      savedText,
-      lineEndings: mapOf(restored, restoredMap.field),
-      savedLineEndings,
-      bom: savedBom,
-      savedBom,
-    })).toBe(false);
+    expect(
+      computeDocumentDirty({
+        text: restored.doc,
+        savedText,
+        lineEndings: mapOf(restored, restoredMap.field),
+        savedLineEndings,
+        bom: savedBom,
+        savedBom,
+      }),
+    ).toBe(false);
 
     restored = undoOnce(restored);
     expect(restored.doc.toString()).toBe(original);
     expect(mapOf(restored, restoredMap.field)).toBe("cl");
-    expect(Array.from(serializeDocumentBytes(restored.doc.toString(), mapOf(restored, restoredMap.field), savedBom))).toEqual(Array.from(originalBytes));
+    expect(
+      Array.from(serializeDocumentBytes(restored.doc.toString(), mapOf(restored, restoredMap.field), savedBom)),
+    ).toEqual(Array.from(originalBytes));
   });
 });

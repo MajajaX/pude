@@ -66,12 +66,17 @@ function measure(element: HTMLElement, mode: ScrollMode, viewport: number) {
   const top = documentTop(element) - window.scrollY;
   const height = element.offsetHeight;
   const [start, end] =
-    mode === "enter" ? [viewport, viewport * 0.25]
-    : mode === "appear" ? [viewport, viewport * 0.68]
-    : mode === "exit" ? [0, -height]
-    : mode === "pin" ? [0, viewport - height]
-    : mode === "read" ? [viewport * 0.4, viewport * 0.4 - height]
-    : [viewport, -height];
+    mode === "enter"
+      ? [viewport, viewport * 0.25]
+      : mode === "appear"
+        ? [viewport, viewport * 0.68]
+        : mode === "exit"
+          ? [0, -height]
+          : mode === "pin"
+            ? [0, viewport - height]
+            : mode === "read"
+              ? [viewport * 0.4, viewport * 0.4 - height]
+              : [viewport, -height];
   return start === end ? 1 : clamp01((start - top) / (start - end));
 }
 
@@ -103,7 +108,7 @@ function tick(now: number) {
   frame = undefined;
   const elapsed = lastTick === undefined ? 16.7 : Math.min(now - lastTick, 250);
   lastTick = now;
-  const smoothing = 1 - Math.pow(1 - SMOOTHING, elapsed / 16.7);
+  const smoothing = 1 - (1 - SMOOTHING) ** (elapsed / 16.7);
   let moving = false;
   placeNewElements();
 
@@ -165,7 +170,13 @@ export function scroll(element: HTMLElement, value: () => ScrollOptions | Scroll
   const options: ScrollOptions = typeof raw === "object" ? raw : { mode: raw === true ? "pass" : raw };
   startListening();
 
-  tracked.set(element, { mode: options.mode ?? "pass", onProgress: options.onProgress, target: 0, current: 0, placed: false });
+  tracked.set(element, {
+    mode: options.mode ?? "pass",
+    onProgress: options.onProgress,
+    target: 0,
+    current: 0,
+    placed: false,
+  });
   schedule();
 
   onCleanup(() => {

@@ -63,12 +63,12 @@ export function createDocumentController(hooks: DocumentControllerHooks) {
 
   const getActiveHandle = (tabId: string) => handles.get(tabId);
   const getHandle = (tabId: string) => handles.get(tabId) ?? retainedHandles.get(tabId);
-  const getCachedDocument = (tabId: string): EditorDocumentSeed | undefined => retainedHandles.get(tabId)?.getDetachedDocument();
+  const getCachedDocument = (tabId: string): EditorDocumentSeed | undefined =>
+    retainedHandles.get(tabId)?.getDetachedDocument();
   const getCacheBytes = () => {
-    const documentBytes = estimateEditorDocumentCacheBytes([
-      ...handles.values(),
-      ...retainedHandles.values(),
-    ].map((handle) => handle.getCacheFootprint()));
+    const documentBytes = estimateEditorDocumentCacheBytes(
+      [...handles.values(), ...retainedHandles.values()].map((handle) => handle.getCacheFootprint()),
+    );
     const additionalBytes = hooks.getAdditionalCacheBytes?.() ?? 0;
     return documentBytes + (Number.isFinite(additionalBytes) ? Math.max(0, additionalBytes) : 0);
   };
@@ -127,7 +127,7 @@ export function createDocumentController(hooks: DocumentControllerHooks) {
     };
   };
 
-  const getText = (tab?: EditorTab) => tab ? getHandle(tab.id)?.getText() ?? tab.content : "";
+  const getText = (tab?: EditorTab) => (tab ? (getHandle(tab.id)?.getText() ?? tab.content) : "");
 
   const dispose = () => {
     handles.clear();
@@ -135,7 +135,19 @@ export function createDocumentController(hooks: DocumentControllerHooks) {
     revisions.clear();
   };
 
-  return { register, unregister, release, getRevision, getHandle, getActiveHandle, getCachedDocument, getCacheBytes, enforceCacheBudget, getText, dispose };
+  return {
+    register,
+    unregister,
+    release,
+    getRevision,
+    getHandle,
+    getActiveHandle,
+    getCachedDocument,
+    getCacheBytes,
+    enforceCacheBudget,
+    getText,
+    dispose,
+  };
 }
 
 export type DocumentController = ReturnType<typeof createDocumentController>;

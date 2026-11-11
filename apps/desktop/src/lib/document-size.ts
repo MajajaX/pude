@@ -52,8 +52,9 @@ export function updateUtf8ByteLength(previous: Text, next: Text, changes: Pick<C
 
   let delta = 0;
   for (const range of ranges) {
-    delta += utf8ByteLength(next.sliceString(range.nextFrom, range.nextTo))
-      - utf8ByteLength(previous.sliceString(range.from, range.to));
+    delta +=
+      utf8ByteLength(next.sliceString(range.nextFrom, range.nextTo)) -
+      utf8ByteLength(previous.sliceString(range.from, range.to));
   }
   return delta;
 }
@@ -63,7 +64,5 @@ export function serializedDocumentByteLength(contentBytes: number, crlfSeparator
 }
 
 export function largeFileModeForSize(currentLargeFile: boolean, estimatedBytes: number): boolean {
-  return currentLargeFile
-    ? estimatedBytes >= LARGE_FILE_EXIT_BYTES
-    : estimatedBytes > LARGE_FILE_ENTER_BYTES;
+  return currentLargeFile ? estimatedBytes >= LARGE_FILE_EXIT_BYTES : estimatedBytes > LARGE_FILE_ENTER_BYTES;
 }

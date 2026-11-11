@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { EditorSelection, EditorState } from "@codemirror/state";
-import { changeCase, finalNewlineChange, saveFormattingChanges, sortLines, trailingWhitespaceChanges } from "./editor-text-commands";
+import {
+  changeCase,
+  finalNewlineChange,
+  saveFormattingChanges,
+  sortLines,
+  trailingWhitespaceChanges,
+} from "./editor-text-commands";
 
-const apply = (state: EditorState, spec: ReturnType<typeof sortLines>) => spec ? state.update(spec).state.doc.toString() : state.doc.toString();
+const apply = (state: EditorState, spec: ReturnType<typeof sortLines>) =>
+  spec ? state.update(spec).state.doc.toString() : state.doc.toString();
 
 describe("editor text commands", () => {
   it("sorts the whole document when nothing is selected, with natural number order", () => {

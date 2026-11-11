@@ -118,10 +118,7 @@ export function estimateEditorDocumentCacheBytes(documents: readonly EditorDocum
       bytes += text.codeUnits * 2;
     }
     for (const map of document.lineEndingMaps) maps.push(map);
-    bytes += document.serializedHistoryBytes
-      + document.lineEndingHistoryEntries * 48
-      + document.selectionBytes
-      + 1024;
+    bytes += document.serializedHistoryBytes + document.lineEndingHistoryEntries * 48 + document.selectionBytes + 1024;
     if (document.hasState) stateCount += 1;
   }
 

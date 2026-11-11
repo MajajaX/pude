@@ -1,13 +1,12 @@
 import { For } from "solid-js";
 import { t } from "../i18n";
-import packageInfo from "../../package.json";
-import { getReleaseUrlForVersion, getReleaseStage } from "../release-info";
-import { scroll } from "../lib/scroll-progress";
+import { version } from "../../package.json";
+import { getSiteRelease } from "../release-info";
 import ProductFilm from "./ProductFilm";
 
 export default function Hero() {
-  const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-  const stage = () => t().cta.stages[getReleaseStage(packageInfo.version, releaseUrl)];
+  const { stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, version);
+  const stage = () => t().cta.stages[releaseStage];
 
   return (
     <section class="hero" id="top">
@@ -43,7 +42,7 @@ export default function Hero() {
           </ul>
           <p class="hero-note">{t().hero.note}</p>
           <p class="hero-version">
-            {t().cta.versionLabel} {packageInfo.version} · {stage()}
+            {t().cta.versionLabel} {version} · {stage()}
           </p>
         </div>
         <div class="hero-stage" use:scroll="enter">

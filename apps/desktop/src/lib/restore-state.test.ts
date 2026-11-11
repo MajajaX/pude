@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createRestoreIntent, markRestoreTabCancelled, markUserOpenedPath, shouldMergeRestoredTab } from "./restore-state";
+import {
+  createRestoreIntent,
+  markRestoreTabCancelled,
+  markUserOpenedPath,
+  shouldMergeRestoredTab,
+} from "./restore-state";
 import { restoreDirectoryTreeByLevel } from "./directory-restore";
 import { runtimePathOptions } from "./path-identity";
 import type { DirectoryEntry } from "../types";
@@ -44,12 +49,21 @@ describe("restore intent", () => {
 
 describe("incremental directory restore", () => {
   it("emits the root before loading deeper expanded directories", async () => {
-    const root: DirectoryEntry = { name: "workspace", path: "/workspace", kind: "directory", expanded: true, loaded: true, children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }] };
+    const root: DirectoryEntry = {
+      name: "workspace",
+      path: "/workspace",
+      kind: "directory",
+      expanded: true,
+      loaded: true,
+      children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }],
+    };
     const emitted: number[] = [];
     const result = await restoreDirectoryTreeByLevel({
       root,
       expandedPaths: new Set(["/workspace", "/workspace/src"]),
-      listDirectory: async (path) => ({ entries: path === "/workspace/src" ? [{ name: "main.ts", path: "/workspace/src/main.ts", kind: "file" }] : [] }),
+      listDirectory: async (path) => ({
+        entries: path === "/workspace/src" ? [{ name: "main.ts", path: "/workspace/src/main.ts", kind: "file" }] : [],
+      }),
       isCurrent: () => true,
       onTree: (_tree, depth) => emitted.push(depth),
     });
@@ -60,11 +74,21 @@ describe("incremental directory restore", () => {
   it("stops before committing a result after the workspace changes", async () => {
     let current = true;
     const emitted: number[] = [];
-    const root: DirectoryEntry = { name: "workspace", path: "/workspace", kind: "directory", expanded: true, loaded: true, children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }] };
+    const root: DirectoryEntry = {
+      name: "workspace",
+      path: "/workspace",
+      kind: "directory",
+      expanded: true,
+      loaded: true,
+      children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }],
+    };
     const result = await restoreDirectoryTreeByLevel({
       root,
       expandedPaths: new Set(["/workspace", "/workspace/src"]),
-      listDirectory: async () => { current = false; return { entries: [] }; },
+      listDirectory: async () => {
+        current = false;
+        return { entries: [] };
+      },
       isCurrent: () => current,
       onTree: (_tree, depth) => emitted.push(depth),
     });
@@ -73,7 +97,14 @@ describe("incremental directory restore", () => {
   });
 
   it("keeps native partial directory errors on the affected entry", async () => {
-    const root: DirectoryEntry = { name: "workspace", path: "/workspace", kind: "directory", expanded: true, loaded: true, children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }] };
+    const root: DirectoryEntry = {
+      name: "workspace",
+      path: "/workspace",
+      kind: "directory",
+      expanded: true,
+      loaded: true,
+      children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }],
+    };
     const result = await restoreDirectoryTreeByLevel({
       root,
       expandedPaths: new Set(["/workspace", "/workspace/src"]),
@@ -85,11 +116,24 @@ describe("incremental directory restore", () => {
   });
 
   it("keeps incomplete listing and cap metadata on the restored directory", async () => {
-    const root: DirectoryEntry = { name: "workspace", path: "/workspace", kind: "directory", expanded: true, loaded: true, children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }] };
+    const root: DirectoryEntry = {
+      name: "workspace",
+      path: "/workspace",
+      kind: "directory",
+      expanded: true,
+      loaded: true,
+      children: [{ name: "src", path: "/workspace/src", kind: "directory", expanded: true, loaded: false }],
+    };
     const result = await restoreDirectoryTreeByLevel({
       root,
       expandedPaths: new Set(["/workspace", "/workspace/src"]),
-      listDirectory: async () => ({ entries: [], incomplete: true, stopReason: "entryLimit", maxEntries: 1, scannedEntries: 2 }),
+      listDirectory: async () => ({
+        entries: [],
+        incomplete: true,
+        stopReason: "entryLimit",
+        maxEntries: 1,
+        scannedEntries: 2,
+      }),
       isCurrent: () => true,
       onTree: () => undefined,
     });

@@ -38,7 +38,8 @@ function siteMetadata(): Plugin {
       order: "pre",
       handler(html) {
         const route = SITE_ROUTES.find(({ key }) => html.includes(`data-prerender="${key}"`));
-        if (!route || !html.includes("<!-- seo -->")) throw new Error("A web page is missing its SEO route or head marker.");
+        if (!route || !html.includes("<!-- seo -->"))
+          throw new Error("A web page is missing its SEO route or head marker.");
         return html.replace("<!-- seo -->", renderSeoHead(route.page, route.locale));
       },
     },
@@ -79,7 +80,7 @@ function prerenderStaticRoutes(): Plugin {
       });
 
       try {
-        const renderer = await ssrServer.ssrLoadModule("/src/prerender.tsx") as {
+        const renderer = (await ssrServer.ssrLoadModule("/src/prerender.tsx")) as {
           prerenderPage(page: "home" | "docs", locale: "en" | "zh-Hant"): string;
           hydrationScript(): string;
         };
@@ -121,8 +122,11 @@ export default defineConfig({
   },
   build: {
     target: "es2022",
-    rollupOptions: {
-      input: Object.fromEntries(SITE_ROUTES.map(({ key, file }) => [key, fileURLToPath(new URL(file, import.meta.url))])),
+    modulePreload: { polyfill: false },
+    rolldownOptions: {
+      input: Object.fromEntries(
+        SITE_ROUTES.map(({ key, file }) => [key, fileURLToPath(new URL(file, import.meta.url))]),
+      ),
     },
   },
 });

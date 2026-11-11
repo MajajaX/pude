@@ -21,9 +21,11 @@ export async function checkForUpdates(): Promise<void> {
   setUpdateStatus({ phase: "checking" });
   try {
     const update = await checkForUpdate();
-    setUpdateStatus(update
-      ? { phase: "available", version: update.version, notes: update.notes ?? undefined }
-      : { phase: "up-to-date" });
+    setUpdateStatus(
+      update
+        ? { phase: "available", version: update.version, notes: update.notes ?? undefined }
+        : { phase: "up-to-date" },
+    );
   } catch (error) {
     setUpdateStatus({ phase: "idle", error: errorMessage(error, "Could not check for updates.") });
   }

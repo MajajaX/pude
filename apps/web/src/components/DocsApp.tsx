@@ -1,9 +1,8 @@
 import { createEffect, createSignal, For, Index, onCleanup, onMount } from "solid-js";
 import { locale, localeHref, t, type DocBlock } from "../i18n-docs";
-import packageInfo from "../../package.json";
-import { getReleaseUrlForVersion, getReleaseStage, REPOSITORY_URL } from "../release-info";
+import { version } from "../../package.json";
+import { getSiteRelease, REPOSITORY_URL } from "../release-info";
 import { blockLineNumbers, blockSource } from "../lib/docs-source";
-import { scroll } from "../lib/scroll-progress";
 import BrandMark from "./BrandMark";
 import DocsBlock, { type DocsViewMode } from "./DocsBlock";
 import LanguageToggle from "./LanguageToggle";
@@ -11,13 +10,15 @@ import LanguageToggle from "./LanguageToggle";
 /** The line, as a share of the viewport height, that decides what is being read. */
 const READING_LINE = 0.4;
 
-const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-const releaseStage = getReleaseStage(packageInfo.version, releaseUrl);
+const { stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, version);
 const releaseAvailable = releaseStage === "published";
 
 /** Approximate rendered height of a block, in wrapped source lines, for the minimap. */
 function minimapWeight(block: DocBlock) {
-  return blockSource(block, releaseAvailable).reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 90)), 0);
+  return blockSource(block, releaseAvailable).reduce(
+    (total, line) => total + Math.max(1, Math.ceil(line.length / 90)),
+    0,
+  );
 }
 
 export default function DocsApp() {
@@ -96,7 +97,10 @@ export default function DocsApp() {
     const id = current();
     const tab = tabsElement?.querySelector<HTMLElement>(`[data-id="${id}"]`);
     if (!tab || !tabsElement || tabsElement.scrollWidth <= tabsElement.clientWidth) return;
-    tabsElement.scrollTo({ left: tab.offsetLeft - (tabsElement.clientWidth - tab.offsetWidth) / 2, behavior: "smooth" });
+    tabsElement.scrollTo({
+      left: tab.offsetLeft - (tabsElement.clientWidth - tab.offsetWidth) / 2,
+      behavior: "smooth",
+    });
   });
 
   createEffect(() => {
@@ -173,9 +177,7 @@ export default function DocsApp() {
           <nav class="ed-outline" aria-label={t().docsPage.outline}>
             <For each={outline()}>
               {(item) => (
-                <a href={`#${anchorFor(currentSection().id, item.index)}`}>
-                  {(item.block as { text: string }).text}
-                </a>
+                <a href={`#${anchorFor(currentSection().id, item.index)}`}>{(item.block as { text: string }).text}</a>
               )}
             </For>
           </nav>
@@ -211,7 +213,7 @@ export default function DocsApp() {
               </h1>
               <p class="docs-sub">{t().docsPage.sub}</p>
               <p class="docs-version">
-                {t().docsPage.versionLabel} {packageInfo.version} · {t().docsPage.stages[releaseStage]}
+                {t().docsPage.versionLabel} {version} · {t().docsPage.stages[releaseStage]}
               </p>
             </header>
 
@@ -219,35 +221,35 @@ export default function DocsApp() {
               {(section) => {
                 const lineNumbers = blockLineNumbers(section.blocks, releaseAvailable);
                 return (
-                <section
-                  id={section.id}
-                  class="doc-file"
-                  use:scroll={{
-                    mode: "read",
-                    onProgress: (progress) => setReadProgress((all) => ({ ...all, [section.id]: progress })),
-                  }}
-                >
-                  <div class="doc-file-head" use:scroll="appear">
-                    <span class="ed-file-icon" aria-hidden="true">
-                      MD
-                    </span>
-                    {section.file}
-                    <span class="doc-file-rule" aria-hidden="true" />
-                  </div>
-                  <Index each={section.blocks}>
-                    {(block, i) => (
-                      <DocsBlock
-                        block={block()}
-                        line={lineNumbers[i]}
-                        anchor={block().t === "h3" ? anchorFor(section.id, i) : undefined}
-                        mode={mode()}
-                        releaseAvailable={releaseAvailable}
-                        downloadHref={downloadHref()}
-                        downloadLabel={t().docsPage.downloadLabel}
-                      />
-                    )}
-                  </Index>
-                </section>
+                  <section
+                    id={section.id}
+                    class="doc-file"
+                    use:scroll={{
+                      mode: "read",
+                      onProgress: (progress) => setReadProgress((all) => ({ ...all, [section.id]: progress })),
+                    }}
+                  >
+                    <div class="doc-file-head" use:scroll="appear">
+                      <span class="ed-file-icon" aria-hidden="true">
+                        MD
+                      </span>
+                      {section.file}
+                      <span class="doc-file-rule" aria-hidden="true" />
+                    </div>
+                    <Index each={section.blocks}>
+                      {(block, i) => (
+                        <DocsBlock
+                          block={block()}
+                          line={lineNumbers[i]}
+                          anchor={block().t === "h3" ? anchorFor(section.id, i) : undefined}
+                          mode={mode()}
+                          releaseAvailable={releaseAvailable}
+                          downloadHref={downloadHref()}
+                          downloadLabel={t().docsPage.downloadLabel}
+                        />
+                      )}
+                    </Index>
+                  </section>
                 );
               }}
             </For>
@@ -281,12 +283,10 @@ export default function DocsApp() {
       <footer class="ed-status">
         <span class="ed-status-brand">
           <span class="ed-status-dot" />
-          {t().docsPage.versionLabel} {packageInfo.version} · {t().docsPage.stages[releaseStage]}
+          {t().docsPage.versionLabel} {version} · {t().docsPage.stages[releaseStage]}
         </span>
         <span class="ed-status-spacer" />
-        <span>
-          Ln {currentLine()}, Col 1
-        </span>
+        <span>Ln {currentLine()}, Col 1</span>
         <span>{percent()}%</span>
         <span class="ed-status-wide">UTF-8</span>
         <span class="ed-status-wide">LF</span>

@@ -2,15 +2,33 @@ import { For, createEffect, createMemo, createSignal, on, onCleanup, onMount } f
 import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { Icon } from "./Icons";
-import { isTauri, ackTerminalOutput, getTerminalShell, killTerminal, listenForTerminalExit, resizeTerminal, startTerminal, writeTerminal, type TerminalExitPayload, type TerminalOutputPayload } from "../lib/bridge";
+import {
+  isTauri,
+  ackTerminalOutput,
+  getTerminalShell,
+  killTerminal,
+  listenForTerminalExit,
+  resizeTerminal,
+  startTerminal,
+  writeTerminal,
+  type TerminalExitPayload,
+  type TerminalOutputPayload,
+} from "../lib/bridge";
 import { errorMessage } from "../lib/core";
 import { clampSetting } from "../lib/settings";
 import { fitVisibleTerminal } from "../lib/terminal-fit";
 import { TerminalLifecycle } from "../lib/terminal-lifecycle";
-import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "../lib/terminal-ack";
+import {
+  TerminalAckQueue,
+  TerminalAckScheduler,
+  TerminalAckTracker,
+  TERMINAL_ACK_FLUSH_BYTES,
+} from "../lib/terminal-ack";
 import { registerActivePluginTerminal } from "../lib/plugin-terminal";
 import { bindTerminalToPty, DEFAULT_TERMINAL_OPTIONS, TERMINAL_FONT_FAMILY } from "../lib/terminal-vt";
 import { t } from "../lib/i18n";
+import { runtimePathOptions, samePath } from "../lib/path-identity";
+import { isPythonEnvironmentTrusted, onPythonEnvironmentTrustChange } from "../lib/python-environment-trust";
 
 type TerminalTab = { id: number; label: string; directory?: string };
 export type TerminalOpenRequest = { id: number; directory: string };
@@ -19,12 +37,36 @@ type EarlyOutputChunk = { seq: number; generation: number; data: string; bytes: 
 
 const MIN_EDITOR_HEIGHT = 120;
 
-export function TerminalPane(props: { workspace: string; height: number; fontSize: number; visible: boolean; openRequest?: TerminalOpenRequest; onSettingsChange: (changes: { terminalHeight: number }) => void; onHide: () => void; onClose: () => void }) {
+export function TerminalPane(props: {
+  workspace: string;
+  height: number;
+  fontSize: number;
+  visible: boolean;
+  openRequest?: TerminalOpenRequest;
+  onSettingsChange: (changes: { terminalHeight: number }) => void;
+  onHide: () => void;
+  onClose: () => void;
+}) {
   let paneRef!: HTMLElement;
-  const [tabs, setTabs] = createSignal<TerminalTab[]>([{ id: 1, label: t("Terminal {number}", { number: 1 }), directory: props.openRequest?.directory }]);
+  let tabStrip!: HTMLDivElement;
+  const [tabs, setTabs] = createSignal<TerminalTab[]>([
+    { id: 1, label: t("Terminal {number}", { number: 1 }), directory: props.openRequest?.directory },
+  ]);
   const [activeTabId, setActiveTabId] = createSignal(1);
+  // The strip has no visible scrollbar, so the selected tab brings itself into view.
+  createEffect(() => {
+    activeTabId();
+    queueMicrotask(() =>
+      tabStrip?.querySelector(".terminal-tab-active")?.scrollIntoView({ block: "nearest", inline: "nearest" }),
+    );
+  });
   const [shell, setShell] = createSignal(isTauri ? t("Shell") : t("Demo"));
-  onMount(() => { if (isTauri) void getTerminalShell().then((path) => setShell(path.split(/[\\/]/).filter(Boolean).pop() || t("Shell"))).catch(() => undefined); });
+  onMount(() => {
+    if (isTauri)
+      void getTerminalShell()
+        .then((path) => setShell(path.split(/[\\/]/).filter(Boolean).pop() || t("Shell")))
+        .catch(() => undefined);
+  });
   const [renaming, setRenaming] = createSignal<number>();
   const [tabLabels, setTabLabels] = createSignal<Record<number, string>>({});
   const tabLabel = (tab: TerminalTab) => tabLabels()[tab.id] ?? tab.label;
@@ -54,11 +96,18 @@ export function TerminalPane(props: { workspace: string; height: number; fontSiz
     setActiveTabId(0);
     props.onClose();
   };
-  createEffect(on(() => props.visible, (visible) => {
-    if (visible && !tabs().length) addTab();
-  }, { defer: true }));
+  createEffect(
+    on(
+      () => props.visible,
+      (visible) => {
+        if (visible && !tabs().length) addTab();
+      },
+      { defer: true },
+    ),
+  );
 
-  const resize = (height: number) => props.onSettingsChange({ terminalHeight: clampSetting("terminalHeight", height, props.height) });
+  const resize = (height: number) =>
+    props.onSettingsChange({ terminalHeight: clampSetting("terminalHeight", height, props.height) });
   let stopResize = () => undefined;
   const startResize = (event: PointerEvent) => {
     event.preventDefault();
@@ -67,7 +116,8 @@ export function TerminalPane(props: { workspace: string; height: number; fontSiz
     const startHeight = paneRef.getBoundingClientRect().height;
     const maxHeight = (paneRef.parentElement?.clientHeight ?? Infinity) - MIN_EDITOR_HEIGHT;
     document.body.classList.add("terminal-resizing");
-    const handleMove = (moveEvent: PointerEvent) => resize(Math.min(maxHeight, startHeight + startY - moveEvent.clientY));
+    const handleMove = (moveEvent: PointerEvent) =>
+      resize(Math.min(maxHeight, startHeight + startY - moveEvent.clientY));
     const handleUp = () => stopResize();
     stopResize = () => {
       window.removeEventListener("pointermove", handleMove);
@@ -87,25 +137,130 @@ export function TerminalPane(props: { workspace: string; height: number; fontSiz
   };
 
   return (
-    <section ref={paneRef} class="terminal-pane" style={{ height: `${props.height}px`, display: props.visible ? undefined : "none" }} aria-hidden={!props.visible}>
-      <div class="terminal-resizer" role="separator" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="1200" aria-valuenow={props.height} aria-label={t("Resize terminal")} onPointerDown={startResize} onKeyDown={nudgeHeight} tabIndex={0} />
+    <section
+      ref={paneRef}
+      class="terminal-pane"
+      style={{ height: `${props.height}px`, display: props.visible ? undefined : "none" }}
+      aria-hidden={!props.visible}
+    >
+      <div
+        class="terminal-resizer"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-valuemin="160"
+        aria-valuemax="1200"
+        aria-valuenow={props.height}
+        aria-label={t("Resize terminal")}
+        onPointerDown={startResize}
+        onKeyDown={nudgeHeight}
+        tabIndex={0}
+      />
       <div class="terminal-toolbar">
-        <div class="terminal-tabs" role="tablist" aria-label={t("Terminal sessions")}>
-          <For each={tabs()}>{(tab) => <div classList={{ "terminal-tab": true, "terminal-tab-active": activeTabId() === tab.id }}>
-            {renaming() === tab.id ? <input aria-label={t("Rename terminal")} autocorrect="off" autocapitalize="off" spellcheck={false} value={tabLabel(tab)} autofocus onBlur={(event) => { const label = event.currentTarget.value.trim(); if (label && renaming() === tab.id) setTabLabels((current) => ({ ...current, [tab.id]: label })); setRenaming(undefined); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); if (event.key === "Escape") { setRenaming(undefined); } }} /> : <button type="button" role="tab" aria-label={tabLabel(tab)} title={`${shell()} · ${tab.directory ?? props.workspace}`} aria-selected={activeTabId() === tab.id} onClick={() => setActiveTabId(tab.id)} onDblClick={() => setRenaming(tab.id)}><Icon name="terminal" size={13} />{tabLabel(tab)}<small>{shell()} · {(tab.directory ?? props.workspace).split(/[\\/]/).filter(Boolean).pop()}</small></button>}
-            <button type="button" class="terminal-tab-close" title={t("Kill {label}", { label: tabLabel(tab) })} aria-label={t("Kill {label}", { label: tabLabel(tab) })} onClick={() => closeTab(tab.id)}><Icon name="close" size={12} /></button>
-          </div>}</For>
-          <button class="icon-button terminal-add-tab" type="button" title={t("New terminal")} aria-label={t("New terminal")} onClick={() => addTab()}><Icon name="plus" size={14} /></button>
+        <div
+          ref={tabStrip}
+          class="terminal-tabs"
+          role="tablist"
+          aria-label={t("Terminal sessions")}
+          onWheel={(event) => {
+            tabStrip.scrollLeft += event.deltaY;
+          }}
+        >
+          <For each={tabs()}>
+            {(tab) => (
+              <div classList={{ "terminal-tab": true, "terminal-tab-active": activeTabId() === tab.id }}>
+                {renaming() === tab.id ? (
+                  <input
+                    aria-label={t("Rename terminal")}
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck={false}
+                    value={tabLabel(tab)}
+                    autofocus
+                    onBlur={(event) => {
+                      const label = event.currentTarget.value.trim();
+                      if (label && renaming() === tab.id) setTabLabels((current) => ({ ...current, [tab.id]: label }));
+                      setRenaming(undefined);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") event.currentTarget.blur();
+                      if (event.key === "Escape") {
+                        setRenaming(undefined);
+                      }
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-label={tabLabel(tab)}
+                    title={`${shell()} · ${tab.directory ?? props.workspace}`}
+                    aria-selected={activeTabId() === tab.id}
+                    onClick={() => setActiveTabId(tab.id)}
+                    onDblClick={() => setRenaming(tab.id)}
+                  >
+                    <Icon name="terminal" size={13} />
+                    <span class="terminal-tab-label">{tabLabel(tab)}</span>
+                    <small>
+                      {shell()} · {(tab.directory ?? props.workspace).split(/[\\/]/).filter(Boolean).pop()}
+                    </small>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  class="terminal-tab-close"
+                  title={t("Kill {label}", { label: tabLabel(tab) })}
+                  aria-label={t("Kill {label}", { label: tabLabel(tab) })}
+                  onClick={() => closeTab(tab.id)}
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              </div>
+            )}
+          </For>
+          <button
+            class="icon-button terminal-add-tab"
+            type="button"
+            title={t("New terminal")}
+            aria-label={t("New terminal")}
+            onClick={() => addTab()}
+          >
+            <Icon name="plus" size={14} />
+          </button>
         </div>
         <div class="terminal-toolbar-actions">
-          <button class="icon-button" type="button" title={t("Hide terminal")} aria-label={t("Hide terminal")} onClick={props.onHide}><Icon name="chevron-down" size={14} /></button>
-          <button class="icon-button" type="button" title={t("Close all terminals")} aria-label={t("Close all terminals")} onClick={closeAll}><Icon name="close" size={14} /></button>
+          <button
+            class="icon-button"
+            type="button"
+            title={t("Hide terminal")}
+            aria-label={t("Hide terminal")}
+            onClick={props.onHide}
+          >
+            <Icon name="chevron-down" size={14} />
+          </button>
+          <button
+            class="icon-button"
+            type="button"
+            title={t("Close all terminals")}
+            aria-label={t("Close all terminals")}
+            onClick={closeAll}
+          >
+            <Icon name="close" size={14} />
+          </button>
         </div>
       </div>
-      <For each={tabs()}>{(tab) => {
-        const visible = createMemo(() => props.visible && activeTabId() === tab.id);
-        return <TerminalSession workspace={props.workspace} workingDirectory={tab.directory} visible={visible()} fontSize={props.fontSize} />;
-      }}</For>
+      <For each={tabs()}>
+        {(tab) => {
+          const visible = createMemo(() => props.visible && activeTabId() === tab.id);
+          return (
+            <TerminalSession
+              workspace={props.workspace}
+              workingDirectory={tab.directory}
+              visible={visible()}
+              fontSize={props.fontSize}
+            />
+          );
+        }}
+      </For>
     </section>
   );
 }
@@ -137,8 +292,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   let writeQueue = Promise.resolve();
   let browserInput = "";
   let fitFrame = 0;
-  let earlyOutput = new Map<string, EarlyOutputChunk[]>();
-  let earlyExit = new Map<string, TerminalExitPayload>();
+  let lastSentSize = "";
+  const earlyOutput = new Map<string, EarlyOutputChunk[]>();
+  const earlyExit = new Map<string, TerminalExitPayload>();
   let sessionGeneration = 0;
   let startupVersion = 0;
   const ackTracker = new TerminalAckTracker();
@@ -147,10 +303,19 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     (callback) => requestAnimationFrame(callback),
     (handle) => cancelAnimationFrame(handle),
   );
+  const startFolder = () => props.workingDirectory ?? props.workspace;
   const lifecycle = new TerminalLifecycle({
     // Every start creates a fresh per-session output channel via
     // `startTerminal`, so a restart automatically rebinds the stream.
-    start: (workspace) => startTerminal(workspace, terminal?.rows ?? 24, terminal?.cols ?? 80, handleOutputPayload, props.workingDirectory),
+    start: (workspace) =>
+      startTerminal(
+        workspace,
+        terminal?.rows ?? 24,
+        terminal?.cols ?? 80,
+        handleOutputPayload,
+        props.workingDirectory,
+        isPythonEnvironmentTrusted(startFolder()),
+      ),
     stop: killTerminal,
   });
 
@@ -167,7 +332,11 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     setSessionEnded(true);
     setSessionId(undefined);
     if (terminal) terminal.options.disableStdin = true;
-    appendStatus(t("{error} Restart terminal to continue.", { error: errorMessage(error, "Unable to acknowledge terminal output.") }));
+    appendStatus(
+      t("{error} Restart terminal to continue.", {
+        error: errorMessage(error, "Unable to acknowledge terminal output."),
+      }),
+    );
     void lifecycle.stop().catch((stopError) => {
       if (!disposed && !activeId && sessionGeneration === generation) {
         appendStatus(errorMessage(stopError, "Unable to stop the terminal after its output acknowledgment failed."));
@@ -186,9 +355,10 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     const batch = ackTracker.drainBatch();
     if (!batch) return;
     ackQueue.enqueue(
-      () => activeId === id && sessionGeneration === generation && !sessionEnded()
-        ? ackTerminalOutput(id, generation, batch.upToSeq, batch.bytes)
-        : Promise.resolve(),
+      () =>
+        activeId === id && sessionGeneration === generation && !sessionEnded()
+          ? ackTerminalOutput(id, generation, batch.upToSeq, batch.bytes)
+          : Promise.resolve(),
       (error) => failOutputAcknowledgment(id, generation, error),
     );
     // Completions that arrived out of order behind this run have already run
@@ -231,7 +401,7 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     const didFit = fitVisibleTerminal(props.visible, hostRef, () => fitAddon?.fit());
     if (!didFit) return false;
     const id = sessionId();
-    if (id && !sessionEnded()) void resizeTerminal(id, terminal?.rows ?? 0, terminal?.cols ?? 0).catch(() => undefined);
+    if (id && terminal && !sessionEnded()) resizeSession(id, terminal.rows, terminal.cols);
     return true;
   };
 
@@ -244,6 +414,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
   };
 
   const resizeSession = (id: string, rows: number, cols: number) => {
+    const size = `${id}:${rows}x${cols}`;
+    if (size === lastSentSize) return;
+    lastSentSize = size;
     void resizeTerminal(id, rows, cols).catch((error) => {
       if (!disposed && id === activeId) appendStatus(errorMessage(error, "Unable to resize terminal."));
     });
@@ -285,10 +458,8 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
 
   const activatePluginWriter = (workspace: string, id: string) => {
     disposePluginTerminalWriter?.();
-    disposePluginTerminalWriter = registerActivePluginTerminal(
-      workspace,
-      id,
-      (data, binary, signal, authorize) => writePtyInput(id, data, binary, signal, authorize),
+    disposePluginTerminalWriter = registerActivePluginTerminal(workspace, id, (data, binary, signal, authorize) =>
+      writePtyInput(id, data, binary, signal, authorize),
     );
   };
 
@@ -316,7 +487,10 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         current.write("\r\n");
         const result = runBrowserCommand(browserInput);
         if (browserInput.trim() === "clear") current.write("\u001b[2J\u001b[H");
-        else result.forEach((line) => current.write(`${line}\r\n`));
+        else
+          result.forEach((line) => {
+            current.write(`${line}\r\n`);
+          });
         current.write("pude$ ");
         browserInput = "";
       } else if (character === "\u007f") {
@@ -384,7 +558,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
       if (props.visible) activatePluginWriter(workspace, id);
       const replay = earlyOutput.get(id);
       earlyOutput.delete(id);
-      replay?.forEach((chunk) => writeOutput(chunk.data, chunk.seq, chunk.generation, chunk.bytes));
+      replay?.forEach((chunk) => {
+        writeOutput(chunk.data, chunk.seq, chunk.generation, chunk.bytes);
+      });
       outputReady = true;
       setSessionId(id);
       setSessionEnded(false);
@@ -418,12 +594,22 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     const workspace = props.workspace;
     activeId = undefined;
     outputReady = false;
-    void lifecycle.stop().then(() => {
-      if (!disposed && shouldRun && workspace === props.workspace) void startSession(workspace);
-    }).catch((error) => {
-      if (!disposed && workspace === props.workspace) appendStatus(errorMessage(error, "Unable to restart terminal."));
-    });
+    void lifecycle
+      .stop()
+      .then(() => {
+        if (!disposed && shouldRun && workspace === props.workspace) void startSession(workspace);
+      })
+      .catch((error) => {
+        if (!disposed && workspace === props.workspace)
+          appendStatus(errorMessage(error, "Unable to restart terminal."));
+      });
   };
+
+  onCleanup(
+    onPythonEnvironmentTrustChange((folder) => {
+      if (isTauri && props.visible && samePath(folder, startFolder(), runtimePathOptions())) restartSession();
+    }),
+  );
 
   onMount(() => {
     void (async () => {
@@ -446,7 +632,6 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
         instance.options.fontSize = props.fontSize;
         instance.open(hostRef);
         instance.attachCustomKeyEventHandler((event) => event.type !== "keydown" || !handleShortcut(event));
-        instance.write("pude terminal\r\n");
         instance.options.disableStdin = isTauri;
 
         if (isTauri) {
@@ -463,17 +648,24 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
           disposeTerminalInput = () => subscription.dispose();
           instance.options.disableStdin = false;
           setStatus("Ready");
-          instance.write("browser demo: help, clear, pwd, git status\r\npude$ ");
+          instance.write("pude terminal\r\nbrowser demo: help, clear, pwd, git status\r\npude$ ");
           if (props.visible) instance.focus();
         }
 
-        resizeObserver = typeof ResizeObserver === "undefined"
-          ? undefined
-          : new ResizeObserver(() => { if (props.visible) scheduleFit(); });
+        resizeObserver =
+          typeof ResizeObserver === "undefined"
+            ? undefined
+            : new ResizeObserver(() => {
+                if (props.visible) scheduleFit();
+              });
         resizeObserver?.observe(hostRef);
 
         unlistenExit = await listenForTerminalExit(finishSession);
-        if (disposed) return;
+        if (disposed) {
+          unlistenExit();
+          unlistenExit = undefined;
+          return;
+        }
 
         listenersReady = true;
         paneInitialized = true;
@@ -499,52 +691,67 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     })();
   });
 
-  createEffect(on(sessionWorkspace, (workspace) => {
-    if (!paneInitialized) return;
-    startupVersion += 1;
-    shouldRun = true;
-    outputReady = false;
-    capturingStartupOutput = false;
-    activeId = undefined;
-    ackQueue.reset();
-    ackTracker.reset();
-    ackScheduler.reset();
-    sessionGeneration = 0;
-    disposePluginTerminalWriter?.();
-    disposePluginTerminalWriter = undefined;
-    earlyOutput.clear();
-    earlyExit.clear();
-    setSessionId(undefined);
-    setSessionEnded(!isTauri);
-    if (terminal) {
-      terminal.reset();
-      terminal.write("pude terminal\r\n");
-      terminal.options.disableStdin = true;
-    }
-    if (!isTauri) return;
-    void lifecycle.stop().then(() => {
-      if (!disposed && workspace === props.workspace && props.visible && shouldRun) void startSession(workspace);
-    }).catch((error) => {
-      if (!disposed) appendStatus(errorMessage(error, "Unable to stop terminal for workspace switch."));
-    });
-  }, { defer: true }));
+  createEffect(
+    on(
+      sessionWorkspace,
+      (workspace) => {
+        if (!paneInitialized) return;
+        startupVersion += 1;
+        shouldRun = true;
+        outputReady = false;
+        capturingStartupOutput = false;
+        activeId = undefined;
+        ackQueue.reset();
+        ackTracker.reset();
+        ackScheduler.reset();
+        sessionGeneration = 0;
+        disposePluginTerminalWriter?.();
+        disposePluginTerminalWriter = undefined;
+        earlyOutput.clear();
+        earlyExit.clear();
+        setSessionId(undefined);
+        setSessionEnded(!isTauri);
+        if (terminal) {
+          terminal.reset();
+          terminal.write("pude terminal\r\n");
+          terminal.options.disableStdin = true;
+        }
+        if (!isTauri) return;
+        void lifecycle
+          .stop()
+          .then(() => {
+            if (!disposed && workspace === props.workspace && props.visible && shouldRun) void startSession(workspace);
+          })
+          .catch((error) => {
+            if (!disposed) appendStatus(errorMessage(error, "Unable to stop terminal for workspace switch."));
+          });
+      },
+      { defer: true },
+    ),
+  );
 
-  createEffect(on(() => props.visible, (visible) => {
-    if (!visible) {
-      disposePluginTerminalWriter?.();
-      disposePluginTerminalWriter = undefined;
-      return;
-    }
-    if (activeId) activatePluginWriter(props.workspace, activeId);
-    scheduleFit();
-    if (isTauri && paneInitialized && shouldRun && !activeId && !capturingStartupOutput) {
-      void startSession(props.workspace);
-    } else if (terminal) {
-      window.requestAnimationFrame(() => {
-        if (!disposed && props.visible) terminal?.focus();
-      });
-    }
-  }, { defer: true }));
+  createEffect(
+    on(
+      () => props.visible,
+      (visible) => {
+        if (!visible) {
+          disposePluginTerminalWriter?.();
+          disposePluginTerminalWriter = undefined;
+          return;
+        }
+        if (activeId) activatePluginWriter(props.workspace, activeId);
+        scheduleFit();
+        if (isTauri && paneInitialized && shouldRun && !activeId && !capturingStartupOutput) {
+          void startSession(props.workspace);
+        } else if (terminal) {
+          window.requestAnimationFrame(() => {
+            if (!disposed && props.visible) terminal?.focus();
+          });
+        }
+      },
+      { defer: true },
+    ),
+  );
 
   onCleanup(() => {
     startupVersion += 1;
@@ -570,7 +777,10 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
 
   createEffect(() => {
     const size = props.fontSize;
-    if (terminal) { terminal.options.fontSize = size; scheduleFit(); }
+    if (terminal) {
+      terminal.options.fontSize = size;
+      scheduleFit();
+    }
   });
 
   const clipboardAction = async (action: "copy" | "paste") => {
@@ -580,7 +790,9 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
       // Copying with nothing selected must not wipe what is already on the clipboard.
       else if (terminal?.hasSelection()) await navigator.clipboard.writeText(terminal.getSelection());
       setActionError("");
-    } catch (error) { setActionError(errorMessage(error, t("Clipboard is unavailable."))); }
+    } catch (error) {
+      setActionError(errorMessage(error, t("Clipboard is unavailable.")));
+    }
     terminal?.focus();
   };
   const runAction = (action: "copy" | "paste" | "select" | "clear") => {
@@ -605,23 +817,140 @@ function TerminalSession(props: { workspace: string; workingDirectory?: string; 
     const key = event.key.toLowerCase();
     // The webview's own paste event reaches xterm's textarea without a clipboard permission prompt.
     if (key === "v") return true;
-    if (key === "c") { event.preventDefault(); event.stopPropagation(); runAction("copy"); return true; }
-    if (key === "f") { event.preventDefault(); event.stopPropagation(); setSearchOpen(true); return true; }
+    if (key === "c") {
+      event.preventDefault();
+      event.stopPropagation();
+      runAction("copy");
+      return true;
+    }
+    if (key === "f") {
+      event.preventDefault();
+      event.stopPropagation();
+      setSearchOpen(true);
+      return true;
+    }
     return false;
   };
   let menuRef: HTMLDivElement | undefined;
   createEffect(() => {
     if (!menu()) return;
-    const dismiss = (event: PointerEvent) => { if (!menuRef?.contains(event.target as Node)) setMenu(undefined); };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); setMenu(undefined); terminal?.focus(); } };
+    const dismiss = (event: PointerEvent) => {
+      if (!menuRef?.contains(event.target as Node)) setMenu(undefined);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenu(undefined);
+        terminal?.focus();
+      }
+    };
     document.addEventListener("pointerdown", dismiss);
-    document.addEventListener("keydown", escape);
-    onCleanup(() => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape); });
+    document.addEventListener("keydown", closeOnEscape);
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", closeOnEscape);
+    });
   });
-  return <div class="terminal-session" style={{ display: props.visible ? undefined : "none" }} onContextMenu={(event) => { if (!(event.target instanceof Element) || !event.target.closest(".terminal-vt-host")) return; event.preventDefault(); setMenu({ x: event.clientX, y: event.clientY }); }}>
-    <div class="terminal-session-status" role="status">{t(status())}{actionError() && ` · ${actionError()}`}</div>
-    {searchOpen() && <div class="terminal-search"><input ref={(element) => queueMicrotask(() => { element.focus(); element.select(); })} autocorrect="off" autocapitalize="off" spellcheck={false} aria-label={t("Search terminal")} placeholder={t("Search terminal")} value={query()} onInput={(event) => setQuery(event.currentTarget.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.shiftKey ? searchAddon?.findPrevious(query()) : searchAddon?.findNext(query()); } if (event.key === "Escape") { closeSearchWithEscape(event); } }} /><button type="button" onClick={() => searchAddon?.findPrevious(query())}>{t("Previous")}</button><button type="button" onClick={() => searchAddon?.findNext(query())}>{t("Next")}</button><button type="button" aria-label={t("Close search")} onClick={() => { setSearchOpen(false); terminal?.focus(); }}>×</button></div>}
-    <div class="terminal-vt-host" ref={hostRef} aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")} />
-    {menu() && <div ref={(element) => { menuRef = element; queueMicrotask(() => { if (!element.isConnected) return; const bounds = element.getBoundingClientRect(); element.style.left = `${Math.max(0, Math.min(menu()!.x, window.innerWidth - bounds.width))}px`; element.style.top = `${Math.max(0, Math.min(menu()!.y, window.innerHeight - bounds.height))}px`; element.querySelector<HTMLButtonElement>("button")?.focus(); }); }} class="terminal-context-menu" role="menu" style={{ left: `${menu()!.x}px`, top: `${menu()!.y}px` }}><button type="button" role="menuitem" onClick={() => runAction("copy")}>{t("Copy")}</button><button type="button" role="menuitem" onClick={() => runAction("paste")}>{t("Paste")}</button><button type="button" role="menuitem" onClick={() => runAction("select")}>{t("Select all")}</button><button type="button" role="menuitem" onClick={() => runAction("clear")}>{t("Clear terminal")}</button></div>}
-    <button class="terminal-restart" style={{ display: sessionEnded() && isTauri ? undefined : "none" }} type="button" onClick={restartSession}><Icon name="play" size={13} /> {t("Restart terminal")}</button></div>;
+  return (
+    <div
+      class="terminal-session"
+      style={{ display: props.visible ? undefined : "none" }}
+      onContextMenu={(event) => {
+        if (!(event.target instanceof Element) || !event.target.closest(".terminal-vt-host")) return;
+        event.preventDefault();
+        setMenu({ x: event.clientX, y: event.clientY });
+      }}
+    >
+      <div class="terminal-session-status" role="status">
+        {t(status())}
+        {actionError() && ` · ${actionError()}`}
+      </div>
+      {searchOpen() && (
+        <div class="terminal-search">
+          <input
+            ref={(element) =>
+              queueMicrotask(() => {
+                element.focus();
+                element.select();
+              })
+            }
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck={false}
+            aria-label={t("Search terminal")}
+            placeholder={t("Search terminal")}
+            value={query()}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.shiftKey ? searchAddon?.findPrevious(query()) : searchAddon?.findNext(query());
+              }
+              if (event.key === "Escape") {
+                closeSearchWithEscape(event);
+              }
+            }}
+          />
+          <button type="button" onClick={() => searchAddon?.findPrevious(query())}>
+            {t("Previous")}
+          </button>
+          <button type="button" onClick={() => searchAddon?.findNext(query())}>
+            {t("Next")}
+          </button>
+          <button
+            type="button"
+            aria-label={t("Close search")}
+            onClick={() => {
+              setSearchOpen(false);
+              terminal?.focus();
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      <div
+        class="terminal-vt-host"
+        ref={hostRef}
+        aria-label={sessionEnded() ? t("Terminal session ended") : t("Terminal")}
+      />
+      {menu() && (
+        <div
+          ref={(element) => {
+            menuRef = element;
+            queueMicrotask(() => {
+              if (!element.isConnected) return;
+              const bounds = element.getBoundingClientRect();
+              element.style.left = `${Math.max(0, Math.min(menu()!.x, window.innerWidth - bounds.width))}px`;
+              element.style.top = `${Math.max(0, Math.min(menu()!.y, window.innerHeight - bounds.height))}px`;
+              element.querySelector<HTMLButtonElement>("button")?.focus();
+            });
+          }}
+          class="terminal-context-menu"
+          role="menu"
+          style={{ left: `${menu()!.x}px`, top: `${menu()!.y}px` }}
+        >
+          <button type="button" role="menuitem" onClick={() => runAction("copy")}>
+            {t("Copy")}
+          </button>
+          <button type="button" role="menuitem" onClick={() => runAction("paste")}>
+            {t("Paste")}
+          </button>
+          <button type="button" role="menuitem" onClick={() => runAction("select")}>
+            {t("Select all")}
+          </button>
+          <button type="button" role="menuitem" onClick={() => runAction("clear")}>
+            {t("Clear terminal")}
+          </button>
+        </div>
+      )}
+      <button
+        class="terminal-restart"
+        style={{ display: sessionEnded() && isTauri ? undefined : "none" }}
+        type="button"
+        onClick={restartSession}
+      >
+        <Icon name="play" size={13} /> {t("Restart terminal")}
+      </button>
+    </div>
+  );
 }

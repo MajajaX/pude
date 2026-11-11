@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createPathIdentity,
+  isAbsoluteWirePath,
   isSameOrDescendantPath,
   joinWirePath,
   pathComparisonKey,
@@ -48,13 +49,17 @@ describe("path identity", () => {
     expect(pathComparisonKey("C:\\project\\src\\", { platform: "windows" })).toBe("C:/project/src");
     expect(pathComparisonKey("C:/project/src", { platform: "windows" })).toBe("C:/project/src");
     expect(samePath("C:/Project/file.ts", "c:\\Project\\file.ts", { platform: "windows" })).toBe(false);
-    expect(samePath("C:/Project/file.ts", "c:\\Project\\file.ts", { platform: "windows", casePolicy: "insensitive" })).toBe(true);
+    expect(
+      samePath("C:/Project/file.ts", "c:\\Project\\file.ts", { platform: "windows", casePolicy: "insensitive" }),
+    ).toBe(true);
   });
 
   it("preserves UNC server and share roots and joins relative wire paths", () => {
     expect(pathComparisonKey("\\\\server\\share\\", { platform: "windows" })).toBe("//server/share");
     expect(pathComparisonKey("//server/share/folder/", { platform: "windows" })).toBe("//server/share/folder");
-    expect(isSameOrDescendantPath("\\\\server\\share\\folder\\file", "//server/share", { platform: "windows" })).toBe(true);
+    expect(isSameOrDescendantPath("\\\\server\\share\\folder\\file", "//server/share", { platform: "windows" })).toBe(
+      true,
+    );
     expect(isSameOrDescendantPath("//server/share-other/file", "//server/share", { platform: "windows" })).toBe(false);
     expect(joinWirePath("C:\\repo", "src/main.ts", { platform: "windows" })).toBe("C:\\repo\\src\\main.ts");
     expect(joinWirePath("C:", "src/main.ts", { platform: "windows" })).toBe("C:src/main.ts");
@@ -127,5 +132,13 @@ describe("path identity", () => {
 
   it("keeps URI-like application entries opaque", () => {
     expect(pathComparisonKey("pude://recent-projects/", { platform: "windows" })).toBe("pude://recent-projects/");
+  });
+});
+
+describe("isAbsoluteWirePath", () => {
+  it("accepts POSIX, drive and UNC paths and rejects relative ones", () => {
+    for (const path of ["/usr/bin/node", "C:\\Tools\\node.exe", "c:/tools", "\\\\server\\share\\x"])
+      expect(isAbsoluteWirePath(path)).toBe(true);
+    for (const path of ["node", "./node", "C:node", "node_modules", ""]) expect(isAbsoluteWirePath(path)).toBe(false);
   });
 });

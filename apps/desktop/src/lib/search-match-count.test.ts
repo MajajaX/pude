@@ -6,13 +6,21 @@ import { countSearchMatches } from "./search-match-count";
 describe("find bar match count", () => {
   it("counts matches and finds the selected one", () => {
     const state = EditorState.create({ doc: "ab ab ab", selection: EditorSelection.single(3, 5) });
-    expect(countSearchMatches(state, new SearchQuery({ search: "ab" }))).toEqual({ current: 2, total: 3, capped: false, invalid: false });
+    expect(countSearchMatches(state, new SearchQuery({ search: "ab" }))).toEqual({
+      current: 2,
+      total: 3,
+      capped: false,
+      invalid: false,
+    });
   });
 
   it("reports zero for an empty query and flags an invalid regular expression", () => {
     const state = EditorState.create({ doc: "abc" });
     expect(countSearchMatches(state, new SearchQuery({ search: "" }))).toMatchObject({ total: 0, invalid: false });
-    expect(countSearchMatches(state, new SearchQuery({ search: "(", regexp: true }))).toMatchObject({ total: 0, invalid: true });
+    expect(countSearchMatches(state, new SearchQuery({ search: "(", regexp: true }))).toMatchObject({
+      total: 0,
+      invalid: true,
+    });
   });
 
   it("stops at the limit and says more matches exist", () => {

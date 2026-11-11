@@ -7,7 +7,12 @@ import { createEditorSelectionFallback } from "./editor-selection-fallback";
 
 const createCounter = () => {
   let value = 0;
-  return { read: () => value, bump: () => { value += 1; } };
+  return {
+    read: () => value,
+    bump: () => {
+      value += 1;
+    },
+  };
 };
 
 const seed = (content: string, lineEndings = ""): EditorDocumentSeed => ({
@@ -46,14 +51,15 @@ const handle = (
     getRange: (from, to) => text.slice(from, to),
     getTextLength: () => text.length,
     getMetadata: () => ({ revision: 2, estimatedBytes: text.length, largeFile: false }),
-    getCacheFootprint: () => ({
-      texts: [{ identity: textIdentity, codeUnits: text.length }],
-      lineEndingMaps: [],
-      serializedHistoryBytes: 128,
-      lineEndingHistoryEntries: 0,
-      selectionBytes: 0,
-      hasState: false,
-    } satisfies EditorDocumentFootprint),
+    getCacheFootprint: () =>
+      ({
+        texts: [{ identity: textIdentity, codeUnits: text.length }],
+        lineEndingMaps: [],
+        serializedHistoryBytes: 128,
+        lineEndingHistoryEntries: 0,
+        selectionBytes: 0,
+        hasState: false,
+      }) satisfies EditorDocumentFootprint,
     getCacheEvictionState: () => evictionState,
     getSnapshot: () => ({
       content: text,
@@ -104,7 +110,12 @@ describe("document controller registry", () => {
 
   it("creates one revision per tab lazily and reuses it", () => {
     let created = 0;
-    const controller = createDocumentController({ createRevision: () => { created += 1; return createCounter(); } });
+    const controller = createDocumentController({
+      createRevision: () => {
+        created += 1;
+        return createCounter();
+      },
+    });
     const first = controller.getRevision("tab-1");
     const second = controller.getRevision("tab-1");
     expect(second).toBe(first);
@@ -118,7 +129,12 @@ describe("document controller registry", () => {
 
   it("eagerly creates the revision counter on register", () => {
     let created = 0;
-    const controller = createDocumentController({ createRevision: () => { created += 1; return createCounter(); } });
+    const controller = createDocumentController({
+      createRevision: () => {
+        created += 1;
+        return createCounter();
+      },
+    });
     controller.register("tab-1", handle("live"));
     expect(created).toBe(1);
   });
@@ -135,11 +151,13 @@ describe("document controller registry", () => {
     expect(controller.getHandle("tab-1")).toBe(retained);
     expect(controller.getText(tab())).toBe("edited\ndirty text");
     expect(controller.getHandle("tab-1")?.getRange(0, 6)).toBe("edited");
-    expect(controller.getHandle("tab-1")?.getSnapshot()).toEqual(expect.objectContaining({
-      content: "edited\ndirty text",
-      revision: 2,
-      lineEndings: "c",
-    }));
+    expect(controller.getHandle("tab-1")?.getSnapshot()).toEqual(
+      expect.objectContaining({
+        content: "edited\ndirty text",
+        revision: 2,
+        lineEndings: "c",
+      }),
+    );
     expect(controller.getCachedDocument("tab-1")?.content).toBe("edited\ndirty text");
     expect(controller.getCachedDocument("tab-1")?.lineEndings).toBe("c");
     expect(controller.getCacheBytes()).toBe(cacheBytesBeforeDetach);
@@ -167,12 +185,17 @@ describe("document controller registry", () => {
       savedRevision: 12,
       estimatedBytes: current.length + 1,
     });
-    const retained = handle(current, "c", {
-      lastUsed: 5,
-      dirty: false,
-      hasUndoHistory: false,
-      canRelease: true,
-    }, currentSeed);
+    const retained = handle(
+      current,
+      "c",
+      {
+        lastUsed: 5,
+        dirty: false,
+        hasUndoHistory: false,
+        canRelease: true,
+      },
+      currentSeed,
+    );
     controller.register("tab-1", retained);
     controller.unregister("tab-1", retained);
 
@@ -277,11 +300,16 @@ describe("document controller registry", () => {
 
   it("does not evict a clean document unless the owner confirms its fallback update", () => {
     const controller = createDocumentController({ createRevision: createCounter });
-    const clean = handle("current", "", {
-      dirty: false,
-      hasUndoHistory: false,
-      canRelease: true,
-    }, { savedContent: "current", savedLineEndings: "" });
+    const clean = handle(
+      "current",
+      "",
+      {
+        dirty: false,
+        hasUndoHistory: false,
+        canRelease: true,
+      },
+      { savedContent: "current", savedLineEndings: "" },
+    );
     controller.register("tab-1", clean);
     controller.unregister("tab-1", clean);
 
@@ -294,24 +322,36 @@ describe("document controller registry", () => {
 
   it("keeps a clean document retained when its selection exceeds the fallback bound", () => {
     const controller = createDocumentController({ createRevision: createCounter });
-    const clean = handle("current", "", {
-      dirty: false,
-      hasUndoHistory: false,
-      canRelease: true,
-    }, {
-      savedContent: "current",
-      savedLineEndings: "",
-      selectionJSON: {
-        main: 0,
-        ranges: Array.from({ length: 65 }, () => ({ anchor: 1, head: 1 })),
+    const clean = handle(
+      "current",
+      "",
+      {
+        dirty: false,
+        hasUndoHistory: false,
+        canRelease: true,
       },
-    });
+      {
+        savedContent: "current",
+        savedLineEndings: "",
+        selectionJSON: {
+          main: 0,
+          ranges: Array.from({ length: 65 }, () => ({ anchor: 1, head: 1 })),
+        },
+      },
+    );
     controller.register("tab-1", clean);
     controller.unregister("tab-1", clean);
 
-    const status = controller.enforceCacheBudget(0, (_tabId, document) => Boolean(
-      createEditorSelectionFallback(document.selectionJSON, document.revision, document.sourceVersion, document.content.length),
-    ));
+    const status = controller.enforceCacheBudget(0, (_tabId, document) =>
+      Boolean(
+        createEditorSelectionFallback(
+          document.selectionJSON,
+          document.revision,
+          document.sourceVersion,
+          document.content.length,
+        ),
+      ),
+    );
 
     expect(status.evictedTabIds).toEqual([]);
     expect(status.overBudget).toBe(true);

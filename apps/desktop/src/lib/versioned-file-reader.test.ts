@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  IoBusyError,
-  IoCancelledError,
-  IoDisposedError,
-  IoLimiter,
-  IoStaleGenerationError,
-} from "./io-limiter";
+import { IoBusyError, IoCancelledError, IoDisposedError, IoLimiter, IoStaleGenerationError } from "./io-limiter";
 import { VersionedFileReader, type VersionedFileReaderOptions } from "./versioned-file-reader";
 
 function deferred<T>() {
@@ -57,9 +51,15 @@ function readerFor(
     reader,
     ioLimiter,
     workspaceAbort,
-    setGeneration: (value: number) => { generation = value; },
-    setDisposed: (value: boolean) => { disposed = value; },
-    advanceTime: (milliseconds: number) => { now += milliseconds; },
+    setGeneration: (value: number) => {
+      generation = value;
+    },
+    setDisposed: (value: boolean) => {
+      disposed = value;
+    },
+    advanceTime: (milliseconds: number) => {
+      now += milliseconds;
+    },
   };
 }
 
@@ -70,7 +70,10 @@ describe("VersionedFileReader", () => {
     const ioLimiter = new IoLimiter({ maxConcurrent: 1, maxPending: 8 });
     const reader = new VersionedFileReader({
       ioLimiter,
-      readFile: async () => { backendCalls += 1; return gate.promise; },
+      readFile: async () => {
+        backendCalls += 1;
+        return gate.promise;
+      },
       getGeneration: () => 7,
       getSignal: () => new AbortController().signal,
       isDisposed: () => false,
@@ -192,7 +195,10 @@ describe("VersionedFileReader", () => {
     let backendCalls = 0;
     const reader = new VersionedFileReader({
       ioLimiter,
-      readFile: async () => { backendCalls += 1; return "should not run"; },
+      readFile: async () => {
+        backendCalls += 1;
+        return "should not run";
+      },
       getGeneration: () => 1,
       getSignal: () => workspaceAbort.signal,
       isDisposed: () => false,
@@ -218,7 +224,10 @@ describe("VersionedFileReader", () => {
     await waitFor(() => ioLimiter.activeCount === 1);
     const reader = new VersionedFileReader({
       ioLimiter,
-      readFile: async () => { backendCalls += 1; return "current disk bytes"; },
+      readFile: async () => {
+        backendCalls += 1;
+        return "current disk bytes";
+      },
       getGeneration: () => 12,
       getSignal: () => new AbortController().signal,
       isDisposed: () => false,
@@ -240,7 +249,10 @@ describe("VersionedFileReader", () => {
   it("stops retrying when workspace cancellation changes the signal or generation", async () => {
     const gate = deferred<string>();
     let backendCalls = 0;
-    const fixture = readerFor(async () => { backendCalls += 1; return gate.promise; });
+    const fixture = readerFor(async () => {
+      backendCalls += 1;
+      return gate.promise;
+    });
     const read = fixture.reader.read("/workspace/file.ts");
     const rejected = expect(read).rejects.toBeInstanceOf(IoCancelledError);
     await waitFor(() => backendCalls === 1);
@@ -329,7 +341,10 @@ describe("VersionedFileReader", () => {
   it("settles active callers on dispose and does not schedule another read", async () => {
     const gate = deferred<string>();
     let backendCalls = 0;
-    const fixture = readerFor(async () => { backendCalls += 1; return gate.promise; });
+    const fixture = readerFor(async () => {
+      backendCalls += 1;
+      return gate.promise;
+    });
     const read = fixture.reader.read("/workspace/file.ts");
     const rejected = expect(read).rejects.toBeInstanceOf(IoDisposedError);
     await waitFor(() => backendCalls === 1);
@@ -346,7 +361,10 @@ describe("VersionedFileReader", () => {
   it("rejects stale workspace attempts after reset even when the generation callback has not changed yet", async () => {
     const gate = deferred<string>();
     let backendCalls = 0;
-    const fixture = readerFor(async () => { backendCalls += 1; return gate.promise; });
+    const fixture = readerFor(async () => {
+      backendCalls += 1;
+      return gate.promise;
+    });
     const read = fixture.reader.read("/workspace/file.ts");
     const rejected = expect(read).rejects.toBeInstanceOf(IoStaleGenerationError);
     await waitFor(() => backendCalls === 1);

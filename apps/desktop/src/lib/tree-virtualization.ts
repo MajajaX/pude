@@ -1,4 +1,5 @@
 import { pathComparisonKey, type PathIdentityOptions } from "./path-identity";
+import { isWorkspaceRootEntry } from "./workspace-folders";
 
 export type VirtualTreeEntry = {
   name: string;
@@ -48,37 +49,13 @@ export type VisibleTreeModelStats = {
   rowsShifted: number;
 };
 
-export function flattenVisibleTree<T extends VirtualTreeEntry>(root: T, hideDotFiles: boolean): VisibleTreeRow<T>[] {
-  const rows: VisibleTreeRow<T>[] = [];
-  const pending: Array<{ entry: T; depth: number; isRoot: boolean; siblingIndex: number; siblingCount: number; parentIndex: number }> = [
-    { entry: root, depth: 0, isRoot: true, siblingIndex: 0, siblingCount: 1, parentIndex: -1 },
-  ];
-
-  while (pending.length) {
-    const current = pending.pop();
-    if (!current || (hideDotFiles && current.entry.name.startsWith("."))) continue;
-    const index = rows.length;
-    rows.push(current);
-
-    if (current.entry.kind !== "directory" || !current.entry.expanded) continue;
-    const children = visibleChildren(current.entry, hideDotFiles);
-    for (let childIndex = children.length - 1; childIndex >= 0; childIndex -= 1) {
-      pending.push({
-        entry: children[childIndex] as T,
-        depth: current.depth + 1,
-        isRoot: false,
-        siblingIndex: childIndex,
-        siblingCount: children.length,
-        parentIndex: index,
-      });
-    }
-  }
-  return rows;
-}
-
 export type TreeKeyboardAction = { kind: "focus"; index: number } | { kind: "toggle" } | { kind: "open" };
 
-export function treeKeyboardAction(rows: readonly VisibleTreeRow[], index: number, key: string): TreeKeyboardAction | undefined {
+export function treeKeyboardAction(
+  rows: readonly VisibleTreeRow[],
+  index: number,
+  key: string,
+): TreeKeyboardAction | undefined {
   const row = rows[index];
   if (!row) return;
   if (key === "Home") return { kind: "focus", index: 0 };
@@ -153,7 +130,11 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
     this.removedPathKeys = [];
     this.didChange = false;
 
-    if (this.previousRoot === undefined || this.previousHideDotFiles !== hideDotFiles || !sameEntryPath(this.previousRoot, root, (entry) => this.keyForEntry(entry))) {
+    if (
+      this.previousRoot === undefined ||
+      this.previousHideDotFiles !== hideDotFiles ||
+      !sameEntryPath(this.previousRoot, root, (entry) => this.keyForEntry(entry))
+    ) {
       this.rebuild(root, hideDotFiles);
     } else if (this.previousRoot !== root) {
       this.stats.incrementalUpdates += 1;
@@ -185,41 +166,12 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
     this.indexByPathKey.clear();
     this.rows.length = 0;
 
-    const pending: Array<{ entry: T; depth: number; isRoot: boolean; siblingIndex: number; siblingCount: number; parentIndex: number }> = [
-      { entry: root, depth: 0, isRoot: true, siblingIndex: 0, siblingCount: 1, parentIndex: -1 },
-    ];
-    while (pending.length) {
-      const current = pending.pop();
-      if (!current || (hideDotFiles && current.entry.name.startsWith("."))) continue;
-      const index = this.rows.length;
-      const row: IndexedVisibleTreeRow<T> = {
-        ...current,
-        index,
-        pathKey: this.keyForEntry(current.entry),
-        subtreeSize: 1,
-      };
+    // A loop, not push(...rows): spreading a 100,000-row tree overflows the call stack.
+    for (const row of this.flattenChildren([root], 0, 0, 1, hideDotFiles)) {
       this.rows.push(row);
-      this.stats.visibleEntriesFlattened += 1;
-
-      if (current.entry.kind !== "directory" || !current.entry.expanded) continue;
-      const children = this.visibleChildren(current.entry, hideDotFiles);
-      for (let childIndex = children.length - 1; childIndex >= 0; childIndex -= 1) {
-        pending.push({
-          entry: children[childIndex] as T,
-          depth: current.depth + 1,
-          isRoot: false,
-          siblingIndex: childIndex,
-          siblingCount: children.length,
-          parentIndex: index,
-        });
-      }
-    }
-
-    for (let index = this.rows.length - 1; index >= 0; index -= 1) {
-      const row = this.rows[index];
-      if (row.parentIndex >= 0) this.rows[row.parentIndex].subtreeSize += row.subtreeSize;
       this.changedRows.add(row);
     }
+    this.rows[0].isRoot = true;
     const nextKeys = new Set(this.rows.map((row) => row.pathKey));
     for (const previousKey of previousKeys) {
       if (!nextKeys.has(previousKey)) this.removedPathKeys.push(previousKey);
@@ -258,12 +210,30 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
     if (!row || (index !== expectedIndex && isRoot)) return;
 
     let rowChanged = false;
-    if (row.entry !== next) { row.entry = next; rowChanged = true; }
-    if (row.depth !== depth) { row.depth = depth; rowChanged = true; }
-    if (row.isRoot !== isRoot) { row.isRoot = isRoot; rowChanged = true; }
-    if (row.siblingIndex !== siblingIndex) { row.siblingIndex = siblingIndex; rowChanged = true; }
-    if (row.siblingCount !== siblingCount) { row.siblingCount = siblingCount; rowChanged = true; }
-    if (row.parentIndex !== parentIndex) { row.parentIndex = parentIndex; rowChanged = true; }
+    if (row.entry !== next) {
+      row.entry = next;
+      rowChanged = true;
+    }
+    if (row.depth !== depth) {
+      row.depth = depth;
+      rowChanged = true;
+    }
+    if (row.isRoot !== isRoot) {
+      row.isRoot = isRoot;
+      rowChanged = true;
+    }
+    if (row.siblingIndex !== siblingIndex) {
+      row.siblingIndex = siblingIndex;
+      rowChanged = true;
+    }
+    if (row.siblingCount !== siblingCount) {
+      row.siblingCount = siblingCount;
+      rowChanged = true;
+    }
+    if (row.parentIndex !== parentIndex) {
+      row.parentIndex = parentIndex;
+      rowChanged = true;
+    }
     if (rowChanged) this.markChanged(row);
 
     const wasExpanded = previous.kind === "directory" && Boolean(previous.expanded);
@@ -272,7 +242,7 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
 
     if (!wasExpanded && isExpanded) {
       const newChildren = this.visibleChildren(next, hideDotFiles);
-      const inserted = this.flattenChildren(newChildren, index, row.depth + 1, 0, newChildren.length, hideDotFiles);
+      const inserted = this.flattenChildren(newChildren, row.depth + 1, 0, newChildren.length, hideDotFiles);
       this.replaceFlatRange(index, index + 1, index + 1, inserted);
       this.setDirectChildSemantics(index, newChildren);
       return;
@@ -330,16 +300,19 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
       suffixLength += 1;
     }
 
-    const firstOldChanged = prefixLength < oldChildren.length ? this.indexByPathKey.get(this.keyForEntry(oldChildren[prefixLength])) : undefined;
+    const firstOldChanged =
+      prefixLength < oldChildren.length
+        ? this.indexByPathKey.get(this.keyForEntry(oldChildren[prefixLength]))
+        : undefined;
     const start = firstOldChanged ?? index + row.subtreeSize;
     const firstPreservedSuffix = suffixLength ? oldChildren.length - suffixLength : oldChildren.length;
-    const end = firstPreservedSuffix < oldChildren.length
-      ? this.indexByPathKey.get(this.keyForEntry(oldChildren[firstPreservedSuffix])) ?? start
-      : index + row.subtreeSize;
+    const end =
+      firstPreservedSuffix < oldChildren.length
+        ? (this.indexByPathKey.get(this.keyForEntry(oldChildren[firstPreservedSuffix])) ?? start)
+        : index + row.subtreeSize;
     const insertedChildren = newChildren.slice(prefixLength, newChildren.length - suffixLength);
     const insertedRows = this.flattenChildren(
       insertedChildren,
-      index,
       row.depth + 1,
       prefixLength,
       newChildren.length,
@@ -388,21 +361,26 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
 
   private flattenChildren(
     children: readonly T[],
-    parentIndex: number,
     depth: number,
     firstSiblingIndex: number,
     siblingCount: number,
     hideDotFiles: boolean,
   ): IndexedVisibleTreeRow<T>[] {
     const rows: IndexedVisibleTreeRow<T>[] = [];
-    const pending: Array<{ entry: T; depth: number; siblingIndex: number; siblingCount: number; parentIndex: number }> = [];
+    const pending: Array<{ entry: T; depth: number; siblingIndex: number; siblingCount: number; parentIndex: number }> =
+      [];
     for (let index = children.length - 1; index >= 0; index -= 1) {
-      pending.push({ entry: children[index], depth, siblingIndex: firstSiblingIndex + index, siblingCount, parentIndex: -1 });
+      pending.push({
+        entry: children[index],
+        depth,
+        siblingIndex: firstSiblingIndex + index,
+        siblingCount,
+        parentIndex: -1,
+      });
     }
 
     while (pending.length) {
-      const current = pending.pop();
-      if (!current || (hideDotFiles && current.entry.name.startsWith("."))) continue;
+      const current = pending.pop()!;
       const index = rows.length;
       const row: IndexedVisibleTreeRow<T> = {
         entry: current.entry,
@@ -438,7 +416,12 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
     return rows;
   }
 
-  private replaceFlatRange(parentIndex: number, start: number, end: number, insertedRows: IndexedVisibleTreeRow<T>[]): void {
+  private replaceFlatRange(
+    parentIndex: number,
+    start: number,
+    end: number,
+    insertedRows: IndexedVisibleTreeRow<T>[],
+  ): void {
     const deleteCount = Math.max(0, end - start);
     const removed = this.rows.slice(start, end);
     for (const row of removed) {
@@ -492,16 +475,26 @@ export class VisibleTreeModel<T extends VirtualTreeEntry & { path: string }> {
       if (index === undefined) continue;
       const row = this.rows[index];
       let changed = false;
-      if (row.siblingIndex !== siblingIndex) { row.siblingIndex = siblingIndex; changed = true; }
-      if (row.siblingCount !== children.length) { row.siblingCount = children.length; changed = true; }
-      if (row.parentIndex !== parentIndex) { row.parentIndex = parentIndex; changed = true; }
+      if (row.siblingIndex !== siblingIndex) {
+        row.siblingIndex = siblingIndex;
+        changed = true;
+      }
+      if (row.siblingCount !== children.length) {
+        row.siblingCount = children.length;
+        changed = true;
+      }
+      if (row.parentIndex !== parentIndex) {
+        row.parentIndex = parentIndex;
+        changed = true;
+      }
       if (changed) this.markChanged(row);
     }
   }
 
-  private visibleChildren(entry: VirtualTreeEntry, hideDotFiles: boolean): readonly T[] {
+  /** Dot files are hidden below opened folders; the opened folders themselves always show. */
+  private visibleChildren(entry: T, hideDotFiles: boolean): readonly T[] {
     const children = entry.children ?? [];
-    if (!hideDotFiles) return children as readonly T[];
+    if (!hideDotFiles || isWorkspaceRootEntry(entry)) return children as readonly T[];
     this.stats.directChildEntriesVisited += children.length;
     return children.filter((child) => !child.name.startsWith(".")) as T[];
   }
@@ -563,11 +556,6 @@ export function virtualTreeWindow(
   const end = Math.min(safeRowCount, Math.ceil((clampedScrollTop + safeViewportHeight) / safeRowHeight) + safeOverscan);
 
   return { start, end, totalHeight, scrollTop: clampedScrollTop, maxScrollTop };
-}
-
-function visibleChildren(entry: VirtualTreeEntry, hideDotFiles: boolean): VirtualTreeEntry[] {
-  const children = entry.children ?? [];
-  return hideDotFiles ? children.filter((child) => !child.name.startsWith(".")) : [...children];
 }
 
 function sameEntryPath<T extends VirtualTreeEntry & { path: string }>(

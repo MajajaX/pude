@@ -37,10 +37,16 @@ export function sortLines(state: EditorState, descending: boolean): TransactionS
   const range = selectedLineRange(state);
   const lines = state.sliceDoc(range.from, range.to).split("\n");
   if (lines.length < 2) return null;
-  const sorted = [...lines].sort((left, right) => descending ? collator.compare(right, left) : collator.compare(left, right));
+  const sorted = [...lines].sort((left, right) =>
+    descending ? collator.compare(right, left) : collator.compare(left, right),
+  );
   const insert = sorted.join("\n");
   if (insert === lines.join("\n")) return null;
-  return { changes: { from: range.from, to: range.to, insert }, selection: EditorSelection.range(range.from, range.from + insert.length), userEvent: "input.sort" };
+  return {
+    changes: { from: range.from, to: range.to, insert },
+    selection: EditorSelection.range(range.from, range.from + insert.length),
+    userEvent: "input.sort",
+  };
 }
 
 /** Change the case of each selection, or of the word at an empty cursor. */
@@ -73,7 +79,10 @@ export function finalNewlineChange(state: EditorState): ChangeSpec | null {
 }
 
 /** Edits applied before a save; empty when the document already matches the options. */
-export function saveFormattingChanges(state: EditorState, options: { trimTrailingWhitespace: boolean; insertFinalNewline: boolean }): ChangeSpec[] {
+export function saveFormattingChanges(
+  state: EditorState,
+  options: { trimTrailingWhitespace: boolean; insertFinalNewline: boolean },
+): ChangeSpec[] {
   const changes = options.trimTrailingWhitespace ? trailingWhitespaceChanges(state) : [];
   const newline = options.insertFinalNewline ? finalNewlineChange(state) : null;
   return newline ? [...changes, newline] : changes;
@@ -87,21 +96,33 @@ const runSpec = (view: EditorView, spec: TransactionSpec | null): boolean => {
 
 export function runEditorCommand(view: EditorView, command: EditorCommandName): boolean {
   switch (command) {
-    case "sortLinesAscending": return runSpec(view, sortLines(view.state, false));
-    case "sortLinesDescending": return runSpec(view, sortLines(view.state, true));
-    case "upperCase": return runSpec(view, changeCase(view.state, true));
-    case "lowerCase": return runSpec(view, changeCase(view.state, false));
+    case "sortLinesAscending":
+      return runSpec(view, sortLines(view.state, false));
+    case "sortLinesDescending":
+      return runSpec(view, sortLines(view.state, true));
+    case "upperCase":
+      return runSpec(view, changeCase(view.state, true));
+    case "lowerCase":
+      return runSpec(view, changeCase(view.state, false));
     case "trimTrailingWhitespace": {
       const changes = trailingWhitespaceChanges(view.state);
       return runSpec(view, changes.length ? { changes, userEvent: "delete.trailing" } : null);
     }
-    case "toggleComment": return toggleComment(view);
-    case "duplicateLine": return copyLineDown(view);
-    case "deleteLine": return deleteLine(view);
-    case "selectAllOccurrences": return selectSelectionMatches(view);
-    case "addNextOccurrence": return selectNextOccurrence(view);
-    case "expandSelection": return selectParentSyntax(view);
-    case "foldAll": return foldAll(view);
-    case "unfoldAll": return unfoldAll(view);
+    case "toggleComment":
+      return toggleComment(view);
+    case "duplicateLine":
+      return copyLineDown(view);
+    case "deleteLine":
+      return deleteLine(view);
+    case "selectAllOccurrences":
+      return selectSelectionMatches(view);
+    case "addNextOccurrence":
+      return selectNextOccurrence(view);
+    case "expandSelection":
+      return selectParentSyntax(view);
+    case "foldAll":
+      return foldAll(view);
+    case "unfoldAll":
+      return unfoldAll(view);
   }
 }

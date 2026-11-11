@@ -24,13 +24,12 @@ export function checkpointDebounceForSize(byteLength: number): CheckpointDebounc
 }
 
 /**
- * Delay for the next recovery write. Debounces by `delay` after the most
- * recent edit but never lets the first pending edit wait longer than
- * `maxWait`.
+ * Whether an edit should start the immediate session checkpoint. Documents of
+ * 1 MiB or more rely on the size-based debounce after the first dirty change,
+ * so typing does not rewrite their full text every checkpoint interval.
  */
-export function nextRecoveryDelay(firstPendingAt: number, now: number, byteLength: number): number {
-  const { delay, maxWait } = checkpointDebounceForSize(byteLength);
-  return Math.max(0, Math.min(delay, firstPendingAt + maxWait - now));
+export function editNeedsSessionCheckpoint(wasDirty: boolean, isDirty: boolean, byteLength: number): boolean {
+  return wasDirty !== isDirty || byteLength < RECOVERY_DEBOUNCE_SMALL_BYTES;
 }
 
 type IdleCallbackHandle = number;
@@ -91,12 +90,15 @@ export class RecoveryWriteScheduler {
     // the same absolute deadline, even if an idle callback never runs.
     pending.deadlineTimer = setTimeout(execute, remaining);
     if (remaining === 0) return;
-    pending.timer = setTimeout(() => {
-      pending.timer = undefined;
-      const idleRemaining = Math.max(0, deadline - Date.now());
-      if (idleRemaining === 0) execute();
-      else pending.cancelIdle = runRecoveryWhenIdle(execute, idleRemaining);
-    }, Math.min(policy.delay, remaining));
+    pending.timer = setTimeout(
+      () => {
+        pending.timer = undefined;
+        const idleRemaining = Math.max(0, deadline - Date.now());
+        if (idleRemaining === 0) execute();
+        else pending.cancelIdle = runRecoveryWhenIdle(execute, idleRemaining);
+      },
+      Math.min(policy.delay, remaining),
+    );
   }
 
   pendingTabs(): string[] {

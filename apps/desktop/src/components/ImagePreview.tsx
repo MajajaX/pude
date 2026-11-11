@@ -6,13 +6,19 @@ import { errorMessage } from "../lib/core";
 function imageMimeType(path: string): string | undefined {
   const extension = path.split(/[\\/]/).at(-1)?.split(".").at(-1)?.toLowerCase();
   switch (extension) {
-    case "png": return "image/png";
+    case "png":
+      return "image/png";
     case "jpg":
-    case "jpeg": return "image/jpeg";
-    case "gif": return "image/gif";
-    case "webp": return "image/webp";
-    case "bmp": return "image/bmp";
-    default: return undefined;
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "bmp":
+      return "image/bmp";
+    default:
+      return undefined;
   }
 }
 
@@ -30,16 +36,19 @@ export function ImagePreview(props: { path: string; workspace: string }) {
     setError(undefined);
     setLoading(true);
 
-    void readWorkspaceImage(path, workspace).then((bytes) => {
-      if (cancelled) return;
-      const mimeType = imageMimeType(path);
-      objectUrl = URL.createObjectURL(new Blob([bytes], mimeType ? { type: mimeType } : {}));
-      setImageUrl(objectUrl);
-    }).catch((reason: unknown) => {
-      if (!cancelled) setError(errorMessage(reason, "Unable to preview this image."));
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
+    void readWorkspaceImage(path, workspace)
+      .then((bytes) => {
+        if (cancelled) return;
+        const mimeType = imageMimeType(path);
+        objectUrl = URL.createObjectURL(new Blob([bytes], mimeType ? { type: mimeType } : {}));
+        setImageUrl(objectUrl);
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(errorMessage(reason, "Unable to preview this image."));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     onCleanup(() => {
       cancelled = true;
@@ -48,16 +57,37 @@ export function ImagePreview(props: { path: string; workspace: string }) {
   });
 
   return (
-    <div class="image-preview" aria-label={t("Image preview: {value}", { value: props.path.split(/[\\/]/).at(-1) ?? props.path })}>
-      <Show when={loading()}><p class="image-preview-status" role="status">{t("Loading image…")}</p></Show>
-      <Show when={error()}>{(message) => <p class="image-preview-error" role="alert">{message()}</p>}</Show>
-      <Show when={imageUrl()}>{(url) => <img src={url()} alt={props.path.split(/[\\/]/).at(-1) ?? t("Image preview")} onError={(event) => {
-        const failedUrl = event.currentTarget.src;
-        if (failedUrl !== imageUrl()) return;
-        setImageUrl(undefined);
-        URL.revokeObjectURL(failedUrl);
-        setError(t("The image data could not be decoded. Check that the file is valid and supported."));
-      }} />}</Show>
+    <div
+      class="image-preview"
+      aria-label={t("Image preview: {value}", { value: props.path.split(/[\\/]/).at(-1) ?? props.path })}
+    >
+      <Show when={loading()}>
+        <p class="image-preview-status" role="status">
+          {t("Loading image…")}
+        </p>
+      </Show>
+      <Show when={error()}>
+        {(message) => (
+          <p class="image-preview-error" role="alert">
+            {message()}
+          </p>
+        )}
+      </Show>
+      <Show when={imageUrl()}>
+        {(url) => (
+          <img
+            src={url()}
+            alt={props.path.split(/[\\/]/).at(-1) ?? t("Image preview")}
+            onError={(event) => {
+              const failedUrl = event.currentTarget.src;
+              if (failedUrl !== imageUrl()) return;
+              setImageUrl(undefined);
+              URL.revokeObjectURL(failedUrl);
+              setError(t("The image data could not be decoded. Check that the file is valid and supported."));
+            }}
+          />
+        )}
+      </Show>
     </div>
   );
 }

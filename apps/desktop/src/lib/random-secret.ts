@@ -6,13 +6,25 @@ export const SECRET_OPTIONS_KEY = "pude.env.secret-options";
 export function readSecretOptions(): SecretOptions {
   try {
     const value = JSON.parse(localStorage.getItem(SECRET_OPTIONS_KEY) ?? "null");
-    if (["hex", "base64", "base64url", "alphanumeric", "uuid"].includes(value?.format) && Number.isInteger(value?.length) && value.length >= 1 && value.length <= 1024) return value;
-  } catch { /* Storage may be unavailable or contain invalid data. */ }
+    if (
+      ["hex", "base64", "base64url", "alphanumeric", "uuid"].includes(value?.format) &&
+      Number.isInteger(value?.length) &&
+      value.length >= 1 &&
+      value.length <= 1024
+    )
+      return value;
+  } catch {
+    /* Storage may be unavailable or contain invalid data. */
+  }
   return { ...DEFAULT_SECRET_OPTIONS };
 }
 
 export function saveSecretOptions(options: SecretOptions): void {
-  try { localStorage.setItem(SECRET_OPTIONS_KEY, JSON.stringify({ format: options.format, length: options.length })); } catch { /* The generator still works without persistence. */ }
+  try {
+    localStorage.setItem(SECRET_OPTIONS_KEY, JSON.stringify({ format: options.format, length: options.length }));
+  } catch {
+    /* The generator still works without persistence. */
+  }
 }
 
 export function generateSecret({ format, length }: SecretOptions): string {

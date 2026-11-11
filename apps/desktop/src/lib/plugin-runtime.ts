@@ -13,7 +13,6 @@ import type {
   PluginWorkspaceFileRange,
   PluginWorkspaceListResult,
   PluginWorkspaceWriteResult,
-  ResolvedLspServer,
 } from "./bridge";
 import type { PluginResolvedLspServer } from "./plugin-authorization";
 
@@ -22,7 +21,10 @@ export async function inspectPluginInstall(): Promise<PluginInstallPlan | null> 
 }
 
 export async function commitPluginInstall(transactionId: string): Promise<PluginInstallResult> {
-  const result = await invoke<{ path: string; manifest: PluginManifest; cleanupPending: boolean }>("commit_plugin_install", { transactionId });
+  const result = await invoke<{ path: string; manifest: PluginManifest; cleanupPending: boolean }>(
+    "commit_plugin_install",
+    { transactionId },
+  );
   return {
     plugin: { ...result.manifest, rootPath: result.path, enabled: false, status: "inactive", source: "local" },
     cleanupPending: result.cleanupPending,
@@ -86,8 +88,18 @@ export async function pluginWorkspaceReadFileRange(
   if (signal.aborted) throw new Error("workspace.read_cancelled");
   signal.addEventListener("abort", cancel, { once: true });
   try {
-    const result = await invoke<PluginWorkspaceFileRange>("plugin_workspace_read_file_range", { workspace, path, revision, offsetBytes, maxBytes, requestId });
-    if (signal.aborted) { cancel(); throw new Error("workspace.read_cancelled"); }
+    const result = await invoke<PluginWorkspaceFileRange>("plugin_workspace_read_file_range", {
+      workspace,
+      path,
+      revision,
+      offsetBytes,
+      maxBytes,
+      requestId,
+    });
+    if (signal.aborted) {
+      cancel();
+      throw new Error("workspace.read_cancelled");
+    }
     return result;
   } finally {
     signal.removeEventListener("abort", cancel);
@@ -147,18 +159,11 @@ export async function cancelPluginNetworkRequest(authorizationToken: string, wor
   await invoke("plugin_network_cancel", { authorizationToken, workspace });
 }
 
-export async function resolveLspServer(
-  workspaceRoot: string,
-  server: LspServerDeclaration,
-): Promise<ResolvedLspServer> {
-  return invoke<ResolvedLspServer>("lsp_resolve_server", { request: { workspaceRoot, server } });
-}
-
 export async function resolvePluginLspServer(
   workspaceRoot: string,
   server: LspServerDeclaration,
 ): Promise<PluginResolvedLspServer> {
-  return resolveLspServer(workspaceRoot, server);
+  return invoke<PluginResolvedLspServer>("lsp_resolve_server", { request: { workspaceRoot, server } });
 }
 
 export async function approveLspServer(request: LspApprovalRequest): Promise<void> {
@@ -175,23 +180,20 @@ export async function revokeLspServer(request: LspServerRequest): Promise<void> 
   });
 }
 
-export async function startLspServer(request: LspServerRequest, onEvent: (event: LspEvent) => void = () => undefined): Promise<void> {
+export async function startLspServer(
+  request: LspServerRequest,
+  onEvent: (event: LspEvent) => void = () => undefined,
+): Promise<void> {
   const channel = new Channel<LspEvent>();
   channel.onmessage = onEvent;
   await invoke("lsp_start_server", { request, events: channel });
 }
 
-export async function sendLspMessage(
-  identity: LspServerIdentity,
-  message: Record<string, unknown>,
-): Promise<void> {
+export async function sendLspMessage(identity: LspServerIdentity, message: Record<string, unknown>): Promise<void> {
   await invoke("lsp_send_message", { request: { ...identity, message } });
 }
 
-export async function cancelLspRequest(
-  identity: LspServerIdentity,
-  requestId: string | number,
-): Promise<void> {
+export async function cancelLspRequest(identity: LspServerIdentity, requestId: string | number): Promise<void> {
   await invoke("lsp_cancel_request", { request: { ...identity, requestId } });
 }
 

@@ -25,12 +25,14 @@ const baseManifest: PluginManifest = {
   permissions: ["editor.read", "network", "process.spawn:lsp"],
   activationEvents: ["onCommand:example.run"],
   networkDomains: ["api.example.com"],
-  lspServers: [{
-    serverId: "rust",
-    language: "rust",
-    executable: "/opt/lsp/rust-analyzer",
-    args: ["--stdio"],
-  }],
+  lspServers: [
+    {
+      serverId: "rust",
+      language: "rust",
+      executable: "/opt/lsp/rust-analyzer",
+      args: ["--stdio"],
+    },
+  ],
 };
 
 function request(overrides: Partial<PluginPermissionGrantRequest> = {}): PluginPermissionGrantRequest {
@@ -46,30 +48,39 @@ function request(overrides: Partial<PluginPermissionGrantRequest> = {}): PluginP
 
 describe("plugin authorization persistence", () => {
   it("round trips valid grants and drops malformed or unsupported records", () => {
-    const store = addPluginPermissionGrants(emptyPluginAuthorizationStore(), [
-      request(),
-      request({ permission: "editor.read", resourceScope: undefined }),
-      request({ permission: "process.spawn:lsp", resourceScope: {
-        kind: "executable",
-        serverId: "rust",
-        language: "rust",
-        executablePath: "/opt/lsp/rust-analyzer",
-        args: ["--stdio"],
-      } }),
-    ], "2026-09-23T00:00:00.000Z");
+    const store = addPluginPermissionGrants(
+      emptyPluginAuthorizationStore(),
+      [
+        request(),
+        request({ permission: "editor.read", resourceScope: undefined }),
+        request({
+          permission: "process.spawn:lsp",
+          resourceScope: {
+            kind: "executable",
+            serverId: "rust",
+            language: "rust",
+            executablePath: "/opt/lsp/rust-analyzer",
+            args: ["--stdio"],
+          },
+        }),
+      ],
+      "2026-09-23T00:00:00.000Z",
+    );
     const decoded = loadPluginAuthorizationStore(serializePluginAuthorizationStore(store));
 
     expect(decoded.grants).toHaveLength(3);
     expect(decoded.grants.map((grant) => grant.permission)).toEqual(["network", "editor.read", "process.spawn:lsp"]);
     expect(parsePluginAuthorizationStore({ version: 99, grants: store.grants }).grants).toEqual([]);
-    expect(parsePluginAuthorizationStore({
-      version: 1,
-      grants: [
-        { ...store.grants[0], workspaceRoot: null },
-        { ...store.grants[0], id: "forged", permission: "process.spawn" },
-        { ...store.grants[0], id: "forged-network", resourceScope: { kind: "domain", value: "*.example.com" } },
-      ],
-    }).grants).toEqual([]);
+    expect(
+      parsePluginAuthorizationStore({
+        version: 1,
+        grants: [
+          { ...store.grants[0], workspaceRoot: null },
+          { ...store.grants[0], id: "forged", permission: "process.spawn" },
+          { ...store.grants[0], id: "forged-network", resourceScope: { kind: "domain", value: "*.example.com" } },
+        ],
+      }).grants,
+    ).toEqual([]);
   });
 
   it("requires matching plugin version, workspace, permission, and exact domain", () => {
@@ -85,7 +96,9 @@ describe("plugin authorization persistence", () => {
     expect(isPluginPermissionAuthorized(input)).toBe(true);
     expect(isPluginPermissionAuthorized({ ...input, workspaceRoot: "/work/other" })).toBe(false);
     expect(isPluginPermissionAuthorized({ ...input, plugin: { ...input.plugin, version: "2.0.0" } })).toBe(false);
-    expect(isPluginPermissionAuthorized({ ...input, resourceScope: { kind: "domain", value: "cdn.example.com" } })).toBe(false);
+    expect(
+      isPluginPermissionAuthorized({ ...input, resourceScope: { kind: "domain", value: "cdn.example.com" } }),
+    ).toBe(false);
     expect(isPluginPermissionAuthorized({ ...input, resourceScope: undefined })).toBe(false);
   });
 
@@ -111,9 +124,21 @@ describe("plugin authorization persistence", () => {
     };
 
     expect(isPluginPermissionAuthorized(input)).toBe(true);
-    expect(isPluginPermissionAuthorized({ ...input, resourceScope: { ...input.resourceScope, args: ["--stdio", "--unsafe"] } })).toBe(false);
-    expect(isPluginPermissionAuthorized({ ...input, resourceScope: { ...input.resourceScope, executablePath: "/tmp/rust-analyzer" } })).toBe(false);
-    expect(isPluginPermissionAuthorized({ ...input, resourceScope: { ...input.resourceScope, serverId: "other" } })).toBe(false);
+    expect(
+      isPluginPermissionAuthorized({
+        ...input,
+        resourceScope: { ...input.resourceScope, args: ["--stdio", "--unsafe"] },
+      }),
+    ).toBe(false);
+    expect(
+      isPluginPermissionAuthorized({
+        ...input,
+        resourceScope: { ...input.resourceScope, executablePath: "/tmp/rust-analyzer" },
+      }),
+    ).toBe(false);
+    expect(
+      isPluginPermissionAuthorized({ ...input, resourceScope: { ...input.resourceScope, serverId: "other" } }),
+    ).toBe(false);
   });
 
   it("normalizes only exact HTTPS hostnames and rejects ports, wildcards, and HTTP", () => {
@@ -139,7 +164,12 @@ describe("plugin permission review", () => {
   });
 
   it("marks newly requested permissions and domains and requires version-bound high-risk approval", () => {
-    const current: PluginManifest = { ...baseManifest, version: "1.0.0", permissions: ["network"], networkDomains: ["api.example.com"] };
+    const current: PluginManifest = {
+      ...baseManifest,
+      version: "1.0.0",
+      permissions: ["network"],
+      networkDomains: ["api.example.com"],
+    };
     const proposed: PluginManifest = {
       ...baseManifest,
       version: "2.0.0",
@@ -158,9 +188,18 @@ describe("plugin permission review", () => {
     const existingDomain = items.find((item) => item.key === "network:api.example.com");
     const addedDomain = items.find((item) => item.key === "network:cdn.example.com");
     const addedWrite = items.find((item) => item.permission === "workspace.write");
-    expect(existingDomain).toMatchObject({ added: false, previouslyGranted: true, requiresFreshApproval: true, available: true });
+    expect(existingDomain).toMatchObject({
+      added: false,
+      previouslyGranted: true,
+      requiresFreshApproval: true,
+      available: true,
+    });
     expect(addedDomain).toMatchObject({ added: true, previouslyGranted: false, requiresFreshApproval: true });
-    expect(addedWrite).toMatchObject({ added: true, available: true, grantRequest: { workspaceRoot: "/work/project" } });
+    expect(addedWrite).toMatchObject({
+      added: true,
+      available: true,
+      grantRequest: { workspaceRoot: "/work/project" },
+    });
   });
 
   it("disables workspace and network grants when no workspace is open", () => {
@@ -172,20 +211,33 @@ describe("plugin permission review", () => {
 
   it("requires the native canonical LSP resolution before offering executable consent", () => {
     const unresolved: PluginManifest = { ...baseManifest, permissions: ["process.spawn:lsp"] };
-    const unresolvedItems = buildPluginPermissionReview({ proposed: unresolved, existingGrants: [], workspaceRoot: "/work/project" });
-    expect(unresolvedItems[0]).toMatchObject({ available: false, unavailableReason: expect.stringContaining("canonical executable path") });
+    const unresolvedItems = buildPluginPermissionReview({
+      proposed: unresolved,
+      existingGrants: [],
+      workspaceRoot: "/work/project",
+    });
+    expect(unresolvedItems[0]).toMatchObject({
+      available: false,
+      unavailableReason: expect.stringContaining("canonical executable path"),
+    });
 
     const resolved = {
       ...unresolved,
-      resolvedLspServers: [{
-        workspaceRoot: "/work/project",
-        serverId: "rust",
-        language: "rust",
-        executablePath: "/real/toolchain/rust-analyzer",
-        args: ["--stdio"],
-      }],
+      resolvedLspServers: [
+        {
+          workspaceRoot: "/work/project",
+          serverId: "rust",
+          language: "rust",
+          executablePath: "/real/toolchain/rust-analyzer",
+          args: ["--stdio"],
+        },
+      ],
     };
-    const resolvedItems = buildPluginPermissionReview({ proposed: resolved, existingGrants: [], workspaceRoot: "/work/project" });
+    const resolvedItems = buildPluginPermissionReview({
+      proposed: resolved,
+      existingGrants: [],
+      workspaceRoot: "/work/project",
+    });
     expect(resolvedItems[0]).toMatchObject({
       available: true,
       details: expect.arrayContaining(["/real/toolchain/rust-analyzer"]),
@@ -201,8 +253,16 @@ describe("plugin permission review", () => {
       executablePath: "\\\\?\\C:\\tools\\rust-analyzer.exe",
       args: ["--stdio"],
     };
-    const proposed = { ...baseManifest, permissions: ["process.spawn:lsp"] as PluginManifest["permissions"], resolvedLspServers: [server] };
-    const reviewed = buildPluginPermissionReview({ proposed, existingGrants: [], workspaceRoot: server.workspaceRoot })[0].grantRequest;
+    const proposed = {
+      ...baseManifest,
+      permissions: ["process.spawn:lsp"] as PluginManifest["permissions"],
+      resolvedLspServers: [server],
+    };
+    const reviewed = buildPluginPermissionReview({
+      proposed,
+      existingGrants: [],
+      workspaceRoot: server.workspaceRoot,
+    })[0].grantRequest;
     expect(matchesResolvedPluginLspGrant(server, reviewed)).toBe(true);
     expect(server.executablePath).toBe("\\\\?\\C:\\tools\\rust-analyzer.exe");
     for (const changed of [
@@ -211,7 +271,8 @@ describe("plugin permission review", () => {
       { ...server, language: "other" },
       { ...server, executablePath: "\\\\?\\C:\\other\\rust-analyzer.exe" },
       { ...server, args: ["--other"] },
-    ]) expect(matchesResolvedPluginLspGrant(changed, reviewed)).toBe(false);
+    ])
+      expect(matchesResolvedPluginLspGrant(changed, reviewed)).toBe(false);
   });
 });
 
@@ -224,12 +285,14 @@ describe("plugin authorization manager", () => {
 
     expect(manager.grant([request()])).toBe(true);
     expect(persist).toHaveBeenCalledOnce();
-    expect(manager.hasPermission({
-      plugin: { id: baseManifest.id, version: baseManifest.version },
-      permission: "network",
-      workspaceRoot: "/work/project",
-      resourceScope: request().resourceScope,
-    })).toBe(true);
+    expect(
+      manager.hasPermission({
+        plugin: { id: baseManifest.id, version: baseManifest.version },
+        permission: "network",
+        workspaceRoot: "/work/project",
+        resourceScope: request().resourceScope,
+      }),
+    ).toBe(true);
 
     const grant = manager.getSnapshot().grants[0];
     expect(manager.revoke(grant.id)).toBe(true);
@@ -241,12 +304,14 @@ describe("plugin authorization manager", () => {
     const manager = new PluginAuthorizationManager(emptyPluginAuthorizationStore(), () => false);
     expect(manager.grant([request()])).toBe(false);
     expect(manager.getSnapshot().grants).toEqual([]);
-    expect(manager.hasPermission({
-      plugin: { id: baseManifest.id, version: baseManifest.version },
-      permission: "network",
-      workspaceRoot: "/work/project",
-      resourceScope: request().resourceScope,
-    })).toBe(false);
+    expect(
+      manager.hasPermission({
+        plugin: { id: baseManifest.id, version: baseManifest.version },
+        permission: "network",
+        workspaceRoot: "/work/project",
+        resourceScope: request().resourceScope,
+      }),
+    ).toBe(false);
   });
 
   it("replaces the reviewed plugin grants and revokes unchecked and older-version grants", () => {
@@ -254,23 +319,33 @@ describe("plugin authorization manager", () => {
     const revoked = request({ resourceScope: { kind: "domain", value: "cdn.example.com" } });
     const olderVersion = request({ pluginVersion: "0.9.0" });
     const otherPlugin = request({ pluginId: "example.other-plugin" });
-    const initial = addPluginPermissionGrants(emptyPluginAuthorizationStore(), [kept, revoked, olderVersion, otherPlugin]);
+    const initial = addPluginPermissionGrants(emptyPluginAuthorizationStore(), [
+      kept,
+      revoked,
+      olderVersion,
+      otherPlugin,
+    ]);
     const manager = new PluginAuthorizationManager(initial, () => true);
     const changes: string[] = [];
     manager.subscribe((change) => {
-      if (change.type === "revoke") changes.push(`revoke:${change.grant.resourceScope?.kind === "domain" ? change.grant.resourceScope.value : "unknown"}`);
+      if (change.type === "revoke")
+        changes.push(
+          `revoke:${change.grant.resourceScope?.kind === "domain" ? change.grant.resourceScope.value : "unknown"}`,
+        );
       if (change.type === "grant") changes.push(`grant:${change.pluginId}`);
     });
 
     expect(manager.replacePluginGrants(baseManifest.id, baseManifest.version, [kept])).toBe(true);
     expect(manager.getSnapshot().grants).toEqual([initial.grants[3], initial.grants[0]]);
     expect(changes).toEqual(["revoke:cdn.example.com", "revoke:api.example.com"]);
-    expect(manager.hasPermission({
-      plugin: { id: baseManifest.id, version: baseManifest.version },
-      permission: "network",
-      workspaceRoot: "/work/project",
-      resourceScope: revoked.resourceScope,
-    })).toBe(false);
+    expect(
+      manager.hasPermission({
+        plugin: { id: baseManifest.id, version: baseManifest.version },
+        permission: "network",
+        workspaceRoot: "/work/project",
+        resourceScope: revoked.resourceScope,
+      }),
+    ).toBe(false);
   });
 
   it("removes prior-version grants when an update is approved without permissions", () => {

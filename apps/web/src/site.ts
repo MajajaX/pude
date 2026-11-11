@@ -32,21 +32,25 @@ export const PAGE_META = {
   home: {
     en: {
       title: "pude — A Lightweight Code Editor for Humans",
-      description: "A free, open-source desktop code editor for the AI coding era. Review Git changes and edit by hand. For Windows 11 x64 and macOS 14+ Apple Silicon.",
+      description:
+        "A free, open-source desktop code editor for the AI coding era. Review Git changes and edit by hand. For Windows 11 x64 and macOS 14+ Apple Silicon.",
     },
     "zh-Hant": {
       title: "pude — 給人的輕量程式碼編輯器",
-      description: "AI coding 時代，給人打開就看的輕量桌面程式碼編輯器。檢視 Git 差異、閱讀與手動修改，改完就走。免費開源，支援 Windows 11 x64 與 macOS 14 以上 Apple Silicon。",
+      description:
+        "AI coding 時代，給人打開就看的輕量桌面程式碼編輯器。檢視 Git 差異、閱讀與手動修改，改完就走。免費開源，支援 Windows 11 x64 與 macOS 14 以上 Apple Silicon。",
     },
   },
   docs: {
     en: {
       title: "pude Docs — Search, Git, Terminals & Plugins",
-      description: "Install pude on Windows or macOS, open multi-folder workspaces, search and replace in projects, review Git changes, open terminals and build local plugins.",
+      description:
+        "Install pude on Windows or macOS, open multi-folder workspaces, search and replace in projects, review Git changes, open terminals and build local plugins.",
     },
     "zh-Hant": {
       title: "pude 使用文件 — 專案搜尋、Git、終端機與外掛開發",
-      description: "pude 輕量程式碼編輯器使用指南：Windows 與 macOS 安裝、多資料夾工作區、專案搜尋與取代、Git 變更檢視、Markdown 預覽、終端機、快捷鍵與本地外掛開發。",
+      description:
+        "pude 輕量程式碼編輯器使用指南：Windows 與 macOS 安裝、多資料夾工作區、專案搜尋與取代、Git 變更檢視、Markdown 預覽、終端機、快捷鍵與本地外掛開發。",
     },
   },
 };

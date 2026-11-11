@@ -1,7 +1,7 @@
 import {
   IoCancelledError,
   IoDisposedError,
-  IoLimiter,
+  type IoLimiter,
   IoStaleGenerationError,
   isBusyError,
   type IoPriority,
@@ -117,8 +117,8 @@ export class VersionedFileReader<T> {
       while (true) {
         this.assertCallerCurrent(generation, parentSignal, scopeEpoch);
         const pathEpoch = pathVersion.epoch;
-        const isAttemptCurrent = () => this.isCallerCurrent(generation, parentSignal, scopeEpoch)
-          && pathVersion?.epoch === pathEpoch;
+        const isAttemptCurrent = () =>
+          this.isCallerCurrent(generation, parentSignal, scopeEpoch) && pathVersion?.epoch === pathEpoch;
         const semantics = `${READ_SEMANTICS}:${scopeEpoch}:${pathEpoch}`;
 
         try {
@@ -188,17 +188,20 @@ export class VersionedFileReader<T> {
   }
 
   private isCallerCurrent(generation: string | number, signal: AbortSignal, scopeEpoch: number): boolean {
-    return !this.disposed
-      && !this.isExternallyDisposed()
-      && !signal.aborted
-      && scopeEpoch === this.scopeEpoch
-      && generation === this.options.getGeneration();
+    return (
+      !this.disposed &&
+      !this.isExternallyDisposed() &&
+      !signal.aborted &&
+      scopeEpoch === this.scopeEpoch &&
+      generation === this.options.getGeneration()
+    );
   }
 
   private assertCallerCurrent(generation: string | number, signal: AbortSignal, scopeEpoch: number): void {
     if (this.disposed || this.isExternallyDisposed()) throw new IoDisposedError();
     if (signal.aborted) throw new IoCancelledError();
-    if (scopeEpoch !== this.scopeEpoch || generation !== this.options.getGeneration()) throw new IoStaleGenerationError();
+    if (scopeEpoch !== this.scopeEpoch || generation !== this.options.getGeneration())
+      throw new IoStaleGenerationError();
   }
 
   private isExternallyDisposed(): boolean {

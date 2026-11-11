@@ -26,8 +26,8 @@ const en = {
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
-    label: "Product film",
-    ariaLabel: "Animated walkthrough of pude: open a folder, edit, save, review Git, run a terminal and preview Markdown.",
+    ariaLabel:
+      "Animated walkthrough of pude: open a folder, edit, save, review Git, run a terminal and preview Markdown.",
     play: "Play",
     pause: "Pause",
     openFolder: "Open folder",
@@ -60,7 +60,7 @@ const en = {
       {
         k: "editor",
         title: "Your code, front and center",
-        desc: "Tabs, pinning, find and replace with a match count, bracket matching and folding, plus .env files as an editable table with copy buttons and random value generation. EXPLORER / GIT / SEARCH keeps project search and replace close; results center and highlight the match.",
+        desc: "Tabs, pinning, find and replace with a match count, bracket matching and folding, plus .env files as an editable table with masked values, copy buttons and random value generation. The Search icon in the activity bar keeps project search and replace close; results are grouped by file and center and highlight the match.",
       },
       {
         k: "git",
@@ -93,7 +93,7 @@ const en = {
         k: "01",
         title: "Lazy by default",
         desc: "Opening a workspace reads only its top level. Folders load on expand; project search, parsers and terminals load when you use them.",
-        meta: "list_dir(\"src/\") · on expand",
+        meta: 'list_dir("src/") · on expand',
       },
       {
         k: "02",
@@ -154,8 +154,14 @@ const en = {
       },
     ],
     principles: [
-      { title: "Event-driven", desc: "File and Git updates are debounced and merged. No polling loop keeps the screen fresh." },
-      { title: "Bounded", desc: "Queues, output buffers and caches have limits, so a noisy process can't drag the editor down." },
+      {
+        title: "Event-driven",
+        desc: "File and Git updates are debounced and merged. No polling loop keeps the screen fresh.",
+      },
+      {
+        title: "Bounded",
+        desc: "Queues, output buffers and caches have limits, so a noisy process can't drag the editor down.",
+      },
       { title: "Cancelable", desc: "Switching workspaces cancels stale work. Old results never overwrite new state." },
     ],
   },
@@ -196,7 +202,7 @@ const en = {
       ready: "Launch until ready",
       times: (ratio: string) => `${ratio}×`,
     },
-    method: `pude ${BENCHMARK.pudeVersion} and Visual Studio Code ${BENCHMARK.vscodeVersion}, measured on ${BENCHMARK.date} on ${BENCHMARK.machine}. Both open the pude repository; VS Code uses a fresh profile with no extensions added. Installer sizes are the official downloads. Launch time runs until the window stops changing and memory is the physical footprint of the app and all its helper processes 15 seconds after launch, each the median of ${BENCHMARK.runs} runs. Reproduce it with scripts/benchmark/compare-vscode.mjs.`,
+    method: `Installer sizes are the official pude ${BENCHMARK.installerVersion} and Visual Studio Code ${BENCHMARK.vscodeVersion} downloads. Size on disk, memory and launch time were measured with pude ${BENCHMARK.pudeVersion} and VS Code ${BENCHMARK.vscodeVersion} on ${BENCHMARK.date} on ${BENCHMARK.machine} and have not been re-measured since. Both open the pude repository; VS Code uses a fresh profile with no extensions added. Launch time runs until the window stops changing and memory is the physical footprint of the app and all its helper processes 15 seconds after launch, each the median of ${BENCHMARK.runs} runs. Reproduce it with scripts/benchmark/compare-vscode.mjs.`,
   },
   languages: {
     eyebrow: "Syntax",
@@ -226,7 +232,7 @@ const en = {
   shortcuts: {
     eyebrow: "Keyboard-first",
     title: "Your hands never leave the keys.",
-    sub: "A small, memorable set covers the whole daily flow. On Windows, use Ctrl in place of ⌘ — Replace is Ctrl H.",
+    sub: "A small, memorable set covers the whole daily flow. On Windows, use Ctrl in place of ⌘ and Alt in place of ⌥ — Replace is Ctrl H.",
     items: [
       { keys: ["⌘", "S"], label: "Save" },
       { keys: ["⌘", "⇧", "S"], label: "Save as" },
@@ -237,12 +243,16 @@ const en = {
       { keys: ["⌘", "P"], label: "Go to file" },
       { keys: ["⌘", "⌥", "F"], label: "Replace" },
       { keys: ["⌘", "G"], label: "Go to line" },
+      { keys: ["⌘", "D"], label: "Add next match" },
+      { keys: ["⌘", "⇧", "L"], label: "Select all matches" },
       { keys: ["⌘", "W"], label: "Close tab" },
       { keys: ["⌃", "⇥"], label: "Next tab" },
-      { keys: ["⌘", "`"], label: "Terminal" },
+      { keys: ["⌃", "`"], label: "Terminal" },
       { keys: ["⌘", "⇧", "P"], label: "Commands" },
       { keys: ["⌘", "⇧", "T"], label: "Reopen tab" },
       { keys: ["⌘", "B"], label: "Sidebar" },
+      { keys: ["⌥", "Z"], label: "Word wrap" },
+      { keys: ["⌘", "⇧", "V"], label: "Markdown preview" },
       { keys: ["⌘", ","], label: "Settings" },
     ],
   },
@@ -262,10 +272,14 @@ const en = {
       windowsRecommended: "Windows 11 or later on x64 detected. The Windows installer is recommended.",
       windowsConfirm: "Windows detected. Before downloading, confirm that your PC runs Windows 11 on x64.",
       macosRecommended: "macOS 14 or later on Apple Silicon detected. The macOS installer is recommended.",
-      macosConfirm: "macOS detected. Before downloading, confirm macOS 14 or later and an Apple Silicon chip (M1 or newer).",
-      windowsUnsupported: "This Windows version or CPU is outside our Windows 11 x64 release target. Choose an installer for a supported computer below.",
-      macosUnsupported: "This Mac is outside our macOS 14+ Apple Silicon release target. Choose an installer for a supported computer below.",
-      unsupported: "pude is available for Windows 11 x64 and macOS 14+ Apple Silicon. Choose an installer for your desktop computer below.",
+      macosConfirm:
+        "macOS detected. Before downloading, confirm macOS 14 or later and an Apple Silicon chip (M1 or newer).",
+      windowsUnsupported:
+        "This Windows version or CPU is outside our Windows 11 x64 release target. Choose an installer for a supported computer below.",
+      macosUnsupported:
+        "This Mac is outside our macOS 14+ Apple Silicon release target. Choose an installer for a supported computer below.",
+      unsupported:
+        "pude is available for Windows 11 x64 and macOS 14+ Apple Silicon. Choose an installer for your desktop computer below.",
     },
     github: "View on GitHub",
     allReleases: "All releases and checksums",
@@ -305,7 +319,6 @@ const zhHant: Dict = {
     stack: ["Rust", "Tauri 2", "SolidJS", "CodeMirror 6", "MIT"],
   },
   film: {
-    label: "產品影片",
     ariaLabel: "pude 動態導覽：開啟資料夾、編輯、儲存、檢視 Git、執行終端機與預覽 Markdown。",
     play: "播放",
     pause: "暫停",
@@ -339,7 +352,7 @@ const zhHant: Dict = {
       {
         k: "editor",
         title: "程式碼永遠是主角",
-        desc: "支援分頁、釘選、顯示符合數量的尋找與取代、括號配對與程式碼摺疊，.env 檔還能以可編輯、可一鍵複製及產生隨機值的表格檢視。EXPLORER / GIT / SEARCH 讓專案搜尋與取代隨手可用，結果會置中並標示命中文字。",
+        desc: "支援分頁、釘選、顯示符合數量的尋找與取代、括號配對與程式碼摺疊，.env 檔還能以可編輯、值預設遮蔽、可一鍵複製及產生隨機值的表格檢視。活動列的搜尋圖示讓專案搜尋與取代隨手可用，結果依檔案分組，並會置中標示命中文字。",
       },
       {
         k: "git",
@@ -372,7 +385,7 @@ const zhHant: Dict = {
         k: "01",
         title: "預設延遲載入",
         desc: "開啟工作區只讀取最上層；展開時才載入資料夾，專案搜尋、解析器與終端機都在使用時才載入。",
-        meta: "list_dir(\"src/\") · on expand",
+        meta: 'list_dir("src/") · on expand',
       },
       {
         k: "02",
@@ -475,7 +488,7 @@ const zhHant: Dict = {
       ready: "從啟動到可用",
       times: (ratio) => `${ratio} 倍`,
     },
-    method: `pude ${BENCHMARK.pudeVersion} 與 Visual Studio Code ${BENCHMARK.vscodeVersion}，${BENCHMARK.date} 於 ${BENCHMARK.machine} 實測。兩者都開啟 pude 原始碼資料夾；VS Code 使用全新設定檔、未額外安裝擴充套件。安裝檔大小取自官方下載。啟動時間計算到視窗畫面不再變化為止；記憶體為啟動 15 秒後，程式與所有輔助程序的實體記憶體佔用（physical footprint）總和。兩者皆取 ${BENCHMARK.runs} 次的中位數。可用 scripts/benchmark/compare-vscode.mjs 重現。`,
+    method: `安裝檔大小取自 pude ${BENCHMARK.installerVersion} 與 Visual Studio Code ${BENCHMARK.vscodeVersion} 的官方下載。安裝後空間、記憶體與啟動時間是 ${BENCHMARK.date} 於 ${BENCHMARK.machine} 以 pude ${BENCHMARK.pudeVersion} 與 VS Code ${BENCHMARK.vscodeVersion} 實測，之後尚未重新量測。兩者都開啟 pude 原始碼資料夾；VS Code 使用全新設定檔、未額外安裝擴充套件。啟動時間計算到視窗畫面不再變化為止；記憶體為啟動 15 秒後，程式與所有輔助程序的實體記憶體佔用（physical footprint）總和。兩者皆取 ${BENCHMARK.runs} 次的中位數。可用 scripts/benchmark/compare-vscode.mjs 重現。`,
   },
   languages: {
     eyebrow: "語法突顯",
@@ -486,13 +499,7 @@ const zhHant: Dict = {
     title: "把人的這一步，做得更輕。",
     sub: "讀程式碼、看變更、親手修改。維持精簡的核心，把資源留給正在處理繁重工作的工具。",
     wontTitle: "核心刻意不做",
-    wont: [
-      "索引你的整個儲存庫",
-      "除錯器或建置系統",
-      "AI 服務與雲端同步",
-      "外掛市集",
-      "永不休息的語言伺服器",
-    ],
+    wont: ["索引你的整個儲存庫", "除錯器或建置系統", "AI 服務與雲端同步", "外掛市集", "永不休息的語言伺服器"],
     willTitle: "pude 始終堅持",
     will: [
       "快速啟動，安靜運行",
@@ -505,7 +512,7 @@ const zhHant: Dict = {
   shortcuts: {
     eyebrow: "鍵盤優先",
     title: "雙手不必離開鍵盤。",
-    sub: "一小組好記的快捷鍵，涵蓋每天的完整流程。Windows 請以 Ctrl 取代 ⌘，取代功能為 Ctrl H。",
+    sub: "一小組好記的快捷鍵，涵蓋每天的完整流程。Windows 請以 Ctrl 取代 ⌘、以 Alt 取代 ⌥，取代功能為 Ctrl H。",
     items: [
       { keys: ["⌘", "S"], label: "儲存" },
       { keys: ["⌘", "⇧", "S"], label: "另存新檔" },
@@ -516,12 +523,16 @@ const zhHant: Dict = {
       { keys: ["⌘", "P"], label: "跳至檔案" },
       { keys: ["⌘", "⌥", "F"], label: "取代" },
       { keys: ["⌘", "G"], label: "跳至行號" },
+      { keys: ["⌘", "D"], label: "加入下一個相符項目" },
+      { keys: ["⌘", "⇧", "L"], label: "選取所有相符項目" },
       { keys: ["⌘", "W"], label: "關閉分頁" },
       { keys: ["⌃", "⇥"], label: "下一個分頁" },
-      { keys: ["⌘", "`"], label: "終端機" },
+      { keys: ["⌃", "`"], label: "終端機" },
       { keys: ["⌘", "⇧", "P"], label: "命令面板" },
       { keys: ["⌘", "⇧", "T"], label: "重新開啟分頁" },
       { keys: ["⌘", "B"], label: "側邊欄" },
+      { keys: ["⌥", "Z"], label: "自動換行" },
+      { keys: ["⌘", "⇧", "V"], label: "Markdown 預覽" },
       { keys: ["⌘", ","], label: "設定" },
     ],
   },
@@ -542,8 +553,10 @@ const zhHant: Dict = {
       windowsConfirm: "偵測到 Windows；下載前請確認電腦使用 Windows 11 與 x64 處理器。",
       macosRecommended: "偵測到 macOS 14 以上與 Apple Silicon，推薦下載 macOS 版。",
       macosConfirm: "偵測到 macOS；下載前請確認為 macOS 14 以上與 Apple Silicon（M1 或更新晶片）。",
-      windowsUnsupported: "偵測到的 Windows 版本或處理器不在 Windows 11 x64 的發行支援範圍內。可在下方替其他電腦選擇安裝檔。",
-      macosUnsupported: "偵測到的 Mac 不在 macOS 14 以上、Apple Silicon 的發行支援範圍內。可在下方替其他電腦選擇安裝檔。",
+      windowsUnsupported:
+        "偵測到的 Windows 版本或處理器不在 Windows 11 x64 的發行支援範圍內。可在下方替其他電腦選擇安裝檔。",
+      macosUnsupported:
+        "偵測到的 Mac 不在 macOS 14 以上、Apple Silicon 的發行支援範圍內。可在下方替其他電腦選擇安裝檔。",
       unsupported: "pude 提供 Windows 11 x64 與 macOS 14 以上 Apple Silicon 版本。請在下方替桌面電腦選擇安裝檔。",
     },
     github: "在 GitHub 上查看",
@@ -570,6 +583,23 @@ export function t(): Dict {
 }
 
 export const languageNames = [
-  "TypeScript", "JavaScript", "TSX", "JSX", "Rust", "Python", "Go", "Java", "C", "C++",
-  "C#", "HTML", "CSS", "JSON", "Markdown", "Shell", "YAML", "TOML", "SQL",
+  "TypeScript",
+  "JavaScript",
+  "TSX",
+  "JSX",
+  "Rust",
+  "Python",
+  "Go",
+  "Java",
+  "C",
+  "C++",
+  "C#",
+  "HTML",
+  "CSS",
+  "JSON",
+  "Markdown",
+  "Shell",
+  "YAML",
+  "TOML",
+  "SQL",
 ];

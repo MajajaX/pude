@@ -31,19 +31,21 @@ describe("incremental serialized document size", () => {
   ])("updates only the changed UTF-8 spans for $value", ({ value, from, to, insert }) => {
     const before = EditorState.create({ doc: value });
     const update = before.update({ changes: { from, to, insert } });
-    const measured = utf8ByteLength(before.doc.toString())
-      + updateUtf8ByteLength(before.doc, update.state.doc, update.changes);
+    const measured =
+      utf8ByteLength(before.doc.toString()) + updateUtf8ByteLength(before.doc, update.state.doc, update.changes);
     expect(measured).toBe(encodedLength(update.state.doc.toString()));
   });
 
   it("merges nearby changed ranges when several edits share surrogate context", () => {
     const before = EditorState.create({ doc: "a😀bc你好😀z" });
-    const update = before.update({ changes: [
-      { from: 2, to: 3, insert: "x" },
-      { from: 7, to: 8, insert: "語" },
-    ] });
-    const measured = utf8ByteLength(before.doc.toString())
-      + updateUtf8ByteLength(before.doc, update.state.doc, update.changes);
+    const update = before.update({
+      changes: [
+        { from: 2, to: 3, insert: "x" },
+        { from: 7, to: 8, insert: "語" },
+      ],
+    });
+    const measured =
+      utf8ByteLength(before.doc.toString()) + updateUtf8ByteLength(before.doc, update.state.doc, update.changes);
     expect(measured).toBe(encodedLength(update.state.doc.toString()));
   });
 

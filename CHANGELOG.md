@@ -6,6 +6,199 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-12
+
+### Added
+
+- **Generate key** in the `.env` table toolbar opens the random value generator without
+  choosing a row, including in an empty file, and can copy the value or add it as a new
+  variable. A new variable's row also has a ✦ button that opens the generator.
+- **Copy** and **Paste** for files and folders in Explorer, from the context menu or
+  `Cmd/Ctrl+C` and `Cmd/Ctrl+V` on a focused row. The copied item stays available when
+  you switch project tabs, so it can be pasted into another project. Paste never
+  overwrites: a name in use becomes `name copy.ext`. A folder cannot be pasted into
+  itself, and symbolic links are recreated rather than followed.
+- **Add to .gitignore** on the Explorer context menu lists a file or folder in the
+  repository's root `.gitignore`, matching only that item. It appears for items inside a
+  Git repository that are not ignored yet, and warns when Git still tracks the item.
+- **Terminal: Trust Python Environment** and **Terminal: Stop Trusting Python
+  Environment** in the command palette. The choice is remembered for each project
+  folder on this machine.
+- The homepage shortcut list adds **Add next match**, **Select all matches**,
+  **Word wrap** and **Markdown preview**.
+- Releases verify the update signatures against the configured public key before
+  anything is uploaded, and `SHA256SUMS.txt` also covers the update package, both
+  signatures and `latest.json`.
+- `.env` table values are masked each time the table opens. **Show values** in the
+  toolbar reveals them, and a value being edited always shows its text.
+- If the interface fails to render, the window shows an error message and **Reload
+  window** instead of a broken screen; unsaved changes come back from recovery.
+- The command palette shows the **Edit: Replace** shortcut: **Ctrl+H** on Windows and
+  Linux, **⌥⌘F** on macOS.
+
+### Changed
+
+- Dependency updates: Solid 1.9.18, notify 8.2.1, Tokio 1.54.1, uuid 1.29.0 and
+  tauri-build 2.7.4, plus vite-plugin-solid 2.11.15 and Vitest 5.1.0 for builds and
+  tests, and zizmor-action 0.8.1 in CI.
+- **Copy**, **Copy Name**, **Copy Path** and **Copy Relative Path** on the Explorer context
+  menu moved into one **Copy** submenu, where copying the item reads **Copy File** or
+  **Copy Folder**. Hover, click or press the right arrow key to open it; the left arrow
+  key or Escape closes it.
+- Explorer, Search and Git moved to an icon-only activity bar on the left edge of the
+  window, in that order. Selecting the icon of the view already showing hides the
+  sidebar; the bar stays visible while the sidebar is hidden.
+- Git history loads 200 commits per page and starts the next page before you reach the
+  end. Selecting a commit opens details with its subject, author and age, and the
+  panel no longer takes space when nothing is selected. The full history tab uses
+  compact rows, the graph column stays narrow with many branches, and refreshing no
+  longer shifts the list. Commit tooltips wait for the pointer to rest.
+- Typing in documents of 1 MiB or more no longer rewrites the full recovery checkpoint
+  about every 0.6 seconds. Checkpoints now land within about 5 seconds up to 5 MiB and about
+  15 seconds above that, so a crash or forced kill can lose that much recent typing.
+  Smaller documents are unchanged, and leaving or closing the window still writes
+  pending checkpoints immediately.
+- Terminals no longer activate a project's `.venv`, `venv` or `env` by themselves,
+  because a cloned repository could otherwise put its own programs ahead of the
+  system ones. The terminal prints a one-line hint until you trust the folder.
+- `.env` table cells save when you leave the field or press Enter instead of on every
+  keystroke. A variable needs a name before it is written, and editing a value keeps
+  its quote style and multi-line layout.
+- The GitHub Release is created as a draft, verified, published and checked again. It
+  returns to a draft if the public check fails, so a broken `latest.json` is never
+  served.
+- `latest.json` needs both platforms unless `--allow-partial` is passed.
+- The website shows **Published release** and the download buttons only when the
+  build is given the tagged release URL of the version it shows.
+- The website sends security and cache headers, and the build checks that every inline
+  script is covered by the content security policy.
+- The README and website state that the VS Code comparison was measured with pude
+  0.1.2. The 0.1.7 installers are 5.6 MB on macOS and 4.3 MB on Windows.
+- Directory listings measure their size without building every entry twice, plugin
+  network requests reuse their connection while a redirect stays on the same
+  addresses and do their file checks off the async runtime, and slow Git operations
+  poll less often.
+- Rust tests run with `node scripts/run-rust-tests.mjs`, as in CI, and Clippy blocks the
+  build on every platform.
+- Desktop dependencies are pinned to exact versions, including `vite` 8.3.5 and
+  `@tauri-apps/cli` 2.12.4, and `wrangler` is pinned as a development dependency.
+- The terminal panel toggles with **Ctrl+`** on every platform. On macOS, **Cmd+`**
+  stays the system shortcut for switching between pude windows.
+- Project search groups text results by file: each file shows its match count once,
+  and the replace button on its heading changes only that file.
+- Error notifications are marked in red, announced as alerts and stay at least 6
+  seconds; longer notifications stay up to 10 seconds.
+- **Watcher excluded paths** moved from **Updates** to **Explorer** in Settings.
+- On macOS and Linux, saving a file with several hard links, or one whose owner or
+  group the saving user cannot keep, rewrites it in place after the usual change check
+  instead of replacing it, so its links and owner stay.
+- Temporary save files left by a crash are removed from a folder the first time pude
+  saves there, once they are an hour old.
+- Git runs with English messages through `LC_MESSAGES` only, so hooks and filters keep
+  the user's character set.
+- The README and website list the 0.1.8 installer sizes (5.6 MB on macOS, 4.4 MB on
+  Windows); size on disk, memory and launch time remain the 0.1.2 measurements.
+- Dependency updates: Solid 1.9.19, Vite 8.3.8 and vite-plugin-solid 2.11.16, plus
+  fake-indexeddb 6.2.8, Playwright 1.65.0 and wrangler 4.160.0 for tests and deploys.
+- The website deploy job finds the published release of the current version by
+  itself, so no release URL has to be set by hand, and runs the wrangler version
+  pinned in `package.json`.
+- `npm run check` runs Biome, which now formats the TypeScript, JavaScript and CSS
+  sources, and checks that `THIRD_PARTY_NOTICES.md` lists every direct dependency at
+  its locked version. `npm test` runs every unit test, and the browser tests also run
+  in WebKit. `THIRD_PARTY_NOTICES.md` is now in English and lists the direct
+  dependencies it was missing.
+- The website's social preview image is a 99 KB JPEG instead of a 769 KB PNG.
+- Bundles are built only in the formats that are shipped or used for Linux source
+  builds; the unused MSI installer and its WiX fragment, the unused Windows signature
+  verifier and the October audit report were removed.
+- The macOS release script stops when the working tree has uncommitted changes or the
+  build produced no DMG.
+- The startup bundle budgets sit about 2% above the measured size (168,500 bytes for
+  the entry and 257,800 for all startup code), and raising one needs a reason in the
+  pull request.
+
+### Fixed
+
+- Terminal tabs stay on one line and no longer show a scrollbar. Long names shorten, the
+  selected tab scrolls into view, the mouse wheel moves the tab strip, and **New
+  terminal** stays reachable with many tabs.
+- Loading more Git history no longer recreates the visible rows or loses keyboard focus,
+  and Git status refreshes no longer recompute the loaded history.
+- Scrolling Git history no longer forces a layout measurement on every scroll event.
+- Repositories with many branches or tags no longer show a process-limit error while
+  loading history: the commits those refs point at are read together in one Git process.
+- A commit listed early because a branch or tag points at it moves below its children
+  once they load, so the graph stays connected across pages.
+- A file with no extension whose whole name looks like one, such as `go`, `md`, `sh` or
+  `png`, opens as plain text. It no longer gets that language or opens as an image.
+- **Retry directory scan** in Explorer now reads a partially listed folder again and
+  keeps it open, instead of collapsing it.
+- A Git status refresh that finds nothing changed keeps keyboard focus on its row, and
+  the visible rows stay correct when a message appears above the list.
+- A project search that reaches its file limit still returns its results in path order.
+- Clicking a Markdown link such as `#50%` no longer raises an error.
+- The worktree failure title is translated in Traditional Chinese.
+- Screen readers announce unsaved changes on file tabs and project tabs.
+- Arrow keys in the activity bar move through **Search** without jumping into its query
+  field. Clicking the icon still places the cursor there.
+- Git history shows one badge for a tagged commit instead of a tag badge and a
+  remote-branch badge, and tags no longer appear as remote branches in the history
+  branch filter.
+- A new terminal no longer occasionally shows the `pude terminal` banner twice above
+  its first prompt.
+- Git commit diffs and file lists accept only full commit IDs, and creating,
+  switching to or deleting a branch no longer treats a typed name or start point as a
+  Git option. A branch start point must now name an existing commit.
+- Plugins can reach public addresses in `192.0.0.0/16` outside the reserved
+  `192.0.0.0/24` and `192.0.2.0/24` ranges; they were blocked by mistake.
+- Plugins can create files, and Save As can create new files on Linux, on FAT, exFAT
+  and network volumes that do not support hard links.
+- **Reveal in Finder** no longer leaves a finished helper process behind on macOS and
+  Linux.
+- Git no longer signals a process group after its leader has been reaped, which could
+  hit an unrelated process that reused the ID.
+- **Save all** (**⌘⌥S**) and **Replace** (**⌘⌥F**) now work on macOS, where Option
+  changes the typed character.
+- **Reload** after an external change adopts the disk version like the background
+  reload does, so the file is no longer read a second time on focus.
+- Closing a terminal while it is starting no longer leaves its exit listener behind.
+- The Markdown preview no longer makes `//host/path` links clickable.
+- Plugin and file notifications, such as **Created** and **Reloaded**, are translated
+  in Traditional Chinese.
+- Removed a duplicated sentence from `THIRD_PARTY_LICENSES.md`, a duplicate social
+  preview image and three unused website images.
+- With **Hide dot files** on, an opened folder whose name starts with a dot, such as
+  `~/.config`, or a workspace folder like `.dotfiles` no longer shows an empty Explorer.
+- Commit and history ages round to the next unit: 59.7 minutes reads "1 hour ago",
+  not "60 minutes ago".
+- Clearing a number field in Settings keeps its value instead of setting the minimum.
+- Deleting the last variable of a CRLF `.env` file no longer leaves a stray carriage
+  return.
+- Ctrl+K Ctrl+O opens a folder on Linux, as on Windows.
+- The project replace summary and its confirmation for all files are translated in
+  Traditional Chinese.
+- Cmd/Ctrl+Shift+W and Cmd/Ctrl+Shift+G no longer close the tab or open Go to line.
+- Releases reuse a successful CI run on `main` whose only skipped jobs are workflow
+  lint and the optional website deploy, instead of always running the whole suite
+  again.
+
+### Performance
+
+- Project search skips files with no match before going through their lines, and scans
+  fewer file details while walking a folder.
+- Terminal output is copied less on its way to the screen, invalid bytes no longer slow
+  long reads, and dragging a panel only tells the terminal about real size changes.
+- File watcher events, Git status paths, Git history parsing, directory listing and LSP
+  messages allocate less, and the Git repository cache no longer holds its lock during
+  disk checks.
+- Typing, scrolling and unsaved work recovery do less repeated work: selections are only
+  serialized when they change, each stored session is parsed fewer times, and loading a
+  Git history page no longer asks for ignored paths again.
+- Window resizing checks the maximized state once resizing pauses.
+- The website loads about 750 bytes less compressed JavaScript and caches screenshots for
+  a day.
+
 ## [0.1.8] - 2026-11-05
 
 ### Added

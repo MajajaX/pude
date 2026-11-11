@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker, TERMINAL_ACK_FLUSH_BYTES } from "./terminal-ack";
+import { TerminalAckQueue, TerminalAckScheduler, TerminalAckTracker } from "./terminal-ack";
 
 describe("terminal ack tracker", () => {
   it("acknowledges a contiguous run with the summed utf8 byte count", () => {
@@ -70,7 +70,7 @@ describe("terminal ack tracker", () => {
 });
 
 describe("terminal ack scheduler", () => {
-  function makeScheduler(flushBytes = TERMINAL_ACK_FLUSH_BYTES) {
+  function makeScheduler() {
     const frames = new Map<number, () => void>();
     let nextHandle = 1;
     const scheduler = new TerminalAckScheduler(
@@ -79,13 +79,16 @@ describe("terminal ack scheduler", () => {
         frames.set(handle, callback);
         return handle;
       },
-      (handle) => { frames.delete(handle); },
-      flushBytes,
+      (handle) => {
+        frames.delete(handle);
+      },
     );
     const runFrame = () => {
       const callbacks = [...frames.values()];
       frames.clear();
-      callbacks.forEach((callback) => callback());
+      callbacks.forEach((callback) => {
+        callback();
+      });
     };
     return { scheduler, frames, runFrame };
   }
@@ -113,7 +116,7 @@ describe("terminal ack scheduler", () => {
   });
 
   it("flushes immediately once the backlog reaches the byte threshold", () => {
-    const { scheduler, frames, runFrame } = makeScheduler(32);
+    const { scheduler, frames, runFrame } = makeScheduler();
     const deferred = vi.fn();
     scheduler.schedule(deferred);
     expect(frames.size).toBe(1);
@@ -143,7 +146,9 @@ describe("terminal ack queue", () => {
   it("reports an active acknowledgment failure and continues processing", async () => {
     const queue = new TerminalAckQueue();
     const onError = vi.fn();
-    const failedAck = vi.fn(async () => { throw new Error("session not found"); });
+    const failedAck = vi.fn(async () => {
+      throw new Error("session not found");
+    });
     const nextAck = vi.fn(async () => undefined);
 
     queue.enqueue(failedAck, onError);
@@ -160,14 +165,23 @@ describe("terminal ack queue", () => {
     const order: string[] = [];
     let finishFirst!: () => void;
 
-    queue.enqueue(() => new Promise<void>((resolve) => {
-      order.push("first-start");
-      finishFirst = () => {
-        order.push("first-end");
-        resolve();
-      };
-    }), () => undefined);
-    const completed = queue.enqueue(async () => { order.push("second"); }, () => undefined);
+    queue.enqueue(
+      () =>
+        new Promise<void>((resolve) => {
+          order.push("first-start");
+          finishFirst = () => {
+            order.push("first-end");
+            resolve();
+          };
+        }),
+      () => undefined,
+    );
+    const completed = queue.enqueue(
+      async () => {
+        order.push("second");
+      },
+      () => undefined,
+    );
     await Promise.resolve();
     expect(order).toEqual(["first-start"]);
     finishFirst();

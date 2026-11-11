@@ -1,6 +1,6 @@
 # pude product specification
 
-Implemented behavior for **0.1.8** and the unreleased changes listed in the changelog. Update this specification in the same change as
+Implemented behavior for **0.1.9** and the unreleased changes listed in the changelog. Update this specification in the same change as
 a feature or behavior change, together with the changelog, README and applicable
 English and Traditional Chinese website copy. User instructions live at
 [pude.dev/docs](https://pude.dev/docs) and [pude.dev/zh/docs](https://pude.dev/zh/docs).
@@ -18,20 +18,55 @@ coverage and no published installer yet.
   and Git without reloading the renderer or interrupting projects, unsaved edits or
   terminals. Editable fields and selected text keep the native menu. Reloading the renderer restores all checkpointed projects; a window
   consumes its startup launch request only once.
-- Dot files are visible by default and can be hidden in Settings.
+- Dot files are visible by default and can be hidden in Settings. Hiding them never
+  hides an opened folder, such as `~/.config` or a workspace folder named `.dotfiles`;
+  only the dot files and folders inside it.
 - Git-ignored names are muted. With **Group ignored** enabled, ignored root items
   appear in a collapsed group identified by a Git icon, divider and item count.
   Expanding it exposes the same file operations as other entries; the final row
   remains fully scrollable. Ignored descendants keep their normal hierarchy.
-- A **FILES** bar under the sidebar tabs holds **New file** (`+`) and **New folder**
+- A **FILES** bar at the top of the Explorer view holds **New file** (`+`) and **New folder**
   for the project root. Right-click a folder to create items inside it, or a file
   to create items beside it.
+- In a Git repository, right-click a file or folder that is not ignored yet for **Add to
+  .gitignore**. It appends one line to the `.gitignore` at the repository root, creating
+  that file if needed: `/path/to/file`, or `/path/to/folder/` for a folder. The line is
+  anchored and escaped so it matches only that item. Existing lines and line endings are
+  kept, and a line already present is not added again. The item is hidden for the
+  repository root, `.git`, ignored items and folders outside the repository. Git keeps
+  tracking committed files, so the confirmation points to `git rm --cached`; Pude does not
+  change the index. A name containing a line break cannot be listed. The change is a
+  normal edit to `.gitignore` and shows in the Git panel.
+- The Explorer context menu groups its copy actions in a **Copy** submenu: **Copy File**
+  (**Copy Folder** on a folder), **Copy Name**, **Copy Path** and, inside a workspace
+  folder, **Copy Relative Path**. Hovering or clicking **Copy** opens it beside the menu,
+  on the left when the right edge has no room. With keyboard focus on **Copy**, the right
+  arrow key opens it and focuses its first item; the left arrow key or Escape closes it
+  and returns focus to **Copy**. **Paste** stays in the main menu.
+- Right-click a file or folder for **Copy File** / **Copy Folder** and **Paste**, or press **Cmd+C** / **Cmd+V**
+  (**Ctrl+C** / **Ctrl+V** on Windows and Linux) while its Explorer row has focus; the
+  editor and terminal keep their own copy and paste. Pasting on a folder puts the item
+  inside it, and pasting on a file puts it beside that file. The copied item stays
+  available in every project tab of the window, so it can be pasted into another
+  project, and it can be pasted repeatedly. It holds one item, is separate from the
+  system clipboard, is not shared between windows and is forgotten on restart.
+- Paste never replaces anything. A name already in use becomes `name copy.ext`, then
+  `name copy 2.ext`. Folders copy recursively and cannot be pasted into themselves or
+  their subfolders. Symbolic links are recreated rather than followed; on Windows that
+  needs Developer Mode or administrator rights. Sockets, pipes and device files inside
+  a folder are skipped and counted in the message. Both locations must be inside their
+  project. Pasting runs in the background, one at a time, without blocking the window,
+  and has no cancel. After it finishes, Explorer refreshes, expands the folder and
+  selects the new item. A failed paste shows the error and removes the partial copy;
+  closing the window during a paste can leave a partial copy behind.
 - **Collapse folders** (the chevron in the **FILES** bar, or the command
   **Explorer: Collapse Folders**) closes every expanded subfolder below the
   workspace's top-level folders; loaded listings are kept.
 - **Cmd+B** / **Ctrl+B**, **View > Hide sidebar** or **View: Toggle Sidebar** hides the
-  sidebar and its resize handle so the editor uses the full width. Opening project
-  search shows it again. The choice lasts for the current window session only.
+  sidebar and its resize handle so the editor uses the full width; the activity bar
+  stays visible. Selecting the icon of the view already showing also hides the
+  sidebar, and selecting any icon or opening project search shows it again. The
+  choice lasts for the current window session only.
 - **Group ignored** is a checkbox at the left of the Explorer footer's plugin
   count. It defaults to on, persists locally across restarts, and shows ignored
   items among normal entries when off. It does not change `.gitignore` or search
@@ -89,16 +124,18 @@ coverage and no published installer yet.
 
 ## Project search
 
-- The sidebar has **EXPLORER / GIT / SEARCH** tabs. **SEARCH** or **Cmd+Shift+F**
-  on macOS / **Ctrl+Shift+F** on Windows opens search for the active project.
-  Selecting **EXPLORER** or pressing Escape in the search input returns to files.
+- The activity bar's **Search** icon or **Cmd+Shift+F** on macOS / **Ctrl+Shift+F**
+  on Windows opens search for the active project. Selecting the **Explorer** icon or
+  pressing Escape in the search input returns to files.
   A short single-line editor selection (at most 200 characters) becomes the query
   when search opens from the shortcut or **Search: Find in Project**.
 - **Cmd+P** / **Ctrl+P**, **Edit > Go to file** or **Go: Go to File…** opens search in
   **Files** mode with the query selected, to open a file by name or path. It uses the
   same on-demand search and limits; there is no file index.
-- Results show the file name first, its folder dimmed beside it and a line-number
-  badge for text matches; the full relative path is in the row tooltip.
+- Text results are grouped by file: each file shows its name, its folder dimmed beside
+  it and its match count once, followed by one row per match with its line number and
+  line. **Files** results list one row per file. The full relative path is in the
+  tooltip.
 - **Text** finds literal text in saved UTF-8 files. **Files** matches a filename
   or relative path. Both support **Match case**; matching is case insensitive by
   default. Paths in results use `/`, including on Windows.
@@ -112,9 +149,10 @@ coverage and no published installer yet.
 - The chevron left of **Text / Files** shows **Replace with** and **Replace all**
   for text search. **Replace all** (or Enter in the replacement field) replaces every
   match of the query in the project, including files beyond the 300 listed results;
-  the replace button on a hovered result replaces every match in that file only.
+  the replace button on a file's heading replaces every match in that file only.
   Replacement uses the same literal, **Match case** and Git-ignored rules as search,
-  asks for confirmation first, and reports how many matches and files changed.
+  asks for confirmation first, and reports how many matches and files changed, in the
+  interface language.
 - Replace rewrites saved files atomically on disk and keeps line endings and BOMs.
   Files with unsaved editor changes are skipped and counted; open files without
   changes reload. Edit > Undo cannot reverse a project-wide replacement. Binary,
@@ -150,9 +188,16 @@ coverage and no published installer yet.
   separate file loaded only when that language is in use, so English adds nothing to
   startup. Messages from Git, shells, plugins and language servers, and some
   low-level native errors, stay in their original language.
-- The **EXPLORER / GIT / SEARCH** tabs fill the sidebar width. The Git view lists
-  the current branch at the top, and each changed file by name with its folder
+- An activity bar runs down the left edge of the window with icon-only **Explorer**,
+  **Search** and **Git** views, in that order. Each icon names its view in a tooltip
+  and to assistive technology; the arrow keys, Home and End move between views. The
+  Git view lists the current branch at the top, and each changed file by name with its folder
   dimmed beside it.
+- Notifications appear at the lower right. Errors are marked in red, are announced to
+  screen readers as alerts and stay at least 6 seconds; longer messages stay up to 10
+  seconds.
+- If the interface fails to render, the window shows a short error message and
+  **Reload window**; unsaved changes come back from their recovery checkpoints.
 
 ## Editing and Markdown
 
@@ -205,12 +250,19 @@ coverage and no published installer yet.
   discarded if both fields are blank. The trash button deletes a variable's lines.
   Right-click a row or open its actions menu to insert above or below it. Names that
   appear more than once are marked **Duplicate**.
+- Values are masked each time the table opens, so a shared or recorded screen does not
+  show secrets. **Show values** in the toolbar reveals them until the table closes, and
+  a value field being edited always shows its text. Copy buttons copy the real value.
 - Random values are generated with the system's secure random source in Hex,
   Base64URL, Base64, alphanumeric or UUIDv4 format. The default is Base64URL with
   32 bytes; byte or character lengths range from 1 to 1,024, with presets of 16, 32
-  and 64. Open the generator from the value's ✦ button or the row actions; the preview
-  reports its character count and can be regenerated, applied or cancelled. Format and
-  length are saved locally; generated values are never saved as preferences.
+  and 64. **Generate key** in the table toolbar is always available, including in an
+  empty file: it can copy the value or add it as a new variable, leaving only the name
+  to type. A row's ✦ button or actions menu generates a value for that row, including a
+  new variable's row, which stays unsaved while the generator is open. The preview reports its character count and can be regenerated, copied, applied or
+  cancelled. The generator belongs to the table view; **Table** in the editor corner
+  returns to it from source. Format and length are saved locally; generated values are
+  never saved as preferences.
 - Table edits change the same document as the source editor, so undo, dirty state,
   saving and recovery work as usual. Outside a draft row or generator, Cmd/Ctrl+Z
   undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation
@@ -226,6 +278,8 @@ coverage and no published installer yet.
 - Preview fills the editor's available width with modest responsive side padding.
   Body text is legible in both dark and light themes. Switching modes never changes
   the source text.
+- A file reached through a symbolic link or a Windows reparse point does not open, and
+  saving never replaces a link: open the link's target instead.
 - UTF-8 and UTF-8 with BOM are accepted. Text files are limited to 20 MiB. Above
   5 MiB, large-file mode disables heavy parsing and Markdown preview while keeping
   editing and file-local search.
@@ -236,18 +290,21 @@ coverage and no published installer yet.
   **Interface** (Language, Theme), **Editor** (Font size, Tab size, Indent with
   spaces, Word wrap, Line numbers, Show whitespace, Close brackets and quotes
   automatically), **Saving** (Trim trailing whitespace on save, End files with a
-  newline on save), **Explorer** (Hide dot files, Group Git ignored files) and
-  **Updates** (Check for updates on startup, Watcher excluded paths). New settings
+  newline on save), **Explorer** (Hide dot files, Group Git ignored files, Watcher
+  excluded paths) and **Updates** (Check for updates on startup). New settings
   default to the previous behavior except Close brackets, which is on.
 - Font size and Tab size show their ranges and apply when the field is committed
   (Enter, Tab or leaving it), so typing a two-digit value no longer jumps through
-  the minimum. Out-of-range values are clamped.
+  the minimum. Out-of-range values are clamped, and a field left empty keeps its value.
 - **Restore defaults** asks for a second click, then resets every setting except the
   language. Settings stay in local storage.
 - **Cmd+=** / **Cmd+-** / **Cmd+0** (Ctrl on Windows) change the editor font size by
   one step or reset it to 14, like Cmd/Ctrl + scroll. **Option+Z** / **Alt+Z** toggles
   word wrap. **Cmd+Shift+T** / **Ctrl+Shift+T** reopens closed tabs. **Cmd+Shift+V** /
   **Ctrl+Shift+V** switches a Markdown file between source and preview.
+- **Edit: Replace** shows **Ctrl+H** on Windows and Linux and **⌥⌘F** on macOS.
+  Close tab (**Cmd/Ctrl+W**) and Go to line (**Cmd/Ctrl+G**) ignore the same keys with
+  Shift. On Linux, Ctrl+K Ctrl+O opens a folder, as on Windows.
 - The command palette lists more than 40 built-in commands with their shortcuts
   (**⌘⇧P** on macOS, **Ctrl+Shift+P** elsewhere). Every word typed must match the
   title, description or id, in any order. The eight commands run most recently are
@@ -272,9 +329,12 @@ coverage and no published installer yet.
 
 ## Integrated terminals
 
-- The panel opens with **Cmd+`** / **Ctrl+`**. A normal new terminal uses the project
+- The panel opens with **Ctrl+`** on every platform; on macOS **Cmd+`** stays the
+  system shortcut for switching between pude windows. A normal new terminal uses the project
   root; xterm.js and a PTY start only when a terminal first appears.
-- Tabs show the native shell executable basename and starting directory basename, with
+- Tabs stay on one line with no visible scrollbar: long names shorten, the selected tab
+  scrolls into view, the mouse wheel moves the strip and **New terminal** stays in reach.
+  Tabs show the native shell executable basename and starting directory basename, with
   the full path in the title; the browser labels its shell **Demo**. Double-click
   to rename a tab for the session. Status shows Starting, Ready, Exited or Failed;
   exited or failed sessions offer restart. Settings saves terminal font size locally
@@ -305,8 +365,17 @@ coverage and no published installer yet.
   PowerShell, matching Windows Terminal; `ComSpec` is no longer used. The shell runs
   behind a small bootstrap process that survives Ctrl+C and Ctrl+Break, so an
   interrupt reaches the shell and its jobs without ending the terminal. Unix uses `SHELL` as a login
-  shell, falling back to `/bin/sh`. A project `.venv`, `venv` or `env` is activated
-  for new terminals when present. Scrollback holds 5,000 lines.
+  shell, falling back to `/bin/sh`. Scrollback holds 5,000 lines.
+- A project's Python virtual environment (`.venv`, `venv` or `env`) is not activated
+  automatically, because a cloned repository could otherwise put its own executables
+  first on `PATH`. When one is found, the terminal prints `Python environment found:
+  <name> (not activated). Run "Trust Python environment" from the command palette to
+  activate it.` The palette commands **Terminal: Trust Python Environment** (activate
+  it for the project's folder from then on and restart the visible terminal; other
+  open terminals pick it up when they restart) and **Terminal: Stop Trusting Python
+  Environment** (revert) control it. The choice is remembered per folder on this
+  machine, in the app's local storage. It covers the project's main folder; a terminal
+  opened in a subfolder or an added workspace folder is not trusted by it.
 - Terminals run with the user's account and can access the network and files
   outside the project. Windows assigns processes to a Job before releasing the
   shell bootstrap. Linux cleanup requires kernel 5.1+, permitted pidfd signals and
@@ -314,23 +383,48 @@ coverage and no published installer yet.
 
 ## Saves, Git, plugins and updates
 
-- Saves are atomic, queued per file and preserve LF/CRLF. External changes offer
-  comparison or explicit recovery choices. Local checkpoints recover the last
-  completed snapshot of unsaved work.
+- Saves are atomic, queued per file and preserve LF/CRLF: the new text goes to a
+  `.pude-tmp-*.tmp` file beside the original, which then replaces it. On macOS and
+  Linux, a file with more than one hard link, or whose owner or group the saving user
+  cannot keep, is rewritten in place instead after the same change check, so its links
+  and owner stay; that write is not atomic. Temporary files left by a crash or forced
+  kill are removed from a folder the first time pude saves there, once they are an
+  hour old. External changes offer comparison or explicit recovery choices. Local
+  checkpoints recover the last
+  completed snapshot of unsaved work. While typing, checkpoints land within about
+  1 s below 1 MiB, about 5 s from 1 MiB to under 5 MiB and about 15 s from 5 MiB.
+  The edit that makes a clean document dirty is checkpointed within about 1 s at
+  any size. Blurring, hiding or closing the window writes pending checkpoints at
+  once, so a longer window only applies to a crash or forced kill.
 - Git operations use system Git, update from events, and include status, history,
   diffs, staging, commits, branches, stash, push/pull and worktrees. Destructive
   operations require explicit confirmation. Full merge/rebase editing is planned.
+- Git runs with English messages (`LC_MESSAGES=C`) so pude can recognize its errors.
+  Hooks and filters keep the user's character set: a user-set `LC_ALL` is passed on as
+  `LANG` instead of being replaced.
 - Git sync accents Push green when the ahead count is nonzero and Pull blue when the
   behind count is nonzero, displaying the corresponding count; without an upstream
   neither is accented. Counts compare with the locally stored upstream ref (no fetch),
   and can be unavailable. The busy state of a Git action is scoped to its project.
 - The Git view always shows its action groups (**Changes**, **Sync**, **Branches**,
   **Stash**); they no longer collapse.
-- History loads 60 commits at a time. Scrolling near the end loads the next page
-  automatically; when the branch filter hides a whole page, **Load older commits**
-  continues. History reloads after commits, push, pull, branch and stash operations,
+- History loads 200 commits at a time. The next page starts loading while 40 loaded
+  rows remain below the viewport, so scrolling rarely reaches the end; when the
+  branch filter hides a whole page, **Load older commits** continues. Loading a page
+  keeps the rows on screen and keyboard focus in place. A commit listed early because
+  a branch or tag points at it moves below its children once they load. History
+  reloads after commits, push, pull, branch and stash operations,
   and after Git changes made outside pude, in both the sidebar and the full
-  history tab; a reload starts again from the newest commits.
+  history tab; a reload starts again from the newest commits. A thin bar under the
+  toolbar shows a reload without moving the list.
+- The sidebar history uses two-line rows and the full history tab uses compact
+  single-line rows. The graph column stays narrow in repositories with many branches,
+  and lanes move closer together instead of crowding out the commit message.
+- Selecting a commit opens its details below the list, with its subject, hash, author,
+  age and changed files; selecting it again, the close button or Escape closes them.
+  Resting the pointer on a row shows its full metadata after a short delay, and a
+  commit whose parent is not loaded yet says so there. History search shows the
+  current match and the match count, such as `3/12`.
 - When the repository has stashes, a **STASH** tab with their count appears next to
   **STATUS / HISTORY**. Each stash shows its message, `stash@{N}` and age; expanding
   it lists the changed files, with untracked files marked `?`, and selecting a file
@@ -355,7 +449,10 @@ coverage and no published installer yet.
 
 Native checks verify Explorer terminal actions with `pwd` for a folder, nested file
 and root file, and verify the grouping checkbox after restart. Unit, browser and
-native CI cover search, path handling, scrolling, terminal lifecycle and previews.
+native CI cover search, path handling, scrolling, terminal lifecycle and previews;
+browser tests run in both Chromium (WebView2) and WebKit (WKWebView). Biome checks
+formatting and lint rules, and `THIRD_PARTY_NOTICES.md` must list every direct
+dependency at its locked version.
 All required checks must pass before merge and release. Use the documentation
 checklist in [releasing.md](releasing.md); benchmark claims retain their original
 measured version and date until new measurements replace them.

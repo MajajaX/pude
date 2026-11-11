@@ -42,7 +42,9 @@ export function watcherRetryDelay(attempt: number): number {
 }
 
 export function createWatcherEventBuffer(maxBufferedEvents = DEFAULT_MAX_BUFFERED_EVENTS): WatcherEventBuffer {
-  const capacity = Number.isFinite(maxBufferedEvents) ? Math.max(1, Math.floor(maxBufferedEvents)) : DEFAULT_MAX_BUFFERED_EVENTS;
+  const capacity = Number.isFinite(maxBufferedEvents)
+    ? Math.max(1, Math.floor(maxBufferedEvents))
+    : DEFAULT_MAX_BUFFERED_EVENTS;
   let buffering = true;
   let epoch = 0;
   let revision = 0;
@@ -70,13 +72,14 @@ export function createWatcherEventBuffer(maxBufferedEvents = DEFAULT_MAX_BUFFERE
       lastSequence = 0;
     }
     const sequence = event.sequence ?? 0;
-    if (sequence > 0 && sequence <= lastSequence) return { accepted: false, dispatch: false, revision, needsRescan: false };
+    if (sequence > 0 && sequence <= lastSequence)
+      return { accepted: false, dispatch: false, revision, needsRescan: false };
     if (sequence > 0) {
       if (sequence > lastSequence + 1) needsRescan = true;
       lastSequence = sequence;
     }
     revision += 1;
-    if (event.needsRescan || Boolean(event.error)) needsRescan = true;
+    if (event.needsRescan || event.error) needsRescan = true;
     if (buffering) {
       if (events.length < capacity) events.push(event);
       else needsRescan = true;
@@ -88,8 +91,11 @@ export function createWatcherEventBuffer(maxBufferedEvents = DEFAULT_MAX_BUFFERE
   };
 
   const snapshot = (): WatcherSnapshotToken => ({ epoch, revision, sequence: lastSequence });
-  const isCurrent = (token: WatcherSnapshotToken) => token.epoch === epoch && token.revision === revision && token.sequence === lastSequence;
-  const markNeedsRescan = () => { needsRescan = true; };
+  const isCurrent = (token: WatcherSnapshotToken) =>
+    token.epoch === epoch && token.revision === revision && token.sequence === lastSequence;
+  const markNeedsRescan = () => {
+    needsRescan = true;
+  };
   const resetSequence = () => {
     // A watcher restart invalidates any snapshot that is still being read.
     // Keep revision monotonic so a token captured by the previous watcher

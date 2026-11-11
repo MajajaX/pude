@@ -6,7 +6,6 @@
   --bg: #07090c;
   --bg-raise: #0d1116;
   --panel: #0e1318;
-  --panel-raise: #131a21;
   --line: #1d2630;
   --line-soft: #141b23;
   --text: #e9eef3;
@@ -24,11 +23,9 @@
   --blue: #74b9ff;
   --lime: #a8e07a;
   --sans:
-    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
-    "PingFang TC", "Microsoft JhengHei", sans-serif;
-  --mono:
-    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo,
-    Consolas, monospace;
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei",
+    sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   --max: 1160px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
@@ -617,9 +614,7 @@ section {
 .hero-stage-tilt {
   position: relative;
   transform-origin: 50% 0%;
-  transform:
-    translate3d(0, calc((1 - var(--p, 1)) * 30px), 0)
-    rotateX(calc((1 - var(--p, 1)) * 26deg))
+  transform: translate3d(0, calc((1 - var(--p, 1)) * 30px), 0) rotateX(calc((1 - var(--p, 1)) * 26deg))
     scale(calc(0.88 + var(--p, 1) * 0.12));
   will-change: transform;
 }
@@ -681,7 +676,9 @@ section {
   border-radius: 0.5em;
   color: var(--faint);
   opacity: 0.3;
-  transition: opacity 0.4s ease, color 0.4s ease;
+  transition:
+    opacity 0.4s ease,
+    color 0.4s ease;
 }
 
 .film-crumb.on {
@@ -735,7 +732,9 @@ section {
 .film-sidetabs span {
   padding: 0.3em 0;
   border-bottom: 1px solid transparent;
-  transition: color 0.3s ease, border-color 0.3s ease;
+  transition:
+    color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .film-sidetabs .active {
@@ -749,7 +748,9 @@ section {
   padding-top: 0.4em;
   opacity: 0;
   transform: translateX(-8px);
-  transition: opacity 0.35s ease, transform 0.45s var(--ease);
+  transition:
+    opacity 0.35s ease,
+    transform 0.45s var(--ease);
 }
 
 .film-panel.active {
@@ -991,7 +992,10 @@ section {
   background: #c9f5e4;
   color: var(--accent-ink);
   font-weight: 600;
-  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.3s ease;
 }
 
 .film-button.pressed {
@@ -1088,7 +1092,9 @@ section {
   white-space: pre;
   opacity: 0;
   transform: translateX(-10px);
-  transition: opacity 0.35s ease, transform 0.45s var(--ease);
+  transition:
+    opacity 0.35s ease,
+    transform 0.45s var(--ease);
 }
 
 .film-diff.active .film-diff-row {
@@ -1225,7 +1231,9 @@ section {
 .film-out {
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 0.25s ease, transform 0.3s ease;
+  transition:
+    opacity 0.25s ease,
+    transform 0.3s ease;
 }
 
 .film-out.show {
@@ -1276,7 +1284,9 @@ section {
   color: var(--accent);
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 0.3s ease, transform 0.3s ease !important;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease !important;
 }
 
 .film-saved.on {
@@ -1298,7 +1308,9 @@ section {
 .film-md-toggle b {
   padding: 0 0.6em;
   font-weight: 500;
-  transition: background 0.3s ease, color 0.3s ease;
+  transition:
+    background 0.3s ease,
+    color 0.3s ease;
 }
 
 .film-md-toggle:not(.preview) b:first-child,
@@ -1319,10 +1331,14 @@ section {
   background: rgba(16, 22, 29, 0.82);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 1.5em 3em rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(64, 217, 166, 0.12);
+  box-shadow:
+    0 1.5em 3em rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(64, 217, 166, 0.12);
   opacity: 0;
   transform: translate(-50%, 1em) scale(0.96);
-  transition: opacity 0.25s ease, transform 0.35s var(--ease);
+  transition:
+    opacity 0.25s ease,
+    transform 0.35s var(--ease);
 }
 
 .film-keycap.on {
@@ -1355,7 +1371,9 @@ section {
   border: 1px solid var(--line);
   border-radius: 50%;
   color: var(--text);
-  transition: border-color 0.25s ease, background 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease;
 }
 
 .film-play:hover {
@@ -1719,8 +1737,7 @@ section {
   border-radius: 20px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 60%), var(--panel);
   overflow: hidden;
-  transform:
-    translate3d(calc((1 - var(--c)) * var(--dx, 0px)), calc((1 - var(--c)) * 90px), 0)
+  transform: translate3d(calc((1 - var(--c)) * var(--dx, 0px)), calc((1 - var(--c)) * 90px), 0)
     rotate(calc((1 - var(--c)) * var(--rot, 0deg)));
   opacity: calc(0.1 + var(--c) * 0.9);
   transition: border-color 0.35s ease;
@@ -1898,7 +1915,9 @@ section {
   height: 10px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 0 4px var(--accent-soft), 0 0 18px 4px var(--accent);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    0 0 18px 4px var(--accent);
   transform: translate(-50%, -50%);
   z-index: 1;
 }
@@ -2167,7 +2186,11 @@ section {
   display: block;
   width: calc(var(--cols) * var(--cell));
   height: calc(var(--rows) * var(--cell));
-  background-image: radial-gradient(circle, var(--dot) 0 calc(var(--cell) * 0.34), transparent calc(var(--cell) * 0.34 + 0.6px));
+  background-image: radial-gradient(
+    circle,
+    var(--dot) 0 calc(var(--cell) * 0.34),
+    transparent calc(var(--cell) * 0.34 + 0.6px)
+  );
   background-size: var(--cell) var(--cell);
 }
 
@@ -2791,7 +2814,9 @@ kbd {
   text-underline-offset: 4px;
 }
 
-.download-links a:hover { color: var(--text); }
+.download-links a:hover {
+  color: var(--text);
+}
 
 .cta .btn-primary,
 .cta .btn-ghost {
@@ -3308,7 +3333,7 @@ kbd {
   width: 60px;
   margin-top: var(--gutter-offset, 0.35em);
   text-align: right;
-  font: 12px/1.6 var(--mono);
+  font: 12px / 1.6 var(--mono);
   color: #3a4654;
   transition: color 0.2s ease;
 }
@@ -3481,7 +3506,7 @@ kbd {
 }
 
 .doc-code code {
-  font: 13.5px/1.7 var(--mono);
+  font: 13.5px / 1.7 var(--mono);
   color: #c9d3de;
   white-space: pre;
 }
@@ -3581,7 +3606,7 @@ kbd {
 .src-line {
   position: relative;
   min-height: 1.75em;
-  font: 13.5px/1.75 var(--mono);
+  font: 13.5px / 1.75 var(--mono);
   color: #c9d3de;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

@@ -26,3 +26,26 @@ test("a Markdown preview anchor scrolls to its heading without opening a new pag
   await expect(preview.locator("h2").first()).toBeInViewport();
   expect(page.context().pages()).toHaveLength(1);
 });
+
+test("a Markdown anchor with a stray percent sign does not throw", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  const readme = page.getByText("README.md").first();
+  await expect(async () => {
+    await page.getByRole("button", { name: "Open folder" }).first().click();
+    await expect(readme).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
+  await readme.click();
+
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type("[Half done](#50%)\n");
+  await page.getByRole("button", { name: "Show Markdown preview" }).click();
+
+  const url = page.url();
+  await page.getByRole("article", { name: "Markdown preview" }).getByRole("link", { name: "Half done" }).click();
+  await page.waitForTimeout(100); // A thrown handler error reaches pageerror asynchronously.
+  expect(errors).toEqual([]);
+  expect(page.url()).toBe(url);
+});

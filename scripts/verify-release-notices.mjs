@@ -8,7 +8,8 @@ const blockers = [];
 
 for (const relativePath of recordPaths) {
   const contents = await readFile(resolve(root, relativePath), "utf8");
-  const markerCandidates = contents.split(/\r?\n/)
+  const markerCandidates = contents
+    .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => /^<!--\s*release-readiness:/i.test(line));
   const approvedMarkers = markerCandidates.filter((line) => line === "<!-- release-readiness: approved -->");
@@ -16,7 +17,9 @@ for (const relativePath of recordPaths) {
   if (markerCandidates.length !== 1) {
     blockers.push(`${relativePath}: expected exactly one release-readiness marker, found ${markerCandidates.length}`);
   } else if (approvedMarkers.length !== 1) {
-    blockers.push(`${relativePath}: release-readiness marker must be exactly '<!-- release-readiness: approved -->' before formal release`);
+    blockers.push(
+      `${relativePath}: release-readiness marker must be exactly '<!-- release-readiness: approved -->' before formal release`,
+    );
   }
 }
 

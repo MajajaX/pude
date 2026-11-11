@@ -15,7 +15,9 @@ describe("plugin uninstall lifecycle", () => {
         calls.push("revoke-authorizations");
         return true;
       },
-      stopPluginRuntime: () => { calls.push("stop-runtime"); },
+      stopPluginRuntime: () => {
+        calls.push("stop-runtime");
+      },
       uninstallNative: async () => {
         calls.push("native-uninstall");
         return { removed: false, cleanupPending: false };
@@ -68,17 +70,21 @@ describe("plugin uninstall lifecycle", () => {
 
   it("keeps the plugin disabled if native uninstall rejects", async () => {
     let enabled = true;
-    const uninstallNative = vi.fn(async () => { throw new Error("remove failed"); });
+    const uninstallNative = vi.fn(async () => {
+      throw new Error("remove failed");
+    });
 
-    await expect(runPluginUninstallLifecycle({
-      disableAndPersistPlugin: () => {
-        enabled = false;
-        return true;
-      },
-      revokeAuthorizations: () => true,
-      stopPluginRuntime: () => undefined,
-      uninstallNative,
-    })).rejects.toThrow("remove failed");
+    await expect(
+      runPluginUninstallLifecycle({
+        disableAndPersistPlugin: () => {
+          enabled = false;
+          return true;
+        },
+        revokeAuthorizations: () => true,
+        stopPluginRuntime: () => undefined,
+        uninstallNative,
+      }),
+    ).rejects.toThrow("remove failed");
 
     expect(enabled).toBe(false);
     expect(uninstallNative).toHaveBeenCalledOnce();

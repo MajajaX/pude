@@ -51,20 +51,21 @@ const root: DirectoryEntry = {
 const dirtySession = (revision: number, savedRevision = revision - 1): SessionMetadata =>
   createSessionMetadata("/workspace", tab.id, [{ ...tab, revision, savedRevision, dirty: true }], root);
 
-const v2Recovery = (revision: number, savedRevision = revision - 1) => parseRecovery({
-  version: 2,
-  tabId: tab.id,
-  path: tab.path,
-  revision,
-  savedRevision,
-  content: `const value = ${revision};`,
-  savedContent: "",
-  savedContentUnavailable: true,
-  lineEnding: "lf",
-  savedLineEndings: "lc",
-  savedBom: false,
-  encoding: "UTF-8",
-})!;
+const v2Recovery = (revision: number, savedRevision = revision - 1) =>
+  parseRecovery({
+    version: 2,
+    tabId: tab.id,
+    path: tab.path,
+    revision,
+    savedRevision,
+    content: `const value = ${revision};`,
+    savedContent: "",
+    savedContentUnavailable: true,
+    lineEnding: "lf",
+    savedLineEndings: "lc",
+    savedBom: false,
+    encoding: "UTF-8",
+  })!;
 
 const baseline = parseRecoveryBaseline({
   version: 1,
@@ -79,12 +80,24 @@ const baseline = parseRecoveryBaseline({
 
 class MemoryStorage implements Storage {
   private values = new Map<string, string>();
-  get length() { return this.values.size; }
-  clear() { this.values.clear(); }
-  getItem(key: string) { return this.values.get(key) ?? null; }
-  key(index: number) { return [...this.values.keys()][index] ?? null; }
-  removeItem(key: string) { this.values.delete(key); }
-  setItem(key: string, value: string) { this.values.set(key, value); }
+  get length() {
+    return this.values.size;
+  }
+  clear() {
+    this.values.clear();
+  }
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  key(index: number) {
+    return [...this.values.keys()][index] ?? null;
+  }
+  removeItem(key: string) {
+    this.values.delete(key);
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
 }
 
 const storage = new MemoryStorage();
@@ -150,7 +163,9 @@ async function seedLegacyCheckpoint(scope: string) {
   };
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(["checkpoints", RECOVERY_STORE], "readwrite");
-    transaction.objectStore("checkpoints").put({ checkpoint: legacyCheckpoint, recoveryKeys: [key], bytes: 0, updatedAt: 100 }, scope);
+    transaction
+      .objectStore("checkpoints")
+      .put({ checkpoint: legacyCheckpoint, recoveryKeys: [key], bytes: 0, updatedAt: 100 }, scope);
     transaction.objectStore(RECOVERY_STORE).put({ value: legacyRecovery, bytes: 1024, updatedAt: 100 }, key);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
@@ -165,19 +180,25 @@ beforeEach(async () => {
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
-    value: { locks: { request: async <T>(name: string, _options: { mode: "exclusive" }, callback: () => T | Promise<T>) => {
-      const previous = fallbackLockTails.get(name) ?? Promise.resolve();
-      let release!: () => void;
-      const current = new Promise<void>((resolve) => { release = resolve; });
-      fallbackLockTails.set(name, current);
-      await previous;
-      try {
-        return await callback();
-      } finally {
-        release();
-        if (fallbackLockTails.get(name) === current) fallbackLockTails.delete(name);
-      }
-    } } },
+    value: {
+      locks: {
+        request: async <T>(name: string, _options: { mode: "exclusive" }, callback: () => T | Promise<T>) => {
+          const previous = fallbackLockTails.get(name) ?? Promise.resolve();
+          let release!: () => void;
+          const current = new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          fallbackLockTails.set(name, current);
+          await previous;
+          try {
+            return await callback();
+          } finally {
+            release();
+            if (fallbackLockTails.get(name) === current) fallbackLockTails.delete(name);
+          }
+        },
+      },
+    },
   });
 });
 
@@ -198,7 +219,15 @@ describe("session schema migration", () => {
       session,
       recoveryRevisions: { [key]: 3 },
       recoveries: {
-        [key]: { version: 1, tabId: tab.id, path: tab.path, revision: 3, content: "const value = 3;", savedContent: "const value = 0;", lineEnding: "lf" },
+        [key]: {
+          version: 1,
+          tabId: tab.id,
+          path: tab.path,
+          revision: 3,
+          content: "const value = 3;",
+          savedContent: "const value = 0;",
+          lineEnding: "lf",
+        },
       },
     });
     const checkpoint = parseSessionCheckpoint(raw);
@@ -208,9 +237,26 @@ describe("session schema migration", () => {
   });
 
   it("reads legacy v1 recovery snapshots in both inline and unavailable forms", () => {
-    const inline = parseRecovery({ version: 1, tabId: tab.id, path: tab.path, revision: 3, content: "a", savedContent: "b", lineEnding: "lf" });
+    const inline = parseRecovery({
+      version: 1,
+      tabId: tab.id,
+      path: tab.path,
+      revision: 3,
+      content: "a",
+      savedContent: "b",
+      lineEnding: "lf",
+    });
     expect(inline).toMatchObject({ version: 1, savedContent: "b" });
-    const unavailable = parseRecovery({ version: 1, tabId: tab.id, path: tab.path, revision: 3, content: "a", savedContent: "", savedContentUnavailable: true, lineEnding: "lf" });
+    const unavailable = parseRecovery({
+      version: 1,
+      tabId: tab.id,
+      path: tab.path,
+      revision: 3,
+      content: "a",
+      savedContent: "",
+      savedContentUnavailable: true,
+      lineEnding: "lf",
+    });
     expect(unavailable).toMatchObject({ savedContent: "", savedContentUnavailable: true });
   });
 
@@ -229,7 +275,13 @@ describe("session schema migration", () => {
     const resolved = resolveRecoveryBaseline(snapshot, baseline);
     expect(resolved).toMatchObject({ savedContent: "const value = 0;" });
     expect(resolved?.savedContentUnavailable).toBeUndefined();
-    const stale = parseRecoveryBaseline({ version: 1, tabId: tab.id, path: tab.path, savedRevision: 1, savedContent: "old" })!;
+    const stale = parseRecoveryBaseline({
+      version: 1,
+      tabId: tab.id,
+      path: tab.path,
+      savedRevision: 1,
+      savedContent: "old",
+    })!;
     expect(resolveRecoveryBaseline(snapshot, stale)).toMatchObject({ savedContentUnavailable: true });
     expect(resolveRecoveryBaseline(snapshot, null)).toMatchObject({ savedContentUnavailable: true });
   });
@@ -245,8 +297,20 @@ describe("session schema migration", () => {
       committedAt: 100,
       session,
       recoveryRevisions: { [key]: 3 },
-      recoveries: { [key]: { version: 2, tabId: tab.id, path: tab.path, revision: 3, savedRevision: 2, content: "const value = 3;", lineEnding: "lf" } },
-      baselines: { [key]: { version: 1, tabId: tab.id, path: tab.path, savedRevision: 2, savedContent: "const value = 0;" } },
+      recoveries: {
+        [key]: {
+          version: 2,
+          tabId: tab.id,
+          path: tab.path,
+          revision: 3,
+          savedRevision: 2,
+          content: "const value = 3;",
+          lineEnding: "lf",
+        },
+      },
+      baselines: {
+        [key]: { version: 1, tabId: tab.id, path: tab.path, savedRevision: 2, savedContent: "const value = 0;" },
+      },
     });
     const checkpoint = parseSessionCheckpoint(raw);
     expect(checkpoint?.recoveries[key]).toMatchObject({ savedContent: "const value = 0;" });
@@ -258,7 +322,15 @@ describe("session schema migration", () => {
     const stored = recoverySnapshotStorageValue(resolved);
     expect("savedContent" in stored).toBe(false);
     expect(stored).toMatchObject({ version: 2, savedRevision: 2 });
-    const legacy = parseRecovery({ version: 1, tabId: tab.id, path: tab.path, revision: 3, content: "a", savedContent: "b", lineEnding: "lf" })!;
+    const legacy = parseRecovery({
+      version: 1,
+      tabId: tab.id,
+      path: tab.path,
+      revision: 3,
+      content: "a",
+      savedContent: "b",
+      lineEnding: "lf",
+    })!;
     expect(recoverySnapshotStorageValue(legacy)).toBe(legacy);
   });
 });
@@ -279,10 +351,12 @@ describe("saved baseline durability", () => {
 
     // The stored snapshot is the compact v2 form; the baseline lives in its
     // own record.
-    const storedRecord = await readRawStore(key) as { value: Record<string, unknown> };
+    const storedRecord = (await readRawStore(key)) as { value: Record<string, unknown> };
     expect(storedRecord.value.version).toBe(2);
     expect("savedContent" in storedRecord.value).toBe(false);
-    const baselineRecord = await readRawStore(recoveryBaselineKey(tab.id, scope)) as { value: Record<string, unknown> };
+    const baselineRecord = (await readRawStore(recoveryBaselineKey(tab.id, scope))) as {
+      value: Record<string, unknown>;
+    };
     expect(baselineRecord.value.savedContent).toBe("const value = 0;");
 
     // Reading resolves the baseline reference back into the snapshot.
@@ -292,7 +366,12 @@ describe("saved baseline durability", () => {
 
     // A later revision with an unchanged savedRevision does not resend the
     // baseline, and the stored one is still used.
-    const second = await commitSessionCheckpoint({ scope, session: dirtySession(4, 2), recoveries: [v2Recovery(4, 2)], now: 200 });
+    const second = await commitSessionCheckpoint({
+      scope,
+      session: dirtySession(4, 2),
+      recoveries: [v2Recovery(4, 2)],
+      now: 200,
+    });
     expect(second).toMatchObject({ ok: true, complete: true });
     const restoredAgain = await readLatestSessionCheckpoint(scope);
     expect(restoredAgain?.recoveries[key]).toMatchObject({ revision: 4, savedContent: "const value = 0;" });
@@ -328,8 +407,18 @@ describe("saved baseline durability", () => {
       baselines: [baseline],
       now: 100,
     });
-    const cleanSession = createSessionMetadata("/workspace", tab.id, [{ ...tab, revision: 4, savedRevision: 4, dirty: false }], root);
-    const clean = await commitSessionCheckpoint({ scope, session: cleanSession, recoveryKeysToRemove: [recoveryStorageKey(tab.id, scope)], now: 200 });
+    const cleanSession = createSessionMetadata(
+      "/workspace",
+      tab.id,
+      [{ ...tab, revision: 4, savedRevision: 4, dirty: false }],
+      root,
+    );
+    const clean = await commitSessionCheckpoint({
+      scope,
+      session: cleanSession,
+      recoveryKeysToRemove: [recoveryStorageKey(tab.id, scope)],
+      now: 200,
+    });
     expect(clean).toMatchObject({ ok: true, complete: true });
     expect(await readRawStore(recoveryStorageKey(tab.id, scope))).toBeUndefined();
     expect(await readRawStore(recoveryBaselineKey(tab.id, scope))).toBeUndefined();

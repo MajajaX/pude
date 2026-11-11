@@ -1,14 +1,17 @@
 import { createSignal, onMount } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
-import packageInfo from "../../package.json";
-import { getAssetDownloadUrl, getReleaseUrlForVersion, getReleaseStage, INSTALLERS, REPOSITORY_URL, type InstallerPlatform } from "../release-info";
+import { version } from "../../package.json";
+import {
+  getAssetDownloadUrl,
+  getSiteRelease,
+  INSTALLERS,
+  REPOSITORY_URL,
+  type InstallerPlatform,
+} from "../release-info";
 import { detectDownloadRecommendation, recommendInstaller, NO_RECOMMENDATION } from "../lib/download-platform";
 import BrandMark from "./BrandMark";
 
-const releaseUrl = getReleaseUrlForVersion(import.meta.env.VITE_RELEASE_URL, packageInfo.version);
-const releaseStage = getReleaseStage(packageInfo.version, releaseUrl);
+const { releaseUrl, stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, version);
 const releaseAvailable = releaseStage === "published";
 
 export default function Footer() {
@@ -45,9 +48,15 @@ export default function Footer() {
           <h2 class="section-title">{t().cta.title}</h2>
           <p class="section-sub">{t().cta.sub}</p>
           <div class="download-selector" role="group" aria-label={t().cta.selectInstaller}>
-            <button type="button" aria-pressed={selection() === "auto"} onClick={() => setSelection("auto")}>{t().cta.auto}</button>
-            <button type="button" aria-pressed={selection() === "windows"} onClick={() => setSelection("windows")}>Windows x64</button>
-            <button type="button" aria-pressed={selection() === "macos"} onClick={() => setSelection("macos")}>macOS Apple Silicon</button>
+            <button type="button" aria-pressed={selection() === "auto"} onClick={() => setSelection("auto")}>
+              {t().cta.auto}
+            </button>
+            <button type="button" aria-pressed={selection() === "windows"} onClick={() => setSelection("windows")}>
+              Windows x64
+            </button>
+            <button type="button" aria-pressed={selection() === "macos"} onClick={() => setSelection("macos")}>
+              macOS Apple Silicon
+            </button>
           </div>
           <p class="download-recommendation" aria-live="polite">
             {recommendationText()}
@@ -75,7 +84,7 @@ export default function Footer() {
             </a>
           </div>
           <p class="cta-note cta-version">
-            {t().cta.versionLabel} {packageInfo.version} · {t().cta.stages[releaseStage]}
+            {t().cta.versionLabel} {version} · {t().cta.stages[releaseStage]}
           </p>
           <p class="cta-note" id={!releaseAvailable ? "download-availability" : undefined}>
             {t().cta.note}
@@ -87,7 +96,9 @@ export default function Footer() {
                 <a href={getAssetDownloadUrl(releaseUrl, INSTALLERS.windows)}>{t().cta.buttons.windows}</a>
                 <a href={getAssetDownloadUrl(releaseUrl, INSTALLERS.macos)}>{t().cta.buttons.macos}</a>
               </div>
-              <p class="cta-note"><a href={releaseUrl}>{t().cta.allReleases}</a></p>
+              <p class="cta-note">
+                <a href={releaseUrl}>{t().cta.allReleases}</a>
+              </p>
             </>
           )}
         </div>

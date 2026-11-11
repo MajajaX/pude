@@ -49,10 +49,22 @@ function trimEmptyTrailingLanes(lanes: Array<ActiveLane | undefined>): void {
 export function buildGitGraph(commits: GitCommit[]): GitGraph {
   const commitIndexes = new Map(commits.map((commit, index) => [commit.hash, index]));
   const rows: GitGraphRow[] = [];
-  let lanes: Array<ActiveLane | undefined> = [];
+  const lanes: Array<ActiveLane | undefined> = [];
   let nextColor = 0;
   let nextPriority = 0;
   let laneCount = 0;
+  // A lane crossing a row looks the same on every row it crosses. Sharing that
+  // one segment keeps long histories from allocating millions of equal objects.
+  const crossingSegments = new Map<number, GitGraphSegment>();
+  const crossingSegment = (lane: number, color: number): GitGraphSegment => {
+    const key = lane * GIT_GRAPH_PALETTE_SIZE + color;
+    let segment = crossingSegments.get(key);
+    if (!segment) {
+      segment = { fromLane: lane, toLane: lane, fromY: 0, toY: 1, color };
+      crossingSegments.set(key, segment);
+    }
+    return segment;
+  };
 
   const noteLane = (lane: number) => {
     laneCount = Math.max(laneCount, lane + 1);
@@ -72,15 +84,15 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
     const incomingLanes = lanes
       .map((lane, index) => (lane?.target === commit.hash ? index : -1))
       .filter((index) => index >= 0);
-    const lane = incomingLanes.length > 0
-      ? incomingLanes.reduce((preferred, candidate) =>
-          lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred)
-      : firstFreeLane(lanes);
+    const lane =
+      incomingLanes.length > 0
+        ? incomingLanes.reduce((preferred, candidate) =>
+            lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred,
+          )
+        : firstFreeLane(lanes);
     noteLane(lane);
 
-    const color = incomingLanes.length > 0
-      ? lanes[lane]!.color
-      : nextColor++ % GIT_GRAPH_PALETTE_SIZE;
+    const color = incomingLanes.length > 0 ? lanes[lane]!.color : nextColor++ % GIT_GRAPH_PALETTE_SIZE;
     const priority = incomingLanes.length > 0 ? lanes[lane]!.priority : nextPriority++;
     const segments: GitGraphSegment[] = [];
 
@@ -97,35 +109,25 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
           color: active.color,
         });
       } else {
-        segments.push({
-          fromLane: activeLane,
-          toLane: activeLane,
-          fromY: 0,
-          toY: 1,
-          color: active.color,
-        });
+        segments.push(crossingSegment(activeLane, active.color));
       }
     }
 
-    const after = [...lanes];
-    for (const incomingLane of incomingLanes) after[incomingLane] = undefined;
+    for (const incomingLane of incomingLanes) lanes[incomingLane] = undefined;
 
-    const routedParents = new Set<string>();
     for (const parent of laterParents) {
-      if (routedParents.has(parent)) continue;
-      routedParents.add(parent);
       const isFirstParent = parents[0] === parent;
-      const existingLanes = after
-        .map((activeLane, index) => (activeLane?.target === parent ? index : -1))
-        .filter((index) => index >= 0);
+      const existingLanes = isFirstParent
+        ? []
+        : lanes.map((activeLane, index) => (activeLane?.target === parent ? index : -1)).filter((index) => index >= 0);
 
       if (isFirstParent) {
         // Keep the first-parent color attached to this path until it reaches
         // its parent, even when another child already has that parent queued.
         let parentLane = lane;
-        if (after[parentLane] !== undefined) parentLane = firstFreeLane(after);
+        if (lanes[parentLane] !== undefined) parentLane = firstFreeLane(lanes);
         noteLane(parentLane);
-        after[parentLane] = { target: parent, color, priority };
+        lanes[parentLane] = { target: parent, color, priority };
         segments.push({
           fromLane: lane,
           toLane: parentLane,
@@ -135,20 +137,21 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
         });
       } else if (existingLanes.length > 0) {
         const parentLane = existingLanes.reduce((preferred, candidate) =>
-          after[candidate]!.priority < after[preferred]!.priority ? candidate : preferred);
+          lanes[candidate]!.priority < lanes[preferred]!.priority ? candidate : preferred,
+        );
         segments.push({
           fromLane: lane,
           toLane: parentLane,
           fromY: 0.5,
           toY: 1,
-          color: after[parentLane]!.color,
+          color: lanes[parentLane]!.color,
         });
       } else {
         const hiddenFirstParent = parents[0] !== undefined && !visibleParents.has(parents[0]);
-        const parentLane = firstFreeLane(after, hiddenFirstParent ? lane : undefined);
+        const parentLane = firstFreeLane(lanes, hiddenFirstParent ? lane : undefined);
         noteLane(parentLane);
         const parentColor = nextColor++ % GIT_GRAPH_PALETTE_SIZE;
-        after[parentLane] = { target: parent, color: parentColor, priority: nextPriority++ };
+        lanes[parentLane] = { target: parent, color: parentColor, priority: nextPriority++ };
         segments.push({
           fromLane: lane,
           toLane: parentLane,
@@ -159,29 +162,59 @@ export function buildGitGraph(commits: GitCommit[]): GitGraph {
       }
     }
 
-    if (hasHiddenParents) {
-      const firstParentIsHidden = commit.parents === undefined
-        || (parents.length > 0 && !visibleParents.has(parents[0]));
-      const firstParentIsVisible = parents[0] !== undefined && visibleParents.has(parents[0]);
-      // A hidden first parent gets a visible dashed stub. If a visible first
-      // parent already uses the same path, hasHiddenParents carries the hidden
-      // ancestry signal without obscuring that solid first-parent connection.
-      if (firstParentIsHidden || !firstParentIsVisible) {
-        segments.push({
-          fromLane: lane,
-          toLane: lane,
-          fromY: 0.5,
-          toY: 1,
-          color,
-          dashed: true,
-        });
-      }
+    // A hidden first parent gets a visible dashed stub. If a visible first
+    // parent already uses the same path, hasHiddenParents carries the hidden
+    // ancestry signal without obscuring that solid first-parent connection.
+    if (hasHiddenParents && !visibleParents.has(parents[0])) {
+      segments.push({
+        fromLane: lane,
+        toLane: lane,
+        fromY: 0.5,
+        toY: 1,
+        color,
+        dashed: true,
+      });
     }
 
-    trimEmptyTrailingLanes(after);
-    lanes = after;
+    trimEmptyTrailingLanes(lanes);
     rows.push({ commit, lane, color, segments, hasHiddenParents });
   }
 
   return { rows, laneCount };
+}
+
+/**
+ * Moves a commit that was listed before one of its children to just after its
+ * last child, leaving every other commit in place. History pages list a quiet
+ * ref's tip ahead of the walk that later reaches its children.
+ */
+export function orderCommitsAfterChildren(commits: readonly GitCommit[]): GitCommit[] {
+  const commitByHash = new Map(commits.map((commit) => [commit.hash, commit]));
+  const unlistedChildren = new Map<string, number>();
+  for (const commit of commits) {
+    for (const parent of new Set(commit.parents ?? [])) {
+      if (commitByHash.has(parent)) unlistedChildren.set(parent, (unlistedChildren.get(parent) ?? 0) + 1);
+    }
+  }
+
+  const ordered: GitCommit[] = [];
+  const waiting = new Set<string>();
+  const list = (first: GitCommit) => {
+    const pending = [first];
+    while (pending.length) {
+      const commit = pending.pop()!;
+      ordered.push(commit);
+      for (const parent of new Set(commit.parents ?? [])) {
+        const remaining = unlistedChildren.get(parent);
+        if (remaining === undefined) continue;
+        unlistedChildren.set(parent, remaining - 1);
+        if (remaining === 1 && waiting.delete(parent)) pending.push(commitByHash.get(parent)!);
+      }
+    }
+  };
+  for (const commit of commits) {
+    if (unlistedChildren.get(commit.hash)) waiting.add(commit.hash);
+    else list(commit);
+  }
+  return ordered;
 }

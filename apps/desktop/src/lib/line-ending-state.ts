@@ -1,5 +1,13 @@
 import { historyField, invertedEffects } from "@codemirror/commands";
-import { StateEffect, StateField, Transaction, type ChangeSet, type EditorState, type Extension, type Text } from "@codemirror/state";
+import {
+  StateEffect,
+  StateField,
+  Transaction,
+  type ChangeSet,
+  type EditorState,
+  type Extension,
+  type Text,
+} from "@codemirror/state";
 export { lineEndingMapStorageBytes } from "./editor-cache-budget";
 
 type Marker = "l" | "c";
@@ -130,10 +138,6 @@ export function lineEndingMapFromString(value: string): LineEndingMap {
   return join(chunks);
 }
 
-export function lineEndingMapLength(map: LineEndingMap): number {
-  return map.length;
-}
-
 export function lineEndingMapToString(map: LineEndingMap): string {
   if (map.kind === "leaf") return map.value;
   const parts: string[] = [];
@@ -189,7 +193,7 @@ function compareMarkerSegments(
     const leftRemaining = leftSegment.value.length - leftOffset;
     const rightRemaining = rightSegment.value.length - rightOffset;
     if (leftSegment.leaf && leftSegment.leaf === rightSegment.leaf && leftOffset === rightOffset) {
-      metrics && (metrics.sharedLeafMarkersSkipped += leftRemaining);
+      if (metrics) metrics.sharedLeafMarkersSkipped += leftRemaining;
       leftSegment = leftIterator.next().value as MarkerSegment | undefined;
       rightSegment = rightIterator.next().value as MarkerSegment | undefined;
       leftOffset = 0;
@@ -199,7 +203,8 @@ function compareMarkerSegments(
 
     const span = Math.min(leftRemaining, rightRemaining);
     for (let index = 0; index < span; index += 1) {
-      const equal = leftSegment.value.charCodeAt(leftOffset + index) === rightSegment.value.charCodeAt(rightOffset + index);
+      const equal =
+        leftSegment.value.charCodeAt(leftOffset + index) === rightSegment.value.charCodeAt(rightOffset + index);
       if (metrics) metrics.comparedMarkers += 1;
       if (!equal) return false;
     }
@@ -264,7 +269,9 @@ function separatorsBefore(doc: { lineAt: (pos: number) => { number: number } }, 
 }
 
 function mapRoot(effect: unknown): LineEndingMap | undefined {
-  const candidate = effect as { is?: (type: typeof restoreLineEndingMapEffect) => boolean; value?: LineEndingMap } | undefined;
+  const candidate = effect as
+    | { is?: (type: typeof restoreLineEndingMapEffect) => boolean; value?: LineEndingMap }
+    | undefined;
   return candidate?.is?.(restoreLineEndingMapEffect) ? candidate.value : undefined;
 }
 
@@ -295,7 +302,10 @@ export function reconcileLineEndingMapChanges(
   });
   let touchesMap = false;
   for (const piece of pieces) {
-    if (separatorsBefore(previousDoc, piece.toA) !== separatorsBefore(previousDoc, piece.fromA) || piece.inserted.lines > 1) {
+    if (
+      separatorsBefore(previousDoc, piece.toA) !== separatorsBefore(previousDoc, piece.fromA) ||
+      piece.inserted.lines > 1
+    ) {
       touchesMap = true;
       break;
     }
@@ -336,8 +346,12 @@ export function lineEndingMapsEqual(
 ): boolean {
   if (left === right) return true;
   if (typeof left === "string" && typeof right === "string") return left === right;
-  if (typeof left !== "string" && typeof right !== "string"
-    && (left.length !== right.length || left.lf !== right.lf || left.crlf !== right.crlf)) return false;
+  if (
+    typeof left !== "string" &&
+    typeof right !== "string" &&
+    (left.length !== right.length || left.lf !== right.lf || left.crlf !== right.crlf)
+  )
+    return false;
   return left.length === right.length && compareMarkerSegments(left, right, metrics);
 }
 
@@ -350,9 +364,11 @@ export function computeDocumentDirty(options: {
   bom: boolean;
   savedBom: boolean;
 }): boolean {
-  return !options.text.eq(options.savedText)
-    || !lineEndingMapsEqual(options.lineEndings, options.savedLineEndings)
-    || options.bom !== options.savedBom;
+  return (
+    !options.text.eq(options.savedText) ||
+    !lineEndingMapsEqual(options.lineEndings, options.savedLineEndings) ||
+    options.bom !== options.savedBom
+  );
 }
 
 function updatePortableHistory(
@@ -405,7 +421,11 @@ function updatePortableHistory(
     };
   }
   if (afterDone === beforeDone && beforeDone > 0 && previous.done.length > 0) {
-    if (mapAfter === mapBefore && previous.done[previous.done.length - 1].after === mapAfter && previous.undone.length === 0) {
+    if (
+      mapAfter === mapBefore &&
+      previous.done[previous.done.length - 1].after === mapAfter &&
+      previous.undone.length === 0
+    ) {
       return previous;
     }
     const done = [...previous.done];
@@ -423,10 +443,6 @@ function updatePortableHistory(
     };
   }
   return previous;
-}
-
-export function markerForLineEndingCount(preferred: "lf" | "crlf"): string {
-  return preferred === "crlf" ? "c" : "l";
 }
 
 export function createLineEndingMapExtension(

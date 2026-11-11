@@ -18,22 +18,33 @@ export type CommandPaletteItem = {
   commandId?: string;
   /** Keyboard shortcut with `Mod` for Cmd on macOS and Ctrl elsewhere. */
   shortcut?: string;
+  /** A different shortcut on macOS, when the platforms do not share one. */
+  macShortcut?: string;
 };
 
 export const LSP_RUNTIME_EVENTS = ["lsp.message", "lsp.state", "lsp.stderr"] as const;
 
 export function isPluginLspEventForRun(
-  run: { pluginId: string; pluginVersion: string; apiVersion: string; workspaceRoot: string; workspaceGeneration: number; disposed: boolean },
+  run: {
+    pluginId: string;
+    pluginVersion: string;
+    apiVersion: string;
+    workspaceRoot: string;
+    workspaceGeneration: number;
+    disposed: boolean;
+  },
   event: LspEvent,
   workspace: { workspaceRoot: string; canonicalWorkspaceRoot: string; generation: number },
 ): boolean {
-  return !run.disposed
-    && run.apiVersion === "2"
-    && run.pluginId === event.pluginId
-    && run.pluginVersion === event.pluginVersion
-    && run.workspaceGeneration === workspace.generation
-    && run.workspaceRoot === workspace.workspaceRoot
-    && event.workspaceRoot === workspace.canonicalWorkspaceRoot;
+  return (
+    !run.disposed &&
+    run.apiVersion === "2" &&
+    run.pluginId === event.pluginId &&
+    run.pluginVersion === event.pluginVersion &&
+    run.workspaceGeneration === workspace.generation &&
+    run.workspaceRoot === workspace.workspaceRoot &&
+    event.workspaceRoot === workspace.canonicalWorkspaceRoot
+  );
 }
 
 export { BUILTIN_COMMANDS } from "./builtin-commands";
@@ -61,9 +72,11 @@ export function isPluginEventSubscriptionAllowed(
   eventName: string,
 ): boolean {
   if (LSP_RUNTIME_EVENTS.some((event) => event === eventName)) {
-    return plugin.apiVersion === "2"
-      && plugin.permissions.includes("process.spawn:lsp")
-      && (plugin.lspServers?.length ?? 0) > 0;
+    return (
+      plugin.apiVersion === "2" &&
+      plugin.permissions.includes("process.spawn:lsp") &&
+      (plugin.lspServers?.length ?? 0) > 0
+    );
   }
   return plugin.activationEvents.includes(eventName) && parsePluginActivationEvent(eventName) !== null;
 }
@@ -72,10 +85,13 @@ export function parsePluginEventSubscriptions(
   plugin: Pick<InstalledPlugin, "apiVersion" | "activationEvents" | "permissions" | "lspServers">,
   value: unknown,
 ): string[] | null {
-  if (!Array.isArray(value)
-      || !value.every((event): event is string => typeof event === "string")
-      || new Set(value).size !== value.length
-      || !value.every((event) => isPluginEventSubscriptionAllowed(plugin, event))) return null;
+  if (
+    !Array.isArray(value) ||
+    !value.every((event): event is string => typeof event === "string") ||
+    new Set(value).size !== value.length ||
+    !value.every((event) => isPluginEventSubscriptionAllowed(plugin, event))
+  )
+    return null;
   return [...value];
 }
 
@@ -97,7 +113,10 @@ export function queueCommandForStartingRun(
   return true;
 }
 
-export function pluginActivationMatches(plugin: Pick<InstalledPlugin, "enabled" | "activationEvents">, eventName: string): boolean {
+export function pluginActivationMatches(
+  plugin: Pick<InstalledPlugin, "enabled" | "activationEvents">,
+  eventName: string,
+): boolean {
   if (!plugin.enabled) return false;
   const emitted = parsePluginActivationEvent(eventName);
   if (!emitted) return false;
@@ -124,7 +143,10 @@ function commandContributions(plugin: InstalledPlugin): PluginCommandContributio
   return [...byId.values()];
 }
 
-export function collectCommandPaletteItems(plugins: readonly InstalledPlugin[], builtins = BUILTIN_COMMANDS): CommandPaletteItem[] {
+export function collectCommandPaletteItems(
+  plugins: readonly InstalledPlugin[],
+  builtins = BUILTIN_COMMANDS,
+): CommandPaletteItem[] {
   const pluginCommands = plugins.flatMap((plugin) => {
     if (!plugin.enabled) return [];
     return commandContributions(plugin).map((contribution) => ({

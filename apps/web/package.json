@@ -1,6 +1,6 @@
 {
   "name": "@pude/web",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "author": "MajajaX",
   "license": "MIT",
@@ -21,18 +21,18 @@
   "description": "pude official website — pure code editor",
   "scripts": {
     "dev": "vite",
-    "test": "node --test scripts/download-platform.test.mjs",
+    "test": "node --test scripts/download-platform.test.mjs scripts/release-info.test.mjs",
     "build": "vite build && node scripts/verify-prerender.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
-    "solid-js": "1.9.17"
+    "solid-js": "1.9.19"
   },
   "devDependencies": {
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "typescript": "7.0.2",
-    "vite": "8.3.5",
-    "vite-plugin-solid": "2.11.14"
+    "vite": "8.3.8",
+    "vite-plugin-solid": "2.11.16"
   }
 }

@@ -2,13 +2,12 @@ import { readFile, stat } from "node:fs/promises";
 import { dirname, join, relative, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Raised from 180,000 / 225,000 for workspaces, project replace, the Git stash
-// tab, the Dock/Jump List recents and interface translations; language files
-// load on demand and do not count. The static budget was raised again from
-// 245,000 for the editing aids, Explorer menu additions and .env table glue.
-// Keep new startup code minimal.
-export const ENTRY_BUDGET_BYTES = 186_000;
-export const STATIC_BUDGET_BYTES = 250_000;
+// Each budget sits about 2% above the startup bundle measured when it was last set
+// (165,129 and 252,723 bytes on 2026-11-11). Language files and code loaded on demand
+// do not count. Raising a budget needs a pull request note on what was added to
+// startup and why it cannot load on demand.
+export const ENTRY_BUDGET_BYTES = 168_500;
+export const STATIC_BUDGET_BYTES = 257_800;
 
 export async function measureStartupBundle(distDir) {
   const manifest = JSON.parse(await readFile(join(distDir, ".vite", "manifest.json"), "utf8"));
@@ -41,7 +40,8 @@ export async function measureStartupBundle(distDir) {
 export function budgetFailures(result) {
   const failures = [];
   if (result.entryBytes > ENTRY_BUDGET_BYTES) failures.push(`Entry ${result.entryBytes} > ${ENTRY_BUDGET_BYTES} bytes`);
-  if (result.staticBytes > STATIC_BUDGET_BYTES) failures.push(`Static imports ${result.staticBytes} > ${STATIC_BUDGET_BYTES} bytes`);
+  if (result.staticBytes > STATIC_BUDGET_BYTES)
+    failures.push(`Static imports ${result.staticBytes} > ${STATIC_BUDGET_BYTES} bytes`);
   return failures;
 }
 
@@ -50,7 +50,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const defaultDist = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/desktop/dist");
     const result = await measureStartupBundle(process.argv[2] ?? defaultDist);
     const failures = budgetFailures(result);
-    console.log(JSON.stringify({ ...result, budgets: { entryBytes: ENTRY_BUDGET_BYTES, staticBytes: STATIC_BUDGET_BYTES }, failures }, null, 2));
+    console.log(
+      JSON.stringify(
+        { ...result, budgets: { entryBytes: ENTRY_BUDGET_BYTES, staticBytes: STATIC_BUDGET_BYTES }, failures },
+        null,
+        2,
+      ),
+    );
     if (failures.length) process.exitCode = 1;
   } catch (error) {
     console.error(error.message);

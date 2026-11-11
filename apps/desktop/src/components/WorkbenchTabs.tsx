@@ -52,7 +52,7 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
     if (focusedIndex >= 0) return focusedIndex;
     const selectedKey = selectedTabKey();
     const selectedIndex = selectedKey ? keys.indexOf(selectedKey) : -1;
-    return selectedIndex >= 0 ? selectedIndex : 0;
+    return Math.max(selectedIndex, 0);
   };
 
   const rememberFocusedTab = (event: FocusEvent) => {
@@ -136,7 +136,9 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
 
   return (
     <div
-      ref={(element) => { tablistElement = element; }}
+      ref={(element) => {
+        tablistElement = element;
+      }}
       class="tabbar-tabs"
       role="tablist"
       aria-label={t("Open tabs")}
@@ -144,68 +146,76 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
       tabIndex={-1}
       onFocusIn={rememberFocusedTab}
     >
-      <For each={props.tabs}>{(tab) => {
-        const key: TabKey = `file:${tab.id}`;
-        const selected = () => props.activeTabId === tab.id && !props.historySelected;
-        const index = () => tabKeys().indexOf(key);
-        let tabButton: HTMLButtonElement | undefined;
+      <For each={props.tabs}>
+        {(tab) => {
+          const key: TabKey = `file:${tab.id}`;
+          const selected = () => props.activeTabId === tab.id && !props.historySelected;
+          const index = () => tabKeys().indexOf(key);
+          let tabButton: HTMLButtonElement | undefined;
 
-        return (
-          <div
-            classList={{ tab: true, "tab-active": selected(), "tab-pinned": tab.pinned === true }}
-            role="presentation"
-            data-tab-key={key}
-            draggable="true"
-            onDragStart={() => props.onDragStart?.(tab.id)}
-            onDragEnd={() => props.onDragEnd?.()}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => props.onDrop?.(tab.id)}
-            onMouseDown={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-                closeTab(tab.id);
-              }
-            }}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              if (tabButton) props.onContextMenu?.(tab.id, event, tabButton);
-            }}
-          >
-            <button
-              ref={(element) => { tabButton = element; }}
-              class="tab-main"
-              type="button"
-              role="tab"
-              id={workbenchTabId(tab.id)}
+          return (
+            <div
+              classList={{ tab: true, "tab-active": selected(), "tab-pinned": tab.pinned === true }}
+              role="presentation"
               data-tab-key={key}
-              data-file-tab-id={tab.id}
-              aria-selected={selected()}
-              aria-controls={WORKBENCH_EDITOR_PANEL_ID}
-              tabIndex={tabRovingIndex(index(), rovingTabIndex())}
-              onKeyDown={handleTabKeyDown}
-              onClick={() => props.onSelectTab(tab.id)}
+              draggable="true"
+              onDragStart={() => props.onDragStart?.(tab.id)}
+              onDragEnd={() => props.onDragEnd?.()}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => props.onDrop?.(tab.id)}
+              onMouseDown={(event) => {
+                if (event.button === 1) {
+                  event.preventDefault();
+                  closeTab(tab.id);
+                }
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                if (tabButton) props.onContextMenu?.(tab.id, event, tabButton);
+              }}
             >
-              <span class="tab-file-icon">
-                <Show when={languageIconForPath(tab.path)} fallback={<Icon name="file-code" size={14} />}>
-                  {(language) => <LanguageIcon name={language()} size={14} />}
+              <button
+                ref={(element) => {
+                  tabButton = element;
+                }}
+                class="tab-main"
+                type="button"
+                role="tab"
+                id={workbenchTabId(tab.id)}
+                data-tab-key={key}
+                data-file-tab-id={tab.id}
+                aria-selected={selected()}
+                aria-controls={WORKBENCH_EDITOR_PANEL_ID}
+                tabIndex={tabRovingIndex(index(), rovingTabIndex())}
+                onKeyDown={handleTabKeyDown}
+                onClick={() => props.onSelectTab(tab.id)}
+              >
+                <span class="tab-file-icon">
+                  <Show when={languageIconForPath(tab.path)} fallback={<Icon name="file-code" size={14} />}>
+                    {(language) => <LanguageIcon name={language()} size={14} />}
+                  </Show>
+                </span>
+                <span>{tab.name}</span>
+                <Show when={tab.pinned}>
+                  <Icon name="lock" size={11} />
                 </Show>
-              </span>
-              <span>{tab.name}</span>
-              <Show when={tab.pinned}><Icon name="lock" size={11} /></Show>
-              <Show when={tab.dirty}><span class="dirty-dot" /></Show>
-            </button>
-            <button
-              class="tab-close"
-              type="button"
-              tabIndex={selected() ? 0 : -1}
-              onClick={() => closeTab(tab.id)}
-              aria-label={t("Close {name}", { name: tab.name })}
-            >
-              <Icon name="close" size={13} />
-            </button>
-          </div>
-        );
-      }}</For>
+                <Show when={tab.dirty}>
+                  <span class="dirty-dot" role="img" aria-label={t("Unsaved changes")} />
+                </Show>
+              </button>
+              <button
+                class="tab-close"
+                type="button"
+                tabIndex={selected() ? 0 : -1}
+                onClick={() => closeTab(tab.id)}
+                aria-label={t("Close {name}", { name: tab.name })}
+              >
+                <Icon name="close" size={13} />
+              </button>
+            </div>
+          );
+        }}
+      </For>
       <Show when={props.historyTabOpen}>
         <div
           classList={{ tab: true, "tab-active": props.historySelected }}
@@ -230,16 +240,26 @@ export function WorkbenchTabs(props: WorkbenchTabsProps) {
             onKeyDown={handleTabKeyDown}
             onClick={() => props.onSelectHistory()}
           >
-            <span class="tab-file-icon"><Icon name="git" size={14} /></span>
+            <span class="tab-file-icon">
+              <Icon name="git" size={14} />
+            </span>
             <span>{t("Git History")}</span>
           </button>
-          <button class="tab-close" type="button" tabIndex={props.historySelected ? 0 : -1} onClick={closeHistory} aria-label={t("Close Git History")}>
+          <button
+            class="tab-close"
+            type="button"
+            tabIndex={props.historySelected ? 0 : -1}
+            onClick={closeHistory}
+            aria-label={t("Close Git History")}
+          >
             <Icon name="close" size={13} />
           </button>
         </div>
       </Show>
       <Show when={!props.tabs.length && !props.historyTabOpen}>
-        <div class="empty-tab-label" role="presentation">{t("No file open")}</div>
+        <div class="empty-tab-label" role="presentation">
+          {t("No file open")}
+        </div>
       </Show>
       <div class="tabbar-fill" role="presentation" />
     </div>

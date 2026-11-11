@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must keep LF for bash; PowerShell scripts use CRLF on every platform.
+*.sh text eol=lf
+*.ps1 text eol=crlf

@@ -16,16 +16,74 @@ export type Token = [kind: "kw" | "fn" | "str" | "num" | "v" | "p", text: string
 export type CodeLine = { tokens: Token[]; added?: boolean };
 
 export const mainTs: CodeLine[] = [
-  { tokens: [["kw", "import"], ["p", " { "], ["v", "createSignal"], ["p", " } "], ["kw", "from"], ["p", " "], ["str", "\"solid-js\""], ["p", ";"]] },
+  {
+    tokens: [
+      ["kw", "import"],
+      ["p", " { "],
+      ["v", "createSignal"],
+      ["p", " } "],
+      ["kw", "from"],
+      ["p", " "],
+      ["str", '"solid-js"'],
+      ["p", ";"],
+    ],
+  },
   { tokens: [] },
-  { tokens: [["kw", "const"], ["p", " ["], ["v", "ready"], ["p", ", "], ["v", "setReady"], ["p", "] = "], ["fn", "createSignal"], ["p", "("], ["num", "false"], ["p", ");"]] },
+  {
+    tokens: [
+      ["kw", "const"],
+      ["p", " ["],
+      ["v", "ready"],
+      ["p", ", "],
+      ["v", "setReady"],
+      ["p", "] = "],
+      ["fn", "createSignal"],
+      ["p", "("],
+      ["num", "false"],
+      ["p", ");"],
+    ],
+  },
   { tokens: [] },
-  { tokens: [["kw", "export function"], ["p", " "], ["fn", "bootstrap"], ["p", "() {"]] },
-  { tokens: [["p", "  "], ["fn", "setReady"], ["p", "("], ["num", "true"], ["p", ");"]] },
-  { added: true, tokens: [["p", "  "], ["v", "console"], ["p", "."], ["fn", "log"], ["p", "("], ["str", "\"pude is ready\""], ["p", ", "], ["fn", "ready"], ["p", "());"]] },
+  {
+    tokens: [
+      ["kw", "export function"],
+      ["p", " "],
+      ["fn", "bootstrap"],
+      ["p", "() {"],
+    ],
+  },
+  {
+    tokens: [
+      ["p", "  "],
+      ["fn", "setReady"],
+      ["p", "("],
+      ["num", "true"],
+      ["p", ");"],
+    ],
+  },
+  {
+    added: true,
+    tokens: [
+      ["p", "  "],
+      ["v", "console"],
+      ["p", "."],
+      ["fn", "log"],
+      ["p", "("],
+      ["str", '"pude is ready"'],
+      ["p", ", "],
+      ["fn", "ready"],
+      ["p", "());"],
+    ],
+  },
   { tokens: [["p", "}"]] },
   { added: true, tokens: [] },
-  { added: true, tokens: [["fn", "bootstrap"], ["p", "();"]] },
+  {
+    added: true,
+    tokens: [
+      ["fn", "bootstrap"],
+      ["p", "();"],
+    ],
+  },
 ];
 
 export function lineLength(line: CodeLine) {
@@ -33,9 +91,7 @@ export function lineLength(line: CodeLine) {
 }
 
 /** Characters to type, counting one keystroke for each new line. */
-export const typedLength = mainTs
-  .filter((line) => line.added)
-  .reduce((total, line) => total + lineLength(line) + 1, 0);
+export const typedLength = mainTs.filter((line) => line.added).reduce((total, line) => total + lineLength(line) + 1, 0);
 
 export function sliceTokens(tokens: Token[], count: number): Token[] {
   const visible: Token[] = [];

@@ -3,7 +3,9 @@ import { TerminalLifecycle } from "./terminal-lifecycle";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((finish) => { resolve = finish; });
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
   return { promise, resolve };
 }
 
@@ -15,17 +17,15 @@ describe("terminal lifecycle", () => {
         calls.push(`start:${workspace}`);
         return `session:${workspace}`;
       }),
-      stop: vi.fn(async (sessionId) => { calls.push(`stop:${sessionId}`); }),
+      stop: vi.fn(async (sessionId) => {
+        calls.push(`stop:${sessionId}`);
+      }),
     });
 
     await lifecycle.start("workspace-a");
     await lifecycle.start("workspace-b");
 
-    expect(calls).toEqual([
-      "start:workspace-a",
-      "stop:session:workspace-a",
-      "start:workspace-b",
-    ]);
+    expect(calls).toEqual(["start:workspace-a", "stop:session:workspace-a", "start:workspace-b"]);
   });
 
   it("kills a session whose start resolves after a stop request", async () => {
@@ -37,7 +37,9 @@ describe("terminal lifecycle", () => {
         startEntered.resolve();
         return starting.promise;
       }),
-      stop: vi.fn(async (sessionId) => { calls.push(`stop:${sessionId}`); }),
+      stop: vi.fn(async (sessionId) => {
+        calls.push(`stop:${sessionId}`);
+      }),
     });
 
     const start = lifecycle.start("workspace");
@@ -54,7 +56,8 @@ describe("terminal lifecycle", () => {
     const firstStart = deferred<string>();
     const startEntered = deferred<void>();
     const calls: string[] = [];
-    const backendStart = vi.fn()
+    const backendStart = vi
+      .fn()
       .mockImplementationOnce(() => {
         startEntered.resolve();
         return firstStart.promise;
@@ -65,7 +68,9 @@ describe("terminal lifecycle", () => {
       });
     const lifecycle = new TerminalLifecycle({
       start: backendStart,
-      stop: vi.fn(async (sessionId) => { calls.push(`stop:${sessionId}`); }),
+      stop: vi.fn(async (sessionId) => {
+        calls.push(`stop:${sessionId}`);
+      }),
     });
 
     const first = lifecycle.start("stale-workspace");
@@ -94,9 +99,7 @@ describe("terminal lifecycle", () => {
   });
 
   it("retains a session after cleanup fails so a later stop can retry it", async () => {
-    const stop = vi.fn()
-      .mockRejectedValueOnce(new Error("cleanup failed"))
-      .mockResolvedValue(undefined);
+    const stop = vi.fn().mockRejectedValueOnce(new Error("cleanup failed")).mockResolvedValue(undefined);
     const lifecycle = new TerminalLifecycle({
       start: vi.fn(async () => "session"),
       stop,
@@ -115,7 +118,8 @@ describe("terminal lifecycle", () => {
     const firstStart = deferred<string>();
     const startEntered = deferred<void>();
     const calls: string[] = [];
-    const backendStart = vi.fn()
+    const backendStart = vi
+      .fn()
       .mockImplementationOnce(() => {
         startEntered.resolve();
         return firstStart.promise;
@@ -124,7 +128,8 @@ describe("terminal lifecycle", () => {
         calls.push(`start:${workspace}`);
         return "current-session";
       });
-    const stop = vi.fn()
+    const stop = vi
+      .fn()
       .mockImplementationOnce(async (sessionId: string) => {
         calls.push(`stop:${sessionId}`);
         throw new Error("stale cleanup failed");
@@ -141,10 +146,6 @@ describe("terminal lifecycle", () => {
 
     await expect(stale).rejects.toThrow("stale cleanup failed");
     await expect(current).resolves.toBe("current-session");
-    expect(calls).toEqual([
-      "stop:stale-session",
-      "stop:stale-session",
-      "start:current-workspace",
-    ]);
+    expect(calls).toEqual(["stop:stale-session", "stop:stale-session", "start:current-workspace"]);
   });
 });

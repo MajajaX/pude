@@ -1,7 +1,5 @@
-import type { FileChange, FileChangeSource, GitDirtyScope, WatchRoot } from "../types";
+import type { FileChange, GitDirtyScope, WatchRoot } from "../types";
 import { isSameOrDescendantPath, pathComparisonKey, runtimePathOptions } from "./path-identity";
-
-export type GitQueryScope = "status" | "branches" | "history";
 
 export type GitDirtyState = {
   status: boolean;
@@ -36,15 +34,11 @@ export function hasGitDirtyState(state: GitDirtyState): boolean {
   return state.status || state.branches || state.history;
 }
 
-export function queryScopesForGitDirtyState(state: GitDirtyState): GitQueryScope[] {
-  const scopes: GitQueryScope[] = [];
-  if (state.status) scopes.push("status");
-  if (state.branches) scopes.push("branches");
-  if (state.history) scopes.push("history");
-  return scopes;
-}
-
-export function classifyGitChanges(changes: readonly FileChange[], repositoryRoot: string, watchRoots: readonly WatchRoot[] = []): GitDirtyState {
+export function classifyGitChanges(
+  changes: readonly FileChange[],
+  repositoryRoot: string,
+  watchRoots: readonly WatchRoot[] = [],
+): GitDirtyState {
   if (!repositoryRoot) return emptyGitDirtyState();
   let state = emptyGitDirtyState();
   for (const change of changes) {
@@ -54,7 +48,11 @@ export function classifyGitChanges(changes: readonly FileChange[], repositoryRoo
   return state;
 }
 
-export function classifyGitChange(change: FileChange, repositoryRoot: string, watchRoots: readonly WatchRoot[] = []): GitDirtyState {
+export function classifyGitChange(
+  change: FileChange,
+  repositoryRoot: string,
+  watchRoots: readonly WatchRoot[] = [],
+): GitDirtyState {
   const source = change.source;
   const explicitScopes = change.gitScopes ?? [];
   if (explicitScopes.length) return stateForExplicitScopes(explicitScopes);
@@ -63,7 +61,10 @@ export function classifyGitChange(change: FileChange, repositoryRoot: string, wa
     return classifyGitMetadataPath(change.path, sourceRoot);
   }
   if (source === "external") return emptyGitDirtyState();
-  if (!isSameOrDescendantPath(change.path, repositoryRoot, PATH_OPTIONS) && (!change.oldPath || !isSameOrDescendantPath(change.oldPath, repositoryRoot, PATH_OPTIONS))) {
+  if (
+    !isSameOrDescendantPath(change.path, repositoryRoot, PATH_OPTIONS) &&
+    (!change.oldPath || !isSameOrDescendantPath(change.oldPath, repositoryRoot, PATH_OPTIONS))
+  ) {
     return emptyGitDirtyState();
   }
   return { status: true, branches: false, history: false };
@@ -79,7 +80,8 @@ export function gitRefreshDelay(visible: boolean, now: number, firstPendingAt: n
 function stateForExplicitScopes(scopes: readonly GitDirtyScope[]): GitDirtyState {
   let state = emptyGitDirtyState();
   for (const scope of scopes) {
-    if (scope === "worktree" || scope === "index") state = mergeGitDirtyState(state, { status: true, branches: false, history: false });
+    if (scope === "worktree" || scope === "index")
+      state = mergeGitDirtyState(state, { status: true, branches: false, history: false });
     if (scope === "head") state = mergeGitDirtyState(state, { status: true, branches: true, history: true });
     if (scope === "refs") state = mergeGitDirtyState(state, { status: true, branches: true, history: true });
     if (scope === "unknown") state = allGitDirtyState();
@@ -92,10 +94,23 @@ function classifyGitMetadataPath(path: string, sourceRoot: string | undefined): 
   const pathKey = pathComparisonKey(path, PATH_OPTIONS);
   const sourceKey = pathComparisonKey(sourceRoot, PATH_OPTIONS);
   const relative = pathKey.slice(sourceKey.length).replace(/^\/+/, "");
-  if (relative === "index" || relative === "index.lock" || relative.startsWith("rebase-") || relative.startsWith("merge-") || relative.startsWith("sequencer/")) {
+  if (
+    relative === "index" ||
+    relative === "index.lock" ||
+    relative.startsWith("rebase-") ||
+    relative.startsWith("merge-") ||
+    relative.startsWith("sequencer/")
+  ) {
     return { status: true, branches: false, history: false };
   }
-  if (relative === "head" || relative === "packed-refs" || relative === "config" || relative.startsWith("refs/") || relative.startsWith("logs/refs/") || relative.startsWith("worktrees/")) {
+  if (
+    relative === "head" ||
+    relative === "packed-refs" ||
+    relative === "config" ||
+    relative.startsWith("refs/") ||
+    relative.startsWith("logs/refs/") ||
+    relative.startsWith("worktrees/")
+  ) {
     return { status: true, branches: true, history: true };
   }
   return allGitDirtyState();

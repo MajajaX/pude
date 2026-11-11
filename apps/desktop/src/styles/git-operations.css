@@ -1,8 +1,41 @@
-.git-action-button.git-action-push { border: 1px solid #3a9e6b; color: #3a9e6b; }
-.git-action-button.git-action-pull { border: 1px solid #4b91d9; color: #4b91d9; }
-.git-upstream-status { font-size: 11px; opacity: .75; margin: 4px 0 8px; overflow-wrap: anywhere; }
-.git-operation-spinner { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: git-operation-spin .8s linear infinite; vertical-align: -2px; }
-@keyframes git-operation-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .git-operation-spinner { animation-duration: 2s; } }
-.git-operation-error { color: var(--danger, #d85656); }
-.git-operation-error button { margin-left: 8px; }
+.git-action-button.git-action-push {
+  border: 1px solid #3a9e6b;
+  color: #3a9e6b;
+}
+.git-action-button.git-action-pull {
+  border: 1px solid #4b91d9;
+  color: #4b91d9;
+}
+.git-upstream-status {
+  font-size: 11px;
+  opacity: 0.75;
+  margin: 4px 0 8px;
+  overflow-wrap: anywhere;
+}
+.git-operation-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: git-operation-spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes git-operation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .git-operation-spinner {
+    animation-duration: 2s;
+  }
+}
+.git-operation-error {
+  color: var(--danger, #d85656);
+}
+.git-operation-error button {
+  margin-left: 8px;
+}

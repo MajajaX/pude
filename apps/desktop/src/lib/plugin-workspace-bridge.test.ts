@@ -37,15 +37,17 @@ describe("plugin workspace bridge", () => {
     tauri.invoke.mockResolvedValueOnce(fileInfo).mockResolvedValueOnce(range);
 
     await expect(bridge.pluginWorkspaceFileInfo("/work/project", fileInfo.path)).resolves.toEqual(fileInfo);
-    await expect(bridge.pluginWorkspaceReadFileRange(
-      "/work/project",
-      fileInfo.path,
-      fileInfo.revision,
-      range.offsetBytes,
-      128 * 1024,
-      "native-request-1",
-      new AbortController().signal,
-    )).resolves.toEqual(range);
+    await expect(
+      bridge.pluginWorkspaceReadFileRange(
+        "/work/project",
+        fileInfo.path,
+        fileInfo.revision,
+        range.offsetBytes,
+        128 * 1024,
+        "native-request-1",
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(range);
 
     expect(tauri.invoke).toHaveBeenNthCalledWith(1, "plugin_workspace_file_info", {
       workspace: "/work/project",
@@ -89,15 +91,17 @@ describe("plugin workspace bridge", () => {
     const controller = new AbortController();
     controller.abort();
 
-    await expect(bridge.pluginWorkspaceReadFileRange(
-      "/work/project",
-      "src/main.rs",
-      "revision-1",
-      0,
-      128 * 1024,
-      "native-request-3",
-      controller.signal,
-    )).rejects.toThrow("workspace.read_cancelled");
+    await expect(
+      bridge.pluginWorkspaceReadFileRange(
+        "/work/project",
+        "src/main.rs",
+        "revision-1",
+        0,
+        128 * 1024,
+        "native-request-3",
+        controller.signal,
+      ),
+    ).rejects.toThrow("workspace.read_cancelled");
     await Promise.resolve();
 
     expect(tauri.invoke).not.toHaveBeenCalledWith("plugin_workspace_read_file_range", expect.anything());
@@ -114,17 +118,22 @@ describe("plugin workspace bridge", () => {
       eof: true,
     };
     tauri.invoke.mockResolvedValueOnce(range);
-    await expect(bridge.pluginWorkspaceReadFileRange(
-      "/work/project",
-      "src/main.rs",
-      "revision-1",
-      0,
-      128 * 1024,
-      "native-request-3",
-      new AbortController().signal,
-    )).resolves.toEqual(range);
-    expect(tauri.invoke).toHaveBeenCalledWith("plugin_workspace_read_file_range", expect.objectContaining({
-      requestId: "native-request-3",
-    }));
+    await expect(
+      bridge.pluginWorkspaceReadFileRange(
+        "/work/project",
+        "src/main.rs",
+        "revision-1",
+        0,
+        128 * 1024,
+        "native-request-3",
+        new AbortController().signal,
+      ),
+    ).resolves.toEqual(range);
+    expect(tauri.invoke).toHaveBeenCalledWith(
+      "plugin_workspace_read_file_range",
+      expect.objectContaining({
+        requestId: "native-request-3",
+      }),
+    );
   });
 });

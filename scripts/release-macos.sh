@@ -53,15 +53,17 @@ export APPLE_SIGNING_IDENTITY APPLE_TEAM_ID
 [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" && -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]] || fail "set TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD to sign the update package."
 
 cd "$repo_root"
-[[ -z "$(git status --porcelain)" ]] || echo "Warning: the working tree has uncommitted changes." >&2
+[[ -z "$(git status --porcelain)" ]] || fail "the working tree has uncommitted changes; commit or stash them so the release matches a commit."
 
 npm run release:version:check
 rm -rf "$bundle_directory/macos" "$bundle_directory/dmg"
 # CI=true makes the DMG bundler skip Finder AppleScript, which needs a GUI session.
 CI=true npm run tauri:build -- --target "$target" --bundles app,dmg --config src-tauri/tauri.release.conf.json
 
-dmg_path="$(find "$bundle_directory/dmg" -name '*.dmg' -maxdepth 1)"
-[[ "$(wc -l <<<"$dmg_path" | tr -d ' ')" == "1" ]] || fail "expected exactly one DMG in $bundle_directory/dmg."
+dmg_paths=()
+while IFS= read -r found; do dmg_paths+=("$found"); done < <(find "$bundle_directory/dmg" -maxdepth 1 -name '*.dmg')
+[[ "${#dmg_paths[@]}" == "1" ]] || fail "expected exactly one DMG in $bundle_directory/dmg, found ${#dmg_paths[@]}."
+dmg_path="${dmg_paths[0]}"
 
 codesign --force --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$dmg_path"
 xcrun notarytool submit "$dmg_path" "${notary_credentials[@]}" --wait

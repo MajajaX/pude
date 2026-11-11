@@ -235,13 +235,7 @@ fn project_files(
                     .split(|byte| *byte == 0)
                     .filter(|path| !path.is_empty())
                 {
-                    #[cfg(unix)]
-                    let path = {
-                        use std::os::unix::ffi::OsStringExt;
-                        PathBuf::from(std::ffi::OsString::from_vec(path.to_vec()))
-                    };
-                    #[cfg(not(unix))]
-                    let path = PathBuf::from(String::from_utf8_lossy(path).into_owned());
+                    let path = crate::path_from_bytes(path);
                     if seen.insert(path.clone()) {
                         paths.push(root.join(path));
                     }
@@ -279,7 +273,7 @@ fn collect_files(
     let mut pending = vec![root.to_path_buf()];
     let mut files = Vec::new();
     let mut scanned = 0;
-    while let Some(directory) = pending.pop() {
+    'walk: while let Some(directory) = pending.pop() {
         check_cancelled(token)?;
         let entries = match fs::read_dir(directory) {
             Ok(entries) => entries,
@@ -293,7 +287,7 @@ fn collect_files(
             scanned += 1;
             if scanned > MAX_ENTRIES || started.elapsed() >= timeout {
                 result.truncated = true;
-                return Ok(files);
+                break 'walk;
             }
             let Ok(entry) = entry else {
                 result.skipped_files += 1;
@@ -302,16 +296,28 @@ fn collect_files(
             if entry.file_name() == ".git" {
                 continue;
             }
-            let Ok(metadata) = fs::symlink_metadata(entry.path()) else {
+            // DirEntry metadata comes from the directory enumeration on Windows
+            // and describes the entry itself, never a link's target.
+            #[cfg(windows)]
+            {
+                let Ok(metadata) = entry.metadata() else {
+                    result.skipped_files += 1;
+                    continue;
+                };
+                if crate::is_windows_reparse_point(&metadata) {
+                    continue;
+                }
+            }
+            let Ok(file_type) = entry.file_type() else {
                 result.skipped_files += 1;
                 continue;
             };
-            if metadata.file_type().is_symlink() || crate::is_windows_reparse_point(&metadata) {
+            if file_type.is_symlink() {
                 continue;
             }
-            if metadata.is_dir() {
+            if file_type.is_dir() {
                 pending.push(entry.path());
-            } else if metadata.is_file() {
+            } else if file_type.is_file() {
                 files.push(entry.path());
             }
         }
@@ -401,17 +407,22 @@ fn search_files(
                 result.skipped_files += 1;
                 continue;
             }
+            // Most files have no match. A line break ends any case-folding
+            // context, so a line matches only if the whole file does.
+            if !matches(text) {
+                continue;
+            }
             for (index, line) in text.lines().enumerate() {
                 check_cancelled(token)?;
-                if !matches(line) {
-                    continue;
-                }
-                let folded = if options.case_sensitive {
-                    line.to_string()
+                let position = if options.case_sensitive {
+                    line.find(&needle)
                 } else {
-                    line.to_lowercase()
+                    line.to_lowercase().find(&needle)
                 };
-                let offset = folded.find(&needle).unwrap_or(0).saturating_sub(80);
+                let Some(position) = position else {
+                    continue;
+                };
+                let offset = position.saturating_sub(80);
                 let start = line
                     .char_indices()
                     .find(|(index, _)| *index >= offset)
@@ -824,6 +835,29 @@ mod tests {
             &mut SearchResults::default()
         )
         .is_err());
+    }
+
+    #[test]
+    fn truncated_file_collection_is_still_sorted() {
+        let project = Project::new();
+        // The root is read before `nested`, so `z.txt` is collected first and
+        // only sorting moves it behind the files from `nested`.
+        fs::write(project.0.join("z.txt"), "").unwrap();
+        for index in 0..MAX_ENTRIES {
+            fs::File::create(project.0.join(format!("nested/{index}.txt"))).unwrap();
+        }
+        let mut result = SearchResults::default();
+        let files = collect_files(
+            &project.0,
+            &CancellationToken::new(),
+            Instant::now(),
+            Duration::from_secs(60),
+            &mut result,
+        )
+        .unwrap();
+        assert!(result.truncated);
+        assert!(files.is_sorted());
+        assert_eq!(files.last(), Some(&project.0.join("z.txt")));
     }
 
     #[cfg(unix)]

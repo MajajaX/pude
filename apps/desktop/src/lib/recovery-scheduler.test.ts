@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkpointDebounceForSize,
-  nextRecoveryDelay,
+  editNeedsSessionCheckpoint,
   RecoveryWriteScheduler,
   RECOVERY_DEBOUNCE_LARGE_BYTES,
   RECOVERY_DEBOUNCE_SMALL_BYTES,
@@ -27,18 +27,23 @@ describe("checkpointDebounceForSize", () => {
   });
 });
 
-describe("nextRecoveryDelay", () => {
-  it("waits the full quiet delay for a fresh pending edit", () => {
-    expect(nextRecoveryDelay(1000, 1000, 100)).toBe(500);
-    expect(nextRecoveryDelay(1000, 1000, 3 * MiB)).toBe(2000);
-    expect(nextRecoveryDelay(1000, 1000, 20 * MiB)).toBe(5000);
+describe("editNeedsSessionCheckpoint", () => {
+  it("checkpoints every edit below 1 MiB", () => {
+    expect(editNeedsSessionCheckpoint(true, true, 0)).toBe(true);
+    expect(editNeedsSessionCheckpoint(true, true, RECOVERY_DEBOUNCE_SMALL_BYTES - 1)).toBe(true);
   });
 
-  it("never lets the first pending edit exceed maxWait", () => {
-    expect(nextRecoveryDelay(1000, 2500, 100)).toBe(500);
-    expect(nextRecoveryDelay(1000, 3000, 100)).toBe(0);
-    expect(nextRecoveryDelay(1000, 14000, 20 * MiB)).toBe(2000);
-    expect(nextRecoveryDelay(1000, 16000, 20 * MiB)).toBe(0);
+  it.each([RECOVERY_DEBOUNCE_SMALL_BYTES, RECOVERY_DEBOUNCE_LARGE_BYTES, 20 * MiB])(
+    "leaves continued edits of a %i-byte document to the debounce",
+    (size) => {
+      expect(editNeedsSessionCheckpoint(true, true, size)).toBe(false);
+      expect(editNeedsSessionCheckpoint(false, false, size)).toBe(false);
+    },
+  );
+
+  it("checkpoints a large document when its dirty state flips", () => {
+    expect(editNeedsSessionCheckpoint(false, true, 20 * MiB)).toBe(true);
+    expect(editNeedsSessionCheckpoint(true, false, 20 * MiB)).toBe(true);
   });
 });
 
@@ -52,31 +57,46 @@ describe("RecoveryWriteScheduler", () => {
     vi.useRealTimers();
   });
 
-  it.each([ [100, 2000], [3 * MiB, 5000], [20 * MiB, 15000] ])(
-    "enforces the %i-byte deadline when idle callbacks never execute",
-    async (size, deadline) => {
-      const idle = new Map<number, () => void>();
-      let next = 0;
-      vi.stubGlobal("requestIdleCallback", (callback: () => void) => {
-        idle.set(++next, callback);
-        return next;
-      });
-      vi.stubGlobal("cancelIdleCallback", (id: number) => idle.delete(id));
-      const scheduler = new RecoveryWriteScheduler();
-      const runs = vi.fn();
-      const start = Date.now();
+  it.each([
+    [3 * MiB, 12],
+    [20 * MiB, 4],
+  ])("limits a %i-byte document to %i writes during a minute of continuous typing", (size, expectedWrites) => {
+    const scheduler = new RecoveryWriteScheduler();
+    const run = vi.fn();
+    for (let elapsed = 0; elapsed < 60_000; elapsed += 125) {
+      scheduler.schedule("a", size, Date.now(), run);
+      vi.advanceTimersByTime(125);
+    }
+    vi.advanceTimersByTime(15_000);
+    expect(run).toHaveBeenCalledTimes(expectedWrites);
+  });
+
+  it.each([
+    [100, 2000],
+    [3 * MiB, 5000],
+    [20 * MiB, 15000],
+  ])("enforces the %i-byte deadline when idle callbacks never execute", async (size, deadline) => {
+    const idle = new Map<number, () => void>();
+    let next = 0;
+    vi.stubGlobal("requestIdleCallback", (callback: () => void) => {
+      idle.set(++next, callback);
+      return next;
+    });
+    vi.stubGlobal("cancelIdleCallback", (id: number) => idle.delete(id));
+    const scheduler = new RecoveryWriteScheduler();
+    const runs = vi.fn();
+    const start = Date.now();
+    scheduler.schedule("tab", size, Date.now(), runs);
+    while (Date.now() - start < deadline - 1) {
+      await vi.advanceTimersByTimeAsync(Math.min(100, deadline - 1 - (Date.now() - start)));
       scheduler.schedule("tab", size, Date.now(), runs);
-      while (Date.now() - start < deadline - 1) {
-        await vi.advanceTimersByTimeAsync(Math.min(100, deadline - 1 - (Date.now() - start)));
-        scheduler.schedule("tab", size, Date.now(), runs);
-      }
-      expect(runs).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1);
-      expect(runs).toHaveBeenCalledTimes(1);
-      expect(scheduler.pendingTabs()).toEqual([]);
-      expect(idle.size).toBe(0);
-    },
-  );
+    }
+    expect(runs).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(runs).toHaveBeenCalledTimes(1);
+    expect(scheduler.pendingTabs()).toEqual([]);
+    expect(idle.size).toBe(0);
+  });
 
   it("retains the deadline after debounce hands off to a starved idle callback", async () => {
     vi.stubGlobal("requestIdleCallback", () => 1);

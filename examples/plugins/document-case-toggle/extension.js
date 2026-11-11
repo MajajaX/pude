@@ -13,8 +13,6 @@ void pude.commands.register(commandId, async () => {
     return;
   }
 
-  await pude.editor.applyEdits(file.revision, [
-    { from: 0, to: text.length, insert: toggleCase(text) },
-  ]);
+  await pude.editor.applyEdits(file.revision, [{ from: 0, to: text.length, insert: toggleCase(text) }]);
   await pude.ui.notify("Document case toggled.");
 });

@@ -32,7 +32,8 @@ const unhandled: TabNavigationAction = { handled: false, preventDefault: false }
  */
 export function tabNavigationAction(input: TabNavigationInput): TabNavigationAction {
   const { key, count } = input;
-  if (input.isComposing || input.keyCode === 229 || input.ctrlKey || input.altKey || input.metaKey || count <= 0) return unhandled;
+  if (input.isComposing || input.keyCode === 229 || input.ctrlKey || input.altKey || input.metaKey || count <= 0)
+    return unhandled;
 
   const currentIndex = Number.isFinite(input.focusedIndex)
     ? Math.min(Math.max(Math.trunc(input.focusedIndex), 0), count - 1)

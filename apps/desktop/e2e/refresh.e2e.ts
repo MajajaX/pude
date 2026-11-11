@@ -32,7 +32,7 @@ test("blank-area refresh preserves editor content and terminal sessions", async 
 test("editable controls keep their native context menu", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-  await page.getByRole("tab", { name: "SEARCH", exact: true }).click();
+  await page.getByRole("tab", { name: "Search", exact: true }).click();
   await page.getByRole("textbox", { name: "Search project text" }).click({ button: "right" });
   await expect(page.getByRole("menuitem", { name: "Refresh", exact: true })).toHaveCount(0);
 });
@@ -50,22 +50,34 @@ test("reloading restores project order, selection and unsaved content", async ({
   const projects = page.locator('.project-tabs [role="tab"]');
   await expect(projects).toHaveCount(2);
   await expect(projects.nth(1)).toHaveAttribute("aria-selected", "true");
-  await expect.poll(() => page.evaluate(async () => {
-    const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("pude-recovery-v1");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const transaction = db.transaction(["checkpoints", "snapshots"]);
-    const read = (store: string) => new Promise<unknown[]>((resolve, reject) => {
-      const request = transaction.objectStore(store).getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-    const [checkpoints, snapshots] = await Promise.all([read("checkpoints"), read("snapshots")]);
-    db.close();
-    return JSON.stringify(checkpoints).includes('"projects"') && JSON.stringify(snapshots).includes("reload-recovery-marker");
-  })).toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("pude-recovery-v1");
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const transaction = db.transaction(["checkpoints", "snapshots"]);
+        const read = <T>(store: string) =>
+          new Promise<T[]>((resolve, reject) => {
+            const request = transaction.objectStore(store).getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+        const [checkpoints, snapshots] = await Promise.all([
+          read<{ checkpoint?: { session?: { projects?: unknown[] } } }>("checkpoints"),
+          read<unknown>("snapshots"),
+        ]);
+        db.close();
+        // The first checkpoint can land before the second project exists, so wait for one that has both.
+        return (
+          checkpoints.some((record) => record.checkpoint?.session?.projects?.length === 2) &&
+          JSON.stringify(snapshots).includes("reload-recovery-marker")
+        );
+      }),
+    )
+    .toBe(true);
   await page.reload();
   await expect(projects).toHaveCount(2);
   await expect(projects.nth(0)).toContainText("pude-demo");

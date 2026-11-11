@@ -6,19 +6,23 @@ type LanguageLoader = (metadata: FileLanguageMetadata) => Promise<LanguageSuppor
 const languageLoaders: Record<EditorLanguageKey, LanguageLoader> = {
   c: async () => (await import("@codemirror/lang-cpp")).cpp(),
   cpp: async () => (await import("@codemirror/lang-cpp")).cpp(),
-  csharp: async () => new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/clike")).csharp)),
+  csharp: async () =>
+    new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/clike")).csharp)),
   css: async () => (await import("@codemirror/lang-css")).css(),
   go: async () => (await import("@codemirror/lang-go")).go(),
   html: async () => (await import("@codemirror/lang-html")).html(),
   java: async () => (await import("@codemirror/lang-java")).java(),
-  javascript: async (metadata) => (await import("@codemirror/lang-javascript")).javascript({ typescript: metadata.typescript, jsx: metadata.jsx }),
+  javascript: async (metadata) =>
+    (await import("@codemirror/lang-javascript")).javascript({ typescript: metadata.typescript, jsx: metadata.jsx }),
   json: async () => (await import("@codemirror/lang-json")).json(),
   markdown: async () => (await import("@codemirror/lang-markdown")).markdown(),
   python: async () => (await import("@codemirror/lang-python")).python(),
   rust: async () => (await import("@codemirror/lang-rust")).rust(),
-  shell: async () => new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/shell")).shell)),
+  shell: async () =>
+    new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/shell")).shell)),
   sql: async () => (await import("@codemirror/lang-sql")).sql(),
-  toml: async () => new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/toml")).toml)),
+  toml: async () =>
+    new LanguageSupport(StreamLanguage.define((await import("@codemirror/legacy-modes/mode/toml")).toml)),
   yaml: async () => (await import("@codemirror/lang-yaml")).yaml(),
 };
 

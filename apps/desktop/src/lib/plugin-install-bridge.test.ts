@@ -121,13 +121,15 @@ describe("plugin installation bridge", () => {
     });
 
     await expect(bridge.recoverPluginUpdates([manifest.id])).resolves.toEqual({
-      plugins: [{
-        ...manifest,
-        rootPath: "/app-data/plugins/pude.example.case-toggle",
-        enabled: false,
-        status: "inactive",
-        source: "local",
-      }],
+      plugins: [
+        {
+          ...manifest,
+          rootPath: "/app-data/plugins/pude.example.case-toggle",
+          enabled: false,
+          status: "inactive",
+          source: "local",
+        },
+      ],
       pendingCleanupIds: ["pude.example.removed"],
     });
     expect(tauri.invoke).toHaveBeenCalledWith("recover_plugin_updates", { ids: [manifest.id] });

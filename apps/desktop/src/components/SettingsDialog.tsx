@@ -1,6 +1,13 @@
 import { createSignal, onCleanup, onMount } from "solid-js";
 import { Icon } from "./Icons";
-import { clampSetting, defaultSettings, parseWatcherExcludes, settingRange, type NumericSetting } from "../lib/settings";
+import {
+  clampSetting,
+  defaultSettings,
+  parseWatcherExcludes,
+  settingRange,
+  type BooleanSetting,
+  type NumericSetting,
+} from "../lib/settings";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import type { AppSettings } from "../types";
 import "../styles/settings-dialog.css";
@@ -40,10 +47,11 @@ export function SettingsDialog(props: {
   };
 
   onMount(() => {
-    if (dialog) modalFocus = activateModalFocus(dialog, {
-      initialFocus: () => closeButton,
-      returnFocus: props.returnFocus,
-    });
+    if (dialog)
+      modalFocus = activateModalFocus(dialog, {
+        initialFocus: () => closeButton,
+        returnFocus: props.returnFocus,
+      });
   });
 
   onCleanup(() => {
@@ -53,10 +61,14 @@ export function SettingsDialog(props: {
   return (
     <div
       class="settings-dialog-backdrop"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) props.onClose();
+      }}
     >
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="settings-dialog"
         role="dialog"
         aria-modal="true"
@@ -70,7 +82,9 @@ export function SettingsDialog(props: {
             <h2 id="settings-dialog-title">{t("Settings")}</h2>
           </div>
           <button
-            ref={(element) => { closeButton = element; }}
+            ref={(element) => {
+              closeButton = element;
+            }}
             type="button"
             class="icon-button"
             onClick={props.onClose}
@@ -109,25 +123,57 @@ export function SettingsDialog(props: {
           <h3 class="settings-dialog-section">{t("Editor")}</h3>
           <NumberRow name="fontSize" label={t("Font size")} settings={props.settings} onChange={props.onChange} />
           <NumberRow name="tabSize" label={t("Tab size")} settings={props.settings} onChange={props.onChange} />
-          <Toggle name="insertSpaces" label={t("Indent with spaces")} settings={props.settings} onChange={props.onChange} />
+          <Toggle
+            name="insertSpaces"
+            label={t("Indent with spaces")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
           <Toggle name="wordWrap" label={t("Word wrap")} settings={props.settings} onChange={props.onChange} />
           <Toggle name="lineNumbers" label={t("Line numbers")} settings={props.settings} onChange={props.onChange} />
-          <Toggle name="showWhitespace" label={t("Show whitespace")} settings={props.settings} onChange={props.onChange} />
-          <Toggle name="autoCloseBrackets" label={t("Close brackets and quotes automatically")} settings={props.settings} onChange={props.onChange} />
+          <Toggle
+            name="showWhitespace"
+            label={t("Show whitespace")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
+          <Toggle
+            name="autoCloseBrackets"
+            label={t("Close brackets and quotes automatically")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
 
           <h3 class="settings-dialog-section">{t("Terminal")}</h3>
-          <NumberRow name="terminalFontSize" label={t("Terminal font size")} settings={props.settings} onChange={props.onChange} />
+          <NumberRow
+            name="terminalFontSize"
+            label={t("Terminal font size")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
 
           <h3 class="settings-dialog-section">{t("Saving")}</h3>
-          <Toggle name="trimTrailingWhitespace" label={t("Trim trailing whitespace on save")} settings={props.settings} onChange={props.onChange} />
-          <Toggle name="insertFinalNewline" label={t("End files with a newline on save")} settings={props.settings} onChange={props.onChange} />
+          <Toggle
+            name="trimTrailingWhitespace"
+            label={t("Trim trailing whitespace on save")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
+          <Toggle
+            name="insertFinalNewline"
+            label={t("End files with a newline on save")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
 
           <h3 class="settings-dialog-section">{t("Explorer")}</h3>
           <Toggle name="hideDotFiles" label={t("Hide dot files")} settings={props.settings} onChange={props.onChange} />
-          <Toggle name="groupGitIgnoredFiles" label={t("Group Git ignored files")} settings={props.settings} onChange={props.onChange} />
-
-          <h3 class="settings-dialog-section">{t("Updates")}</h3>
-          <Toggle name="checkForUpdates" label={t("Check for updates on startup")} settings={props.settings} onChange={props.onChange} />
+          <Toggle
+            name="groupGitIgnoredFiles"
+            label={t("Group Git ignored files")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
           <div class="settings-dialog-block">
             <label for="settings-watcher-excludes">{t("Watcher excluded paths")}</label>
             <textarea
@@ -139,12 +185,26 @@ export function SettingsDialog(props: {
               value={props.settings.watcherExcludes.join("\n")}
               placeholder={"node_modules\ndist"}
               aria-describedby="settings-watcher-excludes-help"
-              onChange={(event) => props.onChange({ watcherExcludes: parseWatcherExcludes(event.currentTarget.value, props.settings.watcherExcludes) })}
+              onChange={(event) =>
+                props.onChange({
+                  watcherExcludes: parseWatcherExcludes(event.currentTarget.value, props.settings.watcherExcludes),
+                })
+              }
             />
             <small id="settings-watcher-excludes-help">
-              {t("Skip change notifications for these paths to reduce background updates. One path per line; relative paths use the workspace, and folders include descendants. Open editor files remain watched.")}
+              {t(
+                "Skip change notifications for these paths to reduce background updates. One path per line; relative paths use the workspace, and folders include descendants. Open editor files remain watched.",
+              )}
             </small>
           </div>
+
+          <h3 class="settings-dialog-section">{t("Updates")}</h3>
+          <Toggle
+            name="checkForUpdates"
+            label={t("Check for updates on startup")}
+            settings={props.settings}
+            onChange={props.onChange}
+          />
           <footer class="settings-dialog-footer">
             <button type="button" class="settings-dialog-reset" onClick={restoreDefaults}>
               {confirmingReset() ? t("Click again to restore defaults") : t("Restore defaults")}
@@ -163,14 +223,17 @@ type SettingProps<Name> = {
   onChange: (changes: Partial<AppSettings>) => void;
 };
 
-type BooleanSettingName = "insertSpaces" | "wordWrap" | "lineNumbers" | "showWhitespace" | "autoCloseBrackets" | "trimTrailingWhitespace" | "insertFinalNewline" | "hideDotFiles" | "groupGitIgnoredFiles" | "checkForUpdates";
-
-function Toggle(props: SettingProps<BooleanSettingName>) {
+function Toggle(props: SettingProps<BooleanSetting>) {
   const id = `settings-${props.name}`;
   return (
     <label class="settings-dialog-toggle" for={id}>
       <span>{props.label}</span>
-      <input id={id} type="checkbox" checked={props.settings[props.name]} onChange={(event) => props.onChange({ [props.name]: event.currentTarget.checked })} />
+      <input
+        id={id}
+        type="checkbox"
+        checked={props.settings[props.name]}
+        onChange={(event) => props.onChange({ [props.name]: event.currentTarget.checked })}
+      />
     </label>
   );
 }
@@ -181,7 +244,12 @@ function NumberRow(props: SettingProps<Extract<NumericSetting, "fontSize" | "tab
   const range = settingRange(props.name);
   return (
     <label class="settings-dialog-row" for={id}>
-      <span>{props.label} <small class="settings-dialog-range">{range.min}–{range.max}</small></span>
+      <span>
+        {props.label}{" "}
+        <small class="settings-dialog-range">
+          {range.min}–{range.max}
+        </small>
+      </span>
       <input
         id={id}
         type="number"

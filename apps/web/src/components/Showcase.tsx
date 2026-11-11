@@ -1,7 +1,5 @@
 import { createSignal, For } from "solid-js";
 import { t } from "../i18n";
-import { reveal } from "../lib/reveal";
-import { scroll } from "../lib/scroll-progress";
 
 export default function Showcase() {
   const [active, setActive] = createSignal(0);
@@ -12,7 +10,7 @@ export default function Showcase() {
     <section id="showcase" class="tour" use:scroll={{ mode: "pin", onProgress }} style={{ "--n": stepCount() }}>
       <div class="tour-sticky">
         <div class="wrap tour-grid">
-          <div class="tour-copy">
+          <div>
             <div use:reveal>
               <span class="eyebrow">{t().showcase.eyebrow}</span>
               <h2 class="section-title">{t().showcase.title}</h2>
@@ -47,7 +45,10 @@ export default function Showcase() {
               <For each={t().showcase.steps}>
                 {(step, i) => (
                   <picture>
-                    <source media="(max-width: 920px)" srcset="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1708'%20height='979'/%3E" />
+                    <source
+                      media="(max-width: 920px)"
+                      srcset="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1708'%20height='979'/%3E"
+                    />
                     <img
                       src={`/shots/${step.k}.webp`}
                       alt=""

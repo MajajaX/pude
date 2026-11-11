@@ -56,9 +56,16 @@ export function InputDialog(props: InputDialogProps) {
   });
 
   return (
-    <div class="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+    <div
+      class="modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) props.onClose();
+      }}
+    >
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="modal input-modal"
         role="dialog"
         aria-modal="true"
@@ -71,7 +78,9 @@ export function InputDialog(props: InputDialogProps) {
             <span class="modal-kicker">{t("PUDE INPUT")}</span>
             <h2 id="input-dialog-title">{props.title}</h2>
           </div>
-          <button type="button" class="icon-button" onClick={props.onClose} aria-label={t("Close input dialog")}><Icon name="close" size={13} /></button>
+          <button type="button" class="icon-button" onClick={props.onClose} aria-label={t("Close input dialog")}>
+            <Icon name="close" size={13} />
+          </button>
         </div>
         <div class="input-dialog-body">
           <label for="input-dialog-field">{props.label}</label>
@@ -80,19 +89,29 @@ export function InputDialog(props: InputDialogProps) {
             autocorrect="off"
             autocapitalize="off"
             spellcheck={false}
-            ref={(element) => { input = element; }}
+            ref={(element) => {
+              input = element;
+            }}
             value={value()}
             placeholder={props.placeholder}
             aria-required="true"
             onInput={(event) => setValue(event.currentTarget.value)}
-            onCompositionStart={() => { isComposing = true; }}
-            onCompositionEnd={() => { isComposing = false; }}
+            onCompositionStart={() => {
+              isComposing = true;
+            }}
+            onCompositionEnd={() => {
+              isComposing = false;
+            }}
             onKeyDown={handleInputKeyDown}
           />
         </div>
         <div class="modal-footer input-dialog-actions">
-          <button type="button" class="secondary-button" onClick={props.onClose}>{t("Cancel")}</button>
-          <button type="button" class="primary-button" disabled={!value().trim()} onClick={submit}>{props.submitLabel ?? t("Confirm")}</button>
+          <button type="button" class="secondary-button" onClick={props.onClose}>
+            {t("Cancel")}
+          </button>
+          <button type="button" class="primary-button" disabled={!value().trim()} onClick={submit}>
+            {props.submitLabel ?? t("Confirm")}
+          </button>
         </div>
       </section>
     </div>

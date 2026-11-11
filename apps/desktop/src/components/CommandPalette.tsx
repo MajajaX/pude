@@ -1,7 +1,14 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import type { CommandPaletteItem } from "../lib/plugin-activation";
 import { BUILTIN_COMMANDS } from "../lib/builtin-commands";
-import { formatShortcut, loadRecentCommands, matchesAllWords, orderByRecent, rememberRecentCommand, saveRecentCommands } from "../lib/command-palette-filter";
+import {
+  formatShortcut,
+  loadRecentCommands,
+  matchesAllWords,
+  orderByRecent,
+  rememberRecentCommand,
+  saveRecentCommands,
+} from "../lib/command-palette-filter";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import { isImeComposing } from "../lib/keyboard-input";
 import { t } from "../lib/i18n";
@@ -26,7 +33,12 @@ export function CommandPalette(props: {
   const filteredCommands = createMemo(() => {
     const needle = query().trim();
     if (!needle) return commands();
-    return commands().filter((command) => matchesAllWords(`${t(command.title)} ${command.title} ${command.detail ? t(command.detail) : ""} ${command.detail ?? ""} ${command.id}`, needle));
+    return commands().filter((command) =>
+      matchesAllWords(
+        `${t(command.title)} ${command.title} ${command.detail ? t(command.detail) : ""} ${command.detail ?? ""} ${command.id}`,
+        needle,
+      ),
+    );
   });
 
   const run = (command: CommandPaletteItem) => {
@@ -60,7 +72,6 @@ export function CommandPalette(props: {
       event.preventDefault();
       runSelected();
     }
-
   };
 
   createEffect(() => {
@@ -74,19 +85,27 @@ export function CommandPalette(props: {
   });
 
   onMount(() => {
-    if (dialog) modalFocus = activateModalFocus(dialog, {
-      initialFocus: () => input,
-      returnFocus: props.returnFocus,
-    });
+    if (dialog)
+      modalFocus = activateModalFocus(dialog, {
+        initialFocus: () => input,
+        returnFocus: props.returnFocus,
+      });
   });
   onCleanup(() => {
     modalFocus?.dispose();
   });
 
   return (
-    <div class="command-palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onClose(); }}>
+    <div
+      class="command-palette-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) props.onClose();
+      }}
+    >
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="command-palette"
         role="dialog"
         aria-modal="true"
@@ -94,7 +113,9 @@ export function CommandPalette(props: {
         onKeyDown={handleKeyDown}
       >
         <input
-          ref={(element) => { input = element; }}
+          ref={(element) => {
+            input = element;
+          }}
           class="command-palette-input"
           type="text"
           autocorrect="off"
@@ -107,11 +128,24 @@ export function CommandPalette(props: {
           aria-autocomplete="list"
           aria-activedescendant={filteredCommands()[selectedIndex()] ? optionId(selectedIndex()) : undefined}
           value={query()}
-          onInput={(event) => { setQuery(event.currentTarget.value); setSelectedIndex(0); }}
+          onInput={(event) => {
+            setQuery(event.currentTarget.value);
+            setSelectedIndex(0);
+          }}
           placeholder={t("Type a command to search…")}
         />
-        <div ref={(element) => { list = element; }} id="command-palette-list" class="command-palette-list" role="listbox">
-          <For each={filteredCommands()} fallback={<div class="command-palette-empty">{t("No matching commands")}</div>}>
+        <div
+          ref={(element) => {
+            list = element;
+          }}
+          id="command-palette-list"
+          class="command-palette-list"
+          role="listbox"
+        >
+          <For
+            each={filteredCommands()}
+            fallback={<div class="command-palette-empty">{t("No matching commands")}</div>}
+          >
             {(command, index) => (
               <button
                 id={optionId(index())}
@@ -119,18 +153,35 @@ export function CommandPalette(props: {
                 tabIndex={-1}
                 role="option"
                 aria-selected={selectedIndex() === index()}
-                classList={{ "command-palette-item": true, "command-palette-item-selected": selectedIndex() === index() }}
+                classList={{
+                  "command-palette-item": true,
+                  "command-palette-item-selected": selectedIndex() === index(),
+                }}
                 onMouseEnter={() => setSelectedIndex(index())}
                 onClick={() => run(command)}
               >
                 <span class="command-palette-item-title">{t(command.title)}</span>
-                <span class="command-palette-item-detail">{command.detail ? t(command.detail) : command.source === "plugin" ? t("Plugin command") : t("Built-in command")}</span>
-                <Show when={command.shortcut}>{(shortcut) => <kbd class="command-palette-item-shortcut">{formatShortcut(shortcut(), props.mac)}</kbd>}</Show>
+                <span class="command-palette-item-detail">
+                  {command.detail
+                    ? t(command.detail)
+                    : command.source === "plugin"
+                      ? t("Plugin command")
+                      : t("Built-in command")}
+                </span>
+                <Show when={(props.mac && command.macShortcut) || command.shortcut}>
+                  {(shortcut) => (
+                    <kbd class="command-palette-item-shortcut">{formatShortcut(shortcut(), props.mac)}</kbd>
+                  )}
+                </Show>
               </button>
             )}
           </For>
         </div>
-        <footer class="command-palette-footer"><span>{t("↑ ↓ Navigate")}</span><span>{t("↵ Run")}</span><span>{t("Esc Close")}</span></footer>
+        <footer class="command-palette-footer">
+          <span>{t("↑ ↓ Navigate")}</span>
+          <span>{t("↵ Run")}</span>
+          <span>{t("Esc Close")}</span>
+        </footer>
       </section>
     </div>
   );

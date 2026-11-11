@@ -1,7 +1,16 @@
 import type { EditorSettings } from "../components/EditorPane";
 import type { AppSettings } from "../types";
 
-export const EDITOR_SETTING_KEYS = ["theme", "fontSize", "tabSize", "insertSpaces", "wordWrap", "lineNumbers", "showWhitespace", "autoCloseBrackets"] as const satisfies readonly (keyof AppSettings)[];
+export const EDITOR_SETTING_KEYS = [
+  "theme",
+  "fontSize",
+  "tabSize",
+  "insertSpaces",
+  "wordWrap",
+  "lineNumbers",
+  "showWhitespace",
+  "autoCloseBrackets",
+] as const satisfies readonly (keyof AppSettings)[];
 
 export function pickEditorSettings(settings: AppSettings): EditorSettings {
   return Object.fromEntries(EDITOR_SETTING_KEYS.map((key) => [key, settings[key]])) as EditorSettings;

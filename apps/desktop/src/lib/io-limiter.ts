@@ -96,7 +96,10 @@ export class IoLimiter {
     const normalized = typeof options === "number" ? { maxConcurrent: options } : options;
     this.maxConcurrent = Math.max(1, Math.floor(normalized?.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_IO));
     this.maxPending = Math.max(0, Math.floor(normalized?.maxPending ?? DEFAULT_MAX_PENDING_IO));
-    this.currentDocumentBurst = Math.max(1, Math.floor(normalized?.currentDocumentBurst ?? DEFAULT_CURRENT_DOCUMENT_BURST));
+    this.currentDocumentBurst = Math.max(
+      1,
+      Math.floor(normalized?.currentDocumentBurst ?? DEFAULT_CURRENT_DOCUMENT_BURST),
+    );
   }
 
   get activeCount(): number {
@@ -150,7 +153,7 @@ export class IoLimiter {
     if (!this.isCurrent(options)) return Promise.reject(new IoStaleGenerationError());
 
     const subscriber = this.makeSubscriber<T>(options);
-    const existing = key === undefined ? undefined : this.coalesced.get(key) as Job<T> | undefined;
+    const existing = key === undefined ? undefined : (this.coalesced.get(key) as Job<T> | undefined);
     if (existing) {
       if (existing.subscribers.size >= Math.max(1, this.maxPending)) {
         subscriber.reject(new IoBusyError());
@@ -250,11 +253,12 @@ export class IoLimiter {
   private takeNextJob(): AnyJob | undefined {
     const hasCurrentDocument = this.queue.some((job) => job.priority === "current-document");
     const hasNormal = this.queue.some((job) => job.priority === "normal");
-    const chooseNormal = hasNormal && (!hasCurrentDocument || this.currentDocumentRunCount >= this.currentDocumentBurst);
+    const chooseNormal =
+      hasNormal && (!hasCurrentDocument || this.currentDocumentRunCount >= this.currentDocumentBurst);
     const index = chooseNormal
       ? this.queue.findIndex((job) => job.priority === "normal")
       : this.queue.findIndex((job) => job.priority === "current-document");
-    const [job] = this.queue.splice(index < 0 ? 0 : index, 1);
+    const [job] = this.queue.splice(Math.max(index, 0), 1);
     if (job.priority === "current-document") this.currentDocumentRunCount += 1;
     else this.currentDocumentRunCount = 0;
     return job;

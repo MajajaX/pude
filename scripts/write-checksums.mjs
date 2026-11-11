@@ -19,10 +19,12 @@ async function create() {
   if (!manifestArgument || fileArguments.length === 0) {
     throw new Error("usage: write-checksums.mjs create <manifest> <artifact> [...]");
   }
-  const files = await Promise.all(fileArguments.map(async (argument) => {
-    const path = resolve(argument);
-    return { path, name: basename(path), hash: await sha256(path) };
-  }));
+  const files = await Promise.all(
+    fileArguments.map(async (argument) => {
+      const path = resolve(argument);
+      return { path, name: basename(path), hash: await sha256(path) };
+    }),
+  );
   if (new Set(files.map((file) => file.name)).size !== files.length) {
     throw new Error("artifact basenames must be unique");
   }
@@ -40,7 +42,7 @@ async function verify(manifestPathArgument, artifactDirectoryArgument) {
   const manifestPath = resolve(manifestPathArgument);
   const artifactDirectory = resolve(artifactDirectoryArgument ?? dirname(manifestPath));
   const lines = (await readFile(manifestPath, "utf8")).trimEnd().split(/\r?\n/);
-  if (lines.length === 0 || lines.some((line) => !/^[0-9a-f]{64}  [A-Za-z0-9._-]+$/.test(line))) {
+  if (lines.length === 0 || lines.some((line) => !/^[0-9a-f]{64} {2}[A-Za-z0-9._-]+$/.test(line))) {
     throw new Error(`invalid SHA-256 manifest: ${manifestPath}`);
   }
   const names = new Set();

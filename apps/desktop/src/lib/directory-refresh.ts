@@ -200,15 +200,19 @@ export class DirectoryRefreshCoordinator {
   }
 
   private isCurrentFlight(key: string, flight: InFlightRefresh, path: string): boolean {
-    return this.inFlight.get(key) === flight
-      && !flight.invalidated
-      && this.isContextCurrent(flight.context)
-      && this.isEligible(path, flight.context);
+    return (
+      this.inFlight.get(key) === flight &&
+      !flight.invalidated &&
+      this.isContextCurrent(flight.context) &&
+      this.isEligible(path, flight.context)
+    );
   }
 
   private isEligible(path: string, context: DirectoryRefreshContext): boolean {
-    return this.options.isPathInWorkspace(path, context.workspace)
-      && (this.options.isWorkspaceRoot(path, context.workspace) || this.options.isExpanded(path, context.workspace));
+    return (
+      this.options.isPathInWorkspace(path, context.workspace) &&
+      (this.options.isWorkspaceRoot(path, context.workspace) || this.options.isExpanded(path, context.workspace))
+    );
   }
 
   private captureContext(): DirectoryRefreshContext | undefined {
@@ -219,10 +223,12 @@ export class DirectoryRefreshCoordinator {
   }
 
   private isContextCurrent(context: DirectoryRefreshContext): boolean {
-    return !this.disposed
-      && !this.options.isDisposed()
-      && this.options.getGeneration() === context.generation
-      && this.options.getWorkspace() === context.workspace;
+    return (
+      !this.disposed &&
+      !this.options.isDisposed() &&
+      this.options.getGeneration() === context.generation &&
+      this.options.getWorkspace() === context.workspace
+    );
   }
 
   private sameContext(left: DirectoryRefreshContext, right: DirectoryRefreshContext): boolean {

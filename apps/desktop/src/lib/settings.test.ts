@@ -7,13 +7,18 @@ describe("settings validation", () => {
     expect(clampSetting("fontSize", -2, 14)).toBe(11);
     expect(clampSetting("tabSize", "99", 2)).toBe(8);
     expect(clampSetting("tabSize", "not-a-number", 2)).toBe(2);
+    expect(clampSetting("fontSize", "", 16)).toBe(16);
+    expect(clampSetting("fontSize", "  ", 16)).toBe(16);
+    expect(clampSetting("fontSize", null, 16)).toBe(16);
     expect(clampSetting("terminalHeight", 40, 238)).toBe(160);
     expect(clampSetting("terminalHeight", 900.4, 238)).toBe(900);
     expect(clampSetting("terminalHeight", 5000, 238)).toBe(1200);
   });
 
   it("rejects invalid stored values while preserving valid settings", () => {
-    expect(validateSettings({ theme: "unknown", fontSize: -4, tabSize: 99, wordWrap: true }, defaultSettings)).toMatchObject({
+    expect(
+      validateSettings({ theme: "unknown", fontSize: -4, tabSize: 99, wordWrap: true }, defaultSettings),
+    ).toMatchObject({
       theme: "dark",
       fontSize: 11,
       tabSize: 8,
@@ -31,8 +36,14 @@ describe("settings validation", () => {
   });
 
   it("normalizes watcher excludes from stored and editable values", () => {
-    expect(parseWatcherExcludes(" node_modules, dist\n.cache, node_modules ")).toEqual(["node_modules", "dist", ".cache"]);
-    expect(validateSettings({ watcherExcludes: ["dist", "", 4, "dist", "x".repeat(513)] }, defaultSettings).watcherExcludes).toEqual(["dist"]);
+    expect(parseWatcherExcludes(" node_modules, dist\n.cache, node_modules ")).toEqual([
+      "node_modules",
+      "dist",
+      ".cache",
+    ]);
+    expect(
+      validateSettings({ watcherExcludes: ["dist", "", 4, "dist", "x".repeat(513)] }, defaultSettings).watcherExcludes,
+    ).toEqual(["dist"]);
   });
 
   it("preserves the ignored grouping preference and migrates older settings", () => {
@@ -42,7 +53,16 @@ describe("settings validation", () => {
   });
 
   it("keeps valid editor and save preferences and ignores invalid ones", () => {
-    const settings = validateSettings({ lineNumbers: false, showWhitespace: "yes", trimTrailingWhitespace: true, insertFinalNewline: 1 }, defaultSettings);
-    expect(settings).toMatchObject({ lineNumbers: false, showWhitespace: false, trimTrailingWhitespace: true, insertFinalNewline: false, autoCloseBrackets: true });
+    const settings = validateSettings(
+      { lineNumbers: false, showWhitespace: "yes", trimTrailingWhitespace: true, insertFinalNewline: 1 },
+      defaultSettings,
+    );
+    expect(settings).toMatchObject({
+      lineNumbers: false,
+      showWhitespace: false,
+      trimTrailingWhitespace: true,
+      insertFinalNewline: false,
+      autoCloseBrackets: true,
+    });
   });
 });

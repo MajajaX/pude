@@ -4,10 +4,39 @@ import { defaultKeymap, history, historyField, historyKeymap, indentWithTab, und
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { Compartment, EditorState, Prec, Text, Transaction } from "@codemirror/state";
-import { crosshairCursor, EditorView, highlightActiveLine, highlightActiveLineGutter, highlightTrailingWhitespace, highlightWhitespace, keymap, lineNumbers, rectangularSelection, scrollPastEnd } from "@codemirror/view";
-import { getSearchQuery, highlightSelectionMatches, search, setSearchQuery, SearchQuery, findNext, findPrevious, replaceNext, replaceAll, selectNextOccurrence, selectSelectionMatches } from "@codemirror/search";
+import {
+  crosshairCursor,
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  highlightTrailingWhitespace,
+  highlightWhitespace,
+  keymap,
+  lineNumbers,
+  rectangularSelection,
+  scrollPastEnd,
+} from "@codemirror/view";
+import {
+  getSearchQuery,
+  highlightSelectionMatches,
+  search,
+  setSearchQuery,
+  SearchQuery,
+  findNext,
+  findPrevious,
+  replaceNext,
+  replaceAll,
+  selectNextOccurrence,
+  selectSelectionMatches,
+} from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { fileLanguageForPath, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, normalizeLineEndingMapForLineBreakCount } from "../lib/file-metadata";
+import {
+  fileLanguageForPath,
+  normalizeDocumentContent,
+  normalizeEditorDocumentSource,
+  normalizeLineEndingMap,
+  normalizeLineEndingMapForLineBreakCount,
+} from "../lib/file-metadata";
 import {
   createLineEndingMapExtension,
   computeDocumentDirty,
@@ -22,10 +51,26 @@ import {
 import { createPluginEditorEditTransaction, type PluginEditorEdit } from "../lib/plugin-editor-edits";
 import { loadEditorLanguageSupport, shouldLoadEditorLanguage } from "../lib/editor-languages";
 import { markStartupEvent } from "../lib/startup-timeline";
-import { changedEditorSettings, EDITOR_CACHE_MAX_BYTES, EDITOR_CACHE_MAX_STATES, estimateEditorDocumentCacheBytes, exceedsEditorStateBudget, hasEditorUndoHistory, leastRecentlyUsedEditor, serializeEditorHistory, type EditorDocumentEvictionState, type EditorDocumentFootprint } from "../lib/editor-cache";
+import {
+  changedEditorSettings,
+  EDITOR_CACHE_MAX_BYTES,
+  EDITOR_CACHE_MAX_STATES,
+  estimateEditorDocumentCacheBytes,
+  exceedsEditorStateBudget,
+  hasEditorUndoHistory,
+  leastRecentlyUsedEditor,
+  serializeEditorHistory,
+  type EditorDocumentEvictionState,
+  type EditorDocumentFootprint,
+} from "../lib/editor-cache";
 import { editorContentName } from "../lib/editor-accessibility";
 import { createSearchActionGate } from "../lib/search-action-gate";
-import { largeFileModeForSize, serializedDocumentByteLength, updateUtf8ByteLength, utf8ByteLength } from "../lib/document-size";
+import {
+  largeFileModeForSize,
+  serializedDocumentByteLength,
+  updateUtf8ByteLength,
+  utf8ByteLength,
+} from "../lib/document-size";
 import { currentEditorSelectionFallback } from "../lib/editor-selection-fallback";
 import { runEditorCommand, saveFormattingChanges, type EditorCommandRequest } from "../lib/editor-text-commands";
 import { countSearchMatches, type SearchMatchCount } from "../lib/search-match-count";
@@ -44,9 +89,26 @@ export type SearchRequest = {
   actionId: number;
 };
 
-export type GoToLineRequest = { line: number; column?: number; actionId: number; tabId?: string; query?: string; caseSensitive?: boolean };
+export type GoToLineRequest = {
+  line: number;
+  column?: number;
+  actionId: number;
+  tabId?: string;
+  query?: string;
+  caseSensitive?: boolean;
+};
 
-export type EditorSettings = Pick<AppSettings, "theme" | "fontSize" | "tabSize" | "insertSpaces" | "wordWrap" | "lineNumbers" | "showWhitespace" | "autoCloseBrackets">;
+export type EditorSettings = Pick<
+  AppSettings,
+  | "theme"
+  | "fontSize"
+  | "tabSize"
+  | "insertSpaces"
+  | "wordWrap"
+  | "lineNumbers"
+  | "showWhitespace"
+  | "autoCloseBrackets"
+>;
 
 export type SaveFormattingOptions = Pick<AppSettings, "trimTrailingWhitespace" | "insertFinalNewline">;
 
@@ -154,34 +216,42 @@ const lightEditorTheme = EditorView.theme({
 });
 
 // One Dark leaves the active line nearly invisible against its background.
-const darkEditorTheme = [oneDark, EditorView.theme({
-  ".cm-activeLine": { backgroundColor: "#2c313c80" },
-  ".cm-activeLineGutter": { backgroundColor: "#2c313c" },
-}, { dark: true })];
+const darkEditorTheme = [
+  oneDark,
+  EditorView.theme(
+    {
+      ".cm-activeLine": { backgroundColor: "#2c313c80" },
+      ".cm-activeLineGutter": { backgroundColor: "#2c313c" },
+    },
+    { dark: true },
+  ),
+];
 
-const editorTheme = (theme: EditorSettings["theme"]) => theme === "dark" ? darkEditorTheme : lightEditorTheme;
+const editorTheme = (theme: EditorSettings["theme"]) => (theme === "dark" ? darkEditorTheme : lightEditorTheme);
 
-const editorKeymap = Prec.high(keymap.of([
-  { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
-  { key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true },
-]));
+const editorKeymap = Prec.high(
+  keymap.of([
+    { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },
+    { key: "Mod-Shift-l", run: selectSelectionMatches, preventDefault: true },
+  ]),
+);
 
-const lineNumberExtensions = (settings: EditorSettings, largeFile: boolean) => settings.lineNumbers
-  ? [lineNumbers(), highlightActiveLineGutter(), ...(largeFile ? [] : [foldGutter()])]
-  : [];
+const lineNumberExtensions = (settings: EditorSettings, largeFile: boolean) =>
+  settings.lineNumbers ? [lineNumbers(), highlightActiveLineGutter(), ...(largeFile ? [] : [foldGutter()])] : [];
 
-const whitespaceExtensions = (settings: EditorSettings) => settings.showWhitespace ? [highlightWhitespace(), highlightTrailingWhitespace()] : [];
+const whitespaceExtensions = (settings: EditorSettings) =>
+  settings.showWhitespace ? [highlightWhitespace(), highlightTrailingWhitespace()] : [];
 
-const bracketExtensions = (settings: EditorSettings, largeFile: boolean) => settings.autoCloseBrackets && !largeFile
-  ? [closeBrackets(), keymap.of(closeBracketsKeymap)]
-  : [];
+const bracketExtensions = (settings: EditorSettings, largeFile: boolean) =>
+  settings.autoCloseBrackets && !largeFile ? [closeBrackets(), keymap.of(closeBracketsKeymap)] : [];
 
-const editorFontSizeTheme = (fontSize: number) => EditorView.theme({
-  ".cm-content, .cm-gutters, .cm-line, .cm-gutterElement": {
-    fontSize: `${fontSize}px !important`,
-    lineHeight: "1.65 !important",
-  },
-});
+const editorFontSizeTheme = (fontSize: number) =>
+  EditorView.theme({
+    ".cm-content, .cm-gutters, .cm-line, .cm-gutterElement": {
+      fontSize: `${fontSize}px !important`,
+      lineHeight: "1.65 !important",
+    },
+  });
 
 type CachedDocument = {
   state?: EditorState;
@@ -250,7 +320,7 @@ export function EditorPane(props: EditorPaneProps) {
     }, 80);
   };
 
-  const accessibleName = (name: string | undefined) => name ? t("Editing {name}", { name }) : t("Editor");
+  const accessibleName = (name: string | undefined) => (name ? t("Editing {name}", { name }) : t("Editor"));
 
   const updateContentAccessibleName = (name = props.tab?.name) => {
     const content = host.querySelector<HTMLElement>(".cm-content");
@@ -272,14 +342,12 @@ export function EditorPane(props: EditorPaneProps) {
 
   const documentFootprint = (document: CachedDocument): EditorDocumentFootprint => {
     const currentText = document.state?.doc ?? document.text;
-    const lineState = document.state && document.lineEndingField
-      ? lineEndingMapOf(document.state, document.lineEndingField)
-      : undefined;
+    const lineState =
+      document.state && document.lineEndingField
+        ? lineEndingMapOf(document.state, document.lineEndingField)
+        : undefined;
     const lineEndingHistory = lineState?.history ?? document.lineEndingHistory;
-    const lineEndingMaps = [
-      lineState?.map ?? document.lineEndingMap,
-      document.savedLineEndingMap,
-    ];
+    const lineEndingMaps = [lineState?.map ?? document.lineEndingMap, document.savedLineEndingMap];
     const texts = [currentText, document.savedText];
     for (const candidate of document.savedCandidates.values()) {
       texts.push(candidate.text);
@@ -311,7 +379,9 @@ export function EditorPane(props: EditorPaneProps) {
     document.selectionBytesEstimate = serializedBytes(document.selectionJSON);
     document.historyJSON = historyJSON;
     document.historyBytesEstimate = serializedBytes(historyJSON);
-    document.lineEndingMap = document.lineEndingField ? lineEndingMapOf(state, document.lineEndingField).map : document.lineEndingMap;
+    document.lineEndingMap = document.lineEndingField
+      ? lineEndingMapOf(state, document.lineEndingField).map
+      : document.lineEndingMap;
     document.state = undefined;
     document.lineEndingField = undefined;
     return true;
@@ -345,8 +415,10 @@ export function EditorPane(props: EditorPaneProps) {
     if (document) {
       document.state = update.state;
       document.text = update.state.doc;
-      document.selectionJSON = update.state.selection.toJSON();
-      document.selectionBytesEstimate = serializedBytes(document.selectionJSON);
+      if (update.docChanged || update.selectionSet) {
+        document.selectionJSON = update.state.selection.toJSON();
+        document.selectionBytesEstimate = serializedBytes(document.selectionJSON);
+      }
       const lineState = document.lineEndingField ? lineEndingMapOf(update.state, document.lineEndingField) : undefined;
       if (lineState) {
         document.lineEndingHistory = lineState.history;
@@ -359,13 +431,18 @@ export function EditorPane(props: EditorPaneProps) {
         });
         const isHistoryReplay = update.transactions.some((transaction) => {
           const userEvent = transaction.annotation(Transaction.userEvent);
-          return userEvent === "undo" || userEvent === "redo" || userEvent === "select.undo" || userEvent === "select.redo";
+          return (
+            userEvent === "undo" || userEvent === "redo" || userEvent === "select.undo" || userEvent === "select.redo"
+          );
         });
         if (!isHistoryReplay) document.historyBytesEstimate += Math.max(128, changedCodeUnits * 4 + 128);
         document.estimatedUtf8Bytes += updateUtf8ByteLength(update.startState.doc, update.state.doc, update.changes);
-      } else if (update.selectionSet && update.transactions.some((transaction) =>
-        transaction.annotation(Transaction.userEvent)?.startsWith("select") === true,
-      )) {
+      } else if (
+        update.selectionSet &&
+        update.transactions.some(
+          (transaction) => transaction.annotation(Transaction.userEvent)?.startsWith("select") === true,
+        )
+      ) {
         document.historyBytesEstimate += 96;
       }
       touchDocument(document);
@@ -377,7 +454,8 @@ export function EditorPane(props: EditorPaneProps) {
       const mapState = document.lineEndingField ? lineEndingMapOf(update.state, document.lineEndingField) : undefined;
       const lineEndingMap = mapState?.map ?? document.lineEndingMap;
       const previousCrLf = document.lineEndingMap.crlf;
-      document.estimatedBytes += document.estimatedUtf8Bytes - document.lastEstimatedUtf8Bytes + lineEndingMap.crlf - previousCrLf;
+      document.estimatedBytes +=
+        document.estimatedUtf8Bytes - document.lastEstimatedUtf8Bytes + lineEndingMap.crlf - previousCrLf;
       document.lastEstimatedUtf8Bytes = document.estimatedUtf8Bytes;
       document.lineEndingMap = lineEndingMap;
       if (mapState) document.lineEnding = majorityLineEnding(mapState);
@@ -405,7 +483,8 @@ export function EditorPane(props: EditorPaneProps) {
       const selected = update.state.selection.ranges.reduce((total, range) => total + range.to - range.from, 0);
       props.onCursorChange(activeDocumentId, line.number, head - line.from + 1, selected);
     }
-    if ((update.docChanged || update.selectionSet) && props.countSearchMatches && props.searchQuery) scheduleMatchCount();
+    if ((update.docChanged || update.selectionSet) && props.countSearchMatches && props.searchQuery)
+      scheduleMatchCount();
   });
 
   const handleWheel = (event: WheelEvent) => {
@@ -428,9 +507,10 @@ export function EditorPane(props: EditorPaneProps) {
     largeFileModeForSize(document.largeFile, document.estimatedBytes);
 
   const cacheEvictionStateOf = (document: CachedDocument): EditorDocumentEvictionState => {
-    const lineEndingHistory = document.state && document.lineEndingField
-      ? lineEndingMapOf(document.state, document.lineEndingField).history
-      : document.lineEndingHistory;
+    const lineEndingHistory =
+      document.state && document.lineEndingField
+        ? lineEndingMapOf(document.state, document.lineEndingField).history
+        : document.lineEndingHistory;
     const dirty = computeDocumentDirty({
       text: currentTextOf(document),
       savedText: document.savedText,
@@ -455,125 +535,153 @@ export function EditorPane(props: EditorPaneProps) {
   };
 
   const createDocumentHandle = (tabId: string, document: CachedDocument): EditorDocumentHandle => ({
-      getText: () => {
-        return currentTextOf(document).toString();
-      },
-      getRange: (from, to) => {
-        const text = currentTextOf(document);
-        const start = Math.max(0, Math.min(text.length, from));
-        const end = Math.max(start, Math.max(0, Math.min(text.length, to)));
-        return text.sliceString(start, end);
-      },
-      getTextLength: () => {
-        return currentTextOf(document).length;
-      },
-      getMetadata: () => {
-        return {
-          revision: document.revision,
-          estimatedBytes: document.estimatedBytes,
-          largeFile: currentLargeFileModeOf(document),
-        };
-      },
-      getCacheFootprint: () => documentFootprint(document),
-      getCacheEvictionState: () => cacheEvictionStateOf(document),
-      getSnapshot: () => {
-        const text = currentTextOf(document);
-        const lineState = document.state && document.lineEndingField ? lineEndingMapOf(document.state, document.lineEndingField) : undefined;
-        const lineEndingMap = lineState?.map ?? document.lineEndingMap;
-        const lineEndings = lineEndingMapToString(lineEndingMap);
-        document.savedCandidates.set(document.revision, { text, lineEndingMap, bom: document.bom });
-        while (document.savedCandidates.size > 64) document.savedCandidates.delete(document.savedCandidates.keys().next().value!);
-        return {
-          content: text.toString(),
-          revision: document.revision,
-          lineEndings,
-          lineEnding: lineState ? majorityLineEnding(lineState) : document.lineEnding,
-          bom: document.bom,
-          encoding: document.encoding,
-          savedRevision: document.savedRevision,
-          savedLineEndings: lineEndingMapToString(document.savedLineEndingMap),
-          savedBom: document.savedBom,
-          estimatedBytes: document.estimatedBytes,
-        };
-      },
-      getDetachedDocument: () => {
-        const text = currentTextOf(document);
-        const lineState = document.state && document.lineEndingField ? lineEndingMapOf(document.state, document.lineEndingField) : undefined;
-        const lineEndingMap = lineState?.map ?? document.lineEndingMap;
-        const historyJSON = document.state ? serializeEditorHistory(document.state) : document.historyJSON;
-        const history = lineState?.history ?? document.lineEndingHistory;
-        const selection = document.state?.selection.main;
-        const storedSelection = document.selectionJSON as { main?: number; mainIndex?: number; ranges?: Array<{ head?: number }> } | undefined;
-        const storedHead = storedSelection?.ranges?.[storedSelection.main ?? storedSelection.mainIndex ?? 0]?.head;
-        const cursorOffset = Math.max(0, Math.min(text.length, selection?.head ?? storedHead ?? 0));
-        const cursorLine = text.lineAt(cursorOffset);
-        return {
-          content: text.toString(),
-          lineEndings: lineEndingMapToString(lineEndingMap),
-          savedContent: document.savedText.toString(),
-          savedLineEndings: lineEndingMapToString(document.savedLineEndingMap),
-          lineEnding: lineState ? majorityLineEnding(lineState) : document.lineEnding,
-          bom: document.bom,
-          savedBom: document.savedBom,
-          encoding: document.encoding,
-          revision: document.revision,
-          savedRevision: document.savedRevision,
-          sourceVersion: document.sourceVersion,
-          estimatedBytes: document.estimatedBytes,
-          largeFile: document.largeFile,
-          cursor: { line: cursorLine.number, column: cursorOffset - cursorLine.from + 1 },
-          selectionJSON: document.state?.selection.toJSON() ?? document.selectionJSON,
-          historyJSON,
-          lineEndingHistory: history,
-        };
-      },
-      getSelection: () => {
-        const state = document.state;
-        if (!state) return undefined;
-        const selection = state.selection.main;
-        return {
-          anchor: selection.anchor,
-          head: selection.head,
-          from: selection.from,
-          to: selection.to,
-          text: state.sliceDoc(selection.from, selection.to),
-        };
-      },
-      getCursor: () => {
-        const state = document.state;
-        if (!state) return undefined;
-        const offset = state.selection.main.head;
-        const line = state.doc.lineAt(offset);
-        return { line: line.number, column: offset - line.from + 1, offset };
-      },
-      applyEdits: (expectedRevision, edits, isolated) => {
-        const currentView = view;
-        if (documents.get(tabId) !== document || tabId !== activeDocumentId || !document.state || !currentView || currentView.state !== document.state) return false;
-        const transaction = createPluginEditorEditTransaction(
-          document.state,
-          expectedRevision,
-          document.revision,
-          edits,
-          isolated,
-        );
-        if (!transaction) return false;
-        currentView.dispatch(transaction);
-        return true;
-      },
-      history: (direction) => {
-        const currentView = view;
-        if (documents.get(tabId) !== document || tabId !== activeDocumentId || !currentView || currentView.state !== document.state) return false;
-        return (direction === "undo" ? undo : redo)(currentView);
-      },
-      formatForSave: (options) => {
-        const currentView = view;
-        if (documents.get(tabId) !== document || tabId !== activeDocumentId || !currentView || currentView.state !== document.state) return false;
-        const changes = saveFormattingChanges(currentView.state, options);
-        if (!changes.length) return false;
-        currentView.dispatch({ changes, userEvent: "input.format" });
-        return true;
-      },
-    });
+    getText: () => {
+      return currentTextOf(document).toString();
+    },
+    getRange: (from, to) => {
+      const text = currentTextOf(document);
+      const start = Math.max(0, Math.min(text.length, from));
+      const end = Math.max(start, Math.max(0, Math.min(text.length, to)));
+      return text.sliceString(start, end);
+    },
+    getTextLength: () => {
+      return currentTextOf(document).length;
+    },
+    getMetadata: () => {
+      return {
+        revision: document.revision,
+        estimatedBytes: document.estimatedBytes,
+        largeFile: currentLargeFileModeOf(document),
+      };
+    },
+    getCacheFootprint: () => documentFootprint(document),
+    getCacheEvictionState: () => cacheEvictionStateOf(document),
+    getSnapshot: () => {
+      const text = currentTextOf(document);
+      const lineState =
+        document.state && document.lineEndingField
+          ? lineEndingMapOf(document.state, document.lineEndingField)
+          : undefined;
+      const lineEndingMap = lineState?.map ?? document.lineEndingMap;
+      const lineEndings = lineEndingMapToString(lineEndingMap);
+      document.savedCandidates.set(document.revision, { text, lineEndingMap, bom: document.bom });
+      while (document.savedCandidates.size > 64)
+        document.savedCandidates.delete(document.savedCandidates.keys().next().value!);
+      return {
+        content: text.toString(),
+        revision: document.revision,
+        lineEndings,
+        lineEnding: lineState ? majorityLineEnding(lineState) : document.lineEnding,
+        bom: document.bom,
+        encoding: document.encoding,
+        savedRevision: document.savedRevision,
+        savedLineEndings: lineEndingMapToString(document.savedLineEndingMap),
+        savedBom: document.savedBom,
+        estimatedBytes: document.estimatedBytes,
+      };
+    },
+    getDetachedDocument: () => {
+      const text = currentTextOf(document);
+      const lineState =
+        document.state && document.lineEndingField
+          ? lineEndingMapOf(document.state, document.lineEndingField)
+          : undefined;
+      const lineEndingMap = lineState?.map ?? document.lineEndingMap;
+      const historyJSON = document.state ? serializeEditorHistory(document.state) : document.historyJSON;
+      const history = lineState?.history ?? document.lineEndingHistory;
+      const selection = document.state?.selection.main;
+      const storedSelection = document.selectionJSON as
+        | { main?: number; mainIndex?: number; ranges?: Array<{ head?: number }> }
+        | undefined;
+      const storedHead = storedSelection?.ranges?.[storedSelection.main ?? storedSelection.mainIndex ?? 0]?.head;
+      const cursorOffset = Math.max(0, Math.min(text.length, selection?.head ?? storedHead ?? 0));
+      const cursorLine = text.lineAt(cursorOffset);
+      return {
+        content: text.toString(),
+        lineEndings: lineEndingMapToString(lineEndingMap),
+        savedContent: document.savedText.toString(),
+        savedLineEndings: lineEndingMapToString(document.savedLineEndingMap),
+        lineEnding: lineState ? majorityLineEnding(lineState) : document.lineEnding,
+        bom: document.bom,
+        savedBom: document.savedBom,
+        encoding: document.encoding,
+        revision: document.revision,
+        savedRevision: document.savedRevision,
+        sourceVersion: document.sourceVersion,
+        estimatedBytes: document.estimatedBytes,
+        largeFile: document.largeFile,
+        cursor: { line: cursorLine.number, column: cursorOffset - cursorLine.from + 1 },
+        selectionJSON: document.state?.selection.toJSON() ?? document.selectionJSON,
+        historyJSON,
+        lineEndingHistory: history,
+      };
+    },
+    getSelection: () => {
+      const state = document.state;
+      if (!state) return undefined;
+      const selection = state.selection.main;
+      return {
+        anchor: selection.anchor,
+        head: selection.head,
+        from: selection.from,
+        to: selection.to,
+        text: state.sliceDoc(selection.from, selection.to),
+      };
+    },
+    getCursor: () => {
+      const state = document.state;
+      if (!state) return undefined;
+      const offset = state.selection.main.head;
+      const line = state.doc.lineAt(offset);
+      return { line: line.number, column: offset - line.from + 1, offset };
+    },
+    applyEdits: (expectedRevision, edits, isolated) => {
+      const currentView = view;
+      if (
+        documents.get(tabId) !== document ||
+        tabId !== activeDocumentId ||
+        !document.state ||
+        !currentView ||
+        currentView.state !== document.state
+      )
+        return false;
+      const transaction = createPluginEditorEditTransaction(
+        document.state,
+        expectedRevision,
+        document.revision,
+        edits,
+        isolated,
+      );
+      if (!transaction) return false;
+      currentView.dispatch(transaction);
+      return true;
+    },
+    history: (direction) => {
+      const currentView = view;
+      if (
+        documents.get(tabId) !== document ||
+        tabId !== activeDocumentId ||
+        !currentView ||
+        currentView.state !== document.state
+      )
+        return false;
+      return (direction === "undo" ? undo : redo)(currentView);
+    },
+    formatForSave: (options) => {
+      const currentView = view;
+      if (
+        documents.get(tabId) !== document ||
+        tabId !== activeDocumentId ||
+        !currentView ||
+        currentView.state !== document.state
+      )
+        return false;
+      const changes = saveFormattingChanges(currentView.state, options);
+      if (!changes.length) return false;
+      currentView.dispatch({ changes, userEvent: "input.format" });
+      return true;
+    },
+  });
 
   const registerDocument = (tabId: string) => {
     const document = documents.get(tabId);
@@ -632,11 +740,15 @@ export function EditorPane(props: EditorPaneProps) {
     let state: EditorState;
     if (serialized?.historyJSON !== undefined || serialized?.selectionJSON !== undefined) {
       try {
-        state = EditorState.fromJSON({
-          doc: typeof normalizedContent === "string" ? normalizedContent : normalizedContent.toString(),
-          selection: serialized.selectionJSON,
-          ...(serialized.historyJSON === undefined ? {} : { history: serialized.historyJSON }),
-        }, { extensions }, { history: historyField });
+        state = EditorState.fromJSON(
+          {
+            doc: typeof normalizedContent === "string" ? normalizedContent : normalizedContent.toString(),
+            selection: serialized.selectionJSON,
+            ...(serialized.historyJSON === undefined ? {} : { history: serialized.historyJSON }),
+          },
+          { extensions },
+          { history: historyField },
+        );
       } catch (error) {
         if (serialized?.historyJSON !== undefined) throw error;
         state = EditorState.create({ doc: normalizedContent, extensions });
@@ -677,15 +789,19 @@ export function EditorPane(props: EditorPaneProps) {
 
     const currentText = currentTextOf(document);
     const currentLineEndingMap = currentLineEndingMapOf(document);
-    const savedContent = tab.normalizedSavedRevision === tab.savedRevision
-      ? tab.savedContent
-      : normalizeDocumentContent(tab.savedContent);
+    const savedContent =
+      tab.normalizedSavedRevision === tab.savedRevision ? tab.savedContent : normalizeDocumentContent(tab.savedContent);
     const savedContentMatches = savedContent === currentText.toString();
-    const savedLineEndingText = tab.normalizedSavedRevision === tab.savedRevision && tab.savedLineEndings !== undefined
-      ? tab.savedLineEndings
-      : savedContentMatches
-        ? normalizeLineEndingMapForLineBreakCount(tab.savedLineEndings ?? tab.lineEndings, currentLineEndingMap.length, tab.lineEnding)
-        : normalizeLineEndingMap(savedContent, tab.savedLineEndings ?? tab.lineEndings, tab.lineEnding);
+    const savedLineEndingText =
+      tab.normalizedSavedRevision === tab.savedRevision && tab.savedLineEndings !== undefined
+        ? tab.savedLineEndings
+        : savedContentMatches
+          ? normalizeLineEndingMapForLineBreakCount(
+              tab.savedLineEndings ?? tab.lineEndings,
+              currentLineEndingMap.length,
+              tab.lineEnding,
+            )
+          : normalizeLineEndingMap(savedContent, tab.savedLineEndings ?? tab.lineEndings, tab.lineEnding);
     if (savedContentMatches && savedLineEndingText === lineEndingMapToString(currentLineEndingMap)) {
       document.savedText = currentText;
       document.savedLineEndingMap = currentLineEndingMap;
@@ -705,27 +821,34 @@ export function EditorPane(props: EditorPaneProps) {
       ...tab,
       content,
       lineEndings: lineEndingsOverride ?? tab.lineEndings,
-      normalizedContentVersion: content === tab.content && lineEndingsOverride === undefined
-        ? tab.normalizedContentVersion
-        : undefined,
+      normalizedContentVersion:
+        content === tab.content && lineEndingsOverride === undefined ? tab.normalizedContentVersion : undefined,
     });
     const normalizedContent = source.content;
     const lineEndingText = source.lineEndings;
     const lineEndingMap = lineEndingMapFromString(lineEndingText);
     const savedContent = source.savedContent;
     const savedLineEndingText = source.savedLineEndings;
-    const savedLineEndingMap = savedContent === normalizedContent && savedLineEndingText === lineEndingText
-      ? lineEndingMap
-      : lineEndingMapFromString(savedLineEndingText);
+    const savedLineEndingMap =
+      savedContent === normalizedContent && savedLineEndingText === lineEndingText
+        ? lineEndingMap
+        : lineEndingMapFromString(savedLineEndingText);
     const estimatedUtf8Bytes = utf8ByteLength(normalizedContent);
     const estimatedBytes = serializedDocumentByteLength(estimatedUtf8Bytes, lineEndingMap.crlf, tab.bom === true);
     const largeFile = largeFileModeForSize(tab.largeFile === true, estimatedBytes);
-    const fallbackSelection = content === tab.content && lineEndingsOverride === undefined
-      ? currentEditorSelectionFallback(tab.selectionFallback, tab.revision, tab.contentVersion, normalizedContent.length)
-      : undefined;
-    const stateSerialization = serialized?.selectionJSON === undefined && fallbackSelection
-      ? { ...serialized, selectionJSON: fallbackSelection }
-      : serialized;
+    const fallbackSelection =
+      content === tab.content && lineEndingsOverride === undefined
+        ? currentEditorSelectionFallback(
+            tab.selectionFallback,
+            tab.revision,
+            tab.contentVersion,
+            normalizedContent.length,
+          )
+        : undefined;
+    const stateSerialization =
+      serialized?.selectionJSON === undefined && fallbackSelection
+        ? { ...serialized, selectionJSON: fallbackSelection }
+        : serialized;
     const created = createState(tab, normalizedContent, lineEndingMap, stateSerialization, largeFile);
     const state = created.state;
     const savedText = savedContent === normalizedContent ? state.doc : textFromNormalizedString(savedContent);
@@ -762,9 +885,10 @@ export function EditorPane(props: EditorPaneProps) {
 
   const createDocumentFromSeed = (tab: EditorTab, seed: EditorDocumentSeed): CachedDocument => {
     const lineEndingMap = lineEndingMapFromString(seed.lineEndings);
-    const savedLineEndingMap = seed.savedContent === seed.content && seed.savedLineEndings === seed.lineEndings
-      ? lineEndingMap
-      : lineEndingMapFromString(seed.savedLineEndings);
+    const savedLineEndingMap =
+      seed.savedContent === seed.content && seed.savedLineEndings === seed.lineEndings
+        ? lineEndingMap
+        : lineEndingMapFromString(seed.savedLineEndings);
     const largeFile = largeFileModeForSize(tab.largeFile === true, seed.estimatedBytes);
     const created = createState(tab, seed.content, lineEndingMap, seed, largeFile);
     const state = created.state;
@@ -810,7 +934,13 @@ export function EditorPane(props: EditorPaneProps) {
     }
     try {
       const support = await loadEditorLanguageSupport(metadata);
-      if (view !== currentView || activeDocumentId !== tabId || languageRevision !== requestRevision || documents.get(tabId)?.path !== path) return;
+      if (
+        view !== currentView ||
+        activeDocumentId !== tabId ||
+        languageRevision !== requestRevision ||
+        documents.get(tabId)?.path !== path
+      )
+        return;
       currentView.dispatch({ effects: languageCompartment.reconfigure(support) });
     } catch {
       // A missing optional language package should not stop plain text editing.
@@ -825,7 +955,13 @@ export function EditorPane(props: EditorPaneProps) {
     const estimatedUtf8Bytes = utf8ByteLength(content);
     const estimatedBytes = serializedDocumentByteLength(estimatedUtf8Bytes, lineEndingMap.crlf, tab.bom === true);
     const largeFile = largeFileModeForSize(tab.largeFile === true, estimatedBytes);
-    const created = createState(tab, content, lineEndingMap, currentState ? { selectionJSON: currentState.selection.toJSON() } : undefined, largeFile);
+    const created = createState(
+      tab,
+      content,
+      lineEndingMap,
+      currentState ? { selectionJSON: currentState.selection.toJSON() } : undefined,
+      largeFile,
+    );
     const nextState = created.state;
     syncing = true;
     document.state = nextState;
@@ -857,13 +993,22 @@ export function EditorPane(props: EditorPaneProps) {
     const changed = changedEditorSettings(document.settings, settings);
     const effects = [];
     if (changed.includes("theme")) effects.push(themeCompartment.reconfigure(editorTheme(settings.theme)));
-    if (changed.includes("lineNumbers")) effects.push(gutterCompartment.reconfigure(lineNumberExtensions(settings, document.largeFile)));
-    if (changed.includes("showWhitespace")) effects.push(whitespaceCompartment.reconfigure(whitespaceExtensions(settings)));
-    if (changed.includes("autoCloseBrackets")) effects.push(bracketCompartment.reconfigure(bracketExtensions(settings, document.largeFile)));
-    if (changed.includes("fontSize")) effects.push(fontSizeCompartment.reconfigure(editorFontSizeTheme(settings.fontSize)));
-    if (changed.includes("wordWrap")) effects.push(wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []));
-    if (changed.includes("tabSize")) effects.push(tabSizeCompartment.reconfigure(EditorState.tabSize.of(settings.tabSize)));
-    if (changed.includes("insertSpaces") || changed.includes("tabSize")) effects.push(indentCompartment.reconfigure(indentUnit.of(settings.insertSpaces ? " ".repeat(settings.tabSize) : "\t")));
+    if (changed.includes("lineNumbers"))
+      effects.push(gutterCompartment.reconfigure(lineNumberExtensions(settings, document.largeFile)));
+    if (changed.includes("showWhitespace"))
+      effects.push(whitespaceCompartment.reconfigure(whitespaceExtensions(settings)));
+    if (changed.includes("autoCloseBrackets"))
+      effects.push(bracketCompartment.reconfigure(bracketExtensions(settings, document.largeFile)));
+    if (changed.includes("fontSize"))
+      effects.push(fontSizeCompartment.reconfigure(editorFontSizeTheme(settings.fontSize)));
+    if (changed.includes("wordWrap"))
+      effects.push(wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []));
+    if (changed.includes("tabSize"))
+      effects.push(tabSizeCompartment.reconfigure(EditorState.tabSize.of(settings.tabSize)));
+    if (changed.includes("insertSpaces") || changed.includes("tabSize"))
+      effects.push(
+        indentCompartment.reconfigure(indentUnit.of(settings.insertSpaces ? " ".repeat(settings.tabSize) : "\t")),
+      );
 
     if (effects.length && document.state) {
       const shouldDispatch = Boolean(activeDocumentId) && view?.state === document.state;
@@ -893,7 +1038,10 @@ export function EditorPane(props: EditorPaneProps) {
       // Crossing the large-file threshold changes the extension set. Rebuild
       // the state while carrying over text, cursor, and serialized history.
       const text = currentTextOf(document);
-      const mapState = document.state && document.lineEndingField ? lineEndingMapOf(document.state, document.lineEndingField) : undefined;
+      const mapState =
+        document.state && document.lineEndingField
+          ? lineEndingMapOf(document.state, document.lineEndingField)
+          : undefined;
       const snapshot = {
         text,
         selectionJSON: document.state?.selection.toJSON() ?? document.selectionJSON,
@@ -905,7 +1053,13 @@ export function EditorPane(props: EditorPaneProps) {
         // undo stack is never discarded during a setup change.
         return;
       }
-      const created = createState(tab, snapshot.text.toString(), document.lineEndingMap, snapshot, tab.largeFile === true);
+      const created = createState(
+        tab,
+        snapshot.text.toString(),
+        document.lineEndingMap,
+        snapshot,
+        tab.largeFile === true,
+      );
       document.state = created.state;
       document.text = created.state.doc;
       document.lineEndingField = created.lineEndingField;
@@ -913,16 +1067,23 @@ export function EditorPane(props: EditorPaneProps) {
       document.historyJSON = undefined;
       document.largeFile = tab.largeFile === true;
     }
-    if (!document) document = props.getCachedDocument(tab.id)
-      ? createDocumentFromSeed(tab, props.getCachedDocument(tab.id)!)
-      : createDocument(tab);
+    if (!document) {
+      const seed = props.getCachedDocument(tab.id);
+      document = seed ? createDocumentFromSeed(tab, seed) : createDocument(tab);
+    }
     if (!document.state) {
       if (document.sourceVersion === tab.contentVersion) {
-        const created = createState(tab, document.text.toString(), document.lineEndingMap, {
-          selectionJSON: document.selectionJSON,
-          historyJSON: document.historyJSON,
-          lineEndingHistory: document.lineEndingHistory,
-        }, document.largeFile);
+        const created = createState(
+          tab,
+          document.text.toString(),
+          document.lineEndingMap,
+          {
+            selectionJSON: document.selectionJSON,
+            historyJSON: document.historyJSON,
+            lineEndingHistory: document.lineEndingHistory,
+          },
+          document.largeFile,
+        );
         document.state = created.state;
         document.lineEndingField = created.lineEndingField;
         document.lineEndingHistory = lineEndingMapOf(created.state, created.lineEndingField).history;
@@ -932,11 +1093,17 @@ export function EditorPane(props: EditorPaneProps) {
           // The detached document may still contain the only copy of a dirty
           // buffer while App has advanced the disk snapshot in the meantime.
           // Rehydrate that text and history before updating its source marker.
-          const created = createState(tab, document.text.toString(), document.lineEndingMap, {
-            selectionJSON: document.selectionJSON,
-            historyJSON: document.historyJSON,
-            lineEndingHistory: document.lineEndingHistory,
-          }, document.largeFile);
+          const created = createState(
+            tab,
+            document.text.toString(),
+            document.lineEndingMap,
+            {
+              selectionJSON: document.selectionJSON,
+              historyJSON: document.historyJSON,
+              lineEndingHistory: document.lineEndingHistory,
+            },
+            document.largeFile,
+          );
           document.state = created.state;
           document.lineEndingField = created.lineEndingField;
           document.lineEndingHistory = lineEndingMapOf(created.state, created.lineEndingField).history;
@@ -951,7 +1118,9 @@ export function EditorPane(props: EditorPaneProps) {
       if (!hydratedState) return;
       document.text = hydratedState.doc;
       document.historyJSON = undefined;
-      document.lineEndingHistory = document.lineEndingField ? lineEndingMapOf(hydratedState, document.lineEndingField).history : document.lineEndingHistory;
+      document.lineEndingHistory = document.lineEndingField
+        ? lineEndingMapOf(hydratedState, document.lineEndingField).history
+        : document.lineEndingHistory;
     }
     if (document.sourceVersion !== tab.contentVersion) {
       const hasLocalEdits = !document.text.eq(document.savedText);
@@ -1121,7 +1290,7 @@ export function EditorPane(props: EditorPaneProps) {
   createEffect(() => {
     const request = props.goToLine;
     const tabId = props.tab?.id;
-    if (!view || !request || request === lastNavigationRequest || request.tabId && request.tabId !== tabId) return;
+    if (!view || !request || request === lastNavigationRequest || (request.tabId && request.tabId !== tabId)) return;
     if (activeDocumentId !== tabId) return;
     lastNavigationRequest = request;
     const lineNumber = Math.max(1, Math.min(request.line, view.state.doc.lines));
@@ -1129,17 +1298,32 @@ export function EditorPane(props: EditorPaneProps) {
     let anchor = Math.min(line.to, line.from + Math.max(0, (request.column ?? 1) - 1));
     let head = anchor;
     if (request.query) {
-      const cursor = new SearchQuery({ search: request.query, caseSensitive: request.caseSensitive, literal: true }).getCursor(view.state.doc, line.from, line.to).next();
-      if (!cursor.done) { anchor = cursor.value.from; head = cursor.value.to; }
+      const cursor = new SearchQuery({ search: request.query, caseSensitive: request.caseSensitive, literal: true })
+        .getCursor(view.state.doc, line.from, line.to)
+        .next();
+      if (!cursor.done) {
+        anchor = cursor.value.from;
+        head = cursor.value.to;
+      }
     }
-    view.dispatch({ selection: { anchor, head }, effects: EditorView.scrollIntoView(anchor, { y: "center", x: "center" }) });
+    view.dispatch({
+      selection: { anchor, head },
+      effects: EditorView.scrollIntoView(anchor, { y: "center", x: "center" }),
+    });
     view.focus();
   });
 
   let lastEditorCommand: EditorCommandRequest | undefined;
   createEffect(() => {
     const request = props.editorCommand;
-    if (!view || !request || request === lastEditorCommand || request.tabId !== props.tab?.id || activeDocumentId !== request.tabId) return;
+    if (
+      !view ||
+      !request ||
+      request === lastEditorCommand ||
+      request.tabId !== props.tab?.id ||
+      activeDocumentId !== request.tabId
+    )
+      return;
     lastEditorCommand = request;
     runEditorCommand(view, request.command);
     view.focus();
@@ -1167,5 +1351,12 @@ export function EditorPane(props: EditorPaneProps) {
     documents.clear();
   });
 
-  return <div class="editor-host" ref={host} style={{ "--editor-font-size": `${props.settings.fontSize}px` }} aria-label={accessibleName(props.tab?.name)} />;
+  return (
+    <div
+      class="editor-host"
+      ref={host}
+      style={{ "--editor-font-size": `${props.settings.fontSize}px` }}
+      aria-label={accessibleName(props.tab?.name)}
+    />
+  );
 }

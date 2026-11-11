@@ -154,11 +154,13 @@ impl TerminalOutputBatcher {
         }
     }
 
-    fn push(&mut self, chunk: &str) {
+    fn push(&mut self, chunk: String) {
         if self.batch.is_empty() {
             self.window_start = Instant::now();
+            self.batch = chunk;
+        } else {
+            self.batch.push_str(&chunk);
         }
-        self.batch.push_str(chunk);
     }
 
     fn is_ready(&self, now: Instant) -> bool {
@@ -208,17 +210,24 @@ fn emit_terminal_batch(
     session_id: &str,
     generation: u64,
     flow: &TerminalOutputFlow,
-    batch: &str,
+    batch: String,
 ) {
-    for piece in split_terminal_batch(batch, TERMINAL_OUTPUT_BATCH_MAX_BYTES) {
-        let seq = flow.alloc(piece.len());
+    let send = |data: String| {
+        let seq = flow.alloc(data.len());
         let _ = channel.send(TerminalOutputEvent {
             session_id: session_id.to_string(),
             seq,
             generation,
-            bytes: piece.len(),
-            data: piece,
+            bytes: data.len(),
+            data,
         });
+    };
+    if batch.len() <= TERMINAL_OUTPUT_BATCH_MAX_BYTES {
+        send(batch);
+    } else {
+        for piece in split_terminal_batch(&batch, TERMINAL_OUTPUT_BATCH_MAX_BYTES) {
+            send(piece);
+        }
     }
 }
 
@@ -239,33 +248,31 @@ fn terminal_output_emit_loop(
     );
     loop {
         match receiver.recv() {
-            Ok(chunk) => batcher.push(&chunk),
+            Ok(chunk) => batcher.push(chunk),
             Err(_) => return,
         }
         while let Some(remaining) = batcher.remaining_window(Instant::now()) {
             match receiver.recv_timeout(remaining) {
-                Ok(chunk) => batcher.push(&chunk),
+                Ok(chunk) => batcher.push(chunk),
                 Err(RecvTimeoutError::Timeout) => break,
                 Err(RecvTimeoutError::Disconnected) => {
-                    let batch = batcher.take();
                     emit_terminal_batch(
                         &channel,
                         &session_id,
                         generation,
                         &terminal.output_flow,
-                        &batch,
+                        batcher.take(),
                     );
                     return;
                 }
             }
         }
-        let batch = batcher.take();
         emit_terminal_batch(
             &channel,
             &session_id,
             generation,
             &terminal.output_flow,
-            &batch,
+            batcher.take(),
         );
     }
 }
@@ -435,6 +442,7 @@ struct TerminalProcessTree {
 pub(crate) async fn terminal_start(
     workspace: String,
     working_directory: Option<String>,
+    activate_python_environment: Option<bool>,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -455,6 +463,7 @@ pub(crate) async fn terminal_start(
             terminal_start_sync(
                 workspace,
                 working_directory,
+                activate_python_environment.unwrap_or(false),
                 rows,
                 cols,
                 events,
@@ -472,6 +481,7 @@ pub(crate) async fn terminal_start(
 fn terminal_start_sync(
     workspace: String,
     working_directory: Option<String>,
+    activate_python_environment: bool,
     rows: u16,
     cols: u16,
     events: Channel<TerminalOutputEvent>,
@@ -500,10 +510,7 @@ fn terminal_start_sync(
             pixel_height: 0,
         })
         .map_err(|error| format!("Unable to create terminal. {error}"))?;
-    #[cfg(windows)]
-    let shell = windows_shell();
-    #[cfg(unix)]
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let shell = terminal_shell();
     #[cfg(windows)]
     let mut bootstrap_gate = TerminalBootstrapGate::new()
         .map_err(|error| format!("Unable to prepare the terminal startup gate. {error}"))?;
@@ -534,8 +541,11 @@ fn terminal_start_sync(
     command.cwd(&working_directory);
     command.env("TERM", "xterm-256color");
     command.env("COLORTERM", "truecolor");
-    let python_environment =
-        python_environment::activate_project_environment(&mut command, &working_directory);
+    let python_environment_notice = python_environment::configure_project_environment(
+        &mut command,
+        &working_directory,
+        activate_python_environment,
+    );
     #[cfg(target_os = "linux")]
     super::process_group::LinuxTerminalSession::check_supported()
         .map_err(|error| format!("Unable to prepare terminal process cleanup. {error}"))?;
@@ -544,42 +554,18 @@ fn terminal_start_sync(
         .spawn_command(command)
         .map_err(|error| format!("Unable to start terminal. {error}"))?;
     #[cfg(windows)]
-    let process_tree = match TerminalProcessTree::attach(child.as_ref(), Some(&mut bootstrap_gate))
-    {
+    let attached = match TerminalProcessTree::attach(child.as_ref(), Some(&mut bootstrap_gate)) {
         Ok(mut process_tree) => {
             process_tree._startup_gate = Some(bootstrap_gate);
-            process_tree
+            Ok(process_tree)
         }
-        Err(error) => {
-            let tree_cleanup = match terminate_untracked_terminal_tree(child.as_ref()) {
-                Ok(()) => "Terminal process-tree fallback completed.".to_string(),
-                Err(error) => format!("Terminal process-tree fallback failed: {error}"),
-            };
-            let cleanup = match terminate_terminal_child(child.as_mut()) {
-                Ok(status) => format!("Terminal process was stopped: {status}."),
-                Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
-            };
-            return Err(format!(
-                "Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}"
-            ));
-        }
+        Err(error) => Err(error),
     };
     #[cfg(unix)]
-    let process_tree = match TerminalProcessTree::attach(child.as_ref()) {
+    let attached = TerminalProcessTree::attach(child.as_ref());
+    let process_tree = match attached {
         Ok(process_tree) => process_tree,
-        Err(error) => {
-            let tree_cleanup = match terminate_untracked_terminal_tree(child.as_ref()) {
-                Ok(()) => "Terminal process-tree fallback completed.".to_string(),
-                Err(error) => format!("Terminal process-tree fallback failed: {error}"),
-            };
-            let cleanup = match terminate_terminal_child(child.as_mut()) {
-                Ok(status) => format!("Terminal process was stopped: {status}."),
-                Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
-            };
-            return Err(format!(
-                "Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}"
-            ));
-        }
+        Err(error) => return Err(stop_unattached_terminal(child.as_mut(), &error)),
     };
     drop(pair.slave);
     let master = pair.master;
@@ -695,7 +681,7 @@ fn terminal_start_sync(
                             &session_id,
                             generation,
                             &reader_terminal.output_flow,
-                            &data,
+                            data,
                         );
                         true
                     }
@@ -774,24 +760,30 @@ fn terminal_start_sync(
             &id, &terminals, &terminal, &lifecycle, message,
         ));
     }
-    if let Some(environment) = python_environment {
-        let label = environment
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy();
-        let message = format!("Python environment active: {label}\r\n");
-        let seq = terminal.output_flow.alloc(message.len());
-        let generation = terminal.output_flow.generation();
-        let bytes = message.len();
-        let _ = terminal.output_channel.send(TerminalOutputEvent {
-            session_id: id.clone(),
-            seq,
-            generation,
-            bytes,
-            data: message,
-        });
+    if let Some(message) = python_environment_notice {
+        emit_terminal_batch(
+            &terminal.output_channel,
+            &id,
+            terminal.output_flow.generation(),
+            &terminal.output_flow,
+            message,
+        );
     }
     Ok(id)
+}
+
+/// Stops a terminal whose process could not be placed in its cleanup scope, and
+/// describes what happened for the start error.
+fn stop_unattached_terminal(child: &mut (dyn Child + Send + Sync), error: &str) -> String {
+    let tree_cleanup = match terminate_untracked_terminal_tree(child) {
+        Ok(()) => "Terminal process-tree fallback completed.".to_string(),
+        Err(error) => format!("Terminal process-tree fallback failed: {error}"),
+    };
+    let cleanup = match terminate_terminal_child(child) {
+        Ok(status) => format!("Terminal process was stopped: {status}."),
+        Err(cleanup) => format!("Terminal process cleanup failed: {cleanup}"),
+    };
+    format!("Unable to attach the terminal process to its cleanup scope. {error} {tree_cleanup} {cleanup}")
 }
 
 #[tauri::command]
@@ -1107,7 +1099,7 @@ mod terminal_output_channel_tests {
     fn channel_delivery_keeps_aud05_session_seq_and_bytes_fields() {
         let (channel, bodies) = recording_channel();
         let flow = TerminalOutputFlow::new(7);
-        emit_terminal_batch(&channel, "session-1", 7, &flow, "hello");
+        emit_terminal_batch(&channel, "session-1", 7, &flow, "hello".to_string());
         let messages = json_messages(&bodies);
         assert_eq!(messages.len(), 1);
         let value = &messages[0];
@@ -1125,7 +1117,7 @@ mod terminal_output_channel_tests {
         let (channel, bodies) = recording_channel();
         let flow = TerminalOutputFlow::new(3);
         let big = "a".repeat(TERMINAL_OUTPUT_BATCH_MAX_BYTES + 10);
-        emit_terminal_batch(&channel, "session-2", 3, &flow, &big);
+        emit_terminal_batch(&channel, "session-2", 3, &flow, big.clone());
         let messages = json_messages(&bodies);
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0]["seq"], 1);
@@ -1321,9 +1313,9 @@ mod terminal_output_batch_tests {
     #[test]
     fn small_outputs_are_aggregated_until_the_batch_window_ends() {
         let mut batcher = TerminalOutputBatcher::new(1024, Duration::from_millis(50));
-        batcher.push("hello");
-        batcher.push(" ");
-        batcher.push("world");
+        batcher.push("hello".to_string());
+        batcher.push(" ".to_string());
+        batcher.push("world".to_string());
         // Anchor on the batcher's own window start instead of a timestamp
         // captured before the pushes, so the assertions stay deterministic
         // even when the test thread is descheduled mid-test.
@@ -1343,13 +1335,13 @@ mod terminal_output_batch_tests {
     #[test]
     fn the_batch_flushes_as_soon_as_it_reaches_the_size_cap() {
         let mut batcher = TerminalOutputBatcher::new(8, Duration::from_secs(60));
-        batcher.push("abc");
+        batcher.push("abc".to_string());
         assert!(!batcher.is_ready(Instant::now()));
         assert!(
             batcher.remaining_window(Instant::now()).is_some(),
             "a small batch may still wait for more chunks"
         );
-        batcher.push("defghij");
+        batcher.push("defghij".to_string());
         assert!(
             batcher.is_ready(Instant::now()),
             "reaching the size cap must flush immediately"
@@ -3294,34 +3286,64 @@ fn terminal_resize_sync(
 }
 
 fn decode_terminal_bytes(pending: &mut Vec<u8>, bytes: &[u8]) -> String {
+    if pending.is_empty() {
+        if let Ok(text) = std::str::from_utf8(bytes) {
+            return text.to_owned();
+        }
+    }
     pending.extend_from_slice(bytes);
-    let mut output = String::new();
+    let mut output = String::with_capacity(pending.len());
+    let mut rest = pending.as_slice();
     loop {
-        match std::str::from_utf8(pending) {
+        match std::str::from_utf8(rest) {
             Ok(text) => {
                 output.push_str(text);
-                pending.clear();
+                rest = &[];
                 break;
             }
             Err(error) => {
-                let valid = error.valid_up_to();
-                if valid > 0 {
-                    output.push_str(
-                        std::str::from_utf8(&pending[..valid])
-                            .expect("valid UTF-8 prefix should decode"),
-                    );
-                }
-                if error.error_len().is_none() {
-                    *pending = pending[valid..].to_vec();
+                let (valid, after) = rest.split_at(error.valid_up_to());
+                output.push_str(
+                    std::str::from_utf8(valid).expect("valid UTF-8 prefix should decode"),
+                );
+                let Some(invalid_length) = error.error_len() else {
+                    // An incomplete character waits for the next read.
+                    rest = after;
                     break;
-                }
+                };
                 output.push('\u{FFFD}');
-                let invalid_length = error.error_len().expect("invalid UTF-8 has a length");
-                *pending = pending[valid + invalid_length..].to_vec();
+                rest = &after[invalid_length..];
             }
         }
     }
+    let consumed = pending.len() - rest.len();
+    pending.drain(..consumed);
     output
+}
+
+#[cfg(test)]
+mod terminal_decode_tests {
+    use super::decode_terminal_bytes;
+
+    #[test]
+    fn invalid_bytes_are_replaced_and_incomplete_characters_wait_for_the_next_read() {
+        let mut pending = Vec::new();
+        assert_eq!(
+            decode_terminal_bytes(&mut pending, b"a\xffb\xe7"),
+            "a\u{FFFD}b"
+        );
+        assert_eq!(pending, [0xe7]);
+        assert_eq!(decode_terminal_bytes(&mut pending, b"\xb9\x81"), "繁");
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn a_read_of_only_invalid_bytes_becomes_replacement_characters() {
+        let mut pending = Vec::new();
+        let output = decode_terminal_bytes(&mut pending, &[0xff; 64 * 1024]);
+        assert_eq!(output, "\u{FFFD}".repeat(64 * 1024));
+        assert!(pending.is_empty());
+    }
 }
 
 fn read_terminal_chunks(
@@ -3366,7 +3388,7 @@ fn read_terminal_chunks(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 fn read_terminal_output(
     reader: &mut impl Read,
     output_flow: &TerminalOutputFlow,
@@ -3681,7 +3703,7 @@ impl Drop for TerminalBootstrapGate {
 impl TerminalProcessTree {
     fn attach(
         child: &dyn Child,
-        #[cfg(windows)] mut bootstrap_gate: Option<&mut TerminalBootstrapGate>,
+        #[cfg(windows)] bootstrap_gate: Option<&mut TerminalBootstrapGate>,
     ) -> Result<Self, String> {
         let process_id = child
             .process_id()
@@ -3705,7 +3727,7 @@ impl TerminalProcessTree {
         {
             let process = child.as_raw_handle().ok_or_else(|| {
                 "The ConPTY backend did not expose its process handle.".to_string()
-            })? as *mut std::ffi::c_void;
+            })?;
             let job = unsafe { CreateJobObjectW(std::ptr::null_mut(), std::ptr::null()) };
             if job.is_null() {
                 return Err(format!(
@@ -3734,7 +3756,7 @@ impl TerminalProcessTree {
                     "Unable to assign the ConPTY process to its Job Object. {error}"
                 ));
             }
-            if let Some(gate) = bootstrap_gate.as_deref_mut() {
+            if let Some(gate) = bootstrap_gate {
                 if let Err(error) = gate.release() {
                     unsafe {
                         let _ = TerminateJobObject(job, 1);
@@ -3797,9 +3819,9 @@ impl TerminalProcessTree {
                 return Ok(());
             }
             let job_error = io::Error::last_os_error();
-            if unsafe { WaitForSingleObject(job, 0) } == TERMINAL_WAIT_OBJECT_0 {
-                Ok(())
-            } else if terminate_untracked_terminal_tree_by_id(self.process_id).is_ok() {
+            if unsafe { WaitForSingleObject(job, 0) } == TERMINAL_WAIT_OBJECT_0
+                || terminate_untracked_terminal_tree_by_id(self.process_id).is_ok()
+            {
                 Ok(())
             } else {
                 Err(format!(
@@ -4409,7 +4431,7 @@ fn cancel_blocking_terminal_read(reader: &JoinHandle<()>) {
     }
 
     unsafe {
-        let _ = CancelSynchronousIo(reader.as_raw_handle() as *mut std::ffi::c_void);
+        let _ = CancelSynchronousIo(reader.as_raw_handle());
     }
 }
 

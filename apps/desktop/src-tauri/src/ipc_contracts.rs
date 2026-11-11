@@ -158,6 +158,7 @@ fn test_webview() -> tauri::WebviewWindow<tauri::test::MockRuntime> {
             runtime_generic_command_probe,
             git_operation,
             get_git_ignored_paths,
+            crate::git_ignore_file::add_to_gitignore,
             project_search::search_project,
             project_search::cancel_project_search,
             project_search::replace_in_project,
@@ -451,6 +452,52 @@ fn production_tauri_commands_consume_frontend_request_fixtures() {
 }
 
 #[test]
+fn add_to_gitignore_command_lists_an_item_once_and_reports_tracking() {
+    let scratch = ScratchDirectory::new();
+    let root = scratch.0.canonicalize().unwrap();
+    let webview = test_webview();
+    let git = |args: &[&str]| {
+        assert!(std::process::Command::new("git")
+            .arg("-C")
+            .arg(&root)
+            .args(args)
+            .status()
+            .unwrap()
+            .success());
+    };
+    git(&["init", "--quiet"]);
+    fs::create_dir(root.join("build")).unwrap();
+    fs::write(root.join("tracked.txt"), "fixture").unwrap();
+    git(&["add", "tracked.txt"]);
+    let add = |item: &str| {
+        invoke(
+            &webview,
+            "add_to_gitignore",
+            json!({ "workspace": wire_path(&root), "path": wire_path(&root.join(item)) }),
+        )
+    };
+
+    assert_eq!(
+        add("build").unwrap(),
+        json!({ "added": true, "tracked": false })
+    );
+    assert_eq!(
+        add("build").unwrap(),
+        json!({ "added": false, "tracked": false })
+    );
+    assert_eq!(
+        add("tracked.txt").unwrap(),
+        json!({ "added": true, "tracked": true })
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(".gitignore")).unwrap(),
+        "/build/\n/tracked.txt\n"
+    );
+    assert!(add("").is_err());
+    assert!(add("missing.txt").is_err());
+}
+
+#[test]
 fn ignored_paths_command_accepts_paths_and_handles_non_repositories() {
     let scratch = ScratchDirectory::new();
     let root = scratch.0.canonicalize().unwrap();
@@ -480,4 +527,107 @@ fn ignored_paths_command_accepts_paths_and_handles_non_repositories() {
     )
     .unwrap_err();
     assert_eq!(error["kind"], "capacity");
+}
+
+fn git_in(directory: &std::path::Path, args: &[&str]) -> String {
+    let output = std::process::Command::new("git")
+        .current_dir(directory)
+        .args(args)
+        .output()
+        .expect("git should start");
+    assert!(
+        output.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8_lossy(&output.stdout).trim().to_string()
+}
+
+fn committed_repository(scratch: &ScratchDirectory) -> PathBuf {
+    let root = scratch.0.canonicalize().unwrap();
+    git_in(&root, &["init", "--quiet", "--initial-branch=main"]);
+    git_in(&root, &["config", "user.name", "Pude Test"]);
+    git_in(
+        &root,
+        &["config", "user.email", "pude-test@example.invalid"],
+    );
+    fs::write(root.join("tracked.txt"), "tracked\n").unwrap();
+    git_in(&root, &["add", "tracked.txt"]);
+    git_in(&root, &["commit", "--quiet", "-m", "initial commit"]);
+    root
+}
+
+fn git_action(
+    webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+    root: &std::path::Path,
+    action: &str,
+    value: &str,
+    start_point: Option<&str>,
+) -> Result<Value, Value> {
+    invoke(
+        webview,
+        "git_operation",
+        json!({
+            "workspace": wire_path(root),
+            "action": action,
+            "value": value,
+            "originalPath": null,
+            "message": null,
+            "startPoint": start_point,
+        }),
+    )
+}
+
+#[test]
+fn git_branch_operations_never_treat_user_values_as_options() {
+    let scratch = ScratchDirectory::new();
+    let root = committed_repository(&scratch);
+    let webview = test_webview();
+    let head = git_in(&root, &["rev-parse", "HEAD"]);
+    git_in(&root, &["branch", "feature"]);
+    fs::write(root.join("tracked.txt"), "dirty\n").unwrap();
+
+    for option in ["--detach", "--discard-changes", "--force", "-f"] {
+        assert!(git_action(&webview, &root, "switch", option, None).is_err());
+        assert!(git_action(&webview, &root, "create-branch", option, None).is_err());
+        assert!(git_action(&webview, &root, "delete-branch", option, None).is_err());
+        assert!(
+            git_action(&webview, &root, "create-branch", "topic", Some(option)).is_err(),
+            "{option} must not be accepted as a start point"
+        );
+    }
+    assert_eq!(git_in(&root, &["branch", "--show-current"]), "main");
+    assert_eq!(
+        fs::read_to_string(root.join("tracked.txt")).unwrap(),
+        "dirty\n"
+    );
+    assert_eq!(git_in(&root, &["branch", "--list", "topic"]), "");
+
+    git_action(&webview, &root, "create-branch", "topic", Some(&head))
+        .expect("a commit ID is a valid start point");
+    assert_eq!(git_in(&root, &["branch", "--show-current"]), "topic");
+    git_action(&webview, &root, "switch", "feature", None).expect("branch names still switch");
+    assert_eq!(git_in(&root, &["branch", "--show-current"]), "feature");
+    git_action(&webview, &root, "delete-branch", "topic", None).expect("branch names still delete");
+    assert_eq!(git_in(&root, &["branch", "--list", "topic"]), "");
+}
+
+#[test]
+fn git_commit_reads_reject_anything_but_a_full_object_id() {
+    let scratch = ScratchDirectory::new();
+    let root = committed_repository(&scratch);
+    let head = git_in(&root, &["rev-parse", "HEAD"]);
+    let runtime = GitCoordinator::new();
+    let request = runtime.begin_request(&root, None);
+
+    for commit in ["--output=injected.txt", "--stat", "HEAD", &head[..7], ""] {
+        let error = git_commit_files_sync(root.clone(), commit.to_string(), &runtime, &request)
+            .expect_err("only full object IDs may reach git show");
+        assert_eq!(error.kind, GitErrorKind::Failed, "{commit}");
+    }
+    assert!(!root.join("injected.txt").exists());
+
+    let files = git_commit_files_sync(root.clone(), head, &runtime, &request)
+        .expect("a full object ID lists the commit files");
+    assert_eq!(files.len(), 1);
 }

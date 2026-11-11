@@ -1,5 +1,7 @@
 // Results of scripts/benchmark/compare-vscode.mjs plus the official download sizes.
 // Rerun the script and update these numbers together with the README table.
+// Installer sizes come from the latest GitHub release; the other numbers were
+// measured with `pudeVersion` and stay until the script is run again.
 export type SizeKey = "installerMacos" | "installerWindows" | "sizeOnDisk" | "memory";
 
 export type SizeMetric = { key: SizeKey; pude: number; vscode: number };
@@ -9,14 +11,17 @@ export type LaunchTimes = { window: number; ready: number };
 
 export const BENCHMARK = {
   date: "2026-10-15",
+  /** The pude release whose size on disk, memory and launch time were measured. */
   pudeVersion: "0.1.2",
+  /** The pude release whose installer downloads are listed. */
+  installerVersion: "0.1.8",
   vscodeVersion: "1.140.0",
   machine: "Apple M5 Max · 64 GB · macOS 27.0.1",
   runs: 7,
   /** Megabytes. */
   sizes: [
-    { key: "installerMacos", pude: 5.1, vscode: 317.9 },
-    { key: "installerWindows", pude: 3.9, vscode: 244.4 },
+    { key: "installerMacos", pude: 5.6, vscode: 317.9 },
+    { key: "installerWindows", pude: 4.4, vscode: 244.4 },
     { key: "sizeOnDisk", pude: 10.5, vscode: 911.6 },
     { key: "memory", pude: 102.7, vscode: 1073.6 },
   ] satisfies SizeMetric[],

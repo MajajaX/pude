@@ -1,10 +1,13 @@
 import { For } from "solid-js";
 import { locale, t } from "../i18n";
-import { scroll } from "../lib/scroll-progress";
 
 export default function Manifesto() {
   const pieces = () =>
-    locale() === "zh-Hant" ? Array.from(t().manifesto.text) : t().manifesto.text.split(" ").map((word) => `${word} `);
+    locale() === "zh-Hant"
+      ? Array.from(t().manifesto.text)
+      : t()
+          .manifesto.text.split(" ")
+          .map((word) => `${word} `);
 
   return (
     <section class="manifesto" use:scroll="pin" style={{ "--n": pieces().length }}>

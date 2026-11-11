@@ -49,6 +49,11 @@ const DRIVE_ABSOLUTE = /^[A-Za-z]:[\\/]/;
 const DRIVE_PREFIX = /^[A-Za-z]:/;
 const URI_PREFIX = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//;
 
+/** An absolute path on any platform: POSIX `/…`, a Windows drive `C:\…` or a UNC `\\server\…` path. */
+export function isAbsoluteWirePath(path: string): boolean {
+  return path.startsWith("/") || DRIVE_ABSOLUTE.test(path) || path.startsWith("\\\\");
+}
+
 export function runtimePathPlatform(): PathPlatform {
   if (typeof navigator !== "undefined") {
     const platform = `${navigator.platform ?? ""} ${navigator.userAgent ?? ""}`;
@@ -74,9 +79,7 @@ export function runtimePathOptions(): PathIdentityOptions {
 export function createPathIdentity(path: string, options: PathIdentityOptions = {}): PathIdentity {
   const platform = options.platform ?? runtimePathPlatform();
   const casePolicy = options.casePolicy ?? "sensitive";
-  const { comparisonKey, kind } = platform === "windows"
-    ? windowsPathKey(path)
-    : posixPathKey(path);
+  const { comparisonKey, kind } = platform === "windows" ? windowsPathKey(path) : posixPathKey(path);
 
   return {
     displayPath: path,
@@ -113,8 +116,20 @@ export function isSameOrDescendantPath(path: string, parent: string, options: Pa
   }
 
   const separator = "/";
-  if (isFilesystemRoot(parent, platform)) return candidate.startsWith(root.endsWith(separator) ? root : `${root}${separator}`);
+  if (isFilesystemRoot(parent, platform))
+    return candidate.startsWith(root.endsWith(separator) ? root : `${root}${separator}`);
   return candidate.startsWith(`${root}${separator}`);
+}
+
+/**
+ * The path below `root` with `/` separators and its own spelling, `.` for the
+ * root itself, or null when it is not inside `root`.
+ */
+export function relativeWirePath(path: string, root: string, options: PathIdentityOptions = {}): string | null {
+  if (!isSameOrDescendantPath(path, root, options)) return null;
+  // A case-sensitive key keeps the path's spelling and only normalizes separators.
+  const spelled = (value: string) => pathComparisonKey(value, { ...options, casePolicy: "sensitive" });
+  return spelled(path).slice(spelled(root).length).replace(/^\/+/, "") || ".";
 }
 
 /** Join a relative wire path to a root without changing either input path. */
@@ -128,9 +143,7 @@ export function joinWirePath(root: string, relative: string, options: PathIdenti
   const relativeWithNativeSeparators = windows ? relative.replaceAll("/", separator) : relative;
   if (windows && /^[A-Za-z]:$/.test(root)) return `${root}${relativeWithNativeSeparators}`;
   if (!windows && /^\/+$/u.test(root)) return `${root}${relativeWithNativeSeparators}`;
-  const rootWithoutTrailingSeparators = windows
-    ? root.replace(/[\\/]+$/, "")
-    : root.replace(/\/+$/, "");
+  const rootWithoutTrailingSeparators = windows ? root.replace(/[\\/]+$/, "") : root.replace(/\/+$/, "");
   if (!rootWithoutTrailingSeparators) return `${separator}${relativeWithNativeSeparators}`;
   return `${rootWithoutTrailingSeparators}${separator}${relativeWithNativeSeparators}`;
 }
@@ -139,9 +152,7 @@ export function joinWirePath(root: string, relative: string, options: PathIdenti
 export function wireBasename(path: string, options: PathIdentityOptions = {}): string {
   if (!path) return path;
   const platform = options.platform ?? runtimePathPlatform();
-  const withoutTrailingSeparators = platform === "windows"
-    ? path.replace(/[\\/]+$/u, "")
-    : path.replace(/\/+$/u, "");
+  const withoutTrailingSeparators = platform === "windows" ? path.replace(/[\\/]+$/u, "") : path.replace(/\/+$/u, "");
   if (!withoutTrailingSeparators) return path;
 
   const separatorIndex = lastWireSeparatorIndex(withoutTrailingSeparators, platform);
@@ -154,13 +165,14 @@ export function wireParentPath(path: string, options: PathIdentityOptions = {}):
   if (!path) return ".";
   const platform = options.platform ?? runtimePathPlatform();
   if (platform === "posix" && /^\/+$/u.test(path)) return path;
-  if (platform === "windows" && (isWindowsDriveRoot(path) || /^[\\/]+$/u.test(path) || isFilesystemRoot(path, platform))) {
+  if (
+    platform === "windows" &&
+    (isWindowsDriveRoot(path) || /^[\\/]+$/u.test(path) || isFilesystemRoot(path, platform))
+  ) {
     return path;
   }
 
-  const withoutTrailingSeparators = platform === "windows"
-    ? path.replace(/[\\/]+$/u, "")
-    : path.replace(/\/+$/u, "");
+  const withoutTrailingSeparators = platform === "windows" ? path.replace(/[\\/]+$/u, "") : path.replace(/\/+$/u, "");
   const separatorIndex = lastWireSeparatorIndex(withoutTrailingSeparators, platform);
   if (separatorIndex < 0) {
     if (platform === "windows") {
@@ -187,10 +199,17 @@ function windowsPathKey(path: string): { comparisonKey: string; kind: PathIdenti
     const tail = path.slice(4);
     const ordinary = /^[A-Za-z]:\\/.test(tail) ? tail : /^UNC\\/i.test(tail) ? `\\\\${tail.slice(4)}` : undefined;
     const components = ordinary?.replace(/^[A-Za-z]:\\|^\\\\/, "").split("\\");
-    const unambiguous = ordinary && components && components.length >= (DRIVE_ABSOLUTE.test(ordinary) ? 1 : 2) && components.every((component, index) =>
-      (!component && index === components.length - 1)
-      || (Boolean(component) && !/[. ]$|[/:<>"|?*]/.test(component)
-        && !/^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/i.test(component)));
+    const unambiguous =
+      ordinary &&
+      components &&
+      components.length >= (DRIVE_ABSOLUTE.test(ordinary) ? 1 : 2) &&
+      components.every(
+        (component, index) =>
+          (!component && index === components.length - 1) ||
+          (Boolean(component) &&
+            !/[. ]$|[/:<>"|?*]/.test(component) &&
+            !/^(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)/i.test(component)),
+      );
     return ordinary && unambiguous ? windowsPathKey(ordinary) : { comparisonKey: path, kind: "windows-verbatim" };
   }
 
@@ -198,7 +217,10 @@ function windowsPathKey(path: string): { comparisonKey: string; kind: PathIdenti
     const drive = path.slice(0, 2);
     const tail = path.slice(2);
     if (!tail || !/^[\\/]/.test(tail)) {
-      const normalizedTail = tail.replaceAll("\\", "/").replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+      const normalizedTail = tail
+        .replaceAll("\\", "/")
+        .replace(/\/{2,}/g, "/")
+        .replace(/\/+$/, "");
       return { comparisonKey: `${drive}${normalizedTail}`, kind: "windows-drive-relative" };
     }
     let normalizedTail = tail.replaceAll("\\", "/").replace(/\/{2,}/g, "/");
@@ -207,7 +229,10 @@ function windowsPathKey(path: string): { comparisonKey: string; kind: PathIdenti
   }
 
   if (/^[\\/]{2}/.test(path)) {
-    const normalized = `//${path.replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/{2,}/g, "/")}`;
+    const normalized = `//${path
+      .replaceAll("\\", "/")
+      .replace(/^\/+/, "")
+      .replace(/\/{2,}/g, "/")}`;
     const trimmed = normalized === "//" ? normalized : normalized.replace(/\/+$/, "");
     return { comparisonKey: trimmed, kind: "windows-unc" };
   }
@@ -232,7 +257,10 @@ function posixPathKey(path: string): { comparisonKey: string; kind: PathIdentity
   const leadingSlashCount = path.match(/^\/+$/)?.[0].length;
   if (leadingSlashCount) return { comparisonKey: "/".repeat(leadingSlashCount), kind: "posix" };
   const leading = path.match(/^\/+/u)?.[0] ?? "";
-  const body = path.slice(leading.length).replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+  const body = path
+    .slice(leading.length)
+    .replace(/\/{2,}/g, "/")
+    .replace(/\/+$/, "");
   return { comparisonKey: `${leading}${body}`, kind: "posix" };
 }
 

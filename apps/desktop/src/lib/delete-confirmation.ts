@@ -14,12 +14,15 @@ export function deleteConfirmationMessage(
   affectedOpenTabs: number,
   hasDirtyTabs: boolean,
 ): string {
-  const prompt = platform === "linux"
-    ? t("Move {name} to system trash?", { name: itemName })
-    : t("Move {name} to the {location}?", { name: itemName, location: trashLocationLabel(platform) });
+  const prompt =
+    platform === "linux"
+      ? t("Move {name} to system trash?", { name: itemName })
+      : t("Move {name} to the {location}?", { name: itemName, location: trashLocationLabel(platform) });
 
   if (hasDirtyTabs) {
-    return t("{prompt} Unsaved changes in affected open tabs will be discarded, and those tabs will be closed.", { prompt });
+    return t("{prompt} Unsaved changes in affected open tabs will be discarded, and those tabs will be closed.", {
+      prompt,
+    });
   }
   if (affectedOpenTabs > 0) {
     return t("{prompt} Affected open tabs will be closed.", { prompt });

@@ -20,7 +20,10 @@ const chapterStarts = chapterOrder.map((_, i) =>
 const filmLength = chapterStarts.at(-1)! + chapterDurations[chapterOrder.at(-1)!];
 
 const addedLineOffsets = mainTs.map((_, i) =>
-  mainTs.slice(0, i).filter((line) => line.added).reduce((total, line) => total + lineLength(line) + 1, 0),
+  mainTs
+    .slice(0, i)
+    .filter((line) => line.added)
+    .reduce((total, line) => total + lineLength(line) + 1, 0),
 );
 
 const diffRows = (() => {
@@ -275,7 +278,7 @@ export default function ProductFilm() {
                       class="film-line"
                       classList={{ shown: visibleChars(i) >= 0, current: showCursor() && cursorLine() === i }}
                     >
-                      <span class="film-line-text">
+                      <span>
                         <Tokens tokens={sliceTokens(line().tokens, visibleChars(i))} />
                         <Show when={showCursor() && cursorLine() === i}>
                           <span class="film-caret" />
@@ -309,7 +312,7 @@ export default function ProductFilm() {
                   <For each={readmeSource}>
                     {(line) => (
                       <div class="film-line shown" classList={{ heading: line.startsWith("#") }}>
-                        <span class="film-line-text">{line}</span>
+                        <span>{line}</span>
                       </div>
                     )}
                   </For>

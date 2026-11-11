@@ -23,7 +23,7 @@ export function PluginQuickPickDialog(props: {
   const filteredItems = createMemo(() => {
     const needle = normalize(query().trim());
     return needle
-      ? props.items.filter((item) => normalize(item.label + " " + (item.description ?? "") + " " + item.id).includes(needle))
+      ? props.items.filter((item) => normalize(`${item.label} ${item.description ?? ""} ${item.id}`).includes(needle))
       : props.items;
   });
 
@@ -53,7 +53,6 @@ export function PluginQuickPickDialog(props: {
       event.preventDefault();
       selectCurrent();
     }
-
   };
 
   createEffect(() => {
@@ -74,10 +73,26 @@ export function PluginQuickPickDialog(props: {
   });
 
   return (
-    <div class="command-palette-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) props.onSelect(null); }}>
-      <section ref={(element) => { dialog = element; }} class="command-palette" role="dialog" aria-modal="true" aria-label={props.title} onKeyDown={handleKeyDown}>
+    <div
+      class="command-palette-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) props.onSelect(null);
+      }}
+    >
+      <section
+        ref={(element) => {
+          dialog = element;
+        }}
+        class="command-palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label={props.title}
+        onKeyDown={handleKeyDown}
+      >
         <input
-          ref={(element) => { input = element; }}
+          ref={(element) => {
+            input = element;
+          }}
           class="command-palette-input"
           type="text"
           autocorrect="off"
@@ -90,10 +105,20 @@ export function PluginQuickPickDialog(props: {
           aria-autocomplete="list"
           aria-activedescendant={filteredItems()[selectedIndex()] ? optionId(selectedIndex()) : undefined}
           value={query()}
-          onInput={(event) => { setQuery(event.currentTarget.value); setSelectedIndex(0); }}
+          onInput={(event) => {
+            setQuery(event.currentTarget.value);
+            setSelectedIndex(0);
+          }}
           placeholder={props.placeholder ?? t("Type to filter…")}
         />
-        <div ref={(element) => { list = element; }} id="plugin-quick-pick-list" class="command-palette-list" role="listbox">
+        <div
+          ref={(element) => {
+            list = element;
+          }}
+          id="plugin-quick-pick-list"
+          class="command-palette-list"
+          role="listbox"
+        >
           <For each={filteredItems()} fallback={<div class="command-palette-empty">{t("No matching options")}</div>}>
             {(item, index) => (
               <button
@@ -102,7 +127,10 @@ export function PluginQuickPickDialog(props: {
                 tabIndex={-1}
                 role="option"
                 aria-selected={selectedIndex() === index()}
-                classList={{ "command-palette-item": true, "command-palette-item-selected": selectedIndex() === index() }}
+                classList={{
+                  "command-palette-item": true,
+                  "command-palette-item-selected": selectedIndex() === index(),
+                }}
                 onMouseEnter={() => setSelectedIndex(index())}
                 onClick={() => props.onSelect(item)}
               >
@@ -112,7 +140,11 @@ export function PluginQuickPickDialog(props: {
             )}
           </For>
         </div>
-        <footer class="command-palette-footer"><span>{t("↑ ↓ Navigate")}</span><span>{t("↵ Select")}</span><span>{t("Esc Cancel")}</span></footer>
+        <footer class="command-palette-footer">
+          <span>{t("↑ ↓ Navigate")}</span>
+          <span>{t("↵ Select")}</span>
+          <span>{t("Esc Cancel")}</span>
+        </footer>
       </section>
     </div>
   );

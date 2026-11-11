@@ -13,21 +13,31 @@ const skippedTests = [];
 
 function isWithin(parent, candidate) {
   const relativePath = relative(parent, candidate);
-  return relativePath === "" || (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath));
+  return (
+    relativePath === "" || (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath))
+  );
 }
 
 function assertTemporaryRoot() {
   const absolute = resolve(temporaryDirectory);
-  assert.ok(isWithin(temporaryBase, absolute), `self-test fixture root is outside the system temp directory: ${absolute}`);
-  assert.ok(basename(absolute).startsWith(temporaryPrefix), `self-test fixture root has an unexpected name: ${absolute}`);
+  assert.ok(
+    isWithin(temporaryBase, absolute),
+    `self-test fixture root is outside the system temp directory: ${absolute}`,
+  );
+  assert.ok(
+    basename(absolute).startsWith(temporaryPrefix),
+    `self-test fixture root has an unexpected name: ${absolute}`,
+  );
   assert.notEqual(absolute, root, "self-test must never write into the repository root");
 }
 
 function assertTemporaryPath(path) {
   const absolute = resolve(path);
   assert.notEqual(absolute, root, "self-test must never write into the repository root");
-  assert.ok(isWithin(temporaryDirectory, absolute),
-    `self-test path is outside its isolated temporary fixture: ${absolute}`);
+  assert.ok(
+    isWithin(temporaryDirectory, absolute),
+    `self-test path is outside its isolated temporary fixture: ${absolute}`,
+  );
 }
 
 function run(command, args, { cwd = root, env = process.env, timeout = 20_000 } = {}) {
@@ -53,7 +63,8 @@ function expectSuccess(result, label) {
 
 function expectFailure(result, label, expectedText) {
   assert.notEqual(result.status, 0, `${label} unexpectedly succeeded`);
-  if (expectedText) assert.ok(result.output.includes(expectedText), `${label} did not report '${expectedText}':\n${result.output}`);
+  if (expectedText)
+    assert.ok(result.output.includes(expectedText), `${label} did not report '${expectedText}':\n${result.output}`);
 }
 
 function writeExecutable(path, contents) {
@@ -73,7 +84,9 @@ async function testRunner() {
   const logFile = join(fixture, "runner.log");
   const orphanPidFile = join(fixture, "orphan.pid");
 
-  await writeExecutable(harness, `#!/usr/bin/env node
+  await writeExecutable(
+    harness,
+    `#!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
@@ -100,8 +113,11 @@ if (testName === "hang_case") {
   process.exit(0);
 }
 process.exit(2);
-`);
-  await writeExecutable(cargo, `#!/usr/bin/env node
+`,
+  );
+  await writeExecutable(
+    cargo,
+    `#!/usr/bin/env node
 import { resolve } from "node:path";
 const args = process.argv.slice(2);
 if (args[0] === "metadata") {
@@ -115,19 +131,29 @@ if (args[0] === "test" && args.includes("--no-run")) {
 }
 process.stderr.write("unexpected fake cargo command\\n");
 process.exit(2);
-`);
+`,
+  );
 
-  const result = run(process.execPath, [
-    join(root, "scripts/run-rust-tests.mjs"),
-    "--manifest-path", join(root, "apps/desktop/src-tauri/Cargo.toml"),
-    "--log-file", logFile,
-    "--test-timeout-ms", "250",
-    "--build-timeout-ms", "2000",
-    "--list-timeout-ms", "2000",
-  ], {
-    env: { ...process.env, CARGO: cargo, FAKE_TEST_BINARY: harness, ORPHAN_PID_FILE: orphanPidFile },
-    timeout: 15_000,
-  });
+  const result = run(
+    process.execPath,
+    [
+      join(root, "scripts/run-rust-tests.mjs"),
+      "--manifest-path",
+      join(root, "apps/desktop/src-tauri/Cargo.toml"),
+      "--log-file",
+      logFile,
+      "--test-timeout-ms",
+      "250",
+      "--build-timeout-ms",
+      "2000",
+      "--list-timeout-ms",
+      "2000",
+    ],
+    {
+      env: { ...process.env, CARGO: cargo, FAKE_TEST_BINARY: harness, ORPHAN_PID_FILE: orphanPidFile },
+      timeout: 15_000,
+    },
+  );
   expectFailure(result, "fake Rust test runner", "2 Rust test(s) failed");
   const log = await readFile(logFile, "utf8");
   assert.match(log, /Discovered: 4/);
@@ -142,7 +168,8 @@ process.exit(2);
       process.kill(orphanPid, 0);
       await new Promise((done) => setTimeout(done, 50));
     } catch (error) {
-      if (error?.code === "ESRCH") return "Rust test runner bounds test subprocesses, kills orphaned pipe holders, serializes diagnostics, and reports ignored/failing cases.";
+      if (error?.code === "ESRCH")
+        return "Rust test runner bounds test subprocesses, kills orphaned pipe holders, serializes diagnostics, and reports ignored/failing cases.";
       throw error;
     }
   }
@@ -158,10 +185,20 @@ async function testChecksums() {
   const manifest = join(artifacts, "SHA256SUMS.txt");
   await writeFile(first, "candidate one payload");
   await writeFile(second, "candidate two payload");
-  expectSuccess(run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "create", manifest, first, second]), "checksum create+verify");
-  expectSuccess(run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "verify", manifest, artifacts]), "checksum verify");
+  expectSuccess(
+    run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "create", manifest, first, second]),
+    "checksum create+verify",
+  );
+  expectSuccess(
+    run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "verify", manifest, artifacts]),
+    "checksum verify",
+  );
   await writeFile(first, "tampered payload");
-  expectFailure(run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "verify", manifest, artifacts]), "tampered checksum input", "SHA-256 mismatch");
+  expectFailure(
+    run(process.execPath, [join(root, "scripts/write-checksums.mjs"), "verify", manifest, artifacts]),
+    "tampered checksum input",
+    "SHA-256 mismatch",
+  );
   return "SHA-256 create, immediate verify, explicit-directory verify, and tamper rejection pass.";
 }
 
@@ -178,7 +215,13 @@ async function testCollector() {
   const collector = join(root, "scripts/collect-release-bundle.mjs");
   const safeResult = run(process.execPath, [collector, "windows", outputDirectory, "--bundle-root", bundleRoot]);
   expectSuccess(safeResult, "isolated collector sibling-prefix fixture");
-  for (const name of ["pude-windows-x64-setup.exe", "pude-windows-x64-setup.exe.sig", "LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
+  for (const name of [
+    "pude-windows-x64-setup.exe",
+    "pude-windows-x64-setup.exe.sig",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_LICENSES.md",
+  ]) {
     assert.ok((await stat(join(outputDirectory, name))).size > 0, `collector did not output ${name}`);
   }
   for (const invalidOutput of [bundleRoot, join(bundleRoot, "nested-output"), temporaryDirectory]) {
@@ -191,7 +234,11 @@ async function testCollector() {
   const noMatchOutput = join(temporaryDirectory, "empty-output");
   await mkdir(noMatch, { recursive: true });
   assertTemporaryPath(noMatch);
-  expectFailure(run(process.execPath, [collector, "macos", noMatchOutput, "--bundle-root", noMatch]), "empty macOS collector fixture", "found 0");
+  expectFailure(
+    run(process.execPath, [collector, "macos", noMatchOutput, "--bundle-root", noMatch]),
+    "empty macOS collector fixture",
+    "found 0",
+  );
   return "Collector reads only an explicit temp Cargo target, copies all three legal sidecars, accepts sibling-prefix output, and rejects equal/nested/ancestor paths.";
 }
 
@@ -203,8 +250,22 @@ async function testUpdateManifest() {
   await writeFile(notesFile, "- Added things\n");
   const writer = join(root, "scripts/write-update-manifest.mjs");
 
-  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "manifest without signatures", "no update package signatures");
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]),
+    "manifest without signatures",
+    "pude-macos-arm64.app.tar.gz.sig is missing",
+  );
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile, "--allow-partial"]),
+    "partial manifest without any signature",
+    "no update package signatures",
+  );
   await writeFile(join(releaseDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]),
+    "manifest missing the Windows signature",
+    "pude-windows-x64-setup.exe.sig is missing",
+  );
   await writeFile(join(releaseDirectory, "pude-windows-x64-setup.exe.sig"), "windows signature\n");
   expectSuccess(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "update manifest");
   const manifest = JSON.parse(await readFile(join(releaseDirectory, "latest.json"), "utf8"));
@@ -218,46 +279,77 @@ async function testUpdateManifest() {
     signature: "windows signature",
     url: "https://github.com/MajajaX/pude/releases/download/v1.2.3/pude-windows-x64-setup.exe",
   });
-  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]), "overwriting an existing manifest", "EEXIST");
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile]),
+    "overwriting an existing manifest",
+    "EEXIST",
+  );
   expectFailure(run(process.execPath, [writer, releaseDirectory, "1.2.3", notesFile]), "tag without v prefix", "usage");
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3", notesFile, "--allow-everything"]),
+    "unknown manifest option",
+    "usage",
+  );
   for (const invalidTag of ["v1.2.3garbage", "v01.2.3", "v1.2", "v1.2.3-01"]) {
-    expectFailure(run(process.execPath, [writer, releaseDirectory, invalidTag, notesFile]), `malformed tag ${invalidTag}`, "usage");
+    expectFailure(
+      run(process.execPath, [writer, releaseDirectory, invalidTag, notesFile]),
+      `malformed tag ${invalidTag}`,
+      "usage",
+    );
   }
-  expectFailure(run(process.execPath, [writer, releaseDirectory, "v1.2.3-rc.1", notesFile]), "prerelease tag", "stable releases only");
+  expectFailure(
+    run(process.execPath, [writer, releaseDirectory, "v1.2.3-rc.1", notesFile]),
+    "prerelease tag",
+    "stable releases only",
+  );
   const buildDirectory = join(temporaryDirectory, "update-manifest-build");
   assertTemporaryPath(buildDirectory);
   await mkdir(buildDirectory, { recursive: true });
   await writeFile(join(buildDirectory, "pude-macos-arm64.app.tar.gz.sig"), "mac signature\n");
-  expectSuccess(run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile]), "stable tag with build metadata");
+  expectFailure(
+    run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile]),
+    "single-platform manifest without opt-in",
+    "--allow-partial",
+  );
+  expectSuccess(
+    run(process.execPath, [writer, buildDirectory, "v1.2.3+build.4", notesFile, "--allow-partial"]),
+    "stable tag with build metadata and one platform",
+  );
+  assert.deepEqual(Object.keys(JSON.parse(await readFile(join(buildDirectory, "latest.json"), "utf8")).platforms), [
+    "darwin-aarch64",
+  ]);
   assert.equal(JSON.parse(await readFile(join(buildDirectory, "latest.json"), "utf8")).version, "1.2.3+build.4");
-  return "Update manifest lists each platform's package URL and signature, covers partial releases, accepts only complete stable versions, and refuses empty input or overwrites.";
+  return "Update manifest lists each platform's package URL and signature, requires every platform unless --allow-partial is passed, accepts only complete stable versions, and refuses empty input or overwrites.";
 }
 
-function validRelease(tag) {
-  const assets = [
-    "pude-windows-x64-setup.exe",
-    "pude-windows-x64-setup.exe.sig",
-    "pude-macos-arm64.dmg",
-    "pude-macos-arm64.app.tar.gz",
-    "pude-macos-arm64.app.tar.gz.sig",
-    "latest.json",
-    "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "THIRD_PARTY_LICENSES.md",
-    "SHA256SUMS.txt",
-  ].map((name, index) => ({
+const releaseAssetNames = [
+  "pude-windows-x64-setup.exe",
+  "pude-windows-x64-setup.exe.sig",
+  "pude-macos-arm64.dmg",
+  "pude-macos-arm64.app.tar.gz",
+  "pude-macos-arm64.app.tar.gz.sig",
+  "latest.json",
+  "LICENSE",
+  "THIRD_PARTY_NOTICES.md",
+  "THIRD_PARTY_LICENSES.md",
+  "SHA256SUMS.txt",
+];
+
+function validRelease(tag, { draft = false } = {}) {
+  const releaseSegment = draft ? "untagged-0123456789abcdef" : encodeURIComponent(tag);
+  const assets = releaseAssetNames.map((name, index) => ({
     id: index + 100,
     name,
     size: 10 + index,
     url: `https://api.github.com/repos/MajajaX/pude/releases/assets/${index + 100}`,
-    browser_download_url: `https://github.com/MajajaX/pude/releases/download/${encodeURIComponent(tag)}/${name}`,
+    browser_download_url: `https://github.com/MajajaX/pude/releases/download/${releaseSegment}/${name}`,
   }));
   return {
     id: 42,
     tag_name: tag,
-    draft: false,
+    draft,
     prerelease: false,
-    html_url: `https://github.com/MajajaX/pude/releases/tag/${encodeURIComponent(tag)}`,
+    html_url: `https://github.com/MajajaX/pude/releases/tag/${releaseSegment}`,
     url: "https://api.github.com/repos/MajajaX/pude/releases/42",
     assets_url: "https://api.github.com/repos/MajajaX/pude/releases/42/assets",
     assets,
@@ -273,42 +365,76 @@ async function testPublishedReleaseVerifier() {
   assertTemporaryPath(bin);
   await mkdir(bin, { recursive: true });
   const fakeGh = join(bin, "gh");
-  await writeExecutable(fakeGh, `#!/usr/bin/env node
+  await writeExecutable(
+    fakeGh,
+    `#!/usr/bin/env node
 import { readFileSync } from "node:fs";
-const endpoint = process.argv[3];
-const response = endpoint === "repos/MajajaX/pude" ? process.env.FAKE_GH_REPO_RESPONSE : process.env.FAKE_GH_RESPONSE;
+const endpoint = process.argv.at(-1);
+let response = process.env.FAKE_GH_RESPONSE;
+if (endpoint === "repos/MajajaX/pude") response = process.env.FAKE_GH_REPO_RESPONSE;
+else if (endpoint.startsWith("repos/MajajaX/pude/releases?")) response = process.env.FAKE_GH_LIST_RESPONSE;
+else if (endpoint.startsWith("repos/MajajaX/pude/releases/assets/")) response = process.env.FAKE_GH_CHECKSUMS;
 process.stdout.write(readFileSync(response, "utf8"));
-`);
+`,
+  );
   const verifier = join(root, "scripts/verify-published-release.mjs");
   const responseFile = join(temporaryDirectory, "fake-release.json");
   const repositoryResponseFile = join(temporaryDirectory, "fake-repository.json");
+  const listResponseFile = join(temporaryDirectory, "fake-release-list.json");
+  const checksumsFile = join(temporaryDirectory, "fake-sha256sums.txt");
   const env = {
     ...process.env,
     PATH: `${bin}${delimiter}${process.env.PATH ?? ""}`,
     FAKE_GH_RESPONSE: responseFile,
     FAKE_GH_REPO_RESPONSE: repositoryResponseFile,
+    FAKE_GH_LIST_RESPONSE: listResponseFile,
+    FAKE_GH_CHECKSUMS: checksumsFile,
   };
-  await writeFile(repositoryResponseFile, JSON.stringify({ full_name: "MajajaX/pude", private: false, visibility: "public" }));
+  const checksumLines = (names) => `${names.map((name) => `${"a".repeat(64)}  ${name}`).join("\n")}\n`;
+  const checksummedNames = releaseAssetNames.filter((name) => name !== "SHA256SUMS.txt");
+  await writeFile(checksumsFile, checksumLines(checksummedNames));
+  await writeFile(
+    repositoryResponseFile,
+    JSON.stringify({ full_name: "MajajaX/pude", private: false, visibility: "public" }),
+  );
 
   const stable = validRelease("v1.0.0");
   await writeFile(responseFile, JSON.stringify(stable));
-  expectSuccess(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "latest release URL verification");
-  expectSuccess(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/tag/v1.0.0"], { env }), "tag release URL verification");
+  expectSuccess(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "latest release URL verification",
+  );
+  expectSuccess(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/tag/v1.0.0"], { env }),
+    "tag release URL verification",
+  );
 
   const windowsOnly = validRelease("v1.0.0");
   windowsOnly.assets = windowsOnly.assets.filter((asset) => !asset.name.startsWith("pude-macos-arm64"));
   await writeFile(responseFile, JSON.stringify(windowsOnly));
-  expectSuccess(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest", "--platform", "windows"], { env }), "Windows-only release URL verification");
-  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "cross-platform release still requires macOS", "pude-macos-arm64.dmg");
+  expectSuccess(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest", "--platform", "windows"], {
+      env,
+    }),
+    "Windows-only release URL verification",
+  );
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "cross-platform release still requires macOS",
+    "pude-macos-arm64.dmg",
+  );
 
   const buildTag = "v1.2.3+ci.4";
   await writeFile(responseFile, JSON.stringify(validRelease(buildTag)));
-  expectSuccess(run(process.execPath, [verifier, `https://github.com/MajajaX/pude/releases/tag/${buildTag}`], { env }), "canonical prerelease/build URL verification");
+  expectSuccess(
+    run(process.execPath, [verifier, `https://github.com/MajajaX/pude/releases/tag/${buildTag}`], { env }),
+    "canonical prerelease/build URL verification",
+  );
 
   const prereleaseTag = "v1.2.3-rc.1+ci.4";
   await writeFile(responseFile, JSON.stringify(validRelease(prereleaseTag)));
   expectFailure(
-    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/tag/" + prereleaseTag], { env }),
+    run(process.execPath, [verifier, `https://github.com/MajajaX/pude/releases/tag/${prereleaseTag}`], { env }),
     "stable API metadata with a prerelease tag",
     "not a published release",
   );
@@ -324,24 +450,239 @@ process.stdout.write(readFileSync(response, "utf8"));
     "https://github.com/MajajaX/pude/releases/tag/v1.0.0-01",
     "https://github.com/MajajaX/pude/releases/tag/v1.2.3-rc.1%2Bci.4",
   ]) {
-    expectFailure(run(process.execPath, [verifier, invalidUrl], { env }), `invalid release URL ${invalidUrl}`, "release URL must exactly match");
+    expectFailure(
+      run(process.execPath, [verifier, invalidUrl], { env }),
+      `invalid release URL ${invalidUrl}`,
+      "release URL must exactly match",
+    );
   }
 
   const foreign = validRelease("v1.0.0");
   foreign.url = "https://api.github.com/repos/attacker/other/releases/42";
   await writeFile(responseFile, JSON.stringify(foreign));
-  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "foreign API release", "not a published release from MajajaX/pude");
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "foreign API release",
+    "not a published release from MajajaX/pude",
+  );
 
-  await writeFile(repositoryResponseFile, JSON.stringify({ full_name: "MajajaX/pude", private: true, visibility: "private" }));
+  await writeFile(
+    repositoryResponseFile,
+    JSON.stringify({ full_name: "MajajaX/pude", private: true, visibility: "private" }),
+  );
   await writeFile(responseFile, JSON.stringify(validRelease("v1.0.0")));
-  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "private repository release", "public MajajaX/pude repository");
-  await writeFile(repositoryResponseFile, JSON.stringify({ full_name: "MajajaX/pude", private: false, visibility: "public" }));
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "private repository release",
+    "public MajajaX/pude repository",
+  );
+  await writeFile(
+    repositoryResponseFile,
+    JSON.stringify({ full_name: "MajajaX/pude", private: false, visibility: "public" }),
+  );
 
   const missing = validRelease("v1.0.0");
   missing.assets = missing.assets.filter((asset) => asset.name !== "THIRD_PARTY_LICENSES.md");
   await writeFile(responseFile, JSON.stringify(missing));
-  expectFailure(run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }), "missing release legal asset", "THIRD_PARTY_LICENSES.md");
-  return "Fake GitHub API accepts stable canonical latest/tag/build-metadata releases and rejects prerelease tags, private or foreign repositories, malformed routes, and missing legal assets.";
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "missing release legal asset",
+    "THIRD_PARTY_LICENSES.md",
+  );
+
+  await writeFile(responseFile, JSON.stringify(validRelease("v1.0.0")));
+  await writeFile(
+    checksumsFile,
+    checksumLines(checksummedNames.filter((name) => name !== "latest.json" && !name.endsWith(".sig"))),
+  );
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest"], { env }),
+    "checksums that omit update artifacts",
+    "SHA256SUMS.txt does not list: pude-windows-x64-setup.exe.sig",
+  );
+  await writeFile(checksumsFile, checksumLines(checksummedNames));
+
+  const tagUrl = "https://github.com/MajajaX/pude/releases/tag/v1.0.0";
+  const draft = validRelease("v1.0.0", { draft: true });
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v0.9.0"), draft]));
+  expectSuccess(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft release verification");
+  await writeFile(responseFile, JSON.stringify(draft));
+  expectFailure(
+    run(process.execPath, [verifier, tagUrl], { env }),
+    "draft release without --draft",
+    "not a published release",
+  );
+  expectFailure(
+    run(process.execPath, [verifier, "https://github.com/MajajaX/pude/releases/latest", "--draft"], { env }),
+    "draft against the latest route",
+    "must be https://github.com/MajajaX/pude/releases/tag/",
+  );
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v1.0.0")]));
+  expectFailure(
+    run(process.execPath, [verifier, tagUrl, "--draft"], { env }),
+    "published release passed off as a draft",
+    "found 0",
+  );
+  await writeFile(listResponseFile, JSON.stringify([validRelease("v0.9.0", { draft: true })]));
+  expectFailure(run(process.execPath, [verifier, tagUrl, "--draft"], { env }), "draft for another tag", "found 0");
+  const foreignDraft = validRelease("v1.0.0", { draft: true });
+  foreignDraft.assets[0].browser_download_url =
+    "https://github.com/attacker/other/releases/download/untagged-0123456789abcdef/pude-windows-x64-setup.exe";
+  await writeFile(listResponseFile, JSON.stringify([foreignDraft]));
+  expectFailure(
+    run(process.execPath, [verifier, tagUrl, "--draft"], { env }),
+    "draft with a cross-repository asset",
+    "malformed, duplicate, empty, or cross-repository",
+  );
+  const draftWithPublishedUrls = validRelease("v1.0.0", { draft: true });
+  draftWithPublishedUrls.assets = validRelease("v1.0.0").assets;
+  await writeFile(listResponseFile, JSON.stringify([draftWithPublishedUrls]));
+  expectSuccess(
+    run(process.execPath, [verifier, tagUrl, "--draft"], { env }),
+    "draft whose assets already use the tag path",
+  );
+  return "Fake GitHub API accepts stable canonical latest/tag/build-metadata releases and drafts (only with --draft) and rejects prerelease tags, private or foreign repositories, malformed routes, missing legal assets, and checksums that omit a download.";
+}
+
+async function testUpdateSignatures() {
+  const vector = JSON.parse(await readFile(join(root, "scripts/fixtures/tauri-signed-update.json"), "utf8"));
+  const verifier = join(root, "scripts/verify-update-signatures.mjs");
+  const writer = join(root, "scripts/write-update-manifest.mjs");
+  const packages = ["pude-macos-arm64.app.tar.gz", "pude-windows-x64-setup.exe"];
+
+  function editSignature(signatureBase64, edit) {
+    const lines = Buffer.from(signatureBase64, "base64").toString("utf8").split("\n");
+    const payload = Buffer.from(lines[1], "base64");
+    edit(payload, lines);
+    lines[1] = payload.toString("base64");
+    return Buffer.from(lines.join("\n")).toString("base64");
+  }
+
+  async function prepareRelease(
+    name,
+    { signature = vector.signature, tag = `v${vector.version}`, files = packages } = {},
+  ) {
+    const directory = join(temporaryDirectory, `update-signatures-${name}`);
+    assertTemporaryPath(directory);
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, "notes.md"), "notes\n");
+    for (const packageName of packages) {
+      await writeFile(join(directory, packageName), vector.payload);
+      await writeFile(join(directory, `${packageName}.sig`), `${signature}\n`);
+    }
+    expectSuccess(run(process.execPath, [writer, directory, tag, join(directory, "notes.md")]), `${name} manifest`);
+    for (const packageName of packages.filter((candidate) => !files.includes(candidate)))
+      await rm(join(directory, packageName));
+    return directory;
+  }
+
+  async function writeConfig(name, publicKey) {
+    const configPath = join(temporaryDirectory, `update-signatures-${name}.conf.json`);
+    assertTemporaryPath(configPath);
+    await writeFile(configPath, JSON.stringify({ plugins: { updater: { pubkey: publicKey } } }));
+    return configPath;
+  }
+
+  const genuineConfig = await writeConfig("genuine", vector.publicKey);
+  const verify = (directory, config, ...extra) =>
+    run(process.execPath, [verifier, directory, "--config", config, ...extra]);
+
+  const genuine = await prepareRelease("genuine");
+  expectSuccess(verify(genuine, genuineConfig), "genuine Tauri signatures");
+
+  const tamperedFile = await prepareRelease("tampered-file");
+  await writeFile(join(tamperedFile, packages[1]), `${vector.payload}tampered`);
+  expectFailure(
+    verify(tamperedFile, genuineConfig),
+    "tampered update package",
+    "file signature does not match the file",
+  );
+
+  expectFailure(
+    verify(genuine, await writeConfig("other-key", vector.otherPublicKey)),
+    "signature from another key",
+    "does not match the public key id",
+  );
+
+  const forgedKey = Buffer.from(
+    Buffer.from(vector.publicKey, "base64")
+      .toString("utf8")
+      .split("\n")
+      .map((line, index) => {
+        if (index !== 1) return line;
+        const payload = Buffer.from(line, "base64");
+        payload[20] ^= 1;
+        return payload.toString("base64");
+      })
+      .join("\n"),
+  ).toString("base64");
+  expectFailure(
+    verify(genuine, await writeConfig("forged-key", forgedKey)),
+    "public key with the right id but different key bytes",
+    "does not match the file",
+  );
+
+  const wrongKeyId = await prepareRelease("wrong-key-id", {
+    signature: editSignature(vector.signature, (payload) => {
+      payload[5] ^= 1;
+    }),
+  });
+  expectFailure(
+    verify(wrongKeyId, genuineConfig),
+    "signature naming another key id",
+    "does not match the public key id",
+  );
+
+  const legacyAlgorithm = await prepareRelease("legacy-algorithm", {
+    signature: editSignature(vector.signature, (payload) => {
+      payload.write("Ed", 0, "latin1");
+    }),
+  });
+  expectFailure(verify(legacyAlgorithm, genuineConfig), "non-prehashed signature", "must be ED");
+
+  const forgedComment = await prepareRelease("forged-comment", {
+    signature: editSignature(vector.signature, (_payload, lines) => {
+      lines[2] = lines[2].replace(`version:${vector.version}`, "version:9.9.9");
+    }),
+  });
+  expectFailure(verify(forgedComment, genuineConfig), "edited trusted comment", "trusted comment signature is invalid");
+
+  const wrongVersion = await prepareRelease("wrong-version", { tag: "v1.2.4" });
+  expectFailure(
+    verify(wrongVersion, genuineConfig),
+    "manifest version that differs from the signed version",
+    "does not match latest.json version 1.2.4",
+  );
+
+  const swappedSignature = await prepareRelease("swapped-signature");
+  const manifestPath = join(swappedSignature, "latest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  manifest.platforms["windows-x86_64"].signature = `${vector.signature.slice(0, -4)}AAAA`;
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  expectFailure(
+    verify(swappedSignature, genuineConfig),
+    "manifest signature that differs from the .sig file",
+    "differs from pude-windows-x64-setup.exe.sig",
+  );
+
+  const partial = join(temporaryDirectory, "update-signatures-partial");
+  assertTemporaryPath(partial);
+  await mkdir(partial, { recursive: true });
+  await writeFile(join(partial, "notes.md"), "notes\n");
+  await writeFile(join(partial, packages[0]), vector.payload);
+  await writeFile(join(partial, `${packages[0]}.sig`), `${vector.signature}\n`);
+  expectSuccess(
+    run(process.execPath, [writer, partial, `v${vector.version}`, join(partial, "notes.md"), "--allow-partial"]),
+    "partial manifest",
+  );
+  expectFailure(verify(partial, genuineConfig), "partial manifest without opt-in", "has no windows-x86_64 entry");
+  expectSuccess(verify(partial, genuineConfig, "--allow-partial"), "partial manifest with opt-in");
+  expectFailure(
+    run(process.execPath, [verifier, genuine, "--config", join(temporaryDirectory, "missing-config.json")]),
+    "missing config",
+    "missing-config.json",
+  );
+  return "Updater signatures are verified against the Tauri public key like the installed app does: a genuine Tauri-signed package passes; tampered files, other keys or key ids, forged keys, non-prehashed signatures, edited trusted comments, version mismatches and partial manifests fail.";
 }
 
 async function testNoticeGate() {
@@ -361,7 +702,10 @@ async function testNoticeGate() {
     "<!-- release-readiness: approved -->\n歷史紀錄中的待補／需核對文字不代表目前有未簽核項目。\n",
     "<!-- release-readiness: approved -->\n原始授權文字包含 TODO 範例，不是目前的簽核狀態。\n",
   );
-  expectSuccess(run(process.execPath, [checker], { cwd: fixture }), "approved notice markers with historical placeholder wording");
+  expectSuccess(
+    run(process.execPath, [checker], { cwd: fixture }),
+    "approved notice markers with historical placeholder wording",
+  );
 
   await writeLegalRecords("No signoff yet.\n", "<!-- release-readiness: approved -->\nLicense inventory.\n");
   expectFailure(run(process.execPath, [checker], { cwd: fixture }), "missing notice marker", "found 0");
@@ -385,7 +729,7 @@ async function testVersionTool() {
   }
   for (const path of [
     "scripts/release-version.mjs",
-    "scripts/semver.mjs",
+    "shared/semver.mjs",
     "scripts/verify-release-notices.mjs",
     "package.json",
     "package-lock.json",
@@ -406,37 +750,77 @@ async function testVersionTool() {
     const crlf = (await readFile(path, "utf8")).replace(/\r?\n/g, "\r\n");
     await writeFile(path, crlf);
   }
-  await writeFile(join(fixture, "THIRD_PARTY_NOTICES.md"), "<!-- release-readiness: approved -->\nVerified fixture notices.\n");
-  await writeFile(join(fixture, "THIRD_PARTY_LICENSES.md"), "<!-- release-readiness: approved -->\nVerified fixture license texts.\n");
+  await writeFile(
+    join(fixture, "THIRD_PARTY_NOTICES.md"),
+    "<!-- release-readiness: approved -->\nVerified fixture notices.\n",
+  );
+  await writeFile(
+    join(fixture, "THIRD_PARTY_LICENSES.md"),
+    "<!-- release-readiness: approved -->\nVerified fixture license texts.\n",
+  );
   const versionTool = join(fixture, "scripts/release-version.mjs");
   const initialVersion = JSON.parse(await readFile(join(fixture, "package.json"), "utf8")).version;
 
   expectSuccess(run(process.execPath, [versionTool, "check", initialVersion]), "initial version check");
   for (const path of [cargoManifestPath, cargoLockPath]) {
     const crlf = await readFile(path, "utf8");
-    assert.ok(crlf.includes("\r\n"), path + " was not converted to CRLF");
-    assert.equal(crlf.replace(/\r\n/g, "").includes("\n"), false, path + " still contains bare LF line endings");
+    assert.ok(crlf.includes("\r\n"), `${path} was not converted to CRLF`);
+    assert.equal(crlf.replace(/\r\n/g, "").includes("\n"), false, `${path} still contains bare LF line endings`);
   }
   expectSuccess(run(process.execPath, [versionTool, "sync", "1.2.3-rc.1+build.4"]), "version sync");
   for (const path of [cargoManifestPath, cargoLockPath]) {
     const crlf = await readFile(path, "utf8");
-    assert.ok(crlf.includes("\r\n"), path + " lost CRLF during version sync");
-    assert.equal(crlf.replace(/\r\n/g, "").includes("\n"), false, path + " acquired bare LF line endings");
+    assert.ok(crlf.includes("\r\n"), `${path} lost CRLF during version sync`);
+    assert.equal(crlf.replace(/\r\n/g, "").includes("\n"), false, `${path} acquired bare LF line endings`);
   }
   expectSuccess(run(process.execPath, [versionTool, "check", "1.2.3-rc.1+build.4"]), "synced version check");
   expectSuccess(run(process.execPath, [versionTool, "sync", "1.2.3-rc.1+build.4"]), "idempotent version sync");
-  expectFailure(run(process.execPath, [versionTool, "sync", "1.2.3-01"]), "invalid numeric prerelease identifier", "semantic version");
-  expectFailure(run(process.execPath, [versionTool, "release-check", "v1.2.3-rc.1+build.4"]), "prerelease release check", "stable versions only");
+  expectFailure(
+    run(process.execPath, [versionTool, "sync", "1.2.3-01"]),
+    "invalid numeric prerelease identifier",
+    "semantic version",
+  );
+  expectFailure(
+    run(process.execPath, [versionTool, "release-check", "v1.2.3-rc.1+build.4"]),
+    "prerelease release check",
+    "stable versions only",
+  );
   expectSuccess(run(process.execPath, [versionTool, "sync", "1.0.0"]), "stable version sync");
 
   expectSuccess(run("git", ["init", "-q"], { cwd: fixture }), "fixture git init");
   expectSuccess(run("git", ["add", "-A"], { cwd: fixture }), "fixture git add");
-  expectSuccess(run("git", ["-c", "user.name=Release Self-Test", "-c", "user.email=selftest@example.invalid", "commit", "-qm", "fixture release commit"], { cwd: fixture }), "fixture git commit");
+  expectSuccess(
+    run(
+      "git",
+      [
+        "-c",
+        "user.name=Release Self-Test",
+        "-c",
+        "user.email=selftest@example.invalid",
+        "commit",
+        "-qm",
+        "fixture release commit",
+      ],
+      { cwd: fixture },
+    ),
+    "fixture git commit",
+  );
   expectSuccess(run("git", ["tag", "v1.0.0"], { cwd: fixture }), "fixture v1.0.0 tag");
-  expectSuccess(run(process.execPath, [versionTool, "release-check", "v1.0.0"], { cwd: fixture }), "clean exact-tag release check");
-  expectFailure(run(process.execPath, [versionTool, "release-check", "v0.1.0"], { cwd: fixture }), "tag that does not match the version", "must be v1.0.0");
+  expectSuccess(
+    run(process.execPath, [versionTool, "release-check", "v1.0.0"], { cwd: fixture }),
+    "clean exact-tag release check",
+  );
+  expectFailure(
+    run(process.execPath, [versionTool, "release-check", "v0.1.0"], { cwd: fixture }),
+    "tag that does not match the version",
+    "must be v1.0.0",
+  );
   await writeFile(join(fixture, "dirty.txt"), "dirty");
-  expectFailure(run(process.execPath, [versionTool, "release-check", "v1.0.0"], { cwd: fixture }), "dirty release checkout", "must be clean");
+  expectFailure(
+    run(process.execPath, [versionTool, "release-check", "v1.0.0"], { cwd: fixture }),
+    "dirty release checkout",
+    "must be clean",
+  );
   return "Version tool checks the copied repo version, syncs prerelease/build metadata idempotently, rejects invalid semver, accepts a clean tag matching the version, and rejects mismatched tags or dirty source.";
 }
 
@@ -450,6 +834,7 @@ try {
   reports.push(await testChecksums());
   reports.push(await testCollector());
   reports.push(await testUpdateManifest());
+  reports.push(await testUpdateSignatures());
   reports.push(await testPublishedReleaseVerifier());
   reports.push(await testNoticeGate());
   reports.push(await testVersionTool());

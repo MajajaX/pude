@@ -2,35 +2,37 @@
 
 <!-- release-readiness: approved -->
 
-本文件記錄 `pude` 的第三方依賴、素材來源證據與授權狀態。依賴的逐包完整授權原文
-由 [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) 彙整，隨 desktop bundle 一併散布；
-本檔仍負責列出直接依賴及待確認的來源／權利。任何「待補／需核對」都表示本檔尚不是可放行的正式 notice。
+This file records `pude`'s third-party dependencies, asset provenance and license status. The
+full license text of every package is collected in [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) and ships with the desktop bundle;
+this file lists the direct dependencies and any source or rights still awaiting confirmation. An entry marked "to be confirmed" means this file is not yet a releasable notice.
 
-## 查核範圍與證據
+## Scope and evidence
 
-- JavaScript workspace 與直接依賴版本來自 [`apps/desktop/package.json`](./apps/desktop/package.json)、[`apps/web/package.json`](./apps/web/package.json)；實際解析版本、integrity 與 `license` 欄位來自 [`package-lock.json`](./package-lock.json)（lockfile v3）。
-- Rust 直接依賴與版本約束來自 [`apps/desktop/src-tauri/Cargo.toml`](./apps/desktop/src-tauri/Cargo.toml)；實際解析版本與 checksum 來自 [`apps/desktop/src-tauri/Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock)。Cargo.lock 本身不記錄 license，因此 Rust 的 license identifier 依相同鎖定版本已發布 crate 的 package metadata 核對；2026-09-27 已檢查目標平台閉包的精確 `.crate` archive、checksum 與命名授權文件。
-- 2026-09-27 查核已補齊目前 32 個 npm 直接依賴與 12 個 Cargo 直接依賴的版本／license identifier；完整鎖檔閉包與原始 license 文件盤點見下方日期快照。
-- 2026-09-28 LW-05 依賴升級後重核：直接依賴版本已隨 `package-lock.json`／`Cargo.lock` 更新（見下表）；[`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) 已就升級後的 win/mac runtime 閉包全量重驗（npm 47 個 runtime 套件、49 份授權文件；Cargo macOS arm64 300 個、Windows x64 305 個 runtime crate、兩平台聯集 600 份命名授權文件、18 個以上游精確來源補齊的 crate），逐 archive checksum／SRI 與授權原文雜湊全部相符。
-- 專案採 MIT；根目錄 [`LICENSE`](./LICENSE)、root／desktop／web npm metadata 與 Cargo package metadata 已補為 MIT。這只授權專案本身，不延伸到來源、作者或散布權未核對的素材。
+- JavaScript workspaces and direct dependency versions come from [`apps/desktop/package.json`](./apps/desktop/package.json) and [`apps/web/package.json`](./apps/web/package.json); resolved versions, integrity and the `license` field come from [`package-lock.json`](./package-lock.json) (lockfile v3).
+- Rust direct dependencies and version requirements come from [`apps/desktop/src-tauri/Cargo.toml`](./apps/desktop/src-tauri/Cargo.toml); resolved versions and checksums come from [`apps/desktop/src-tauri/Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock). Cargo.lock does not record licenses, so each Rust license identifier was checked against the published package metadata of the same locked version; on 2026-09-27 the exact `.crate` archives, checksums and named license files of the target-platform closure were checked.
+- The 2026-09-27 review completed the version and license identifier of the then 32 npm and 12 Cargo direct dependencies; the full lockfile closure and original license file inventory are in the dated snapshots below.
+- 2026-09-28 LW-05 re-review after dependency upgrades: direct dependency versions follow `package-lock.json` and `Cargo.lock` (see the tables below); [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) was fully re-verified for the upgraded Windows and macOS runtime closures (47 npm runtime packages with 49 license files; 300 macOS arm64 and 305 Windows x64 runtime crates with 600 named license files across both platforms, and 18 or more crates completed from their exact upstream sources). Every archive checksum or SRI and every license text hash matched.
+- The project is MIT licensed; the root [`LICENSE`](./LICENSE), the root, desktop and web npm metadata and the Cargo package metadata say MIT. This licenses the project itself only and does not extend to assets whose source, author or distribution rights have not been checked.
 
-- 2026-10-15 v0.1.2：已核對本次更新後的直接依賴版本，並補入目前 macOS／Windows runtime 閉包中尚未列出的 30 個套件版本之精確 archive、lock digest 與授權原文雜湊；歷史版本記錄保留於完整授權清冊。
+- 2026-10-15 v0.1.2: checked the direct dependency versions after this update and added the exact archives, lock digests and license text hashes of 30 package versions in the current macOS and Windows runtime closures that were not listed yet; earlier versions remain in the full license inventory.
 
-- 2026-10-19 v0.1.3：Tauri 更新為 2.12.1、updater 更新為 2.14.0；六個更新套件的精確 archive checksum 與授權文件已核對並記錄於完整清冊。Windows 只使用既有的原始 NSIS EXE 更新格式並關閉 ZIP 支援；macOS 與 Linux 保留 tar.gz。安全檢查逐平台解析實際 feature 與依賴，未加入 advisory 忽略規則。網站 OG 與 GitHub social preview 換用相同的 1280x640 品牌圖，產製提示存於 [`docs/github-social-preview.prompt.txt`](./docs/github-social-preview.prompt.txt)，檔案雜湊與散布範圍記錄於下表。
+- 2026-10-19 v0.1.3: Tauri updated to 2.12.1 and the updater to 2.14.0; the exact archive checksums and license files of the six updated packages were checked and recorded in the full inventory. Windows uses only the existing raw NSIS EXE update format with ZIP support turned off; macOS and Linux keep tar.gz. The security check resolves the actual features and dependencies per platform and adds no advisory ignore rules. The website OG image and the GitHub social preview use the same 1280x640 brand image; its generation prompt is in [`docs/github-social-preview.prompt.txt`](./docs/github-social-preview.prompt.txt), and its file hash and distribution scope are in the table below.
 
-- 2026-10-22：新增介面字型 `@fontsource-variable/inter` 與 `@fontsource-variable/jetbrains-mono`（皆為 5.3.0，OFL-1.1），字型檔隨 desktop bundle 內建、不從網路載入。兩個 npm archive 與 `package-lock.json` SRI 相符，授權原文（含字型版權聲明與完整 SIL Open Font License 1.1）已收錄於完整授權清冊。
+- 2026-10-22: added the interface fonts `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono` (both 5.3.0, OFL-1.1). The font files ship inside the desktop bundle and are never loaded from the network. Both npm archives match their `package-lock.json` SRI, and their license texts (including the font copyright notices and the full SIL Open Font License 1.1) are in the full license inventory.
 
-- 2026-10-28 v0.1.7：新增直接依賴 `@codemirror/autocomplete` 6.20.4（用於自動補上括號與引號），`@codemirror/view` 更新為 6.43.15、Tauri 更新為 2.12.4、libc 更新為 0.2.191。四個 archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符，授權文件與前一版完全相同，已記錄於完整清冊。
+- 2026-10-28 v0.1.7: added the direct dependency `@codemirror/autocomplete` 6.20.4 (closes brackets and quotes); `@codemirror/view` updated to 6.43.15, Tauri to 2.12.4 and libc to 0.2.191. The four archives match their `package-lock.json` SRI or `Cargo.lock` SHA-256, and their license files are identical to the previous version, as recorded in the full inventory.
 
-- 2026-11-05 v0.1.8：新增直接依賴 `@xterm/addon-search` 0.16.0（MIT，用於終端機搜尋）；`tauri-plugin-single-instance` 更新為 2.5.5、`tauri-plugin-updater` 更新為 2.14.1，建置工具 `@tauri-apps/cli` 更新為 2.12.4、`vite` 更新為 8.3.5。新增與更新的 runtime archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符；兩個 Tauri 外掛的授權文件與前一版逐位元組相同，`@xterm/addon-search` 的 LICENSE 已收錄於完整清冊。
+- 2026-11-05 v0.1.8: added the direct dependency `@xterm/addon-search` 0.16.0 (MIT, terminal search); `tauri-plugin-single-instance` updated to 2.5.5 and `tauri-plugin-updater` to 2.14.1, and the build tools `@tauri-apps/cli` to 2.12.4 and `vite` to 8.3.5. The new and updated runtime archives match their `package-lock.json` SRI or `Cargo.lock` SHA-256; the license files of both Tauri plugins are byte-for-byte identical to the previous version, and the LICENSE of `@xterm/addon-search` is in the full inventory.
 
-## JavaScript／npm
+- 2026-11-12 v0.1.9: added the root development tools `@biomejs/biome` 2.6.6 (lint and format) and `wrangler` 4.160.0 (website deploy), both MIT OR Apache-2.0 and never shipped; the tables now also list the existing direct dependencies `@playwright/test`, `tauri-plugin-updater`, `memchr`, `rustls` and `windows`. Runtime dependencies `solid-js` updated to 1.9.19, `notify` to 8.2.1, `tokio` to 1.54.1 and `uuid` to 1.29.0; the build and test tools `tauri-build` to 2.7.4, `vite` to 8.3.8, `vite-plugin-solid` to 2.11.16, `vitest` to 5.1.0, `fake-indexeddb` to 6.2.8, `@playwright/test` to 1.65.0 and `@types/node` to 26.6.6. `npm ci` and Cargo verified the installs against the `package-lock.json` SRI and `Cargo.lock` SHA-256, every SPDX license is unchanged, and `scripts/verify-notice-versions.mjs` checks that the tables match the lockfiles. The license text of `solid-js` 1.9.19 is in the full inventory; `vite-plugin-solid` ships no license file and is MIT according to its package.json.
+
+## JavaScript and npm
 
 ### Desktop runtime
 
-下列版本與 license identifier 取自 `package-lock.json` 的對應 `packages["node_modules/…"]` 條目；上游連結是該套件 metadata 所記錄的 repository。
+The versions and license identifiers below come from the matching `packages["node_modules/…"]` entries of `package-lock.json`; the upstream links are the repositories recorded in each package's metadata.
 
-| 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
+| Package | Locked version | License identifier | Upstream source | Used by |
 | --- | ---: | --- | --- | --- |
 | `@codemirror/autocomplete` | 6.20.4 | MIT | [repository](https://code.haverbeke.berlin/codemirror/autocomplete) | desktop runtime |
 | `@codemirror/commands` | 6.11.1 | MIT | [repository](https://code.haverbeke.berlin/codemirror/commands) | desktop runtime |
@@ -59,75 +61,82 @@
 | `@xterm/addon-search` | 0.16.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-search) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
 | `codemirror` | 6.0.2 | MIT | [repository](https://github.com/codemirror/basic-setup) | desktop runtime |
-| `solid-js` | 1.9.17 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
+| `solid-js` | 1.9.19 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
 
-### 建置、型別與測試工具
+### Build, type and test tools
 
-這些套件不會全部進入 runtime bundle，但會參與可發布的 desktop 或 website 建置、型別檢查與測試，因此版本變更仍要重新查核其 notice。
+Not all of these packages reach the runtime bundle, but they take part in building, type-checking and testing the released desktop app or website, so a version change still needs its notice checked again.
 
-| 套件 | lock 版本 | License identifier | 上游來源 | 使用位置 |
+| Package | Locked version | License identifier | Upstream source | Used by |
 | --- | ---: | --- | --- | --- |
 | `@tauri-apps/cli` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
-| `fake-indexeddb` | 6.2.6 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
-| `@types/node` | 26.6.5 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
+| `fake-indexeddb` | 6.2.8 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
+| `@types/node` | 26.6.6 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | desktop and web typecheck |
 | `typescript` | 7.0.2 | Apache-2.0 | [repository](https://github.com/microsoft/TypeScript) | desktop and web build |
-| `vite` | 8.3.5 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
-| `vite-plugin-solid` | 2.11.14 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
-| `vitest` | 5.0.5 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
+| `vite` | 8.3.8 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
+| `vite-plugin-solid` | 2.11.16 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
+| `vitest` | 5.1.0 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
+| `@playwright/test` | 1.65.0 | Apache-2.0 | [repository](https://github.com/microsoft/playwright) | desktop end-to-end test |
+| `@biomejs/biome` | 2.6.6 | MIT OR Apache-2.0 | [repository](https://github.com/biomejs/biome) | lint and format |
+| `wrangler` | 4.160.0 | MIT OR Apache-2.0 | [repository](https://github.com/cloudflare/workers-sdk) | website deploy |
 
-### npm 核對限制
+### npm review limits
 
-`package-lock.json` 的 `license` 欄位只是一個套件 metadata identifier，不是授權全文，也不保證涵蓋所有隨套件散布的 notice。2026-09-27 的 lockfile v3 有 221 個外部 package entries，皆有 `license`、`resolved` 與 `integrity`；所有 `resolved` 指向 `registry.npmjs.org`。以 exact `resolved` URL 暫存本機未具 license file 的 85 個 tarballs，`npm pack` 回報的 integrity 與 lockfile SRI 85/85 相符，tarball 內 metadata 的 license 85/85 與 lockfile 相同。檔案盤點只找到 19 個 tarballs 帶有命名的 `LICENSE`／`LICENCE`／`COPYING`／`NOTICE`／`UNLICENSE`／`COPYRIGHT` 文件；其餘 66 個沒有上述文件。這 85 個包含未安裝的跨平台 optional packages，也包含不隨安裝程式散布的 build／test 工具；因此 66 個 lockfile archive 缺檔不等同於 shipped runtime 缺授權文件。macOS arm64 與 Windows x64 各自的 47-package desktop runtime closure 已逐一核對 exact archive、SPDX 與 48 份原始 license／notice files，產出與來源 hash 詳見 [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md)。
+The `license` field of `package-lock.json` is only a package metadata identifier; it is not the license text and does not guarantee that every notice shipped with the package is covered. On 2026-09-27 lockfile v3 had 221 external package entries, all with `license`, `resolved` and `integrity`, and every `resolved` URL pointed to `registry.npmjs.org`. The 85 tarballs without a local license file were fetched from their exact `resolved` URLs: the integrity reported by `npm pack` matched the lockfile SRI for 85 of 85, and the license in each tarball's metadata matched the lockfile for 85 of 85. Only 19 tarballs contain a named `LICENSE`, `LICENCE`, `COPYING`, `NOTICE`, `UNLICENSE` or `COPYRIGHT` file; the other 66 have none. These 85 include cross-platform optional packages that are not installed and build or test tools that are not distributed with the installer, so the 66 archives without such a file do not mean a shipped runtime package lacks its license text. The 47-package desktop runtime closures of macOS arm64 and Windows x64 were each checked against the exact archive, the SPDX identifier and 48 original license or notice files; the output and source hashes are in [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md).
 
-## Rust／Cargo
+## Rust and Cargo
 
-下列 license identifier 來自相同版本 crate 的 published `Cargo.toml` metadata；版本與 checksum 以 [`Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock) 為準。完整授權全文隨 bundle 收錄於 [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md)。
+The license identifiers below come from the published `Cargo.toml` metadata of the same crate version; versions and checksums follow [`Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock). The full license texts ship with the bundle in [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md).
 
-| crate | lock 版本 | License identifier | 上游來源 | 使用位置 |
+| Crate | Locked version | License identifier | Upstream source | Used by |
 | --- | ---: | --- | --- | --- |
 | `tauri` | 2.12.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.4) · [repository](https://github.com/tauri-apps/tauri) | runtime |
-| `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
-| `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
+| `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime (ST-07 single instance) |
+| `tauri-plugin-updater` | 2.14.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-updater/2.14.1) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime |
+| `tauri-build` | 2.7.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.4) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
 | `libc` | 0.2.191 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.191) · [repository](https://github.com/rust-lang/libc) | runtime |
-| `notify` | 8.2.0 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.0) · [repository](https://github.com/notify-rs/notify) | runtime |
+| `memchr` | 2.8.3 | Unlicense OR MIT | [crates.io](https://crates.io/crates/memchr/2.8.3) · [repository](https://github.com/BurntSushi/memchr) | runtime |
+| `notify` | 8.2.1 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.1) · [repository](https://github.com/notify-rs/notify) | runtime |
 | `portable-pty` | 0.9.0 | MIT | [crates.io](https://crates.io/crates/portable-pty/0.9.0) · [repository](https://github.com/wezterm/wezterm) | runtime |
 | `reqwest` | 0.13.5 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/reqwest/0.13.5) · [repository](https://github.com/seanmonstar/reqwest) | runtime |
 | `rfd` | 0.17.2 | MIT | [crates.io](https://crates.io/crates/rfd/0.17.2) · [repository](https://github.com/PolyMeilex/rfd) | runtime |
+| `rustls` | 0.23.46 | Apache-2.0 OR ISC OR MIT | [crates.io](https://crates.io/crates/rustls/0.23.46) · [repository](https://github.com/rustls/rustls) | runtime |
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde/1.0.229) · [repository](https://github.com/serde-rs/serde) | runtime |
 | `serde_json` | 1.0.154 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.154) · [repository](https://github.com/serde-rs/json) | runtime |
-| `tokio` | 1.53.3 | MIT | [crates.io](https://crates.io/crates/tokio/1.53.3) · [repository](https://github.com/tokio-rs/tokio) | runtime |
-| `uuid` | 1.28.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.28.0) · [repository](https://github.com/uuid-rs/uuid) | runtime |
+| `tokio` | 1.54.1 | MIT | [crates.io](https://crates.io/crates/tokio/1.54.1) · [repository](https://github.com/tokio-rs/tokio) | runtime |
+| `uuid` | 1.29.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.29.0) · [repository](https://github.com/uuid-rs/uuid) | runtime |
+| `windows` | 0.62.2 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/windows/0.62.2) · [repository](https://github.com/microsoft/windows-rs) | Windows runtime (taskbar Jump List) |
 
-### Cargo 核對限制與 2026-09-27 快照
+### Cargo review limits and the 2026-09-27 snapshot
 
-2026-09-29 ST-07 增量查核：新增 `tauri-plugin-single-instance@2.5.0` 與其啟用的 `tracing-attributes@0.1.31` 已逐 archive 核對 Cargo.lock checksum，四份命名授權文件完整收錄於 `THIRD_PARTY_LICENSES.md`。目前 normal runtime 閉包為 macOS arm64 269、Windows x64 273 個 crate（不含 pude）；既有歷史版本的授權文字仍保留。
+2026-09-29 ST-07 incremental review: the newly added `tauri-plugin-single-instance@2.5.0` and the `tracing-attributes@0.1.31` it enables were checked archive by archive against the Cargo.lock checksums, and their four named license files are included in full in `THIRD_PARTY_LICENSES.md`. The normal runtime closure then had 269 macOS arm64 and 273 Windows x64 crates (excluding pude); license texts of earlier versions are kept.
 
-`Cargo.lock` 的 package blocks 包含 Tauri runtime、WebView、平台整合、系統繫結與其他轉依賴；lockfile 不含 license 欄位，不能只靠 package name 推定授權。以已鎖定的 `aarch64-apple-darwin` 和 `x86_64-pc-windows-msvc` target 分別執行 `cargo metadata --locked --filter-platform`，normal dependency graph 有 307 個 macOS crates、312 個 Windows crates；加上 build dependency 後分別為 328、335。`.crate` archive SHA-256 與 Cargo.lock checksum 全數匹配（macOS normal+build 328/328；Windows 335/335），且所有這些 package 的 published `Cargo.toml` 都有 `license` 或 `license-file` metadata。實際 shipped normal runtime source trees 遞迴檢查後，macOS 19 個 crate、Windows 11 個 crate、共 22 個不同 crates 未在 `.crate` archive 內找到命名授權文件；這 22 項已依 `.cargo_vcs_info.json` 固定的上游 commit 核對原始授權文字或 package 的授權選擇說明，並在 [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md) 列明來源與雜湊。對 340 個 runtime Cargo crates 遞迴盤點共找到 606 個命名授權／notice 檔；macOS 307、Windows 312 個 normal runtime crates 的全文均已納入。只把實際隨 app 散布的正常 runtime closure 納入本次 F01 release gate；build/test 與 Android-only packages 另列盤點，不作為 app blocker。
+The package blocks of `Cargo.lock` include the Tauri runtime, WebView, platform integration, system bindings and other transitive dependencies; the lockfile has no license field, so licenses cannot be inferred from package names. Running `cargo metadata --locked --filter-platform` for the locked `aarch64-apple-darwin` and `x86_64-pc-windows-msvc` targets gives a normal dependency graph of 307 macOS and 312 Windows crates, or 328 and 335 with build dependencies. Every `.crate` archive SHA-256 matched its Cargo.lock checksum (macOS normal and build 328/328; Windows 335/335), and every package's published `Cargo.toml` has `license` or `license-file` metadata. A recursive check of the shipped normal runtime source trees found 19 macOS and 11 Windows crates, 22 distinct crates in all, without a named license file in the `.crate` archive; for these 22 the original license text or the package's license choice was checked at the upstream commit pinned by `.cargo_vcs_info.json`, and the source and hash are listed in [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md). A recursive inventory of 340 runtime Cargo crates found 606 named license or notice files, and the full texts of the 307 macOS and 312 Windows normal runtime crates are included. Only the normal runtime closure actually distributed with the app is part of this F01 release gate; build, test and Android-only packages are inventoried separately and do not block the app.
 
-## Release 維護規則
+## Release maintenance rules
 
-1. 先更新對應 manifest，再以 lockfile 的可重現命令更新 [`package-lock.json`](./package-lock.json) 或 [`Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock)；release commit 必須同時提交 manifest 與 lockfile 的變更。
-2. 依賴新增、移除或版本變更時，重新核對 exact package/crate 的 license identifier、上游來源、license files 與 notice；若 license 由單一授權變成雙授權或其他 expression，也要更新本文件。
-3. 每個 release 對 npm 的完整 lockfile 閉包與 Cargo 的完整 lockfile 閉包執行一次 license／notice inventory。掃描結果應包含平台條件套件與 build/test 工具，不能只掃 runtime bundle。
-4. 將必要的第三方 license／notice 文件隨 release artifact 提供，並保留掃描輸入的 lockfile、版本、checksum／integrity 與產出日期。不要以本文件中的 identifier 取代原始授權文件。
-5. 若 upstream metadata、repository、license file 或 notice 無法從 exact source 核對，將該項標成「需核對」，由 release owner 在發佈前補證據；不得以猜測補上完整 license 文本。
-6. 本文件新增或更新後，檢查所有相對連結仍指向現存 manifest、lockfile 或素材出處文件；若素材替換，也要同步更新 [素材來源紀錄](#asset-provenance)。
+1. Update the manifest first, then update [`package-lock.json`](./package-lock.json) or [`Cargo.lock`](./apps/desktop/src-tauri/Cargo.lock) with the lockfile's reproducible command; a release commit must contain both the manifest and lockfile changes.
+2. When a dependency is added, removed or changes version, check the license identifier, upstream source, license files and notices of the exact package or crate again; update this file when a license changes, for example from a single license to a dual license or another expression. `node scripts/verify-notice-versions.mjs`, part of `npm run check`, fails when a direct dependency is missing from the tables above or listed at a different version than the lockfile.
+3. For every release, run one license and notice inventory over the full npm lockfile closure and the full Cargo lockfile closure. The scan must include platform-specific packages and build or test tools, not only the runtime bundle.
+4. Ship the required third-party license and notice files with the release artifacts, and keep the scanned lockfiles, versions, checksums or integrity values and the date of the output. Do not replace the original license files with the identifiers in this file.
+5. When upstream metadata, the repository, a license file or a notice cannot be checked from the exact source, mark the entry "to be confirmed" for the release owner to supply evidence before release; never fill in a full license text by guessing.
+6. After adding to or updating this file, check that every relative link still points to an existing manifest, lockfile or asset source; when an asset is replaced, update the [asset provenance record](#asset-provenance) as well.
 
-## 尚待確認的項目
+## Items awaiting confirmation
 
-- macOS arm64 與 Windows x64 的 47-package npm runtime closure、307／312 個 Cargo normal runtime crates 已完成來源 archive／checksum、license metadata 與授權全文核對；逐檔來源與內容雜湊見隨包的 [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md)。其他 build／test／optional lockfile entries 的命名文件缺口不屬於 app runtime gate。
+- The 47-package npm runtime closure and the 307 and 312 Cargo normal runtime crates of macOS arm64 and Windows x64 have had their source archives, checksums, license metadata and full license texts checked; per-file sources and content hashes are in the bundled [`THIRD_PARTY_LICENSES.md`](./THIRD_PARTY_LICENSES.md). Missing named files in other build, test or optional lockfile entries are not part of the app runtime gate.
 
 <a id="asset-provenance"></a>
 
-## 現行素材權利聲明與逐檔清冊
+## Asset rights statement and per-file inventory
 
-維護者確認下表目前的圖像素材由維護者自行製作或 AI 生成，並授權 MajajaX 依專案 [`MIT LICENSE`](./LICENSE) 散布。此聲明涵蓋下表所列檔案。未提供逐項作者、生成工具、外部原始來源 URL 或素材產製日期，因此本紀錄不填寫或推定這些資訊。
+The maintainer confirms that the image assets in the table below were made by the maintainer or generated with AI, and licenses MajajaX to distribute them under the project's [`MIT LICENSE`](./LICENSE). This statement covers the files listed below. No per-item author, generation tool, external source URL or creation date was provided, so this record does not fill in or infer them.
 
-清冊包含 `apps/desktop/icon-src` 50 個來源圖示、`apps/desktop/public` 3 個圖像檔案、`apps/web/public` 11 個圖像檔案、`docs` 1 個 social preview 圖像及 `apps/desktop/src-tauri/icons` 53 個檔案。PNG／WebP 尺寸取自檔案標頭，ICO／ICNS 列出容器中的尺寸，SHA-256 覆蓋原始檔 bytes。Android XML launcher 檔列入清冊供完整盤點，尺寸不適用。
+The inventory covers 50 source icons in `apps/desktop/icon-src`, 3 image files in `apps/desktop/public`, 8 image files in `apps/web/public` and 53 files in `apps/desktop/src-tauri/icons`. PNG, WebP and JPEG dimensions come from the file headers, ICO and ICNS entries list the sizes in the container, and each SHA-256 covers the original file bytes. Android XML launcher files are listed for completeness; dimensions do not apply to them.
 
-兩個 Vite `public` 目錄的檔案會複製到各自 frontend dist；desktop frontend 隨 Tauri app 封裝。`apps/desktop/icon-src` 保留原始 PNG 圖示，不隨 frontend 散布；`scripts/convert-icons.py` 將相同圖像縮為 32x32 cells，產生 `apps/desktop/public/icons/sprite.webp`。Sprite 僅調整尺寸、排列及格式，沿用這 50 個來源圖示的權利聲明。Tauri 目前明列 `32x32.png`、`128x128.png`、`128x128@2x.png`、`icon.icns` 與 `icon.ico` 作為 bundle icon 輸入。Tauri icon 資料夾中其餘項目未列於目前 `tauri.conf.json` 的 `bundle.icon`，不代表當前 Windows／macOS bundle 輸入。
+Files in both Vite `public` directories are copied into their frontend dist; the desktop frontend is packaged with the Tauri app. `apps/desktop/icon-src` keeps the original PNG icons, which are not distributed with the frontend; `scripts/convert-icons.py` scales the same images to 32x32 cells to produce `apps/desktop/public/icons/sprite.webp`. The sprite only changes size, layout and format, so it carries the rights statement of these 50 source icons. Tauri currently lists `32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns` and `icon.ico` as bundle icon inputs. The other items in the Tauri icon folder are not listed in the current `bundle.icon` of `tauri.conf.json` and are not inputs of the current Windows or macOS bundles.
 
 | Path | Dimensions / format | SHA-256 | Current distribution scope |
 | --- | --- | --- | --- |
@@ -183,7 +192,7 @@
 | `apps/desktop/icon-src/ui/trash.png` | 64x64 px | `79fb3d3203bcd4282e527e669becba0fbde68b0d21bb302af03fc7fb0bf30563` | Repository source only; artwork included in desktop sprite derivative. |
 | `apps/desktop/public/icons/sprite.webp` | 320x192 px | `6504e3e84d2b381cf6644bc9964a0907d9e1209eca7fc5af9b90b3514cc1afac` | Desktop frontend dist (Vite public; bundled by Tauri); derivative of the 50 icon-src PNGs above. |
 | `apps/desktop/public/pude-favicon.png` | 64x64 px | `6ffa3b05ace75e4ae63854b4fa6f83eafd09dc9175e0759daeb055a25f9bb9df` | Desktop frontend dist (Vite public; bundled by Tauri). |
-| `apps/desktop/public/pude-logo.webp` | 64x256 px | `134ebfe2c06fcf07bafa211634675a67518e703313b6e327247f1705139985cc` | Desktop frontend dist (Vite public; bundled by Tauri). |
+| `apps/desktop/public/pude-logo.webp` | 256x256 px | `134ebfe2c06fcf07bafa211634675a67518e703313b6e327247f1705139985cc` | Desktop frontend dist (Vite public; bundled by Tauri). |
 | `apps/desktop/src-tauri/icons/128x128.png` | 128x128 px | `57b6cd177373280b7f6355bd65314c368b271efce02301dcd53519c9a06d49a0` | Explicit Tauri bundle icon input; applicable platform variant. |
 | `apps/desktop/src-tauri/icons/128x128@2x.png` | 256x256 px | `b55f6b01c10d546b8641dec440dd9b54b5153b5852be19286f144bc34d785f21` | Explicit Tauri bundle icon input; applicable platform variant. |
 | `apps/desktop/src-tauri/icons/32x32.png` | 32x32 px | `850f25b0f20cd127f7c7710b93e139bc5d0ca61641e610dce43b6d74c261c0fe` | Explicit Tauri bundle icon input; applicable platform variant. |
@@ -237,19 +246,15 @@
 | `apps/desktop/src-tauri/icons/Square71x71Logo.png` | 71x71 px | `322c6df603675f26e3c54e89cbccf1d3e50a1f4f1505bac91f4b71705bd5e998` | Source repository only; not in tauri.conf.json bundle.icon. |
 | `apps/desktop/src-tauri/icons/Square89x89Logo.png` | 89x89 px | `b2c04105351fa022b5fdf1abbafce02dd5ba8299daab491189b3f8394c2cbbad` | Source repository only; not in tauri.conf.json bundle.icon. |
 | `apps/desktop/src-tauri/icons/StoreLogo.png` | 50x50 px | `97c504eefdb4c9ae182aff6ab012c8454f8fb1880cedcb099ad777c21bab3ff2` | Source repository only; not in tauri.conf.json bundle.icon. |
-| `apps/web/public/og-image.png` | 1280x640 px | `9cd4f107797a18fd44e23e3779c67b2e6a4228805f95945e071ffa501bdc73b6` | Website dist (Vite public); same brand artwork as `docs/github-social-preview.png`, with the production brief in `docs/github-social-preview.prompt.txt`. |
-| `docs/github-social-preview.png` | 1280x640 px | `9cd4f107797a18fd44e23e3779c67b2e6a4228805f95945e071ffa501bdc73b6` | Repository social preview source; identical to the website OG image. |
-| `apps/web/public/pude-app-icon.png` | 128x128 px | `4430d99287845538df9c6d34414de037502e2fff10b570c290489266254faefb` | Website dist (Vite public). |
+| `apps/web/public/og-image.jpg` | 1280x640 px JPEG | `08a7fce55ace425b6caa2e7069e02968d6b5e0277fc0980932f7eab2cd52242a` | Website dist (Vite public) and the GitHub repository social preview source (the same file is uploaded in the repository settings); the production brief is in `docs/github-social-preview.prompt.txt`. |
 | `apps/web/public/pude-favicon.png` | 128x128 px | `4430d99287845538df9c6d34414de037502e2fff10b570c290489266254faefb` | Website dist (Vite public). |
-| `apps/web/public/pude-favicon.webp` | 64x128 px | `eacb594b8934317d3ad92705f3e1e49e8eeb78b1dd44437a6e070afe5f36203d` | Website dist (Vite public). |
 | `apps/web/public/pude-logo.png` | 512x512 px | `9352f34917525fa299e00fa0a401ef9f931149447cc1fc1fc370d546fbcfa8fa` | Website dist (Vite public). |
-| `apps/web/public/pude-logo.webp` | 320x512 px | `0783ee19a1f1efee47437c5bfe49750781147095e20516a0b72cfccfc75482ad` | Website dist (Vite public). |
-| `apps/web/public/shots/diff.webp` | 1708x979 px | `5ec20c82517ddaa4692af8260db31f33aef28c677e15c31fa7ed290d745e0aaa` | Website dist (Vite public). |
-| `apps/web/public/shots/editor.webp` | 1708x979 px | `5412fca28e32bf76222a43ff7a09843c436aae714f2f01bdb1fb0e7f6952b834` | Website dist (Vite public). |
-| `apps/web/public/shots/git.webp` | 1708x979 px | `f0e570e1e553417f762b01a83138e6d299ae9d8fe1fdc879d9e30d2d2127025b` | Website dist (Vite public). |
-| `apps/web/public/shots/markdown.webp` | 1708x979 px | `dd448428a4686f922d8be0a438a07feb4265e0ea76e2812f5227b6f1bbd23871` | Website dist (Vite public). |
-| `apps/web/public/shots/terminal.webp` | 1708x979 px | `142743751c3b3071bf608bb6477c0c482b7cb0d0f6ffcddd554dbed69786dcb1` | Website dist (Vite public). |
+| `apps/web/public/shots/diff.webp` | 1708x979 px | `de845cb65644f332f623365d328d89281548bbea2b9c4a69d85e69a28a6bb222` | Website dist (Vite public). |
+| `apps/web/public/shots/editor.webp` | 1708x979 px | `f3cf65d3b96b4c15b8296721a4743ac478264d22c87137fb15baef59aff722d5` | Website dist (Vite public). |
+| `apps/web/public/shots/git.webp` | 1708x979 px | `1d36433babbcbb81a216ce20296e048018c43a88091bb6e08b5a28ef3659a83d` | Website dist (Vite public). |
+| `apps/web/public/shots/markdown.webp` | 1708x979 px | `b1bc59b0062703315522e2666ea493c1f2aa5002d9ac762b4eacf729eb7b502f` | Website dist (Vite public). |
+| `apps/web/public/shots/terminal.webp` | 1708x979 px | `c9072362b8fa5b2a0651216921d202646b399b5ee09f03c578b1a91ae68108a2` | Website dist (Vite public). |
 
-### 後續更新
+### Later updates
 
-新增、替換、重新裁切、重新壓縮或改變素材散布位置時，重新記錄檔案路徑、尺寸／格式、SHA-256 及 website／desktop／Tauri 的實際散布範圍。新素材若不是維護者自行製作或 AI 生成，另核對來源、作者／權利人和 license／notice。不要只依檔名、提交者或視覺相似度推定來源或授權。
+When an asset is added, replaced, cropped again, recompressed or distributed somewhere else, record its path, dimensions or format, SHA-256 and actual website, desktop or Tauri distribution scope again. When a new asset was not made by the maintainer or generated with AI, also check its source, author or rights holder and license or notice. Never infer a source or license from a file name, the committer or visual similarity alone.

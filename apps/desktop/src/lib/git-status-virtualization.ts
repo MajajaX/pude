@@ -15,14 +15,44 @@ export function buildGitStatusRows(files: readonly GitFileStatus[]): GitStatusRo
   const changes = files.filter((file) => file.conflict || !file.indexStatus || file.worktreeStatus);
   const rows: GitStatusRow[] = [];
   if (staged.length) {
-    rows.push({ kind: "header", key: "header:staged", group: "staged", label: translatable("STAGED CHANGES"), count: staged.length });
-    for (const file of staged) rows.push({ kind: "file", key: `staged:${file.path}`, group: "staged", file, staged: true });
+    rows.push({
+      kind: "header",
+      key: "header:staged",
+      group: "staged",
+      label: translatable("STAGED CHANGES"),
+      count: staged.length,
+    });
+    for (const file of staged)
+      rows.push({ kind: "file", key: `staged:${file.path}`, group: "staged", file, staged: true });
   }
   if (changes.length) {
-    rows.push({ kind: "header", key: "header:changes", group: "changes", label: translatable("CHANGES"), count: changes.length });
-    for (const file of changes) rows.push({ kind: "file", key: `changes:${file.path}`, group: "changes", file, staged: false });
+    rows.push({
+      kind: "header",
+      key: "header:changes",
+      group: "changes",
+      label: translatable("CHANGES"),
+      count: changes.length,
+    });
+    for (const file of changes)
+      rows.push({ kind: "file", key: `changes:${file.path}`, group: "changes", file, staged: false });
   }
   return rows;
+}
+
+export function sameGitStatusFiles(left: readonly GitFileStatus[], right: readonly GitFileStatus[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((file, index) => {
+      const other = right[index];
+      return (
+        file.path === other.path &&
+        file.indexStatus === other.indexStatus &&
+        file.worktreeStatus === other.worktreeStatus &&
+        file.originalPath === other.originalPath &&
+        file.conflict === other.conflict
+      );
+    })
+  );
 }
 
 export function gitStatusRowHeight(row: GitStatusRow): number {

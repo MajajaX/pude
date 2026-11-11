@@ -1,4 +1,16 @@
-import { For, Show, Suspense, batch, createEffect, createMemo, createSignal, lazy, on, onCleanup, onMount } from "solid-js";
+import {
+  For,
+  Show,
+  Suspense,
+  batch,
+  createEffect,
+  createMemo,
+  createSignal,
+  lazy,
+  on,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import type { TerminalOpenRequest } from "./components/TerminalPane";
 import type { ProjectSearchMatch, ProjectSearchOptions } from "./lib/project-search";
 import type { EditorDocumentChange, EditorSettings, GoToLineRequest, SearchRequest } from "./components/EditorPane";
@@ -6,58 +18,206 @@ import type { EditorCommandName, EditorCommandRequest } from "./lib/editor-text-
 import type { SearchMatchCount } from "./lib/search-match-count";
 import type { ProjectSearchRequest } from "./components/ProjectSearch";
 import type { TabMenuAction } from "./components/TabContextMenu";
-import { WorkbenchTabs, workbenchTabId, WORKBENCH_EDITOR_PANEL_ID, WORKBENCH_HISTORY_PANEL_ID, WORKBENCH_HISTORY_TAB_ID } from "./components/WorkbenchTabs";
-import { SidebarTabs, type SidebarView, SIDEBAR_EXPLORER_PANEL_ID, SIDEBAR_EXPLORER_TAB_ID, SIDEBAR_GIT_PANEL_ID, SIDEBAR_GIT_TAB_ID, SIDEBAR_SEARCH_PANEL_ID, SIDEBAR_SEARCH_TAB_ID } from "./components/SidebarTabs";
-import { Icon, LanguageIcon, languageIconForPath } from "./components/Icons";
+import {
+  WorkbenchTabs,
+  workbenchTabId,
+  WORKBENCH_EDITOR_PANEL_ID,
+  WORKBENCH_HISTORY_PANEL_ID,
+  WORKBENCH_HISTORY_TAB_ID,
+} from "./components/WorkbenchTabs";
+import {
+  ActivityBar,
+  type SidebarView,
+  SIDEBAR_EXPLORER_PANEL_ID,
+  SIDEBAR_EXPLORER_TAB_ID,
+  SIDEBAR_GIT_PANEL_ID,
+  SIDEBAR_GIT_TAB_ID,
+  SIDEBAR_SEARCH_PANEL_ID,
+  SIDEBAR_SEARCH_TAB_ID,
+} from "./components/ActivityBar";
+import { Icon } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
 import type { ProjectWorkspaceState } from "./lib/project-workspace";
 import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./lib/project-tabs";
-import { collapseSubfolders, folderContaining, isWorkspaceFilePath, isWorkspaceRootEntry, makeWorkspaceRoot, watcherExcludesForFolders, workspaceFileName, workspaceLabel, workspaceRootFolders } from "./lib/workspace-folders";
+import {
+  collapseSubfolders,
+  folderContaining,
+  isWorkspaceFilePath,
+  isWorkspaceRootEntry,
+  makeWorkspaceRoot,
+  watcherExcludesForFolders,
+  workspaceFileName,
+  workspaceLabel,
+  workspaceRootFolders,
+} from "./lib/workspace-folders";
 import { WindowControls } from "./components/WindowControls";
 import { version as appVersion } from "../package.json";
 import { checkForUpdates, updateStatus } from "./lib/app-update";
 import { defaultSettings, SETTINGS_STORAGE_KEY } from "./lib/settings";
 import { getStartupFolder, setRecentItems } from "./lib/bridge";
-import { cancelWorkspaceOperations, createGitWorktree, getGitBranches, getGitCommitDiff, getGitCommitFiles, getGitCommits, getGitDiff, getGitStashDiff, getGitStashes, getGitStashFiles, getGitStatus, getGitIgnoredPaths, isTauri, listDirectory, cancelDirectoryListing, openFolder, openFileDialog, openNewWindow, pathExists, performGitAction, readFile, saveFile, saveFileAs, saveFileDialog, inspectSaveAsDestination, startWatcher, statFiles, stopWatcher, createDirectory, createFile, deletePath, renamePath, readPluginEntry, revealInFileManager, inspectPluginInstall, commitPluginInstall, cancelPluginInstall, rollbackPluginUpdate, uninstallPlugin, retryPluginCleanup, recoverPluginUpdates, canonicalizeWorkspaceRoot, pluginWorkspaceList, pluginWorkspaceReadFile, pluginWorkspaceFileInfo, pluginWorkspaceReadFileRange, pluginWorkspaceReleaseFileRead, pluginWorkspaceWriteFile, pluginGitDiff, authorizePluginNetwork, pluginNetworkRequest, cancelPluginNetworkRequest, resolvePluginLspServer, approveLspServer, revokeLspServer, startLspServer, sendLspMessage, cancelLspRequest, stopLspServer, stopPluginLsp, stopWorkspaceLsp, revokePluginNetwork } from "./lib/bridge";
+import {
+  cancelWorkspaceOperations,
+  copyPath,
+  createGitWorktree,
+  getGitBranches,
+  getGitCommitDiff,
+  getGitCommitFiles,
+  getGitCommits,
+  getGitDiff,
+  getGitStashDiff,
+  getGitStashes,
+  getGitStashFiles,
+  getGitStatus,
+  getGitIgnoredPaths,
+  isTauri,
+  listDirectory,
+  cancelDirectoryListing,
+  openFolder,
+  openFileDialog,
+  openNewWindow,
+  pathExists,
+  performGitAction,
+  readFile,
+  saveFile,
+  saveFileAs,
+  saveFileDialog,
+  inspectSaveAsDestination,
+  startWatcher,
+  statFiles,
+  stopWatcher,
+  createDirectory,
+  createFile,
+  deletePath,
+  renamePath,
+  readPluginEntry,
+  revealInFileManager,
+  inspectPluginInstall,
+  commitPluginInstall,
+  cancelPluginInstall,
+  rollbackPluginUpdate,
+  uninstallPlugin,
+  retryPluginCleanup,
+  recoverPluginUpdates,
+  canonicalizeWorkspaceRoot,
+  pluginWorkspaceList,
+  pluginWorkspaceReadFile,
+  pluginWorkspaceFileInfo,
+  pluginWorkspaceReadFileRange,
+  pluginWorkspaceReleaseFileRead,
+  pluginWorkspaceWriteFile,
+  pluginGitDiff,
+  authorizePluginNetwork,
+  pluginNetworkRequest,
+  cancelPluginNetworkRequest,
+  resolvePluginLspServer,
+  approveLspServer,
+  revokeLspServer,
+  startLspServer,
+  sendLspMessage,
+  cancelLspRequest,
+  stopLspServer,
+  stopPluginLsp,
+  stopWorkspaceLsp,
+  revokePluginNetwork,
+} from "./lib/bridge";
 import { loadedExplorerPaths } from "./lib/explorer-ignored";
-import { errorMessage, orderTabsByPinned } from "./lib/core";
+import { errorMessage, orderTabsByPinned, type NotifyTone } from "./lib/core";
 import { emitDiagnostic } from "./lib/diagnostics";
 import { contentFingerprint } from "./lib/fingerprint";
 import { windowTitleForWorkspace } from "./lib/window-title";
-import { pathComparisonKey, samePath as samePathIdentity, isSameOrDescendantPath as isDescendantIdentity, runtimePathOptions, wireBasename, wireParentPath, joinWirePath } from "./lib/path-identity";
-import { utf8ByteLength, serializedDocumentByteLength } from "./lib/document-size";
+import {
+  pathComparisonKey,
+  samePath as samePathIdentity,
+  isSameOrDescendantPath as isDescendantIdentity,
+  relativeWirePath,
+  runtimePathOptions,
+  wireBasename,
+  wireParentPath,
+  joinWirePath,
+} from "./lib/path-identity";
+import { utf8ByteLength } from "./lib/document-size";
 import { isImeComposing } from "./lib/keyboard-input";
 import { isMissingFileReadError } from "./lib/file-read-errors";
 import { pickEditorSettings, sameEditorSettings } from "./lib/editor-settings";
-import { advanceOpenFolderChord, relativePathWithinRoot, type OpenFolderChordState } from "./lib/explorer-actions";
+import { advanceOpenFolderChord, type OpenFolderChordState } from "./lib/explorer-actions";
+import { editorShortcut, globalShortcut, type EditorShortcut } from "./lib/app-shortcuts";
 import { deleteConfirmationMessage, trashLocationLabel } from "./lib/delete-confirmation";
-import { fileLanguageForPath, isImagePath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeLineEndingMap, sameTextMetadata } from "./lib/file-metadata";
+import {
+  fileLanguageForPath,
+  isImagePath,
+  lineEndingFromMap,
+  normalizeDocumentContent,
+  normalizeLineEndingMap,
+  sameTextMetadata,
+} from "./lib/file-metadata";
 import { clampSetting, validateSettings } from "./lib/settings";
-import { allGitDirtyState, classifyGitChanges, emptyGitDirtyState, gitRefreshDelay, hasGitDirtyState, mergeGitDirtyState, type GitDirtyState } from "./lib/git-scheduler";
+import {
+  allGitDirtyState,
+  classifyGitChanges,
+  gitRefreshDelay,
+  hasGitDirtyState,
+  mergeGitDirtyState,
+  type GitDirtyState,
+} from "./lib/git-scheduler";
 import type { CommandPaletteItem } from "./lib/plugin-activation";
 import { parseInstalledPlugin } from "./lib/plugin-manifest";
 import type { PluginApiV2Dependencies, PluginApiV2InstalledPlugin, PluginApiV2Permission } from "./lib/plugin-api-v2";
 import type { PluginRun, createPluginHostController } from "./lib/plugin-host";
 import type { PluginEditorRevisionTracker } from "./lib/plugin-editor-revisions";
 import type { PluginEditorEdit } from "./lib/plugin-editor-edits";
-import type { PluginAuthorizationManager, PluginAuthorizationReviewManifest, PluginAuthorizationStore, PluginPermissionGrant, PluginPermissionGrantRequest, PluginPermissionResourceScope } from "./lib/plugin-authorization";
-import { createRestoreIntent, markRestoreTabCancelled, markRestoreTabStarted, markUserOpenedPath, shouldMergeRestoredTab, type RestoreIntent } from "./lib/restore-state";
+import type {
+  PluginAuthorizationManager,
+  PluginAuthorizationReviewManifest,
+  PluginAuthorizationStore,
+  PluginPermissionGrant,
+  PluginPermissionGrantRequest,
+  PluginPermissionResourceScope,
+} from "./lib/plugin-authorization";
+import {
+  createRestoreIntent,
+  markRestoreTabCancelled,
+  markRestoreTabStarted,
+  markUserOpenedPath,
+  shouldMergeRestoredTab,
+  type RestoreIntent,
+} from "./lib/restore-state";
 import type { DirectoryRestoreOptions, DirectoryRestoreResult } from "./lib/directory-restore";
 import type { SaveController, SaveSnapshot } from "./lib/save-controller";
 import { savedTabChanges } from "./lib/saved-tab-state";
-import { diskMetadataChanged } from "./lib/disk-metadata";
+import { adoptDiskVersionChanges, diskMetadataChanged } from "./lib/disk-metadata";
 import { markStartupEvent } from "./lib/startup-timeline";
-import { limitIo, IoLimiter, IoStaleGenerationError, withBusyRetry } from "./lib/io-limiter";
+import { IoLimiter, IoStaleGenerationError, withBusyRetry } from "./lib/io-limiter";
 import { createExternalConflictController } from "./lib/external-conflict-controller";
 import { createDocumentController } from "./lib/document-controller";
 import { createEditorSelectionFallback, editorSelectionFallbackAfterUpdate } from "./lib/editor-selection-fallback";
 import { createWatcherEventBuffer, watcherRetryDelay } from "./lib/watcher-state";
-import { attachSessionWindow, claimSessionWindow, closeSessionWindow, collectExpandedPaths, commitSessionCheckpoint, CURSOR_STORAGE_KEY, flushSessionPersistence, listRecoverableSessionCheckpoints, MAX_RECOVERY_BYTES, readLatestSessionCheckpoint, readLatestSessionCheckpointStatus, readSessionRegistry, recoveryStorageKey, readStorage, removeRecoveryStorage, scopedStorageKey, serializeCursorPositions, SESSION_STORAGE_KEY, SESSION_WINDOW_LEASE_MS, heartbeatSessionWindow, writeStorage, removeStorage, type CursorPosition, type PersistedTab, type ProjectSessionMetadata, type RecoveryBaseline, type RecoverySnapshot, type SessionCheckpoint, type SessionMetadata, type SessionWindowLease } from "./lib/session-storage";
+import {
+  attachSessionWindow,
+  closeSessionWindow,
+  collectExpandedPaths,
+  commitSessionCheckpoint,
+  CURSOR_STORAGE_KEY,
+  flushSessionPersistence,
+  MAX_RECOVERY_BYTES,
+  recoveryStorageKey,
+  readStorage,
+  scopedStorageKey,
+  serializeCursorPositions,
+  heartbeatSessionWindow,
+  writeStorage,
+  type CursorPosition,
+  type PersistedTab,
+  type ProjectSessionMetadata,
+  type RecoveryBaseline,
+  type RecoverySnapshot,
+  type SessionMetadata,
+  type SessionWindowLease,
+} from "./lib/session-storage";
 import type { StartupSessionSelection } from "./lib/session-startup";
 import { createSessionLeaseReleaseQueue } from "./lib/session-lease-release";
 import { setRecoveryDatabaseBlockedHandler } from "./lib/recovery-database-status";
-import { RecoveryWriteScheduler } from "./lib/recovery-scheduler";
+import { editNeedsSessionCheckpoint, RecoveryWriteScheduler } from "./lib/recovery-scheduler";
 import type { DirectoryRefreshCoordinator } from "./lib/directory-refresh";
 import type { GitHistoryController } from "./lib/git-history-controller";
 import type { VersionedFileReader } from "./lib/versioned-file-reader";
@@ -65,13 +225,33 @@ import { createExpandedPathsCache } from "./lib/expanded-paths";
 import type { RestoredTabRecord, RestoredTabResult } from "./lib/session-restore-documents";
 import { reconcile, createStore } from "solid-js/store";
 import type { WorkspaceActions } from "./lib/workspace-actions";
-import type { AppSettings, DirectoryEntry, DiffResult, DirectoryListResult, EditorTab, FileChange, FileChangedEvent, GitActionRequest, GitBranch, GitCommit, GitCommitFile, GitFileStatus, GitStash, GitStashFile, GitStatusResult, InstalledPlugin, PluginLspServer, ReadFileResult, WatchRoot } from "./types";
+import type {
+  AppSettings,
+  DirectoryEntry,
+  DiffResult,
+  DirectoryListResult,
+  EditorTab,
+  FileChange,
+  FileChangedEvent,
+  GitActionRequest,
+  GitBranch,
+  GitCommit,
+  GitCommitFile,
+  GitFileStatus,
+  GitStash,
+  GitStashFile,
+  GitStatusResult,
+  InstalledPlugin,
+  ReadFileResult,
+  WatchRoot,
+} from "./types";
 import type { PluginInstallPlan } from "./lib/bridge";
 import type { LspEvent } from "./lib/bridge";
 import { applyLanguage, t, translateMessage } from "./lib/i18n";
 
 type ViewMode = "editor" | "diff" | "history";
 type FileContextMenu = { entry: DirectoryEntry; x: number; y: number };
+type ExplorerClipboard = { path: string; name: string; root: string };
 type InputDialogState = {
   title: string;
   label: string;
@@ -111,10 +291,30 @@ type AppQuitDecision = "save" | "discard" | "preserve";
 type AppQuitPreparePayload = { requestId: string };
 type AppQuitCommitPayload = { requestId: string; decision: AppQuitDecision };
 type AppQuitAbortPayload = { requestId: string; error?: string };
-type AppQuitCommitSnapshot = { requestId: string; workspace: string; discardedTabs: EditorTab[]; projects?: ProjectWorkspaceState[] };
+type AppQuitCommitSnapshot = {
+  requestId: string;
+  workspace: string;
+  discardedTabs: EditorTab[];
+  projects?: ProjectWorkspaceState[];
+};
 // Git operations that only touch the index or working tree; every other action can move HEAD or refs.
-const GIT_WORKING_TREE_ACTIONS: ReadonlySet<GitActionRequest["action"]> = new Set(["add", "stage-file", "unstage-file", "unstage-all", "discard-file", "discard-untracked-file"]);
-const emptyGit: GitStatusResult = { repositoryRoot: "", branch: null, repositoryState: "unknown", headOid: null, files: [], commits: [], error: null };
+const GIT_WORKING_TREE_ACTIONS: ReadonlySet<GitActionRequest["action"]> = new Set([
+  "add",
+  "stage-file",
+  "unstage-file",
+  "unstage-all",
+  "discard-file",
+  "discard-untracked-file",
+]);
+const emptyGit: GitStatusResult = {
+  repositoryRoot: "",
+  branch: null,
+  repositoryState: "unknown",
+  headOid: null,
+  files: [],
+  commits: [],
+  error: null,
+};
 const PLUGINS_STORAGE_KEY = "pude-plugins-v1";
 const windowPlatform = detectWindowPlatform();
 const RECENT_PROJECTS_STORAGE_KEY = "pude-recent-projects-v1";
@@ -133,33 +333,55 @@ const LazyEditorPane = lazy(async () => {
   return { default: module.EditorPane };
 });
 const LazyProjectSearch = lazy(async () => ({ default: (await import("./components/ProjectSearch")).ProjectSearch }));
-const LazyTabContextMenu = lazy(async () => ({ default: (await import("./components/TabContextMenu")).TabContextMenu }));
-const LazyFileContextMenu = lazy(async () => ({ default: (await import("./components/FileContextMenu")).FileContextMenu }));
+const LazyTabContextMenu = lazy(async () => ({
+  default: (await import("./components/TabContextMenu")).TabContextMenu,
+}));
+const LazyFileContextMenu = lazy(async () => ({
+  default: (await import("./components/FileContextMenu")).FileContextMenu,
+}));
 const LazyExplorer = lazy(async () => ({ default: (await import("./components/Explorer")).Explorer }));
-const LazyRecentProjectsList = lazy(async () => ({ default: (await import("./components/RecentProjectsList")).RecentProjectsList }));
+const LazyRecentProjectsList = lazy(async () => ({
+  default: (await import("./components/RecentProjectsList")).RecentProjectsList,
+}));
 // MS-01: these milestones can only be reported once per window.
 let startupFirstTabReadyMarked = false;
 let startupWatcherReadyMarked = false;
 const LazyDiffPane = lazy(async () => ({ default: (await import("./components/DiffPane")).DiffPane }));
 const LazyGitPanel = lazy(async () => ({ default: (await import("./components/GitPanel")).GitPanel }));
-const LazyMarkdownPreview = lazy(async () => ({ default: (await import("./components/MarkdownPreview")).MarkdownPreview }));
+const LazyMarkdownPreview = lazy(async () => ({
+  default: (await import("./components/MarkdownPreview")).MarkdownPreview,
+}));
 const LazyEnvTable = lazy(async () => ({ default: (await import("./components/EnvTable")).EnvTable }));
 const LazyImagePreview = lazy(async () => ({ default: (await import("./components/ImagePreview")).ImagePreview }));
 const LazyPluginModal = lazy(async () => ({ default: (await import("./components/PluginModal")).PluginModal }));
-const LazyPluginAuthorizationDialog = lazy(async () => ({ default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationDialog }));
-const LazyPluginAuthorizationManagementDialog = lazy(async () => ({ default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationManagementDialog }));
+const LazyPluginAuthorizationDialog = lazy(async () => ({
+  default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationDialog,
+}));
+const LazyPluginAuthorizationManagementDialog = lazy(async () => ({
+  default: (await import("./components/PluginAuthorizationDialog")).PluginAuthorizationManagementDialog,
+}));
 const LazyTerminalPane = lazy(async () => ({ default: (await import("./components/TerminalPane")).TerminalPane }));
-const LazyStatusUpdateButton = lazy(async () => ({ default: (await import("./components/StatusUpdateButton")).StatusUpdateButton }));
+const LazyStatusUpdateButton = lazy(async () => ({
+  default: (await import("./components/StatusUpdateButton")).StatusUpdateButton,
+}));
 // These dialogs sit on rarely-used UI paths; keep them out of the entry
 // chunk. CloseWindowDialog is the exception — closing the window must work
 // instantly — so it is preloaded during idle time instead of at startup.
-const LazyCommandPalette = lazy(async () => ({ default: (await import("./components/CommandPalette")).CommandPalette }));
-const LazySettingsDialog = lazy(async () => ({ default: (await import("./components/SettingsDialog")).SettingsDialog }));
+const LazyCommandPalette = lazy(async () => ({
+  default: (await import("./components/CommandPalette")).CommandPalette,
+}));
+const LazySettingsDialog = lazy(async () => ({
+  default: (await import("./components/SettingsDialog")).SettingsDialog,
+}));
 const LazyAboutDialog = lazy(async () => ({ default: (await import("./components/AboutDialog")).AboutDialog }));
 const LazyConfirmDialog = lazy(async () => ({ default: (await import("./components/ConfirmDialog")).ConfirmDialog }));
 const LazyInputDialog = lazy(async () => ({ default: (await import("./components/InputDialog")).InputDialog }));
-const LazyConflictDialog = lazy(async () => ({ default: (await import("./components/ConflictDialog")).ConflictDialog }));
-const LazyPluginQuickPickDialog = lazy(async () => ({ default: (await import("./components/PluginQuickPickDialog")).PluginQuickPickDialog }));
+const LazyConflictDialog = lazy(async () => ({
+  default: (await import("./components/ConflictDialog")).ConflictDialog,
+}));
+const LazyPluginQuickPickDialog = lazy(async () => ({
+  default: (await import("./components/PluginQuickPickDialog")).PluginQuickPickDialog,
+}));
 let closeWindowDialogChunk: Promise<typeof import("./components/CloseWindowDialog")> | undefined;
 const loadCloseWindowDialog = () => (closeWindowDialogChunk ??= import("./components/CloseWindowDialog"));
 const LazyCloseWindowDialog = lazy(async () => ({ default: (await loadCloseWindowDialog()).CloseWindowDialog }));
@@ -169,14 +391,18 @@ const preloadCloseWindowDialog = () => {
     if (typeof idleWindow.requestIdleCallback === "function") idleWindow.requestIdleCallback(callback);
     else window.setTimeout(callback, 0);
   };
-  schedule(() => { void loadCloseWindowDialog(); void getWindowApi(); });
+  schedule(() => {
+    void loadCloseWindowDialog();
+    void getWindowApi();
+  });
 };
 // The Tauri window API pulls in a large helper chain (Window class,
 // dpi, image). It is only needed once the shell is interactive, so load it on
 // demand; the idle preload below warms it before the user can click a window
 // control or drag the titlebar.
 let windowApiPromise: Promise<typeof import("@tauri-apps/api/window")> | undefined;
-const invokeQuitCommand = (command: string, args?: Record<string, unknown>) => import("@tauri-apps/api/core").then(({ invoke }) => invoke(command, args));
+const invokeQuitCommand = (command: string, args?: Record<string, unknown>) =>
+  import("@tauri-apps/api/core").then(({ invoke }) => invoke(command, args));
 const getWindowApi = () => (windowApiPromise ??= import("@tauri-apps/api/window"));
 // The plugin host libraries (~100 KB of source: sandbox, API v2 proxy,
 // authorization, message policy, worker policy, editor revisions, terminal
@@ -188,8 +414,9 @@ const loadPluginHost = () => import("./lib/plugin-host");
 const loadSessionStartupRuntime = () => import("./lib/session-startup");
 const resolveSessionStartup = (...args: Parameters<typeof import("./lib/session-startup")["resolveStartupSession"]>) =>
   loadSessionStartupRuntime().then((runtime) => runtime.resolveStartupSession(...args));
-const validateStartupCheckpoint = (...args: Parameters<typeof import("./lib/session-startup")["validateStartupCheckpoint"]>) =>
-  loadSessionStartupRuntime().then((runtime) => runtime.validateStartupCheckpoint(...args));
+const validateStartupCheckpoint = (
+  ...args: Parameters<typeof import("./lib/session-startup")["validateStartupCheckpoint"]>
+) => loadSessionStartupRuntime().then((runtime) => runtime.validateStartupCheckpoint(...args));
 type PluginHostModules = Awaited<ReturnType<typeof loadPluginHost>>;
 let pluginHostModulesPromise: Promise<PluginHostModules> | undefined;
 const getPluginHostModules = () => (pluginHostModulesPromise ??= loadPluginHost());
@@ -198,7 +425,7 @@ export default function App() {
   const [workspace, setWorkspace] = createSignal("");
   const [additionalFolders, setAdditionalFolders] = createSignal<string[]>([]);
   const [workspaceFile, setWorkspaceFile] = createSignal<string>();
-  const workspaceFolders = createMemo(() => workspace() ? [workspace(), ...additionalFolders()] : [], [], {
+  const workspaceFolders = createMemo(() => (workspace() ? [workspace(), ...additionalFolders()] : []), [], {
     equals: (left, right) => left.length === right.length && left.every((path, index) => path === right[index]),
   });
   const workspaceName = () => workspaceLabel(workspaceFolders(), workspaceFile(), PATH_OPTIONS);
@@ -228,7 +455,7 @@ export default function App() {
   const [viewMode, setViewMode] = createSignal<ViewMode>("editor");
   const [historyTabOpen, setHistoryTabOpen] = createSignal(false);
   const [diffReturnToHistory, setDiffReturnToHistory] = createSignal(false);
-  const historyViewActive = () => viewMode() === "history" || viewMode() === "diff" && diffReturnToHistory();
+  const historyViewActive = () => viewMode() === "history" || (viewMode() === "diff" && diffReturnToHistory());
   const [git, setGit] = createSignal<GitStatusResult>(emptyGit);
   const [gitBranches, setGitBranches] = createSignal<GitBranch[]>([]);
   const [gitStashes, setGitStashes] = createSignal<GitStash[]>([]);
@@ -245,7 +472,9 @@ export default function App() {
   const [terminalInitialized, setTerminalInitialized] = createSignal(false);
   const hideTerminal = () => {
     setTerminalOpen(false);
-    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(".cm-content")?.focus({ preventScroll: true }));
+    window.requestAnimationFrame(() =>
+      document.querySelector<HTMLElement>(".cm-content")?.focus({ preventScroll: true }),
+    );
   };
   const toggleTerminal = () => {
     const next = !terminalOpen();
@@ -285,7 +514,10 @@ export default function App() {
   // Set once the plugin host chunk has loaded, so synchronous consumers (the
   // command palette item list) can fall back until then.
   const [pluginHostModules, setPluginHostModules] = createSignal<PluginHostModules>();
-  const [authorizationStore, setAuthorizationStore] = createSignal<PluginAuthorizationStore>({ version: 1, grants: [] });
+  const [authorizationStore, setAuthorizationStore] = createSignal<PluginAuthorizationStore>({
+    version: 1,
+    grants: [],
+  });
   const [authorizationReview, setAuthorizationReview] = createSignal<PendingPluginAuthorizationReview>();
   const [authorizationManagementOpen, setAuthorizationManagementOpen] = createSignal(false);
   const [pendingCleanupIds, setPendingCleanupIds] = createSignal<string[]>([]);
@@ -294,39 +526,46 @@ export default function App() {
   const pluginQuickPickQueue: PendingPluginQuickPick[] = [];
   let pluginQuickPickSequence = 0;
   let pluginOperationInFlight = false;
-  const handleAuthorizationChange = (change: import("./lib/plugin-authorization").PluginAuthorizationChange, manager: PluginAuthorizationManager) => {
-        setAuthorizationStore(manager.getSnapshot());
-        if (change.type === "revoke") {
-          nextPluginRunGeneration(change.grant.pluginId);
-          stopPluginRun(change.grant.pluginId);
-          if (change.grant.permission === "ui.statusBar") clearPluginStatusItems(change.grant.pluginId);
-          revokeNativePluginGrant(change.grant);
-          return;
+  const handleAuthorizationChange = (
+    change: import("./lib/plugin-authorization").PluginAuthorizationChange,
+    manager: PluginAuthorizationManager,
+  ) => {
+    setAuthorizationStore(manager.getSnapshot());
+    if (change.type === "revoke") {
+      nextPluginRunGeneration(change.grant.pluginId);
+      stopPluginRun(change.grant.pluginId);
+      if (change.grant.permission === "ui.statusBar") clearPluginStatusItems(change.grant.pluginId);
+      revokeNativePluginGrant(change.grant);
+      return;
+    }
+    if (change.type === "plugin-revoke") {
+      nextPluginRunGeneration(change.pluginId);
+      stopPluginRun(change.pluginId);
+      clearPluginStatusItems(change.pluginId);
+      for (const grant of change.grants) revokeNativePluginGrant(grant);
+      void stopPluginLsp(change.pluginId).catch((error) => emitDiagnostic("plugin.cancel", error));
+      void revokePluginNetwork(change.pluginId).catch((error) => emitDiagnostic("plugin.cancel", error));
+      return;
+    }
+    if (change.type === "workspace-change") {
+      const review = authorizationReview();
+      if (review && !pluginOperationInFlight) {
+        setAuthorizationReview(undefined);
+        void cancelPluginInstall(review.plan.transactionId).catch((error) => emitDiagnostic("plugin.cancel", error));
+      }
+      invalidateAllPluginRuns();
+      if (change.previousWorkspaceRoot) {
+        void stopWorkspaceLsp(change.previousWorkspaceRoot).catch((error) => emitDiagnostic("plugin.cancel", error));
+        for (const plugin of plugins()) {
+          void revokePluginNetwork(plugin.id, change.previousWorkspaceRoot).catch((error) =>
+            emitDiagnostic("plugin.cancel", error),
+          );
         }
-        if (change.type === "plugin-revoke") {
-          nextPluginRunGeneration(change.pluginId);
-          stopPluginRun(change.pluginId);
-          clearPluginStatusItems(change.pluginId);
-          for (const grant of change.grants) revokeNativePluginGrant(grant);
-          void stopPluginLsp(change.pluginId).catch((error) => emitDiagnostic("plugin.cancel", error));
-          void revokePluginNetwork(change.pluginId).catch((error) => emitDiagnostic("plugin.cancel", error));
-          return;
-        }
-        if (change.type === "workspace-change") {
-          const review = authorizationReview();
-          if (review && !pluginOperationInFlight) {
-            setAuthorizationReview(undefined);
-            void cancelPluginInstall(review.plan.transactionId).catch((error) => emitDiagnostic("plugin.cancel", error));
-          }
-          invalidateAllPluginRuns();
-          if (change.previousWorkspaceRoot) {
-            void stopWorkspaceLsp(change.previousWorkspaceRoot).catch((error) => emitDiagnostic("plugin.cancel", error));
-            for (const plugin of plugins()) {
-              void revokePluginNetwork(plugin.id, change.previousWorkspaceRoot).catch((error) => emitDiagnostic("plugin.cancel", error));
-            }
-          }
-          setPlugins((items) => items.map((plugin) => plugin.status === "active" ? { ...plugin, status: "inactive" } : plugin));
-        }
+      }
+      setPlugins((items) =>
+        items.map((plugin) => (plugin.status === "active" ? { ...plugin, status: "inactive" } : plugin)),
+      );
+    }
   };
   const ensureAuthorizationManager = async () => {
     if (authorizationManager) return authorizationManager;
@@ -357,16 +596,33 @@ export default function App() {
     return host ? host.collectCommandPaletteItems(plugins()) : undefined;
   });
   const [diff, setDiff] = createSignal<DiffResult>();
-  const [toast, setToast] = createSignal<string>();
+  const [toast, setToast] = createSignal<{ text: string; tone?: NotifyTone }>();
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [replaceOpen, setReplaceOpen] = createSignal(false);
-  const [search, setSearch] = createSignal<SearchRequest>({ query: "", replace: "", caseSensitive: false, regexp: false, wholeWord: false, action: null, actionId: 0 });
+  const [search, setSearch] = createSignal<SearchRequest>({
+    query: "",
+    replace: "",
+    caseSensitive: false,
+    regexp: false,
+    wholeWord: false,
+    action: null,
+    actionId: 0,
+  });
   const [searchActionTargetTabId, setSearchActionTargetTabId] = createSignal<string>();
   const [goToLine, setGoToLine] = createSignal<GoToLineRequest>();
   const [editorCommand, setEditorCommand] = createSignal<EditorCommandRequest>();
   const [searchMatches, setSearchMatches] = createSignal<SearchMatchCount>();
   const [selection, setSelection] = createSignal<{ tabId: string; characters: number }>();
   const [sidebarHidden, setSidebarHidden] = createSignal(false);
+  let sidebarViewChosenByArrowKey = false;
+  const showSidebarView = (view: SidebarView) => {
+    setSidebarView(view);
+    setSidebarHidden(false);
+  };
+  const toggleSidebarView = (view: SidebarView) => {
+    if (view === sidebarView() && !sidebarHidden()) setSidebarHidden(true);
+    else showSidebarView(view);
+  };
   const [projectSearchRequest, setProjectSearchRequest] = createSignal<ProjectSearchRequest>();
   const [externalConflicts, setExternalConflicts] = createSignal<EditorTab[]>([]);
   const [settings, setSettings] = createSignal<AppSettings>(loadSettings());
@@ -386,6 +642,15 @@ export default function App() {
   let contextMenuFocusTarget: HTMLElement | undefined;
   const closeTabMenu = () => setTabMenu(undefined);
   const closeFileMenu = () => setFileMenu(undefined);
+  const onFileMenuEntry = (action: (entry: DirectoryEntry) => void) => () => {
+    const entry = fileMenu()?.entry;
+    closeFileMenu();
+    contextMenuFocusTarget?.focus({ preventScroll: true });
+    if (entry) action(entry);
+  };
+  const [explorerClipboard, setExplorerClipboard] = createSignal<ExplorerClipboard>();
+  const [explorerRevealPath, setExplorerRevealPath] = createSignal<string>();
+  let pasteInFlight = false;
   let toastTimer: number | undefined;
   let openFolderChord: OpenFolderChordState = null;
   let cursorPersistTimer: number | undefined;
@@ -409,48 +674,75 @@ export default function App() {
   const directoryRequests = new Set<string>();
   let versionedFileReader: VersionedFileReader<ReadFileResult> | undefined;
   const fileReaderOptions = {
-    ioLimiter: workspaceIo, readFile: (path, context) => withBusyRetry(() => {
-      if (!context || context.signal.aborted || !context.isCurrent()) throw new IoStaleGenerationError();
-      return readFile(path);
-    }),
-    getGeneration: () => workspaceGeneration, getSignal: () => workspaceIoAbort.signal,
-    isDisposed: () => disposed, pathKey,
+    ioLimiter: workspaceIo,
+    readFile: (path, context) =>
+      withBusyRetry(() => {
+        if (!context || context.signal.aborted || !context.isCurrent()) throw new IoStaleGenerationError();
+        return readFile(path);
+      }),
+    getGeneration: () => workspaceGeneration,
+    getSignal: () => workspaceIoAbort.signal,
+    isDisposed: () => disposed,
+    pathKey,
   } satisfies ConstructorParameters<typeof import("./lib/versioned-file-reader")["VersionedFileReader"]>[0];
   let projectRuntimePromise: Promise<typeof import("./lib/project-workspace")> | undefined;
-  const loadProjectRuntime = () => projectRuntimePromise ??= import("./lib/project-workspace").then((runtime) => {
-    projectRuntime = runtime;
-    versionedFileReader = new runtime.VersionedFileReader(fileReaderOptions);
-    return runtime;
-  });
-  const readFileWithIoLimit = (path: string, priority: "normal" | "current-document" = "normal"): Promise<ReadFileResult> => versionedFileReader
-    ? versionedFileReader.read(path, priority)
-    : loadProjectRuntime().then(() => versionedFileReader!.read(path, priority));
+  const loadProjectRuntime = () =>
+    (projectRuntimePromise ??= import("./lib/project-workspace").then((runtime) => {
+      projectRuntime = runtime;
+      versionedFileReader = new runtime.VersionedFileReader(fileReaderOptions);
+      return runtime;
+    }));
+  const readFileWithIoLimit = (
+    path: string,
+    priority: "normal" | "current-document" = "normal",
+  ): Promise<ReadFileResult> =>
+    versionedFileReader
+      ? versionedFileReader.read(path, priority)
+      : loadProjectRuntime().then(() => versionedFileReader!.read(path, priority));
   const listWorkspaceDirectory = (path: string, requestId = `directory-open-${crypto.randomUUID()}`) => {
     const generation = workspaceGeneration;
     const signal = workspaceIoAbort.signal;
     const isCurrent = () => !disposed && generation === workspaceGeneration;
-    return workspaceIo.run(async () => {
-      directoryRequests.add(requestId);
-      try { return await listDirectory(path, requestId); }
-      finally { directoryRequests.delete(requestId); }
-    }, { signal, isCurrent });
+    return workspaceIo.run(
+      async () => {
+        directoryRequests.add(requestId);
+        try {
+          return await listDirectory(path, requestId);
+        } finally {
+          directoryRequests.delete(requestId);
+        }
+      },
+      { signal, isCurrent },
+    );
   };
   /** List a project's root folder, or every folder of a workspace; a missing folder only marks its own row. */
   const listWorkspaceRoot = async (rootEntry: DirectoryEntry): Promise<DirectoryEntry> => {
-    if (!isWorkspaceRootEntry(rootEntry)) return withDirectoryListing(rootEntry, await listWorkspaceDirectory(rootEntry.path));
-    const children = await Promise.all(workspaceRootFolders(rootEntry).map(async (folder) => {
-      try {
-        return withDirectoryListing(folder, await listWorkspaceDirectory(folder.path));
-      } catch (error) {
-        if (error instanceof IoStaleGenerationError) throw error;
-        return { ...folder, loaded: false, partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") } };
-      }
-    }));
+    if (!isWorkspaceRootEntry(rootEntry))
+      return withDirectoryListing(rootEntry, await listWorkspaceDirectory(rootEntry.path));
+    const children = await Promise.all(
+      workspaceRootFolders(rootEntry).map(async (folder) => {
+        try {
+          return withDirectoryListing(folder, await listWorkspaceDirectory(folder.path));
+        } catch (error) {
+          if (error instanceof IoStaleGenerationError) throw error;
+          return {
+            ...folder,
+            loaded: false,
+            partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") },
+          };
+        }
+      }),
+    );
     return { ...rootEntry, children };
   };
   const cancelWorkspaceReads = (preserveRestore = false) => {
-    if (!preserveRestore && restoreIntent?.pendingTabIds.size && (!sessionRestoreCheckpointVerified
-      || restoreMetadata?.tabs.some((tab) => tab.dirty && restoreIntent?.pendingTabIds.has(tab.id)))) pauseUnverifiedSessionRecovery();
+    if (
+      !preserveRestore &&
+      restoreIntent?.pendingTabIds.size &&
+      (!sessionRestoreCheckpointVerified ||
+        restoreMetadata?.tabs.some((tab) => tab.dirty && restoreIntent?.pendingTabIds.has(tab.id)))
+    )
+      pauseUnverifiedSessionRecovery();
     workspaceIoAbort.abort();
     versionedFileReader?.reset();
     workspaceIoAbort = new AbortController();
@@ -466,7 +758,6 @@ export default function App() {
   let watcherRetryTimer: number | undefined;
   let watcherRetryAttempt = 0;
   let watcherOperationQueue: Promise<unknown> = Promise.resolve();
-  let lastFileEventSequence = 0;
   let lastFocusResumeRefreshAt = 0;
   let watcherRoots: WatchRoot[] = [];
   const watcherEvents = createWatcherEventBuffer();
@@ -481,19 +772,19 @@ export default function App() {
   let disposed = false;
   let dialogRequestInFlight = false;
   let gitMutationInFlight = false;
-  const [gitOperations, setGitOperations] = createSignal<Record<string, { action: string; running: boolean; message?: string; error?: boolean }>>({});
+  const [gitOperations, setGitOperations] = createSignal<
+    Record<string, { action: string; running: boolean; message?: string; error?: boolean }>
+  >({});
   let gitDirtyState: GitDirtyState = allGitDirtyState();
   let sessionStorageWarningShown = false;
   let recoveryStorageWarningShown = false;
   let pluginStorageWarningShown = false;
   let sessionScope = "default";
-  let sessionStorageKey = SESSION_STORAGE_KEY;
   let cursorStorageKey = CURSOR_STORAGE_KEY;
   let sessionWindowId = "default";
   let sessionLease: SessionWindowLease | undefined;
   let closeCleanupGeneration = 0;
   let sessionHeartbeatTimer: number | undefined;
-  let sessionLeaseWarningShown = false;
   let sessionPersistenceBlocked = false;
   let sessionStartupUnavailable = false;
   let sessionPersistenceWarningShown = false;
@@ -513,7 +804,6 @@ export default function App() {
     getAdditionalCacheBytes: () => projectRuntime?.projectCacheBytes(allLoadedTabs(), currentProjects()) ?? 0,
   });
   const recoveryScheduler = new RecoveryWriteScheduler();
-  const recoveryWriteRevisions = new Map<string, number>();
   const checkpointedRecoveryRevisions = new Map<string, { path: string; revision: number }>();
   /** Saved baselines already durable, keyed by recovery key. */
   const checkpointedBaselines = new Map<string, number>();
@@ -527,33 +817,62 @@ export default function App() {
   const getDirectoryRefreshCoordinator = (): Promise<DirectoryRefreshCoordinator> => {
     if (directoryRefreshCoordinator) return Promise.resolve(directoryRefreshCoordinator);
     if (!directoryRefreshPromise) {
-      const pending = import("./lib/directory-refresh").then(({ DirectoryRefreshCoordinator: Coordinator }) => {
-        const coordinator = new Coordinator({
-          getGeneration: () => workspaceGeneration,
-          getWorkspace: workspace,
-          isDisposed: () => disposed,
-          pathKey,
-          isPathInWorkspace: (path) => isInWorkspaceFolders(path),
-          isWorkspaceRoot: (path) => workspaceFolders().some((folder) => samePath(path, folder)),
-          isExpanded: (path) => workspaceFolders().some((folder) => samePath(path, folder)) || findDirectoryEntry(root(), path)?.expanded === true,
-          markStale: (path) => setRoot((current) => markDirectoryStale(current, path)),
-          list: listWorkspaceDirectory,
-          apply: (path, listing) => setRoot((current) => samePath(path, current.path)
-            ? { ...current, children: mergeDirectoryState(current.children, listing.entries), loaded: true, stale: false, partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason }
-            : updateEntry(current, path, (entry) => ({ ...entry, children: mergeDirectoryState(entry.children, listing.entries), loaded: true, stale: false, partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason, expanded: true }))),
-          onError: (path, error) => {
-            setRoot((current) => updateEntry(markDirectoryStale(current, path), path, (entry) => ({ ...entry, partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") } })));
-            notify(t("Unable to refresh workspace directory."));
-          },
-          cancelDirectoryListing,
+      const pending = import("./lib/directory-refresh")
+        .then(({ DirectoryRefreshCoordinator: Coordinator }) => {
+          const coordinator = new Coordinator({
+            getGeneration: () => workspaceGeneration,
+            getWorkspace: workspace,
+            isDisposed: () => disposed,
+            pathKey,
+            isPathInWorkspace: (path) => isInWorkspaceFolders(path),
+            isWorkspaceRoot: (path) => workspaceFolders().some((folder) => samePath(path, folder)),
+            isExpanded: (path) =>
+              workspaceFolders().some((folder) => samePath(path, folder)) ||
+              findDirectoryEntry(root(), path)?.expanded === true,
+            markStale: (path) => setRoot((current) => markDirectoryStale(current, path)),
+            list: listWorkspaceDirectory,
+            apply: (path, listing) =>
+              setRoot((current) =>
+                samePath(path, current.path)
+                  ? {
+                      ...current,
+                      children: mergeDirectoryState(current.children, listing.entries),
+                      loaded: true,
+                      stale: false,
+                      partialError: listing.partialError ?? undefined,
+                      incomplete: listing.incomplete,
+                      listingStopReason: listing.stopReason,
+                    }
+                  : updateEntry(current, path, (entry) => ({
+                      ...entry,
+                      children: mergeDirectoryState(entry.children, listing.entries),
+                      loaded: true,
+                      stale: false,
+                      partialError: listing.partialError ?? undefined,
+                      incomplete: listing.incomplete,
+                      listingStopReason: listing.stopReason,
+                      expanded: true,
+                    })),
+              ),
+            onError: (path, error) => {
+              setRoot((current) =>
+                updateEntry(markDirectoryStale(current, path), path, (entry) => ({
+                  ...entry,
+                  partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") },
+                })),
+              );
+              notify(t("Unable to refresh workspace directory."), "error");
+            },
+            cancelDirectoryListing,
+          });
+          directoryRefreshCoordinator = coordinator;
+          if (disposed) coordinator.dispose();
+          return coordinator;
+        })
+        .catch((error: unknown) => {
+          if (directoryRefreshPromise === pending) directoryRefreshPromise = undefined;
+          throw error;
         });
-        directoryRefreshCoordinator = coordinator;
-        if (disposed) coordinator.dispose();
-        return coordinator;
-      }).catch((error: unknown) => {
-        if (directoryRefreshPromise === pending) directoryRefreshPromise = undefined;
-        throw error;
-      });
       directoryRefreshPromise = pending;
     }
     return directoryRefreshPromise;
@@ -573,29 +892,33 @@ export default function App() {
   const getGitHistoryController = (): Promise<GitHistoryController> => {
     if (gitHistoryController) return Promise.resolve(gitHistoryController);
     if (!gitHistoryControllerPromise) {
-      const pending = import("./lib/git-history-controller").then(({ GitHistoryController: Controller }) => {
-        const controller = new Controller({
-          getWorkspace: () => workspace() || null,
-          getSnapshotKey: () => git().repositoryRoot ? gitSnapshotKey(git()) : null,
-          getCurrentCommits: () => git().commits,
-          setCommits: (commits) => setGit((status) => ({ ...status, commits })),
-          onState: (state) => {
-            setGitHistoryLoading(state.loading);
-            setGitHistoryLoadingOlder(state.loadingOlder);
-            setGitHistoryHasMore(state.hasMore);
-            setGitHistoryIncomplete(state.incomplete);
-          },
-          onLoaded: () => { gitDirtyState = { ...gitDirtyState, history: false }; },
-          notify: (message) => notify(message),
-          loadPage: getGitCommits,
+      const pending = import("./lib/git-history-controller")
+        .then(({ GitHistoryController: Controller }) => {
+          const controller = new Controller({
+            getWorkspace: () => workspace() || null,
+            getSnapshotKey: () => (git().repositoryRoot ? gitSnapshotKey(git()) : null),
+            getCurrentCommits: () => git().commits,
+            setCommits: (commits) => setGit((status) => ({ ...status, commits })),
+            onState: (state) => {
+              setGitHistoryLoading(state.loading);
+              setGitHistoryLoadingOlder(state.loadingOlder);
+              setGitHistoryHasMore(state.hasMore);
+              setGitHistoryIncomplete(state.incomplete);
+            },
+            onLoaded: () => {
+              gitDirtyState = { ...gitDirtyState, history: false };
+            },
+            notify: (message, tone) => notify(message, tone),
+            loadPage: getGitCommits,
+          });
+          gitHistoryController = controller;
+          if (disposed) controller.dispose();
+          return controller;
+        })
+        .catch((error: unknown) => {
+          if (gitHistoryControllerPromise === pending) gitHistoryControllerPromise = undefined;
+          throw error;
         });
-        gitHistoryController = controller;
-        if (disposed) controller.dispose();
-        return controller;
-      }).catch((error: unknown) => {
-        if (gitHistoryControllerPromise === pending) gitHistoryControllerPromise = undefined;
-        throw error;
-      });
       gitHistoryControllerPromise = pending;
     }
     return gitHistoryControllerPromise;
@@ -609,7 +932,10 @@ export default function App() {
 
   const enqueueWatcherOperation = <T,>(operation: () => Promise<T>): Promise<T> => {
     const queued = watcherOperationQueue.catch(() => undefined).then(operation);
-    watcherOperationQueue = queued.then(() => undefined, () => undefined);
+    watcherOperationQueue = queued.then(
+      () => undefined,
+      () => undefined,
+    );
     return queued;
   };
 
@@ -659,14 +985,26 @@ export default function App() {
         await stopWatcher();
         watcherSessionId = undefined;
         watcherEvents.resetSequence();
-        const nextSessionId = await startWatcher(currentWorkspace, watcherExtraPaths(), watcherExcludeList(), tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
-        if (disposed || generation !== workspaceGeneration || workspace() !== currentWorkspace || restartVersion !== watcherRestartVersion) {
+        const nextSessionId = await startWatcher(
+          currentWorkspace,
+          watcherExtraPaths(),
+          watcherExcludeList(),
+          tabs()
+            .filter((tab) => tab.language !== "Image")
+            .map((tab) => tab.path),
+          handleFileChangeEvent,
+        );
+        if (
+          disposed ||
+          generation !== workspaceGeneration ||
+          workspace() !== currentWorkspace ||
+          restartVersion !== watcherRestartVersion
+        ) {
           await stopWatcher(nextSessionId);
           return;
         }
         watcherSessionId = nextSessionId;
         watcherNeedsRestart = false;
-        lastFileEventSequence = 0;
         watcherRetryAttempt = 0;
         relistAllDirectories();
         verifyOpenFiles();
@@ -676,7 +1014,7 @@ export default function App() {
     } catch (error) {
       watcherNeedsRestart = true;
       if (!disposed && generation === workspaceGeneration) {
-        notify(errorMessage(error, "Unable to update file watcher."));
+        notify(errorMessage(error, "Unable to update file watcher."), "error");
         scheduleWatcherRetry(generation);
       }
     } finally {
@@ -690,8 +1028,12 @@ export default function App() {
         .filter((tab) => !isInWorkspaceFolders(tab.path))
         .map((tab) => parentPath(tab.path)),
     );
-    const changed = next.size !== externalWatchParents.size || [...next].some((path) => !externalWatchParents.has(path));
-    const openFilesKey = tabs().map((tab) => pathKey(tab.path)).sort().join("\u0000");
+    const changed =
+      next.size !== externalWatchParents.size || [...next].some((path) => !externalWatchParents.has(path));
+    const openFilesKey = tabs()
+      .map((tab) => pathKey(tab.path))
+      .sort()
+      .join("\u0000");
     // Treat the first post-start sync as a configuration change too. This is
     // needed when the watcher started before the first tab was opened: an
     // open file inside an excluded directory must become an explicit native
@@ -700,47 +1042,104 @@ export default function App() {
     watcherOpenFilesKey = openFilesKey;
     if (!changed && !openFilesChanged) return;
     externalWatchParents.clear();
-    next.forEach((path) => externalWatchParents.add(path));
+    next.forEach((path) => {
+      externalWatchParents.add(path);
+    });
     if (!hydrated()) return;
     void restartWatcher();
   };
 
   const tabs = createMemo(() => {
     const byId = tabById;
-    return tabOrder().map((id) => byId[id]).filter((tab): tab is EditorTab => Boolean(tab));
+    return tabOrder()
+      .map((id) => byId[id])
+      .filter((tab): tab is EditorTab => Boolean(tab));
   });
-  const compactRecoverySnapshot = (...args: Parameters<typeof import("./lib/session-storage-schema")["compactRecoverySnapshot"]>) => projectRuntime!.compactRecoverySnapshot(...args);
-  const recoverySnapshotSizeBytes = (...args: Parameters<typeof import("./lib/session-storage-schema")["recoverySnapshotSizeBytes"]>) => projectRuntime!.recoverySnapshotSizeBytes(...args);
+  const compactRecoverySnapshot = (
+    ...args: Parameters<typeof import("./lib/session-storage-schema")["compactRecoverySnapshot"]>
+  ) => projectRuntime!.compactRecoverySnapshot(...args);
+  const recoverySnapshotSizeBytes = (
+    ...args: Parameters<typeof import("./lib/session-storage-schema")["recoverySnapshotSizeBytes"]>
+  ) => projectRuntime!.recoverySnapshotSizeBytes(...args);
   const allLoadedTabs = () => Object.values(tabById).filter((tab): tab is EditorTab => Boolean(tab));
-  const createProject = (path: string, id: string = crypto.randomUUID()): ProjectWorkspaceState => projectRuntime!.createProject(id, path,
-    path ? { name: baseName(path), path, kind: "directory", expanded: true, loaded: false } : makeRecentProjectsRoot(recentProjects()));
+  const createProject = (path: string, id: string = crypto.randomUUID()): ProjectWorkspaceState =>
+    projectRuntime!.createProject(
+      id,
+      path,
+      path
+        ? { name: baseName(path), path, kind: "directory", expanded: true, loaded: false }
+        : makeRecentProjectsRoot(recentProjects()),
+    );
   const createWorkspaceProject = (folders: string[], file?: string, id?: string): ProjectWorkspaceState => {
     const project = createProject(folders[0] ?? "", id);
     if (!folders.length) return project;
-    return { ...project, additionalFolders: folders.slice(1), workspaceFile: file,
-      root: makeWorkspaceRoot(folders, workspaceLabel(folders, file, PATH_OPTIONS), undefined, PATH_OPTIONS) };
+    return {
+      ...project,
+      additionalFolders: folders.slice(1),
+      workspaceFile: file,
+      root: makeWorkspaceRoot(folders, workspaceLabel(folders, file, PATH_OPTIONS), undefined, PATH_OPTIONS),
+    };
   };
   const captureProject = (): ProjectWorkspaceState => ({
-    id: activeProjectId()!, workspace: workspace(), additionalFolders: additionalFolders(), workspaceFile: workspaceFile(), root: root(), tabIds: [...tabOrder()], activeTabId: activeTabId(),
-    viewMode: viewMode(), historyTabOpen: historyTabOpen(), diffReturnToHistory: diffReturnToHistory(), diff: diff(),
-    git: git(), gitBranches: gitBranches(), gitStashes: gitStashes(), sidebarView: sidebarView(), search: { ...search(), action: null },
-    searchOpen: searchOpen(), replaceOpen: replaceOpen(), markdownPreviewEnabled: markdownPreviewEnabled(), envTableEnabled: envTableEnabled(), gitIgnoredExpanded: gitIgnoredExpanded(), lastClosedTab: lastClosedTab(),
-    terminalOpen: terminalOpen(), terminalInitialized: terminalInitialized(), restoreMetadata, restoreIntent, conflicts: externalConflicts(),
+    id: activeProjectId()!,
+    workspace: workspace(),
+    additionalFolders: additionalFolders(),
+    workspaceFile: workspaceFile(),
+    root: root(),
+    tabIds: [...tabOrder()],
+    activeTabId: activeTabId(),
+    viewMode: viewMode(),
+    historyTabOpen: historyTabOpen(),
+    diffReturnToHistory: diffReturnToHistory(),
+    diff: diff(),
+    git: git(),
+    gitBranches: gitBranches(),
+    gitStashes: gitStashes(),
+    sidebarView: sidebarView(),
+    search: { ...search(), action: null },
+    searchOpen: searchOpen(),
+    replaceOpen: replaceOpen(),
+    markdownPreviewEnabled: markdownPreviewEnabled(),
+    envTableEnabled: envTableEnabled(),
+    gitIgnoredExpanded: gitIgnoredExpanded(),
+    lastClosedTab: lastClosedTab(),
+    terminalOpen: terminalOpen(),
+    terminalInitialized: terminalInitialized(),
+    restoreMetadata,
+    restoreIntent,
+    conflicts: externalConflicts(),
   });
-  const currentProjects = () => projects().map((project) => project.id === activeProjectId() ? captureProject() : project);
-  const projectSession = (project: ProjectWorkspaceState): ProjectSessionMetadata => projectRuntime!.projectSession(project, (id) => tabById[id], pathKey, expandedPathsCache.current);
-  const windowSession = (): SessionMetadata => projectRuntime
-    ? projectRuntime.createWindowSessionMetadata(currentProjects().map(projectSession), activeProjectId())
-    : { version: 3, workspace: "", tabs: [], expandedPaths: [], projects: [] };
-  const windowHasDirtyTabs = () => currentProjects().some((project) => projectRuntime?.projectHasDirtyTabs(project, (id) => tabById[id], pathKey));
+  const currentProjects = () =>
+    projects().map((project) => (project.id === activeProjectId() ? captureProject() : project));
+  const projectSession = (project: ProjectWorkspaceState): ProjectSessionMetadata =>
+    projectRuntime!.projectSession(project, (id) => tabById[id], pathKey, expandedPathsCache.current);
+  const windowSession = (): SessionMetadata =>
+    projectRuntime
+      ? projectRuntime.createWindowSessionMetadata(currentProjects().map(projectSession), activeProjectId())
+      : { version: 3, workspace: "", tabs: [], expandedPaths: [], projects: [] };
+  const windowHasDirtyTabs = () =>
+    currentProjects().some((project) => projectRuntime?.projectHasDirtyTabs(project, (id) => tabById[id], pathKey));
   // Only depends on what the header shows, so git, search and tree updates do not re-render the tabs.
   const projectTabItems = createMemo(() => {
     const activeId = activeProjectId();
-    const items = projects().map((project) => project.id === activeId
-      ? { ...project, workspace: workspace(), additionalFolders: additionalFolders(), workspaceFile: workspaceFile(), tabIds: tabOrder(), restoreMetadata, restoreIntent }
-      : project);
+    const items = projects().map((project) =>
+      project.id === activeId
+        ? {
+            ...project,
+            workspace: workspace(),
+            additionalFolders: additionalFolders(),
+            workspaceFile: workspaceFile(),
+            tabIds: tabOrder(),
+            restoreMetadata,
+            restoreIntent,
+          }
+        : project,
+    );
     return items.map((project) => ({
-      id: project.id, workspace: project.workspace, label: projectTabLabel(project, items), title: projectTabTitle(project),
+      id: project.id,
+      workspace: project.workspace,
+      label: projectTabLabel(project, items),
+      title: projectTabTitle(project),
       dirty: projectRuntime?.projectHasDirtyTabs(project, (id) => tabById[id], pathKey) ?? false,
     }));
   });
@@ -759,21 +1158,45 @@ export default function App() {
       setTabOrder(ordered.map((tab) => tab.id));
     });
   };
-  const captureTabOperation = (tab: EditorTab): TabOperationSnapshot => ({ id: tab.id, path: tab.path, revision: tab.revision, contentVersion: tab.contentVersion });
+  const captureTabOperation = (tab: EditorTab): TabOperationSnapshot => ({
+    id: tab.id,
+    path: tab.path,
+    revision: tab.revision,
+    contentVersion: tab.contentVersion,
+  });
   const tabOperationIsCurrent = (snapshot: TabOperationSnapshot) => {
     const current = tabById[snapshot.id];
-    return Boolean(current && current.path === snapshot.path && current.revision === snapshot.revision && current.contentVersion === snapshot.contentVersion);
+    return Boolean(
+      current &&
+        current.path === snapshot.path &&
+        current.revision === snapshot.revision &&
+        current.contentVersion === snapshot.contentVersion,
+    );
   };
   const tabOperationsAreCurrent = (snapshots: TabOperationSnapshot[]) => snapshots.every(tabOperationIsCurrent);
-  const sameTabOperations = (left: TabOperationSnapshot[], right: TabOperationSnapshot[]) => left.length === right.length
-    && left.every((snapshot, index) => snapshot.id === right[index]?.id
-      && snapshot.path === right[index]?.path
-      && snapshot.revision === right[index]?.revision
-      && snapshot.contentVersion === right[index]?.contentVersion);
+  const sameTabOperations = (left: TabOperationSnapshot[], right: TabOperationSnapshot[]) =>
+    left.length === right.length &&
+    left.every(
+      (snapshot, index) =>
+        snapshot.id === right[index]?.id &&
+        snapshot.path === right[index]?.path &&
+        snapshot.revision === right[index]?.revision &&
+        snapshot.contentVersion === right[index]?.contentVersion,
+    );
   const updateSettings = (changes: Partial<AppSettings>) => setSettings((current) => ({ ...current, ...changes }));
-  const editorSettings = createMemo<EditorSettings>(() => pickEditorSettings(settings()), pickEditorSettings(settings()), { equals: sameEditorSettings });
-  const zoomEditor = (delta: number) => updateSettings({ fontSize: delta ? clampSetting("fontSize", settings().fontSize + delta, settings().fontSize) : defaultSettings.fontSize });
-  const toggleSetting = (name: "wordWrap" | "lineNumbers" | "showWhitespace") => updateSettings({ [name]: !settings()[name] });
+  const editorSettings = createMemo<EditorSettings>(
+    () => pickEditorSettings(settings()),
+    pickEditorSettings(settings()),
+    { equals: sameEditorSettings },
+  );
+  const zoomEditor = (delta: number) =>
+    updateSettings({
+      fontSize: delta
+        ? clampSetting("fontSize", settings().fontSize + delta, settings().fontSize)
+        : defaultSettings.fontSize,
+    });
+  const toggleSetting = (name: "wordWrap" | "lineNumbers" | "showWhitespace") =>
+    updateSettings({ [name]: !settings()[name] });
   const getDocumentRevision = documentController.getRevision;
   let documentCacheTimer: number | undefined;
   let documentCacheWarningShown = false;
@@ -784,23 +1207,39 @@ export default function App() {
       if (disposed) return;
       const status = documentController.enforceCacheBudget(undefined, (tabId, seed) => {
         const tab = tabById[tabId];
-        if (!tab || tab.revision !== seed.revision || tab.contentVersion !== seed.sourceVersion || tab.dirty) return false;
-        const selectionFallback = createEditorSelectionFallback(seed.selectionJSON, seed.revision, seed.sourceVersion, seed.content.length);
+        if (!tab || tab.revision !== seed.revision || tab.contentVersion !== seed.sourceVersion || tab.dirty)
+          return false;
+        const selectionFallback = createEditorSelectionFallback(
+          seed.selectionJSON,
+          seed.revision,
+          seed.sourceVersion,
+          seed.content.length,
+        );
         if (!selectionFallback) return false;
         updateTab(tabId, {
-          content: seed.content, savedContent: seed.savedContent,
-          lineEndings: seed.lineEndings, savedLineEndings: seed.savedLineEndings,
-          lineEnding: seed.lineEnding, bom: seed.bom, savedBom: seed.savedBom,
-          encoding: seed.encoding, savedRevision: seed.savedRevision,
-          normalizedContentVersion: seed.sourceVersion, normalizedSavedRevision: seed.savedRevision,
-          estimatedBytes: seed.estimatedBytes, largeFile: seed.largeFile,
-          cursorLine: seed.cursor?.line ?? tab.cursorLine, cursorColumn: seed.cursor?.column ?? tab.cursorColumn,
+          content: seed.content,
+          savedContent: seed.savedContent,
+          lineEndings: seed.lineEndings,
+          savedLineEndings: seed.savedLineEndings,
+          lineEnding: seed.lineEnding,
+          bom: seed.bom,
+          savedBom: seed.savedBom,
+          encoding: seed.encoding,
+          savedRevision: seed.savedRevision,
+          normalizedContentVersion: seed.sourceVersion,
+          normalizedSavedRevision: seed.savedRevision,
+          estimatedBytes: seed.estimatedBytes,
+          largeFile: seed.largeFile,
+          cursorLine: seed.cursor?.line ?? tab.cursorLine,
+          cursorColumn: seed.cursor?.column ?? tab.cursorColumn,
           selectionFallback,
         });
         return true;
       });
       if (status.overBudget && !documentCacheWarningShown) {
-        notify(t("Editor memory exceeds the cache budget. Documents that cannot be safely rebuilt are being retained."));
+        notify(
+          t("Editor memory exceeds the cache budget. Documents that cannot be safely rebuilt are being retained."),
+        );
       }
       documentCacheWarningShown = status.overBudget;
     }, 250);
@@ -814,12 +1253,6 @@ export default function App() {
     scheduleDocumentCacheBudget();
   };
   const getDocumentText = documentController.getText;
-  const getActiveDocumentText = () => {
-    const tabId = activeTabId();
-    if (!tabId) return "";
-    documentController.getRevision(tabId).read();
-    return documentController.getHandle(tabId)?.getText() ?? tabById[tabId]?.content ?? "";
-  };
 
   const activeTab = createMemo(() => {
     const id = activeTabId();
@@ -828,15 +1261,22 @@ export default function App() {
   const loadedPaths = createMemo(() => loadedExplorerPaths(root()), undefined, {
     equals: (left, right) => left.length === right.length && left.every((path, index) => path === right[index]),
   });
+  const gitRepositoryRoot = createMemo(() => git().repositoryRoot);
+  const gitFiles = createMemo(() => git().files);
   createEffect(() => {
     const currentWorkspace = workspace();
-    const repositoryRoot = git().repositoryRoot;
+    const repositoryRoot = gitRepositoryRoot();
+    // A status refresh can follow a .gitignore edit; loading a history page cannot.
+    gitFiles();
     const paths = additionalFolders().length
-      ? loadedPaths().filter((path) => isSameOrDescendantPath(path, currentWorkspace) && !samePath(path, currentWorkspace))
+      ? loadedPaths().filter(
+          (path) => isSameOrDescendantPath(path, currentWorkspace) && !samePath(path, currentWorkspace),
+        )
       : loadedPaths();
     let cancelled = false;
     const generation = workspaceGeneration;
-    const isCurrent = () => !cancelled && !disposed && generation === workspaceGeneration && currentWorkspace === workspace();
+    const isCurrent = () =>
+      !cancelled && !disposed && generation === workspaceGeneration && currentWorkspace === workspace();
     const timer = window.setTimeout(() => {
       if (!currentWorkspace || !repositoryRoot || !paths.length) {
         if (isCurrent()) setGitIgnoredPaths(new Set<string>());
@@ -848,22 +1288,36 @@ export default function App() {
           if (!isCurrent()) return;
           const batch = paths.slice(index, index + 256);
           const result = await workspaceIo.run(() => getGitIgnoredPaths(currentWorkspace, batch), {
-            signal: workspaceIoAbort.signal, isCurrent,
+            signal: workspaceIoAbort.signal,
+            isCurrent,
           });
           for (const path of result) ignored.add(pathKey(path));
         }
         if (isCurrent()) setGitIgnoredPaths(ignored);
-      })().catch((error) => { if (isCurrent()) emitDiagnostic("explorer.ignore", error); });
+      })().catch((error) => {
+        if (isCurrent()) emitDiagnostic("explorer.ignore", error);
+      });
     }, 75);
-    onCleanup(() => { cancelled = true; window.clearTimeout(timer); });
+    onCleanup(() => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    });
   });
 
-  const isMarkdownPreview = () => activeTab()?.language === "Markdown" && !activeTab()?.largeFile && markdownPreviewEnabled();
+  const isMarkdownPreview = () =>
+    activeTab()?.language === "Markdown" && !activeTab()?.largeFile && markdownPreviewEnabled();
   const isEnvTable = () => activeTab()?.language === "Dotenv" && !activeTab()?.largeFile && envTableEnabled();
-  const shortcutModifier = () => isMacPlatform() ? "Cmd" : "Ctrl";
+  const shortcutModifier = () => (isMacPlatform() ? "Cmd" : "Ctrl");
 
   const startWindowDrag = (event: MouseEvent) => {
-    if (!isTauri || event.button !== 0 || (event.target as HTMLElement).closest("button, input, textarea, select, a, .project-tab, .settings-dialog-backdrop")) return;
+    if (
+      !isTauri ||
+      event.button !== 0 ||
+      (event.target as HTMLElement).closest(
+        "button, input, textarea, select, a, .project-tab, .settings-dialog-backdrop",
+      )
+    )
+      return;
     event.preventDefault();
     if (event.detail === 2) void toggleWindowMaximize();
     else void getWindowApi().then(({ getCurrentWindow }) => getCurrentWindow().startDragging());
@@ -877,13 +1331,15 @@ export default function App() {
     setWindowMaximized(await currentWindow.isMaximized());
   };
 
-  const updateSidebarWidth = (width: number) => updateSettings({ sidebarWidth: clampSetting("sidebarWidth", width, settings().sidebarWidth) });
+  const updateSidebarWidth = (width: number) =>
+    updateSettings({ sidebarWidth: clampSetting("sidebarWidth", width, settings().sidebarWidth) });
   let stopSidebarResize = () => undefined;
   const startSidebarResize = (event: PointerEvent) => {
     event.preventDefault();
     stopSidebarResize();
     document.body.classList.add("sidebar-resizing");
-    const handleMove = (moveEvent: PointerEvent) => updateSidebarWidth(moveEvent.clientX);
+    const sidebarLeft = (event.currentTarget as HTMLElement).previousElementSibling?.getBoundingClientRect().left ?? 0;
+    const handleMove = (moveEvent: PointerEvent) => updateSidebarWidth(moveEvent.clientX - sidebarLeft);
     const handleUp = () => stopSidebarResize();
     stopSidebarResize = () => {
       window.removeEventListener("pointermove", handleMove);
@@ -904,19 +1360,25 @@ export default function App() {
   const checkForUpdatesAfterStartup = async () => {
     await checkForUpdates();
     const status = updateStatus();
-    if (status.phase === "available") notify(t("pude {version} is available. Click Update beside the branch name.", { version: status.version }));
+    if (status.phase === "available")
+      notify(t("pude {version} is available. Click Update beside the branch name.", { version: status.version }));
   };
 
   // Messages from the native side and from controllers arrive in English; known ones are translated here.
-  const notify = (message: string) => {
-    setToast(translateMessage(message));
+  // Errors stay longer, and longer messages stay long enough to read.
+  const notify = (message: string, tone?: NotifyTone) => {
+    const text = translateMessage(message);
+    setToast({ text, tone });
     if (toastTimer) window.clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => setToast(undefined), 2600);
+    const duration = Math.min(10_000, Math.max(tone === "error" ? 6000 : 2600, text.length * 60));
+    toastTimer = window.setTimeout(() => setToast(undefined), duration);
   };
 
   const pluginStatusItemKey = (pluginId: string, itemId: string) => `${pluginId}\u0000${itemId}`;
   const clearPluginStatusItems = (pluginId: string) => {
-    setPluginStatusItems((items) => Object.fromEntries(Object.entries(items).filter(([, item]) => item.pluginId !== pluginId)));
+    setPluginStatusItems((items) =>
+      Object.fromEntries(Object.entries(items).filter(([, item]) => item.pluginId !== pluginId)),
+    );
   };
   const activateNextPluginQuickPick = () => {
     if (activePluginQuickPick()) return;
@@ -993,31 +1455,50 @@ export default function App() {
   };
   const pauseUnverifiedSessionRecovery = () => {
     sessionStartupUnavailable = true;
-    blockSessionPersistence("Recovery could not be verified. Existing data is retained; save new edits manually and restart to retry.");
+    blockSessionPersistence(
+      "Recovery could not be verified. Existing data is retained; save new edits manually and restart to retry.",
+    );
   };
   const markUserOpenedRestorePath = (path: string) => {
     if (!restoreIntent) return;
-    if (restoreMetadata?.tabs.some((tab) => restoreIntent?.pendingTabIds.has(tab.id) && samePath(tab.path, path)
-      && (tab.dirty || (!sessionRestoreCheckpointVerified && !isImagePath(tab.path))))) pauseUnverifiedSessionRecovery();
+    if (
+      restoreMetadata?.tabs.some(
+        (tab) =>
+          restoreIntent?.pendingTabIds.has(tab.id) &&
+          samePath(tab.path, path) &&
+          (tab.dirty || (!sessionRestoreCheckpointVerified && !isImagePath(tab.path))),
+      )
+    )
+      pauseUnverifiedSessionRecovery();
     restoreIntent = markUserOpenedPath(restoreIntent, path);
   };
   const sessionLeaseReleaseQueue = createSessionLeaseReleaseQueue({
     close: (lease) => closeSessionWindow(lease, { discardRecovery: false }),
-    onPending: () => blockSessionPersistence("A previous session lease still needs cleanup; unsaved recovery is paused until ownership is resolved."),
+    onPending: () =>
+      blockSessionPersistence(
+        "A previous session lease still needs cleanup; unsaved recovery is paused until ownership is resolved.",
+      ),
     onError: (error) => emitDiagnostic("session.close", error),
   });
 
   const resolveStartupSession = (windowId: string): Promise<StartupSessionSelection> => {
     const generation = workspaceGeneration;
     return resolveSessionStartup(windowId, {
-      confirmStaleRecovery: () => requestConfirmation({ title: t("Restore previous changes?"), message: t("A previous editor window has recoverable changes. Restore them in this window?"), confirmLabel: t("Restore"), cancelLabel: t("Not now") }),
+      confirmStaleRecovery: () =>
+        requestConfirmation({
+          title: t("Restore previous changes?"),
+          message: t("A previous editor window has recoverable changes. Restore them in this window?"),
+          confirmLabel: t("Restore"),
+          cancelLabel: t("Not now"),
+        }),
       notify,
       isCurrent: () => !disposed && generation === workspaceGeneration,
     });
   };
 
   const requestInput = (dialog: Omit<InputDialogState, "resolve">): Promise<string | null> => {
-    if (dialogRequestInFlight || disposed || closePromptOpen() || appQuitPrepared() || confirmedOperationInProgress()) return Promise.resolve(null);
+    if (dialogRequestInFlight || disposed || closePromptOpen() || appQuitPrepared() || confirmedOperationInProgress())
+      return Promise.resolve(null);
     dialogRequestInFlight = true;
     return new Promise((resolve) => setInputDialog({ ...dialog, resolve }));
   };
@@ -1029,7 +1510,8 @@ export default function App() {
     dialog?.resolve(value);
   };
   const requestConfirmation = (dialog: Omit<ConfirmationDialogState, "resolve">): Promise<boolean> => {
-    if (dialogRequestInFlight || disposed || closePromptOpen() || appQuitPrepared() || confirmedOperationInProgress()) return Promise.resolve(false);
+    if (dialogRequestInFlight || disposed || closePromptOpen() || appQuitPrepared() || confirmedOperationInProgress())
+      return Promise.resolve(false);
     dialogRequestInFlight = true;
     return new Promise((resolve) => setConfirmationDialog({ ...dialog, resolve }));
   };
@@ -1078,11 +1560,23 @@ export default function App() {
     if (workspaceFiles.length !== recentWorkspaces().length) storeRecentWorkspaces(workspaceFiles);
   };
   const recentProjectEntries = createMemo(() => makeRecentProjectsRoot(recentProjects()).children ?? []);
-  const recentWorkspaceEntries = createMemo<DirectoryEntry[]>(() => recentWorkspaces().map((path) => ({ name: workspaceFileName(path, PATH_OPTIONS), path, kind: "file", recentProject: true })));
+  const recentWorkspaceEntries = createMemo<DirectoryEntry[]>(() =>
+    recentWorkspaces().map((path) => ({
+      name: workspaceFileName(path, PATH_OPTIONS),
+      path,
+      kind: "file",
+      recentProject: true,
+    })),
+  );
   createEffect(() => {
     const folders = recentProjects();
     const workspaceFiles = recentWorkspaces();
-    const labels = { newWindow: t("New Window"), newWindowDescription: t("Open a new pude window"), recentFolders: t("Recent Folders"), recentWorkspaces: t("Recent Workspaces") };
+    const labels = {
+      newWindow: t("New Window"),
+      newWindowDescription: t("Open a new pude window"),
+      recentFolders: t("Recent Folders"),
+      recentWorkspaces: t("Recent Workspaces"),
+    };
     void setRecentItems(folders, workspaceFiles, labels).catch((error) => emitDiagnostic("window.failure", error));
   });
   onMount(() => {
@@ -1113,7 +1607,9 @@ export default function App() {
       savedContentUnavailable: true,
       lineEnding: liveSnapshot?.lineEnding ?? tab.lineEnding,
       lineEndings,
-      savedLineEndings: liveSnapshot?.savedLineEndings ?? normalizeLineEndingMap(tab.savedContent, tab.savedLineEndings ?? tab.lineEndings, tab.lineEnding),
+      savedLineEndings:
+        liveSnapshot?.savedLineEndings ??
+        normalizeLineEndingMap(tab.savedContent, tab.savedLineEndings ?? tab.lineEndings, tab.lineEnding),
       bom: liveSnapshot?.bom ?? tab.bom === true,
       savedBom: liveSnapshot?.savedBom ?? (tab.savedBom === true || (tab.savedBom === undefined && tab.bom === true)),
       encoding: liveSnapshot?.encoding ?? tab.encoding,
@@ -1139,7 +1635,9 @@ export default function App() {
       // close safely while the lease is released or retained by storage.
       return !windowHasDirtyTabs() && pendingRecoverySnapshots.size === 0;
     }
-    const commitProjectRevision = currentProjects().map((project) => project.id).join("\0");
+    const commitProjectRevision = currentProjects()
+      .map((project) => project.id)
+      .join("\0");
     const commitScope = sessionScope;
     const session = windowSession();
     const recoveryByKey = new Map<string, RecoverySnapshot>();
@@ -1158,7 +1656,14 @@ export default function App() {
         recoveryByKey.set(key, pending);
         continue;
       }
-      if (checkpointed && checkpointed.path === tab.path && checkpointed.revision === tab.revision && !pendingRecoveryRemovals.has(key) && !unavailable.has(key)) continue;
+      if (
+        checkpointed &&
+        checkpointed.path === tab.path &&
+        checkpointed.revision === tab.revision &&
+        !pendingRecoveryRemovals.has(key) &&
+        !unavailable.has(key)
+      )
+        continue;
       try {
         const snapshot = compactRecoverySnapshot(createRecoverySnapshot(tab));
         if (!snapshot || recoverySnapshotSizeBytes(snapshot) > MAX_RECOVERY_BYTES) {
@@ -1186,7 +1691,12 @@ export default function App() {
       unavailableRecoveryKeys: [...unavailable],
       lease: sessionLease,
     });
-    const isCurrentCommit = commitScope === sessionScope && commitProjectRevision === projects().map((project) => project.id).join("\0");
+    const isCurrentCommit =
+      commitScope === sessionScope &&
+      commitProjectRevision ===
+        projects()
+          .map((project) => project.id)
+          .join("\0");
     if (isCurrentCommit && (result.reason === "invalid" || result.reason === "unavailable")) {
       blockSessionPersistence("Session ownership or recovery storage is unavailable; unsaved recovery is paused.");
     }
@@ -1225,7 +1735,7 @@ export default function App() {
     void commitCurrentCheckpoint().catch((error) => {
       if (!sessionStorageWarningShown) {
         sessionStorageWarningShown = true;
-        notify(errorMessage(error, "Session restore state could not be saved."));
+        notify(errorMessage(error, "Session restore state could not be saved."), "error");
       }
     });
   };
@@ -1243,17 +1753,27 @@ export default function App() {
     expectedCloseGeneration = closeCleanupGeneration,
   ) => {
     if (sessionStartupUnavailable) return false;
-    if (!await sessionLeaseReleaseQueue.releaseAll()) return false;
-    if (disposed || expectedGeneration !== workspaceGeneration || expectedCloseGeneration !== closeCleanupGeneration || workspace() !== workspacePath) return false;
+    if (!(await sessionLeaseReleaseQueue.releaseAll())) return false;
+    if (
+      disposed ||
+      expectedGeneration !== workspaceGeneration ||
+      expectedCloseGeneration !== closeCleanupGeneration ||
+      workspace() !== workspacePath
+    )
+      return false;
     const attached = await attachSessionWindow({
       windowId: sessionWindowId,
       scope: sessionScope,
       workspace: workspacePath,
-      dirtyRecoveryKeys: windowSession().tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, sessionScope)),
+      dirtyRecoveryKeys: windowSession()
+        .tabs.filter((tab) => tab.dirty)
+        .map((tab) => recoveryStorageKey(tab.id, sessionScope)),
     });
-    if (expectedGeneration !== workspaceGeneration
-      || expectedCloseGeneration !== closeCleanupGeneration
-      || workspace() !== workspacePath) {
+    if (
+      expectedGeneration !== workspaceGeneration ||
+      expectedCloseGeneration !== closeCleanupGeneration ||
+      workspace() !== workspacePath
+    ) {
       if (attached.ok && attached.lease) {
         await sessionLeaseReleaseQueue.release(attached.lease);
       }
@@ -1264,9 +1784,11 @@ export default function App() {
       unblockSessionPersistence();
       return true;
     }
-    blockSessionPersistence(attached.reason === "conflict"
-      ? "This session scope is already owned by another window; unsaved recovery is paused."
-      : "Session recovery storage is unavailable; unsaved recovery cannot be protected.");
+    blockSessionPersistence(
+      attached.reason === "conflict"
+        ? "This session scope is already owned by another window; unsaved recovery is paused."
+        : "Session recovery storage is unavailable; unsaved recovery cannot be protected.",
+    );
     return false;
   };
 
@@ -1303,12 +1825,13 @@ export default function App() {
     plugin: PluginApiV2InstalledPlugin,
     permission: PluginApiV2Permission,
     scope: { workspaceRoot: string; resourceScope?: PluginPermissionResourceScope },
-  ): Promise<boolean> => (await ensureAuthorizationManager()).hasPermission({
-    plugin,
-    permission,
-    workspaceRoot: scope.workspaceRoot,
-    resourceScope: scope.resourceScope,
-  });
+  ): Promise<boolean> =>
+    (await ensureAuthorizationManager()).hasPermission({
+      plugin,
+      permission,
+      workspaceRoot: scope.workspaceRoot,
+      resourceScope: scope.resourceScope,
+    });
 
   const declaredLspServer = (plugin: PluginApiV2InstalledPlugin, serverId: string) => {
     const matches = plugin.lspServers?.filter((server) => server.serverId === serverId) ?? [];
@@ -1323,9 +1846,11 @@ export default function App() {
     const server = declaredLspServer(plugin, serverId);
     if (!server) throw new Error("Language server is not uniquely declared by this plugin.");
     const resolved = await resolvePluginLspServer(workspaceRoot, server);
-    if (resolved.serverId !== server.serverId
-        || resolved.language !== server.language
-        || JSON.stringify(resolved.args) !== JSON.stringify(server.args)) {
+    if (
+      resolved.serverId !== server.serverId ||
+      resolved.language !== server.language ||
+      JSON.stringify(resolved.args) !== JSON.stringify(server.args)
+    ) {
       throw new Error("Language server declaration changed during resolution.");
     }
     return {
@@ -1353,9 +1878,12 @@ export default function App() {
     if (scope.resourceScope?.kind !== "executable") return false;
     try {
       const target = await resolvePluginLspTarget(plugin, scope.workspaceRoot, scope.resourceScope.serverId);
-      if (target.server.language !== scope.resourceScope.language
-          || target.server.executable !== scope.resourceScope.executablePath
-          || JSON.stringify(target.server.args) !== JSON.stringify(scope.resourceScope.args)) return false;
+      if (
+        target.server.language !== scope.resourceScope.language ||
+        target.server.executable !== scope.resourceScope.executablePath ||
+        JSON.stringify(target.server.args) !== JSON.stringify(scope.resourceScope.args)
+      )
+        return false;
       return hasApprovedPluginPermission(plugin, permission, target.permissionScope);
     } catch {
       return false;
@@ -1363,7 +1891,9 @@ export default function App() {
   };
 
   const persistCursorPositions = () => {
-    const positions: Record<string, CursorPosition> = Object.fromEntries(allLoadedTabs().map((tab) => [tab.id, { cursorLine: tab.cursorLine, cursorColumn: tab.cursorColumn }]));
+    const positions: Record<string, CursorPosition> = Object.fromEntries(
+      allLoadedTabs().map((tab) => [tab.id, { cursorLine: tab.cursorLine, cursorColumn: tab.cursorColumn }]),
+    );
     writeStorage(cursorStorageKey, serializeCursorPositions(positions));
   };
   const scheduleCursorPersistence = () => {
@@ -1376,13 +1906,11 @@ export default function App() {
 
   const persistRecovery = (tabId: string) => {
     const tab = tabById[tabId];
-    if (!tab || !tab.dirty) {
+    if (!tab?.dirty) {
       clearRecovery(tabId);
       return;
     }
     const recovery = compactRecoverySnapshot(createRecoverySnapshot(tab));
-    const writeRevision = (recoveryWriteRevisions.get(tabId) ?? 0) + 1;
-    recoveryWriteRevisions.set(tabId, writeRevision);
     if (!recovery || recoverySnapshotSizeBytes(recovery) > MAX_RECOVERY_BYTES) {
       if (!recoveryStorageWarningShown) {
         recoveryStorageWarningShown = true;
@@ -1402,7 +1930,6 @@ export default function App() {
 
   const clearRecovery = (tabId: string) => {
     recoveryScheduler.cancel(tabId);
-    recoveryWriteRevisions.set(tabId, (recoveryWriteRevisions.get(tabId) ?? 0) + 1);
     const key = recoveryKey(tabId);
     pendingRecoverySnapshots.delete(key);
     unavailableRecoveryKeys.delete(key);
@@ -1428,6 +1955,9 @@ export default function App() {
     void flushRecoveryWrites().catch((error) => emitDiagnostic("recovery.flush", error));
   };
 
+  const recoverySizeBytes = (tab: EditorTab) =>
+    documentController.getHandle(tab.id)?.getMetadata()?.estimatedBytes ?? tab.estimatedBytes ?? tab.diskSize ?? 0;
+
   const scheduleRecovery = (tabId: string) => {
     const tab = tabById[tabId];
     if (!tab?.dirty) {
@@ -1439,8 +1969,7 @@ export default function App() {
       writeRecoveryCheckpoint(tabId);
       return;
     }
-    const sizeBytes = documentController.getHandle(tab.id)?.getMetadata()?.estimatedBytes ?? tab.estimatedBytes ?? tab.diskSize ?? 0;
-    recoveryScheduler.schedule(tabId, sizeBytes, Date.now(), () => writeRecoveryCheckpoint(tabId));
+    recoveryScheduler.schedule(tabId, recoverySizeBytes(tab), Date.now(), () => writeRecoveryCheckpoint(tabId));
   };
 
   const persistSettings = () => {
@@ -1469,7 +1998,13 @@ export default function App() {
     }, delay);
   }
 
-  createEffect(on(() => settings().language, (language) => void applyLanguage(language), { defer: true }));
+  createEffect(
+    on(
+      () => settings().language,
+      (language) => void applyLanguage(language),
+      { defer: true },
+    ),
+  );
 
   createEffect(() => {
     const currentSettings = settings();
@@ -1482,9 +2017,16 @@ export default function App() {
   });
 
   createEffect(() => {
-    const title = windowTitleForWorkspace(workspace(), PATH_OPTIONS, workspaceFile() || additionalFolders().length ? workspaceName() : undefined);
+    const title = windowTitleForWorkspace(
+      workspace(),
+      PATH_OPTIONS,
+      workspaceFile() || additionalFolders().length ? workspaceName() : undefined,
+    );
     document.title = title;
-    if (isTauri) void getWindowApi().then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title)).catch((error) => emitDiagnostic("window.failure", error));
+    if (isTauri)
+      void getWindowApi()
+        .then(({ getCurrentWindow }) => getCurrentWindow().setTitle(title))
+        .catch((error) => emitDiagnostic("window.failure", error));
   });
 
   createEffect(() => {
@@ -1510,7 +2052,18 @@ export default function App() {
     // action that completes while storage or the first file is loading must
     // remain authoritative over this startup restore.
     const restoreGeneration = workspaceGeneration;
-    setRecoveryDatabaseBlockedHandler((timeoutMs, status) => notify(status === "timed-out" ? t("Recovery storage did not open in time. Close the other editor window and retry; existing recovery data has been retained.") : t("Another window is blocking recovery storage. Close the other editor window and retry; this attempt will stop within {value} seconds.", { value: timeoutMs / 1000 })));
+    setRecoveryDatabaseBlockedHandler((timeoutMs, status) =>
+      notify(
+        status === "timed-out"
+          ? t(
+              "Recovery storage did not open in time. Close the other editor window and retry; existing recovery data has been retained.",
+            )
+          : t(
+              "Another window is blocking recovery storage. Close the other editor window and retry; this attempt will stop within {value} seconds.",
+              { value: timeoutMs / 1000 },
+            ),
+      ),
+    );
     let startupPluginRecoverySucceeded = !isTauri;
     // Fetch the close-window dialog chunk while the browser is idle so
     // closing the window never waits on a network fetch, without blocking the
@@ -1520,7 +2073,10 @@ export default function App() {
     // session resolution are independent of each other; start them together
     // so plugin recovery and listener setup do not block session restore.
     const launchFolderPromise = getStartupFolder().then(
-      (folder) => { markStartupEvent("startup-folder"); return folder; },
+      (folder) => {
+        markStartupEvent("startup-folder");
+        return folder;
+      },
       () => null,
     );
     const pluginRecoveryPromise = (async () => {
@@ -1548,7 +2104,7 @@ export default function App() {
           startupPluginRecoverySucceeded = true;
         }
       } catch (error) {
-        if (!disposed) notify(errorMessage(error, "Installed plugin state could not be recovered."));
+        if (!disposed) notify(errorMessage(error, "Installed plugin state could not be recovered."), "error");
       }
     })();
     // The native event stream is a per-session channel created
@@ -1562,15 +2118,27 @@ export default function App() {
     const startupSessionPromise: Promise<StartupSessionSelection> = resolveStartupSession(sessionWindowId).then(
       (selection) => selection,
       (error) => {
-        notify(errorMessage(error, "Session restore state could not be read."));
-        return { scope: sessionWindowId, checkpoint: null, legacy: null, lease: null, recoveredSecondary: false, recoveryUnavailable: true, startupError: error };
+        notify(errorMessage(error, "Session restore state could not be read."), "error");
+        return {
+          scope: sessionWindowId,
+          checkpoint: null,
+          legacy: null,
+          lease: null,
+          recoveredSecondary: false,
+          recoveryUnavailable: true,
+          startupError: error,
+        };
       },
     );
-    const [launchFolder, startupSessionResolved, workspaceRuntime] = await Promise.all([launchFolderPromise, startupSessionPromise, loadProjectRuntime()]);
+    const [launchFolder, startupSessionResolved, workspaceRuntime] = await Promise.all([
+      launchFolderPromise,
+      startupSessionPromise,
+      loadProjectRuntime(),
+    ]);
     projectRuntime = workspaceRuntime;
     let startupSession = startupSessionResolved;
     sessionStartupUnavailable = startupSession.recoveryUnavailable === true;
-    if (Object.prototype.hasOwnProperty.call(startupSession, "startupError")) emitDiagnostic("session.failure", startupSession.startupError);
+    if (Object.hasOwn(startupSession, "startupError")) emitDiagnostic("session.failure", startupSession.startupError);
     if (startupSession.pendingReleaseLease) sessionLeaseReleaseQueue.retain(startupSession.pendingReleaseLease);
     if (disposed) {
       if (startupSession.lease) sessionLeaseReleaseQueue.retain(startupSession.lease);
@@ -1581,22 +2149,52 @@ export default function App() {
       // Keep the stable scope chosen for this renderer, but discard the
       // superseded restore payload. The lease is retained solely so the
       // cleanup branch below can release a claim completed during the race.
-      startupSession = { scope: sessionWindowId, checkpoint: null, legacy: null, lease: startupSession.lease, pendingReleaseLease: startupSession.pendingReleaseLease, recoveredSecondary: false };
+      startupSession = {
+        scope: sessionWindowId,
+        checkpoint: null,
+        legacy: null,
+        lease: startupSession.lease,
+        pendingReleaseLease: startupSession.pendingReleaseLease,
+        recoveredSecondary: false,
+      };
     }
     sessionScope = startupSession.scope;
-    sessionStorageKey = scopedStorageKey(SESSION_STORAGE_KEY, sessionScope);
     cursorStorageKey = scopedStorageKey(CURSOR_STORAGE_KEY, sessionScope);
     const checkpoint = startupSession.checkpoint;
     sessionRestoreCheckpointVerified = Boolean(checkpoint);
     markStartupEvent("session-read");
-    let restored = !sessionStartupUnavailable && !startupSession.pendingReleaseLease && !launchFolder && restoreGeneration === workspaceGeneration
-      ? checkpoint?.session ?? startupSession.legacy
-      : null;
+    let restored =
+      !sessionStartupUnavailable &&
+      !startupSession.pendingReleaseLease &&
+      !launchFolder &&
+      restoreGeneration === workspaceGeneration
+        ? (checkpoint?.session ?? startupSession.legacy)
+        : null;
     if (restored && (restored.workspace || restored.tabs.length || restored.projects?.length)) {
-      const savedProjects = restored.projects ?? [{ id: crypto.randomUUID(), workspace: restored.workspace, tabs: restored.tabs, activeTabId: restored.activeTabId, expandedPaths: restored.expandedPaths }];
-      const states = savedProjects.map((saved) => ({ ...createWorkspaceProject([saved.workspace, ...(saved.folders ?? [])].filter(Boolean), saved.workspaceFile, saved.id),
-        restoreMetadata: { version: 3 as const, workspace: saved.workspace, tabs: saved.tabs, activeTabId: saved.activeTabId, expandedPaths: saved.expandedPaths },
-        restoreIntent: createRestoreIntent(saved.tabs, restoreGeneration) }));
+      const savedProjects = restored.projects ?? [
+        {
+          id: crypto.randomUUID(),
+          workspace: restored.workspace,
+          tabs: restored.tabs,
+          activeTabId: restored.activeTabId,
+          expandedPaths: restored.expandedPaths,
+        },
+      ];
+      const states = savedProjects.map((saved) => ({
+        ...createWorkspaceProject(
+          [saved.workspace, ...(saved.folders ?? [])].filter(Boolean),
+          saved.workspaceFile,
+          saved.id,
+        ),
+        restoreMetadata: {
+          version: 3 as const,
+          workspace: saved.workspace,
+          tabs: saved.tabs,
+          activeTabId: saved.activeTabId,
+          expandedPaths: saved.expandedPaths,
+        },
+        restoreIntent: createRestoreIntent(saved.tabs, restoreGeneration),
+      }));
       const selected = states.find((project) => project.id === restored!.activeProjectId) ?? states[0];
       setProjects(states);
       setActiveProjectId(selected?.id);
@@ -1609,7 +2207,7 @@ export default function App() {
         const canonicalWorkspace = await canonicalizeWorkspaceRoot(restored.workspace);
         restored = { ...restored, workspace: canonicalWorkspace };
       } catch (error) {
-        notify(errorMessage(error, "The restored workspace could not be verified."));
+        notify(errorMessage(error, "The restored workspace could not be verified."), "error");
         // Keep the original root and recovery when a restored folder is unavailable.
       }
     }
@@ -1619,7 +2217,8 @@ export default function App() {
       // A baseline restored with the checkpoint is already durable;
       // do not rewrite its record on the first commit after startup.
       for (const [key, snapshot] of Object.entries(checkpointRecoveries)) {
-        if (snapshot.savedRevision !== undefined && !snapshot.savedContentUnavailable) checkpointedBaselines.set(key, snapshot.savedRevision);
+        if (snapshot.savedRevision !== undefined && !snapshot.savedContentUnavailable)
+          checkpointedBaselines.set(key, snapshot.savedRevision);
       }
     }
     restoreMetadata = restored ?? undefined;
@@ -1647,7 +2246,7 @@ export default function App() {
       restoreIntent = undefined;
     }
     const adoptStartupLease = async (lease: SessionWindowLease, generation: number) => {
-      if (checkpoint && !await validateStartupCheckpoint(checkpoint, lease)) {
+      if (checkpoint && !(await validateStartupCheckpoint(checkpoint, lease))) {
         pauseUnverifiedSessionRecovery();
         await sessionLeaseReleaseQueue.release(lease);
       } else if (!disposed && generation === workspaceGeneration && restoreGeneration === workspaceGeneration) {
@@ -1667,7 +2266,7 @@ export default function App() {
         if (startupSession.lease) {
           await sessionLeaseReleaseQueue.release(startupSession.lease);
         }
-      } else if (sessionLeaseReleaseQueue.hasPending() && !await sessionLeaseReleaseQueue.releaseAll()) {
+      } else if (sessionLeaseReleaseQueue.hasPending() && !(await sessionLeaseReleaseQueue.releaseAll())) {
         blockSessionPersistence("A previous session lease still needs cleanup; unsaved recovery remains paused.");
       } else if (startupSession.lease) {
         await adoptStartupLease(startupSession.lease, restoreGeneration);
@@ -1677,51 +2276,64 @@ export default function App() {
           windowId: sessionWindowId,
           scope: sessionScope,
           workspace: restored?.workspace ?? "",
-          dirtyRecoveryKeys: checkpoint?.session.tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, sessionScope)),
+          dirtyRecoveryKeys: checkpoint?.session.tabs
+            .filter((tab) => tab.dirty)
+            .map((tab) => recoveryStorageKey(tab.id, sessionScope)),
         });
         if (attached.ok && attached.lease) {
           await adoptStartupLease(attached.lease, attachGeneration);
-        }
-        else if (attachGeneration === workspaceGeneration) {
-          sessionLeaseWarningShown = true;
-          blockSessionPersistence(attached.reason === "conflict"
-            ? "This session scope is already owned by another window; unsaved recovery is paused."
-            : "Session recovery storage is unavailable; unsaved recovery cannot be protected.");
+        } else if (attachGeneration === workspaceGeneration) {
+          blockSessionPersistence(
+            attached.reason === "conflict"
+              ? "This session scope is already owned by another window; unsaved recovery is paused."
+              : "Session recovery storage is unavailable; unsaved recovery cannot be protected.",
+          );
         }
       }
     } catch (error) {
-      sessionLeaseWarningShown = true;
-      blockSessionPersistence(errorMessage(error, "Session recovery storage is unavailable; unsaved recovery cannot be protected."));
+      blockSessionPersistence(
+        errorMessage(error, "Session recovery storage is unavailable; unsaved recovery cannot be protected."),
+      );
     }
     sessionHeartbeatTimer = window.setInterval(() => {
       const lease = sessionLease;
       if (!lease || disposed) return;
-      void heartbeatSessionWindow(lease, windowSession().tabs.filter((tab) => tab.dirty).map((tab) => recoveryStorageKey(tab.id, sessionScope))).then((result) => {
-        if (sessionLease !== lease || result.ok) return;
-        sessionLeaseWarningShown = true;
-        blockSessionPersistence("Session window ownership was lost; unsaved recovery is paused until it is restored.");
-      }).catch((error) => {
-        if (sessionLease !== lease) return;
-        sessionLeaseWarningShown = true;
-        blockSessionPersistence(errorMessage(error, "Session window ownership was lost; unsaved recovery is paused until it is restored."));
-      });
+      void heartbeatSessionWindow(
+        lease,
+        windowSession()
+          .tabs.filter((tab) => tab.dirty)
+          .map((tab) => recoveryStorageKey(tab.id, sessionScope)),
+      )
+        .then((result) => {
+          if (sessionLease !== lease || result.ok) return;
+          blockSessionPersistence(
+            "Session window ownership was lost; unsaved recovery is paused until it is restored.",
+          );
+        })
+        .catch((error) => {
+          if (sessionLease !== lease) return;
+          blockSessionPersistence(
+            errorMessage(error, "Session window ownership was lost; unsaved recovery is paused until it is restored."),
+          );
+        });
     }, 60_000);
     const initialWorkspace = restored && restored.workspace !== "pude-demo" ? restored.workspace : "";
     if (initialWorkspace) {
       setWorkspace(initialWorkspace);
       if (authorizationManager || plugins().some((plugin) => plugin.enabled)) {
         void ensureAuthorizationManager().then((manager) => {
-          if (!disposed && restoreGeneration === workspaceGeneration) manager.notifyWorkspaceChanged("", initialWorkspace);
+          if (!disposed && restoreGeneration === workspaceGeneration)
+            manager.notifyWorkspaceChanged("", initialWorkspace);
         });
       }
       setRoot(makeWorkspaceRoot(workspaceFolders(), workspaceName(), undefined, PATH_OPTIONS));
       if (isTauri) {
         const restoredOpenFiles = restored?.tabs.map((tab) => tab.path) ?? [];
-        const restoredExternalParents = restoredOpenFiles
-          .filter((path) => !isInWorkspaceFolders(path))
-          .map(parentPath);
+        const restoredExternalParents = restoredOpenFiles.filter((path) => !isInWorkspaceFolders(path)).map(parentPath);
         externalWatchParents.clear();
-        restoredExternalParents.forEach((path) => externalWatchParents.add(path));
+        restoredExternalParents.forEach((path) => {
+          externalWatchParents.add(path);
+        });
         watcherOpenFilesKey = restoredOpenFiles.map(pathKey).sort().join("\u0000");
         // Don't make the first tab wait for the watcher. The listener
         // is already buffering events; once the watcher reports ready,
@@ -1731,7 +2343,13 @@ export default function App() {
           try {
             const nextSessionId = await enqueueWatcherOperation(async () => {
               watcherEvents.resetSequence();
-              return startWatcher(initialWorkspace, watcherExtraPaths(), watcherExcludeList(), restoredOpenFiles, handleFileChangeEvent);
+              return startWatcher(
+                initialWorkspace,
+                watcherExtraPaths(),
+                watcherExcludeList(),
+                restoredOpenFiles,
+                handleFileChangeEvent,
+              );
             });
             if (!disposed && restoreGeneration === workspaceGeneration) {
               watcherSessionId = nextSessionId;
@@ -1746,7 +2364,7 @@ export default function App() {
             }
           } catch (error) {
             watcherNeedsRestart = true;
-            if (!disposed) notify(errorMessage(error, "Unable to start file watcher."));
+            if (!disposed) notify(errorMessage(error, "Unable to start file watcher."), "error");
             scheduleWatcherRetry(restoreGeneration);
           }
         })();
@@ -1755,13 +2373,13 @@ export default function App() {
     if (restored && restored.workspace !== "pude-demo") {
       const cursorPositions = startupSession.cursorPositions ?? {};
       const restoreScope = sessionScope;
-      const isRestoreCurrent = () => !disposed
-        && !sessionStartupUnavailable
-        && restoreGeneration === workspaceGeneration
-        && sessionScope === restoreScope;
-      const readRestoreDocument = (path: string): Promise<ReadFileResult> => isRestoreCurrent()
-        ? readFileWithIoLimit(path)
-        : Promise.reject(new Error("Session restore was superseded."));
+      const isRestoreCurrent = () =>
+        !disposed &&
+        !sessionStartupUnavailable &&
+        restoreGeneration === workspaceGeneration &&
+        sessionScope === restoreScope;
+      const readRestoreDocument = (path: string): Promise<ReadFileResult> =>
+        isRestoreCurrent() ? readFileWithIoLimit(path) : Promise.reject(new Error("Session restore was superseded."));
       const restoreOrder = restored.activeTabId
         ? [
             ...restored.tabs.filter((tab) => tab.id === restored.activeTabId),
@@ -1769,17 +2387,35 @@ export default function App() {
           ]
         : restored.tabs;
       const firstPersistedTab = restoreOrder.slice(0, 1);
-      const acceptRestoredRecords = (records: Array<RestoredTabResult | null>) => records.filter((record): record is RestoredTabRecord => {
-        if (!record) return false;
-        if (!("status" in record)) return true;
-        if (isRestoreCurrent()) {
-          if (record.recoveryUnavailable) pauseUnverifiedSessionRecovery();
-          else notify(t("Unable to restore {value}. Its recovery metadata has been retained for retry.", { value: baseName(record.path) }));
-          emitDiagnostic("session.failure", record.error);
-        }
-        return false;
-      });
-      const firstRecords = acceptRestoredRecords(await mapRestoreWithConcurrency(firstPersistedTab, 1, (persistedTab) => restorePersistedTab(persistedTab, cursorPositions[persistedTab.id], restoreScope, checkpointRecoveries, readRestoreDocument, isRestoreCurrent)));
+      const acceptRestoredRecords = (records: Array<RestoredTabResult | null>) =>
+        records.filter((record): record is RestoredTabRecord => {
+          if (!record) return false;
+          if (!("status" in record)) return true;
+          if (isRestoreCurrent()) {
+            if (record.recoveryUnavailable) pauseUnverifiedSessionRecovery();
+            else
+              notify(
+                t("Unable to restore {value}. Its recovery metadata has been retained for retry.", {
+                  value: baseName(record.path),
+                }),
+                "error",
+              );
+            emitDiagnostic("session.failure", record.error);
+          }
+          return false;
+        });
+      const firstRecords = acceptRestoredRecords(
+        await mapRestoreWithConcurrency(firstPersistedTab, 1, (persistedTab) =>
+          restorePersistedTab(
+            persistedTab,
+            cursorPositions[persistedTab.id],
+            restoreScope,
+            checkpointRecoveries,
+            readRestoreDocument,
+            isRestoreCurrent,
+          ),
+        ),
+      );
       if (firstRecords.length && isRestoreCurrent() && !startupFirstTabReadyMarked) {
         startupFirstTabReadyMarked = true;
         markStartupEvent("first-tab-ready");
@@ -1799,7 +2435,13 @@ export default function App() {
           const current = currentById.get(persistedTab.id);
           if (current) return [current];
           const record = restoredById.get(persistedTab.id);
-          if (!record || currentTabs.some((tab) => samePath(tab.path, persistedTab.path)) || !restoreIntent || !shouldMergeRestoredTab(restoreIntent, persistedTab, currentIds)) return [];
+          if (
+            !record ||
+            currentTabs.some((tab) => samePath(tab.path, persistedTab.path)) ||
+            !restoreIntent ||
+            !shouldMergeRestoredTab(restoreIntent, persistedTab, currentIds)
+          )
+            return [];
           return [{ ...record.tab, ...(record.orphaned ? { orphaned: true } : {}) }];
         });
         const restoredIds = new Set(restoredTabs.map((tab) => tab.id));
@@ -1807,9 +2449,12 @@ export default function App() {
         setTabs([...restoredTabs, ...currentTabs.filter((tab) => !restoredIds.has(tab.id))]);
         syncExternalWatchParents();
         const currentActiveTabId = activeTabId();
-        if (!currentActiveTabId && restored.activeTabId && restoredTabs.some((tab) => tab.id === restored.activeTabId)) setActiveTab(restored.activeTabId);
+        if (!currentActiveTabId && restored.activeTabId && restoredTabs.some((tab) => tab.id === restored.activeTabId))
+          setActiveTab(restored.activeTabId);
         const restoredRecordIds = new Set(restoredTabs.map((tab) => tab.id));
-        const recoveredConflict = firstRecords.find((record) => restoredRecordIds.has(record.tab.id) && record.diskChangedSinceRecovery)?.tab;
+        const recoveredConflict = firstRecords.find(
+          (record) => restoredRecordIds.has(record.tab.id) && record.diskChangedSinceRecovery,
+        )?.tab;
         if (recoveredConflict) externalConflictController.queue(recoveredConflict);
         if (restored.workspace) {
           const workspacePath = restored.workspace;
@@ -1819,9 +2464,13 @@ export default function App() {
             try {
               await watcherOperationQueue;
               const snapshot = watcherEvents.snapshot();
-              const isWorkspaceRestoreCurrent = () => !disposed && !sessionStartupUnavailable
-                && restoreGeneration === workspaceGeneration && sessionScope === restoreScope
-                && workspace() === workspacePath && watcherEvents.isCurrent(snapshot);
+              const isWorkspaceRestoreCurrent = () =>
+                !disposed &&
+                !sessionStartupUnavailable &&
+                restoreGeneration === workspaceGeneration &&
+                sessionScope === restoreScope &&
+                workspace() === workspacePath &&
+                watcherEvents.isCurrent(snapshot);
               const listedRoot = await listWorkspaceRoot(restoredRoot);
               const expandedPaths = new Set(restored.expandedPaths.map(pathKey));
               for (const folder of workspaceFolders()) expandedPaths.add(pathKey(folder));
@@ -1836,8 +2485,13 @@ export default function App() {
               });
               if (isWorkspaceRestoreCurrent()) markSessionDirty();
             } catch (error) {
-              if (!disposed && !sessionStartupUnavailable && restoreGeneration === workspaceGeneration
-                && sessionScope === restoreScope && workspace() === workspacePath) {
+              if (
+                !disposed &&
+                !sessionStartupUnavailable &&
+                restoreGeneration === workspaceGeneration &&
+                sessionScope === restoreScope &&
+                workspace() === workspacePath
+              ) {
                 const message = errorMessage(error, "Unable to restore workspace directories.");
                 setRoot((current) => ({ ...current, partialError: { kind: "metadata", message } }));
                 notify(message);
@@ -1851,32 +2505,49 @@ export default function App() {
       }
       const remainingPersistedTabs = restoreOrder.slice(firstPersistedTab.length);
       if (remainingPersistedTabs.length) {
-        void mapRestoreWithConcurrency(remainingPersistedTabs, 8, (persistedTab) => restorePersistedTab(persistedTab, cursorPositions[persistedTab.id], restoreScope, checkpointRecoveries, readRestoreDocument, isRestoreCurrent)).then((results) => {
-          if (!isRestoreCurrent()) return;
-          const records = acceptRestoredRecords(results);
-          const currentTabs = tabs();
-          const currentById = new Map(currentTabs.map((tab) => [tab.id, tab]));
-          const restoredById = new Map(records.map((record) => [record.tab.id, record]));
-          for (const record of records) {
-            if (restoreIntent) restoreIntent = markRestoreTabStarted(restoreIntent, record.tab.id);
-          }
-          const currentIds = new Set(currentTabs.map((tab) => tab.id));
-          const restoredTabs = restored.tabs.flatMap((persistedTab) => {
-            const current = currentById.get(persistedTab.id);
-            if (current) return [current];
-            const record = restoredById.get(persistedTab.id);
-            if (!record || currentTabs.some((tab) => samePath(tab.path, persistedTab.path)) || !restoreIntent || !shouldMergeRestoredTab(restoreIntent, persistedTab, currentIds)) return [];
-            return [{ ...record.tab, ...(record.orphaned ? { orphaned: true } : {}) }];
-          });
-          const restoredIds = new Set(restored.tabs.map((tab) => tab.id));
-          setTabs([...restoredTabs, ...currentTabs.filter((tab) => !restoredIds.has(tab.id))]);
-          for (const record of records) {
-            if (record.diskChangedSinceRecovery) externalConflictController.queue(record.tab);
-          }
-          syncExternalWatchParents();
-          verifyOpenFiles();
-          markSessionDirty();
-        }).catch(() => undefined);
+        void mapRestoreWithConcurrency(remainingPersistedTabs, 8, (persistedTab) =>
+          restorePersistedTab(
+            persistedTab,
+            cursorPositions[persistedTab.id],
+            restoreScope,
+            checkpointRecoveries,
+            readRestoreDocument,
+            isRestoreCurrent,
+          ),
+        )
+          .then((results) => {
+            if (!isRestoreCurrent()) return;
+            const records = acceptRestoredRecords(results);
+            const currentTabs = tabs();
+            const currentById = new Map(currentTabs.map((tab) => [tab.id, tab]));
+            const restoredById = new Map(records.map((record) => [record.tab.id, record]));
+            for (const record of records) {
+              if (restoreIntent) restoreIntent = markRestoreTabStarted(restoreIntent, record.tab.id);
+            }
+            const currentIds = new Set(currentTabs.map((tab) => tab.id));
+            const restoredTabs = restored.tabs.flatMap((persistedTab) => {
+              const current = currentById.get(persistedTab.id);
+              if (current) return [current];
+              const record = restoredById.get(persistedTab.id);
+              if (
+                !record ||
+                currentTabs.some((tab) => samePath(tab.path, persistedTab.path)) ||
+                !restoreIntent ||
+                !shouldMergeRestoredTab(restoreIntent, persistedTab, currentIds)
+              )
+                return [];
+              return [{ ...record.tab, ...(record.orphaned ? { orphaned: true } : {}) }];
+            });
+            const restoredIds = new Set(restored.tabs.map((tab) => tab.id));
+            setTabs([...restoredTabs, ...currentTabs.filter((tab) => !restoredIds.has(tab.id))]);
+            for (const record of records) {
+              if (record.diskChangedSinceRecovery) externalConflictController.queue(record.tab);
+            }
+            syncExternalWatchParents();
+            verifyOpenFiles();
+            markSessionDirty();
+          })
+          .catch(() => undefined);
       }
     } else if (!disposed && restoreGeneration === workspaceGeneration) {
       // Keep tabs opened while the startup checkpoint was loading. Only
@@ -1892,7 +2563,9 @@ export default function App() {
     setHydrated(true);
     void forgetMissingRecentProjects();
     if (isTauri && import.meta.env.PROD && settings().checkForUpdates) {
-      window.setTimeout(() => { if (!disposed) void checkForUpdatesAfterStartup(); }, 5000);
+      window.setTimeout(() => {
+        if (!disposed) void checkForUpdatesAfterStartup();
+      }, 5000);
     }
     markStartupEvent("hydrated");
     if (launchFolder) void openLaunchPath(launchFolder);
@@ -1917,11 +2590,17 @@ export default function App() {
         if (change.oldPath) versionedFileReader?.invalidate(change.oldPath);
       }
       if (event.needsRescan) for (const tab of tabs()) versionedFileReader?.invalidate(tab.path);
-      const currentWorkspace = workspace();
       const repositoryRoot = git().repositoryRoot;
-      const metadataPaths = changes.flatMap((change) => [change.path, change.oldPath]).filter((path): path is string => Boolean(path));
-      const repositoryChanged = Boolean(repositoryRoot && metadataPaths.some((path) => isSameOrDescendantPath(path, repositoryRoot)));
-      const gitDirty = event.needsRescan && repositoryRoot ? allGitDirtyState() : classifyGitChanges(changes, repositoryRoot, watcherRoots);
+      const metadataPaths = changes
+        .flatMap((change) => [change.path, change.oldPath])
+        .filter((path): path is string => Boolean(path));
+      const repositoryChanged = Boolean(
+        repositoryRoot && metadataPaths.some((path) => isSameOrDescendantPath(path, repositoryRoot)),
+      );
+      const gitDirty =
+        event.needsRescan && repositoryRoot
+          ? allGitDirtyState()
+          : classifyGitChanges(changes, repositoryRoot, watcherRoots);
       gitDirtyState = mergeGitDirtyState(gitDirtyState, gitDirty);
       if (gitDirty.status) gitStatusRevision += 1;
       if (gitDirty.branches || gitDirty.history || event.needsRescan) {
@@ -1933,7 +2612,8 @@ export default function App() {
       const reloadPaths = new Set<string>();
       for (const change of changes) {
         const parent = parentPath(change.path);
-        const affectsDirectoryListing = change.isDirectory || change.kind === "create" || change.kind === "remove" || change.kind === "rename";
+        const affectsDirectoryListing =
+          change.isDirectory || change.kind === "create" || change.kind === "remove" || change.kind === "rename";
         if (affectsDirectoryListing) scheduleDirectoryRefresh(parent);
         if (change.isDirectory) scheduleDirectoryRefresh(change.path);
         if (change.oldPath && affectsDirectoryListing) scheduleDirectoryRefresh(parentPath(change.oldPath));
@@ -1946,24 +2626,34 @@ export default function App() {
             else updateTab(tab.id, { orphaned: true });
           }
         }
-        if (!change.isDirectory && (change.kind === "create" || change.kind === "modify" || change.kind === "rescan")) reloadPaths.add(change.path);
+        if (!change.isDirectory && (change.kind === "create" || change.kind === "modify" || change.kind === "rescan"))
+          reloadPaths.add(change.path);
       }
       if (event.needsRescan) relistAllDirectories();
 
       if (event.needsRescan) {
         for (const tab of tabs()) reloadPaths.add(tab.path);
       }
-      const candidates = tabs().filter((tab) => tab.language !== "Image" && [...reloadPaths].some((path) => samePath(path, tab.path)));
+      const candidates = tabs().filter(
+        (tab) => tab.language !== "Image" && [...reloadPaths].some((path) => samePath(path, tab.path)),
+      );
       for (const tab of candidates) {
         const readRevision = (fileReadRevisions.get(tab.id) ?? 0) + 1;
         fileReadRevisions.set(tab.id, readRevision);
         const generation = workspaceGeneration;
         verifyOpenFile(tab, generation, readRevision);
       }
-      if (repositoryChanged && !gitDirty.status && !gitDirty.branches && !gitDirty.history) scheduleGitRefresh({ status: true, branches: false, history: false });
+      if (repositoryChanged && !gitDirty.status && !gitDirty.branches && !gitDirty.history)
+        scheduleGitRefresh({ status: true, branches: false, history: false });
       const currentDiff = diff();
-      const affectedWorkingDiff = currentDiff && (currentDiff.label === "STAGED CHANGES" || currentDiff.label === "WORKING TREE")
-        && changes.some((change) => sameGitPath(change.path, currentDiff.path, repositoryRoot) || Boolean(change.oldPath && sameGitPath(change.oldPath, currentDiff.path, repositoryRoot)));
+      const affectedWorkingDiff =
+        currentDiff &&
+        (currentDiff.label === "STAGED CHANGES" || currentDiff.label === "WORKING TREE") &&
+        changes.some(
+          (change) =>
+            sameGitPath(change.path, currentDiff.path, repositoryRoot) ||
+            Boolean(change.oldPath && sameGitPath(change.oldPath, currentDiff.path, repositoryRoot)),
+        );
       if (affectedWorkingDiff) {
         void openDiff({ path: currentDiff.path, indexStatus: null, worktreeStatus: null }, currentDiff.staged);
       }
@@ -1975,7 +2665,15 @@ export default function App() {
         const generation = workspaceGeneration;
         const nextSessionId = await enqueueWatcherOperation(async () => {
           watcherEvents.resetSequence();
-          return startWatcher(currentWorkspace, watcherExtraPaths(), watcherExcludeList(), tabs().filter((tab) => tab.language !== "Image").map((tab) => tab.path), handleFileChangeEvent);
+          return startWatcher(
+            currentWorkspace,
+            watcherExtraPaths(),
+            watcherExcludeList(),
+            tabs()
+              .filter((tab) => tab.language !== "Image")
+              .map((tab) => tab.path),
+            handleFileChangeEvent,
+          );
         });
         if (disposed || generation !== workspaceGeneration || workspace() !== currentWorkspace) {
           if (nextSessionId) await stopWatcher(nextSessionId);
@@ -1987,14 +2685,13 @@ export default function App() {
           startupWatcherReadyMarked = true;
           markStartupEvent("watcher-ready");
         }
-        lastFileEventSequence = 0;
         watcherRetryAttempt = 0;
         verifyOpenFiles();
         scheduleGitRefresh(allGitDirtyState());
       } catch (error) {
         watcherNeedsRestart = true;
         if (!disposed) {
-          notify(errorMessage(error, "Unable to start file watcher."));
+          notify(errorMessage(error, "Unable to start file watcher."), "error");
           scheduleWatcherRetry(workspaceGeneration);
         }
       }
@@ -2021,13 +2718,23 @@ export default function App() {
         if (result.status === "rejected") {
           const plugin = enabledPlugins[index];
           pluginsWithUnavailableLsp.add(plugin.id);
-          notify(errorMessage(result.reason, t("{name}: language-server approvals could not be restored; the plugin was disabled.", { name: plugin.name })));
+          notify(
+            errorMessage(
+              result.reason,
+              t("{name}: language-server approvals could not be restored; the plugin was disabled.", {
+                name: plugin.name,
+              }),
+            ),
+            "error",
+          );
         }
       });
       if (pluginsWithUnavailableLsp.size) {
-        const disabledPlugins = plugins().map((plugin) => pluginsWithUnavailableLsp.has(plugin.id)
-          ? { ...plugin, enabled: false, status: "inactive" as const }
-          : plugin);
+        const disabledPlugins = plugins().map((plugin) =>
+          pluginsWithUnavailableLsp.has(plugin.id)
+            ? { ...plugin, enabled: false, status: "inactive" as const }
+            : plugin,
+        );
         const persistedPlugins = disabledPlugins.map((plugin) => ({ ...plugin, status: "inactive" as const }));
         setPlugins(disabledPlugins);
         if (!writeStorage(PLUGINS_STORAGE_KEY, JSON.stringify(persistedPlugins))) {
@@ -2046,9 +2753,12 @@ export default function App() {
     clearWatcherRetry();
     watcherEvents.clear();
     watcherSessionId = undefined;
-    void enqueueWatcherOperation(() => stopWatcher().then(() => undefined)).catch((error) => emitDiagnostic("watcher.cancel", error));
+    void enqueueWatcherOperation(() => stopWatcher().then(() => undefined)).catch((error) =>
+      emitDiagnostic("watcher.cancel", error),
+    );
     const closingWorkspace = workspace();
-    if (closingWorkspace) void cancelWorkspaceOperations(closingWorkspace).catch((error) => emitDiagnostic("window.cancel", error));
+    if (closingWorkspace)
+      void cancelWorkspaceOperations(closingWorkspace).catch((error) => emitDiagnostic("window.cancel", error));
     if (sessionHeartbeatTimer) {
       window.clearInterval(sessionHeartbeatTimer);
       sessionHeartbeatTimer = undefined;
@@ -2070,15 +2780,17 @@ export default function App() {
     }
     recoveryScheduler.flush((tabId) => persistRecovery(tabId));
     const lease = sessionLease;
-    void flushRecoveryWrites().then(() => {
-      if (!lease) return;
-      return sessionLeaseReleaseQueue.release(lease).then((released) => {
-        // Cleanup can race a hot-replaced renderer that already owns a fresh lease.
-        // Explicit close requests handle a failed close before allowing the window to exit.
-        if (!released) return;
-        if (sessionLease === lease) sessionLease = undefined;
-      });
-    }).catch((error) => emitDiagnostic("session.flush", error));
+    void flushRecoveryWrites()
+      .then(() => {
+        if (!lease) return;
+        return sessionLeaseReleaseQueue.release(lease).then((released) => {
+          // Cleanup can race a hot-replaced renderer that already owns a fresh lease.
+          // Explicit close requests handle a failed close before allowing the window to exit.
+          if (!released) return;
+          if (sessionLease === lease) sessionLease = undefined;
+        });
+      })
+      .catch((error) => emitDiagnostic("session.flush", error));
     void sessionLeaseReleaseQueue.releaseAll();
     if (gitRefreshTimer) window.clearTimeout(gitRefreshTimer);
     cancelWorkspaceReads();
@@ -2097,26 +2809,49 @@ export default function App() {
 
   onMount(() => {
     if (!isTauri) return;
-    void getWindowApi().then(({ getCurrentWindow }) => {
-      if (disposed) return;
-      const currentWindow = getCurrentWindow();
-      void currentWindow.isMaximized().then(setWindowMaximized);
-      let unlistenResize: (() => void) | undefined;
-      let unlistenClose: (() => void) | undefined;
-      void currentWindow.onResized(() => void currentWindow.isMaximized().then(setWindowMaximized)).then((unlisten) => { unlistenResize = unlisten; });
-      void currentWindow.onCloseRequested((event) => {
-        event.preventDefault();
-        void closeWindow("preserve");
-      }).then((unlisten) => { unlistenClose = unlisten; });
-      onCleanup(() => {
-        unlistenResize?.();
-        unlistenClose?.();
+    let resizeTimer: number | undefined;
+    const unlisteners: Array<() => void> = [];
+    const keepUnlistener = (unlisten: () => void) => {
+      if (disposed) unlisten();
+      else unlisteners.push(unlisten);
+    };
+    onCleanup(() => {
+      window.clearTimeout(resizeTimer);
+      unlisteners.forEach((unlisten) => {
+        unlisten();
       });
-    }).catch((error) => emitDiagnostic("window.failure", error));
+    });
+    void getWindowApi()
+      .then(({ getCurrentWindow }) => {
+        if (disposed) return;
+        const currentWindow = getCurrentWindow();
+        void currentWindow.isMaximized().then(setWindowMaximized);
+        void currentWindow
+          .onResized(() => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(() => void currentWindow.isMaximized().then(setWindowMaximized), 100);
+          })
+          .then(keepUnlistener);
+        void currentWindow
+          .onCloseRequested((event) => {
+            event.preventDefault();
+            void closeWindow("preserve");
+          })
+          .then(keepUnlistener);
+      })
+      .catch((error) => emitDiagnostic("window.failure", error));
   });
 
   const canSwitchProject = () => {
-    if (!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || dialogRequestInFlight || projectCloseBusy() || projectCloseId()) return false;
+    if (
+      !hydrated() ||
+      confirmedOperationInProgress() ||
+      appQuitPrepared() ||
+      dialogRequestInFlight ||
+      projectCloseBusy() ||
+      projectCloseId()
+    )
+      return false;
     if (pluginOperationInFlight || gitMutationInFlight) {
       notify(t("Wait for the current project operation to finish before switching projects."));
       return false;
@@ -2165,17 +2900,34 @@ export default function App() {
     const generation = workspaceGeneration;
     const id = activeProjectId();
     await projectRuntime!.restoreProjectDocuments({
-      session: restoreMetadata, intent: restoreIntent, scope: sessionScope, recoveries: restoredCheckpointRecoveries,
+      session: restoreMetadata,
+      intent: restoreIntent,
+      scope: sessionScope,
+      recoveries: restoredCheckpointRecoveries,
       isCurrent: () => !disposed && generation === workspaceGeneration && id === activeProjectId(),
-      readDocument: readFileWithIoLimit, normalizeReadFile, createImageTab: makeImageTab, getTabs: tabs, getIntent: () => restoreIntent,
-      onTabs: setTabs, onIntent: (intent) => { restoreIntent = intent; }, onConflict: (tab) => externalConflictController.queue(tab),
+      readDocument: readFileWithIoLimit,
+      normalizeReadFile,
+      createImageTab: makeImageTab,
+      getTabs: tabs,
+      getIntent: () => restoreIntent,
+      onTabs: setTabs,
+      onIntent: (intent) => {
+        restoreIntent = intent;
+      },
+      onConflict: (tab) => externalConflictController.queue(tab),
       onFailure: (failure) => {
         if (failure.recoveryUnavailable) pauseUnverifiedSessionRecovery();
-        notify(t("Unable to restore {value}. Its recovery metadata has been retained for retry.", { value: baseName(failure.path) }));
+        notify(
+          t("Unable to restore {value}. Its recovery metadata has been retained for retry.", {
+            value: baseName(failure.path),
+          }),
+          "error",
+        );
       },
     });
     if (generation !== workspaceGeneration) return;
-    if (!activeTabId()) setActiveTab(tabs().find((tab) => tab.id === restoreMetadata?.activeTabId)?.id ?? tabs()[0]?.id);
+    if (!activeTabId())
+      setActiveTab(tabs().find((tab) => tab.id === restoreMetadata?.activeTabId)?.id ?? tabs()[0]?.id);
     syncExternalWatchParents();
     markSessionDirty();
   };
@@ -2209,13 +2961,15 @@ export default function App() {
         // The editor stays interactive while the old project shuts down, so park its latest state.
         if (activeProjectId()) previous = captureProject();
         setProjects((items) => {
-          const parked = items.map((project) => project.id === previous.id ? previous : project);
+          const parked = items.map((project) => (project.id === previous.id ? previous : project));
           return add ? [...parked, target] : parked;
         });
         installProjectState(target);
       });
       installed = true;
-      setPlugins((items) => items.map((plugin) => plugin.status === "active" ? { ...plugin, status: "inactive" } : plugin));
+      setPlugins((items) =>
+        items.map((plugin) => (plugin.status === "active" ? { ...plugin, status: "inactive" } : plugin)),
+      );
       gitStatusRevision += 1;
       gitBranchesRevision += 1;
       gitDirtyState = allGitDirtyState();
@@ -2229,17 +2983,23 @@ export default function App() {
         try {
           const listedRoot = await listWorkspaceRoot(target.root);
           if (generation !== workspaceGeneration || disposed) return false;
-          const expanded = new Set((target.restoreMetadata?.expandedPaths ?? collectExpandedPaths(target.root)).map(pathKey));
+          const expanded = new Set(
+            (target.restoreMetadata?.expandedPaths ?? collectExpandedPaths(target.root)).map(pathKey),
+          );
           for (const folder of [target.workspace, ...target.additionalFolders]) expanded.add(pathKey(folder));
           await restoreDirectoryTreeByLevelLazy({
             root: listedRoot,
-            expandedPaths: expanded, listDirectory: listWorkspaceDirectory,
+            expandedPaths: expanded,
+            listDirectory: listWorkspaceDirectory,
             isCurrent: () => !disposed && generation === workspaceGeneration,
             onTree: setRoot,
           });
         } catch (error) {
-          setRoot((current) => ({ ...current, partialError: { kind: "metadata", message: errorMessage(error, "Project folder is unavailable.") } }));
-          notify(errorMessage(error, "Project folder is unavailable; recovered files have been retained."));
+          setRoot((current) => ({
+            ...current,
+            partialError: { kind: "metadata", message: errorMessage(error, "Project folder is unavailable.") },
+          }));
+          notify(errorMessage(error, "Project folder is unavailable; recovered files have been retained."), "error");
         }
         syncExternalWatchParents();
         await restartWatcher();
@@ -2247,8 +3007,17 @@ export default function App() {
         if (authorizationManager || plugins().some((plugin) => plugin.enabled)) {
           (await ensureAuthorizationManager()).notifyWorkspaceChanged(previous.workspace, target.workspace);
           for (const plugin of plugins().filter((item) => item.enabled)) {
-            try { await restorePluginLspAuthorizations(plugin, target.workspace); }
-            catch (error) { notify(errorMessage(error, t("{name}: language-server approvals could not be restored.", { name: plugin.name }))); }
+            try {
+              await restorePluginLspAuthorizations(plugin, target.workspace);
+            } catch (error) {
+              notify(
+                errorMessage(
+                  error,
+                  t("{name}: language-server approvals could not be restored.", { name: plugin.name }),
+                ),
+                "error",
+              );
+            }
           }
         }
         activatePluginsForEvent("onWorkspaceOpen", { workspace: target.workspace });
@@ -2265,16 +3034,21 @@ export default function App() {
           cancelWorkspaceReads(true);
           const attempted = captureProject();
           batch(() => {
-            setProjects((items) => add && !attempted.tabIds.length
-              ? items.filter((project) => project.id !== target.id)
-              : items.map((project) => project.id === target.id ? attempted : project));
+            setProjects((items) =>
+              add && !attempted.tabIds.length
+                ? items.filter((project) => project.id !== target.id)
+                : items.map((project) => (project.id === target.id ? attempted : project)),
+            );
             installProjectState(previous);
           });
           await reattachSessionWindow(previous.workspace);
         }
-        if (workspace()) { syncExternalWatchParents(); void restartWatcher(); }
+        if (workspace()) {
+          syncExternalWatchParents();
+          void restartWatcher();
+        }
       }
-      notify(errorMessage(error, "Unable to switch project."));
+      notify(errorMessage(error, "Unable to switch project."), "error");
       return false;
     }
   };
@@ -2287,7 +3061,9 @@ export default function App() {
     try {
       if (authorizationReview()) await cancelPluginAuthorizationReview();
       await transitionToProject(target);
-    } finally { setConfirmedOperationInProgress(false); }
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const openWorkspacePath = async (selectedPath: string) => {
@@ -2296,36 +3072,53 @@ export default function App() {
     try {
       if (authorizationReview()) await cancelPluginAuthorizationReview();
       const selected = await canonicalizeWorkspaceRoot(selectedPath);
-      const existing = currentProjects().find((project) => samePath(project.workspace, selected) && !project.workspaceFile && !project.additionalFolders.length);
+      const existing = currentProjects().find(
+        (project) =>
+          samePath(project.workspace, selected) && !project.workspaceFile && !project.additionalFolders.length,
+      );
       const blankProjectId = activeProjectIsBlank() ? activeProjectId() : undefined;
       const discardBlankProject = () => {
         if (blankProjectId) setProjects((items) => items.filter((item) => item.id !== blankProjectId));
       };
       if (existing) {
-        if (existing.id !== activeProjectId() && await transitionToProject(existing)) discardBlankProject();
+        if (existing.id !== activeProjectId() && (await transitionToProject(existing))) discardBlankProject();
         return;
       }
       const listing = await listWorkspaceDirectory(selected);
       const project = createProject(selected);
-      project.root = { ...project.root, loaded: true, children: listing.entries, partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason };
+      project.root = {
+        ...project.root,
+        loaded: true,
+        children: listing.entries,
+        partialError: listing.partialError ?? undefined,
+        incomplete: listing.incomplete,
+        listingStopReason: listing.stopReason,
+      };
       if (await transitionToProject(project, true)) {
         if (blankProjectId) setProjects((items) => reorderProjects(items, project.id, blankProjectId));
         discardBlankProject();
         rememberRecentProject(selected);
         notify(t("Opened {value}", { value: baseName(selected) }));
       }
-    } catch (error) { notify(errorMessage(error, "Unable to open project.")); }
-    finally { setConfirmedOperationInProgress(false); }
+    } catch (error) {
+      notify(errorMessage(error, "Unable to open project."), "error");
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const removeProject = async (id: string) => {
     const snapshots = currentProjects();
     const target = snapshots.find((project) => project.id === id);
     if (!target) return;
-    const nextId = projectAfterClose(snapshots.map((project) => project.id), activeProjectId(), id);
+    const nextId = projectAfterClose(
+      snapshots.map((project) => project.id),
+      activeProjectId(),
+      id,
+    );
     if (activeProjectId() === id) {
       const next = snapshots.find((project) => project.id === nextId) ?? createProject("", "");
-      if (!await transitionToProject(next)) return;
+      if (!(await transitionToProject(next))) return;
     }
     for (const tab of projectSession(target).tabs) {
       clearRecovery(tab.id);
@@ -2333,6 +3126,7 @@ export default function App() {
       documentController.release(tab.id);
     }
     setProjects((items) => items.filter((project) => project.id !== id));
+    olderClosedTabs.delete(id);
     markSessionDirty();
   };
 
@@ -2340,10 +3134,16 @@ export default function App() {
     if (!canSwitchProject() || projectCloseId()) return;
     const target = currentProjects().find((project) => project.id === id);
     if (!target) return;
-    if (projectSession(target).tabs.some((tab) => tab.dirty)) { setProjectCloseId(id); return; }
+    if (projectSession(target).tabs.some((tab) => tab.dirty)) {
+      setProjectCloseId(id);
+      return;
+    }
     setConfirmedOperationInProgress(true);
-    try { await removeProject(id); }
-    finally { setConfirmedOperationInProgress(false); }
+    try {
+      await removeProject(id);
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const closeProjectWithDecision = async (decision: "save" | "discard") => {
@@ -2353,18 +3153,26 @@ export default function App() {
     setConfirmedOperationInProgress(true);
     try {
       if (decision === "save") {
-        if (!await restoreDirtyProjectDocuments(id)) return;
+        if (!(await restoreDirtyProjectDocuments(id))) return;
         const state = currentProjects().find((project) => project.id === id);
         if (!state) return;
         for (const tabId of state.tabIds) {
           const tab = tabById[tabId];
-          if (tab?.dirty && !await saveTab(tab)) return;
+          if (tab?.dirty && !(await saveTab(tab))) return;
         }
-        if (currentProjects().some((project) => project.id === id && projectSession(project).tabs.some((tab) => tab.dirty))) return;
+        if (
+          currentProjects().some(
+            (project) => project.id === id && projectSession(project).tabs.some((tab) => tab.dirty),
+          )
+        )
+          return;
       }
       await removeProject(id);
       setProjectCloseId(undefined);
-    } finally { setProjectCloseBusy(false); setConfirmedOperationInProgress(false); }
+    } finally {
+      setProjectCloseBusy(false);
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const activeProjectIsBlank = () => Boolean(activeProjectId()) && !workspace() && !tabs().length;
@@ -2373,12 +3181,17 @@ export default function App() {
     if (!canSwitchProject()) return;
     if (activeProjectIsBlank()) return;
     const blank = projects().find((project) => !project.workspace && !project.tabIds.length);
-    if (blank) { await selectProject(blank.id); return; }
+    if (blank) {
+      await selectProject(blank.id);
+      return;
+    }
     setConfirmedOperationInProgress(true);
     try {
       if (authorizationReview()) await cancelPluginAuthorizationReview();
       await transitionToProject(createProject(""), true);
-    } finally { setConfirmedOperationInProgress(false); }
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const loadWorkspace = async () => {
@@ -2386,11 +3199,12 @@ export default function App() {
       const selected = await openFolder();
       if (selected) await openWorkspacePath(selected);
     } catch (error) {
-      notify(errorMessage(error, "Unable to open folder."));
+      notify(errorMessage(error, "Unable to open folder."), "error");
     }
   };
 
-  const openLaunchPath = (path: string) => isWorkspaceFilePath(path) ? openWorkspaceFile(path) : openWorkspacePath(path);
+  const openLaunchPath = (path: string) =>
+    isWorkspaceFilePath(path) ? openWorkspaceFile(path) : openWorkspacePath(path);
 
   /** Show these folders in the active project tab, listing folders that are new to the Explorer. */
   const setWorkspaceFolders = (folders: string[]) => {
@@ -2403,12 +3217,17 @@ export default function App() {
     void restartWatcher();
     markSessionDirty();
     for (const folder of workspaceRootFolders(root()).filter((entry) => !entry.loaded)) {
-      void listWorkspaceDirectory(folder.path).then(
-        (listing) => (entry: DirectoryEntry) => withDirectoryListing(entry, listing),
-        (error) => (entry: DirectoryEntry) => ({ ...entry, partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") } }),
-      ).then((update) => {
-        if (generation === workspaceGeneration) setRoot((current) => updateEntry(current, folder.path, update));
-      });
+      void listWorkspaceDirectory(folder.path)
+        .then(
+          (listing) => (entry: DirectoryEntry) => withDirectoryListing(entry, listing),
+          (error) => (entry: DirectoryEntry) => ({
+            ...entry,
+            partialError: { kind: "metadata" as const, message: errorMessage(error, "This folder is unavailable.") },
+          }),
+        )
+        .then((update) => {
+          if (generation === workspaceGeneration) setRoot((current) => updateEntry(current, folder.path, update));
+        });
     }
   };
 
@@ -2418,11 +3237,26 @@ export default function App() {
     try {
       const current = captureProject();
       return await transitionToProject({
-        ...current, workspace: folders[0], additionalFolders: folders.slice(1),
-        root: makeWorkspaceRoot(folders, workspaceLabel(folders, current.workspaceFile, PATH_OPTIONS), current.root, PATH_OPTIONS),
-        git: emptyGit, gitBranches: [], gitStashes: [], diff: undefined, diffReturnToHistory: false, historyTabOpen: false, viewMode: "editor",
+        ...current,
+        workspace: folders[0],
+        additionalFolders: folders.slice(1),
+        root: makeWorkspaceRoot(
+          folders,
+          workspaceLabel(folders, current.workspaceFile, PATH_OPTIONS),
+          current.root,
+          PATH_OPTIONS,
+        ),
+        git: emptyGit,
+        gitBranches: [],
+        gitStashes: [],
+        diff: undefined,
+        diffReturnToHistory: false,
+        historyTabOpen: false,
+        viewMode: "editor",
       });
-    } finally { setConfirmedOperationInProgress(false); }
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   const openWorkspaceTab = async (file: string, folders: string[]): Promise<boolean> => {
@@ -2430,40 +3264,57 @@ export default function App() {
     setConfirmedOperationInProgress(true);
     try {
       if (authorizationReview()) await cancelPluginAuthorizationReview();
-      const existing = currentProjects().find((project) => project.workspaceFile && samePath(project.workspaceFile, file));
+      const existing = currentProjects().find(
+        (project) => project.workspaceFile && samePath(project.workspaceFile, file),
+      );
       if (existing?.id === activeProjectId()) return true;
       const blankProjectId = activeProjectIsBlank() ? activeProjectId() : undefined;
       const target = existing ?? createWorkspaceProject(folders, file);
-      if (!await transitionToProject(target, !existing)) return false;
-      if (blankProjectId) setProjects((items) => (existing ? items : reorderProjects(items, target.id, blankProjectId)).filter((item) => item.id !== blankProjectId));
+      if (!(await transitionToProject(target, !existing))) return false;
+      if (blankProjectId)
+        setProjects((items) =>
+          (existing ? items : reorderProjects(items, target.id, blankProjectId)).filter(
+            (item) => item.id !== blankProjectId,
+          ),
+        );
       return true;
-    } finally { setConfirmedOperationInProgress(false); }
+    } finally {
+      setConfirmedOperationInProgress(false);
+    }
   };
 
   let workspaceActionsPromise: Promise<WorkspaceActions> | undefined;
-  const workspaceActions = () => workspaceActionsPromise ??= import("./lib/workspace-actions").then(({ createWorkspaceActions }) => createWorkspaceActions({
-    folders: workspaceFolders, workspaceFile, workspaceName, notify,
-    canChangeWorkspace: () => hydrated() && !confirmedOperationInProgress() && !appQuitPrepared(),
-    captureCurrent: () => {
-      const generation = workspaceGeneration;
-      const projectId = activeProjectId();
-      return () => !disposed && generation === workspaceGeneration && projectId === activeProjectId();
-    },
-    openFolderInNewTab: loadWorkspace,
-    setFolders: setWorkspaceFolders,
-    switchFirstFolder,
-    setWorkspaceFile: (path) => {
-      batch(() => {
-        setWorkspaceFile(path);
-        setRoot((current) => makeWorkspaceRoot(workspaceFolders(), workspaceName(), current, PATH_OPTIONS));
-      });
-      markSessionDirty();
-    },
-    openWorkspaceTab,
-    rememberWorkspaceFile: rememberRecentWorkspace,
-  }));
-  const runWorkspaceAction = (action: (actions: WorkspaceActions) => Promise<void>) => workspaceActions().then(action)
-    .catch((error) => notify(errorMessage(error, "Unable to change the workspace.")));
+  const workspaceActions = () =>
+    (workspaceActionsPromise ??= import("./lib/workspace-actions").then(({ createWorkspaceActions }) =>
+      createWorkspaceActions({
+        folders: workspaceFolders,
+        workspaceFile,
+        workspaceName,
+        notify,
+        canChangeWorkspace: () => hydrated() && !confirmedOperationInProgress() && !appQuitPrepared(),
+        captureCurrent: () => {
+          const generation = workspaceGeneration;
+          const projectId = activeProjectId();
+          return () => !disposed && generation === workspaceGeneration && projectId === activeProjectId();
+        },
+        openFolderInNewTab: loadWorkspace,
+        setFolders: setWorkspaceFolders,
+        switchFirstFolder,
+        setWorkspaceFile: (path) => {
+          batch(() => {
+            setWorkspaceFile(path);
+            setRoot((current) => makeWorkspaceRoot(workspaceFolders(), workspaceName(), current, PATH_OPTIONS));
+          });
+          markSessionDirty();
+        },
+        openWorkspaceTab,
+        rememberWorkspaceFile: rememberRecentWorkspace,
+      }),
+    ));
+  const runWorkspaceAction = (action: (actions: WorkspaceActions) => Promise<void>) =>
+    workspaceActions()
+      .then(action)
+      .catch((error) => notify(errorMessage(error, "Unable to change the workspace."), "error"));
   const openWorkspaceFile = (path: string) => runWorkspaceAction((actions) => actions.open(path));
 
   const openNewWindowAction = async () => {
@@ -2471,7 +3322,7 @@ export default function App() {
       await openNewWindow();
       if (!isTauri) notify(t("Opened a new browser window."));
     } catch (error) {
-      notify(errorMessage(error, "Unable to open a new window."));
+      notify(errorMessage(error, "Unable to open a new window."), "error");
     }
   };
 
@@ -2496,7 +3347,13 @@ export default function App() {
         notify(t("Save or close the modified tab before previewing this image."));
         return;
       }
-      if (existing.language !== "Image") updateTab(existing.id, { ...makeImageTabChanges(size), revision: existing.revision + 1, savedRevision: existing.revision + 1, contentVersion: existing.contentVersion + 1 });
+      if (existing.language !== "Image")
+        updateTab(existing.id, {
+          ...makeImageTabChanges(size),
+          revision: existing.revision + 1,
+          savedRevision: existing.revision + 1,
+          contentVersion: existing.contentVersion + 1,
+        });
       setActiveTab(existing.id);
       markSessionDirty();
       setDiffReturnToHistory(false);
@@ -2514,7 +3371,10 @@ export default function App() {
     if (plugins().some((plugin) => plugin.enabled)) {
       const generation = workspaceGeneration;
       void getPluginHostModules().then((host) => {
-        if (!disposed && generation === workspaceGeneration) activatePluginsForEvent("onFileOpen", { file: { path, name: baseName(path), language: host.activationLanguageId("Image") } });
+        if (!disposed && generation === workspaceGeneration)
+          activatePluginsForEvent("onFileOpen", {
+            file: { path, name: baseName(path), language: host.activationLanguageId("Image") },
+          });
       });
     }
   };
@@ -2534,7 +3394,8 @@ export default function App() {
       if (generation !== workspaceGeneration || confirmedOperationInProgress() || appQuitPrepared()) return;
       openReadFile(file);
     } catch (error) {
-      if (!disposed && generation === workspaceGeneration) notify(errorMessage(error, "This file cannot be displayed as text."));
+      if (!disposed && generation === workspaceGeneration)
+        notify(errorMessage(error, "This file cannot be displayed as text."), "error");
     }
   };
 
@@ -2560,20 +3421,30 @@ export default function App() {
         const statusPromise = getGitStatus(path);
         let branchError: unknown;
         const branchesPromise = shouldRefreshBranches
-          ? getGitBranches(path).catch((error) => { branchError = error; return undefined; })
+          ? getGitBranches(path).catch((error) => {
+              branchError = error;
+              return undefined;
+            })
           : Promise.resolve(gitBranches());
-        const stashesPromise = shouldRefreshBranches ? getGitStashes(path).catch(() => [] as GitStash[]) : Promise.resolve(gitStashes());
+        const stashesPromise = shouldRefreshBranches
+          ? getGitStashes(path).catch(() => [] as GitStash[])
+          : Promise.resolve(gitStashes());
         const status = await statusPromise;
         const branches = await branchesPromise;
         const stashes = await stashesPromise;
         if (requestVersion !== gitRequestVersion || path !== workspace()) return;
-        if (statusRevision !== gitStatusRevision || (shouldRefreshBranches && branchesRevision !== gitBranchesRevision)) return;
+        if (statusRevision !== gitStatusRevision || (shouldRefreshBranches && branchesRevision !== gitBranchesRevision))
+          return;
         if (shouldRefreshBranches) {
           invalidateGitHistory();
         }
         const sameRepository = previous.repositoryRoot !== "" && previous.repositoryRoot === status.repositoryRoot;
         if (!sameRepository) resetGitHistoryPagination();
-        setGit({ ...status, error: branchError ? errorMessage(branchError, "Unable to read Git branches.") : null, commits: sameRepository ? previous.commits : [] });
+        setGit({
+          ...status,
+          error: branchError ? errorMessage(branchError, "Unable to read Git branches.") : null,
+          commits: sameRepository ? previous.commits : [],
+        });
         setGitStashes(status.repositoryRoot ? stashes : []);
         gitDirtyState = {
           status: statusRevision === gitStatusRevision ? false : gitDirtyState.status,
@@ -2589,11 +3460,15 @@ export default function App() {
           gitBranchesWorkspace = path;
           if (gitBranchesRevision === branchesRevision) gitBranchesDirty = false;
         }
-        if (showToast) notify(branchError ? errorMessage(branchError, "Unable to read Git branches.") : t("Git status refreshed"));
+        if (showToast)
+          notify(
+            branchError ? errorMessage(branchError, "Unable to read Git branches.") : t("Git status refreshed"),
+            branchError ? "error" : undefined,
+          );
       } catch (error) {
         if (requestVersion !== gitRequestVersion || path !== workspace()) return;
         setGit((current) => ({ ...current, error: errorMessage(error, "Unable to read Git status.") }));
-        if (showToast) notify(errorMessage(error, "Unable to read Git status."));
+        if (showToast) notify(errorMessage(error, "Unable to read Git status."), "error");
       }
     })();
     gitRefreshInFlight = request;
@@ -2626,51 +3501,41 @@ export default function App() {
     }
   };
 
-  const loadGitHistory = async () => {
+  const runGitHistoryLoad = async (
+    load: (controller: GitHistoryController) => Promise<boolean>,
+    failureMessage: string,
+  ) => {
     const requestWorkspace = workspace();
     const requestGeneration = workspaceGeneration;
     const requestSnapshotKey = git().repositoryRoot ? gitSnapshotKey(git()) : null;
     const isCurrent = () => {
       const currentGit = git();
-      return !disposed
-        && workspace() === requestWorkspace
-        && workspaceGeneration === requestGeneration
-        && (currentGit.repositoryRoot ? gitSnapshotKey(currentGit) : null) === requestSnapshotKey;
+      return (
+        !disposed &&
+        workspace() === requestWorkspace &&
+        workspaceGeneration === requestGeneration &&
+        (currentGit.repositoryRoot ? gitSnapshotKey(currentGit) : null) === requestSnapshotKey
+      );
     };
     try {
       const controller = await getGitHistoryController();
-      return isCurrent() ? controller.load() : false;
+      return isCurrent() ? load(controller) : false;
     } catch (error) {
-      if (isCurrent()) notify(errorMessage(error, "Unable to load Git history."));
+      if (isCurrent()) notify(errorMessage(error, failureMessage), "error");
       return false;
     }
   };
-  const loadOlderGitHistory = async () => {
-    const requestWorkspace = workspace();
-    const requestGeneration = workspaceGeneration;
-    const requestSnapshotKey = git().repositoryRoot ? gitSnapshotKey(git()) : null;
-    const isCurrent = () => {
-      const currentGit = git();
-      return !disposed
-        && workspace() === requestWorkspace
-        && workspaceGeneration === requestGeneration
-        && (currentGit.repositoryRoot ? gitSnapshotKey(currentGit) : null) === requestSnapshotKey;
-    };
-    try {
-      const controller = await getGitHistoryController();
-      return isCurrent() ? controller.loadOlder() : false;
-    } catch (error) {
-      if (isCurrent()) notify(errorMessage(error, "Unable to load older Git history."));
-      return false;
-    }
-  };
+  const loadGitHistory = () => runGitHistoryLoad((controller) => controller.load(), "Unable to load Git history.");
+  const loadOlderGitHistory = () =>
+    runGitHistoryLoad((controller) => controller.loadOlder(), "Unable to load older Git history.");
 
   const refreshGitHistory = (): Promise<void> => {
     const currentWorkspace = workspace();
     if (!currentWorkspace) return Promise.resolve();
     const generation = workspaceGeneration;
     const existingRefresh = gitHistoryRefreshInFlight;
-    if (existingRefresh?.workspace === currentWorkspace && existingRefresh.generation === generation) return existingRefresh.promise;
+    if (existingRefresh?.workspace === currentWorkspace && existingRefresh.generation === generation)
+      return existingRefresh.promise;
 
     gitStatusRevision += 1;
     gitBranchesRevision += 1;
@@ -2701,49 +3566,65 @@ export default function App() {
     gitMutationInFlight = true;
     try {
       const output = await operation(path);
-      setGitOperations((current) => ({ ...current, [path]: { action, running: false, message: output || t("{action} completed.", { action }) } }));
-      if (workspaceGeneration === generation && workspace() === path) notify(output || t("{action} completed.", { action }));
+      setGitOperations((current) => ({
+        ...current,
+        [path]: { action, running: false, message: output || t("{action} completed.", { action }) },
+      }));
+      if (workspaceGeneration === generation && workspace() === path)
+        notify(output || t("{action} completed.", { action }));
     } catch (error) {
-      setGitOperations((current) => ({ ...current, [path]: { action, running: false, message: errorMessage(error, "Git operation failed."), error: true } }));
+      setGitOperations((current) => ({
+        ...current,
+        [path]: { action, running: false, message: errorMessage(error, "Git operation failed."), error: true },
+      }));
       throw error;
     } finally {
       gitMutationInFlight = Object.values(gitOperations()).some((item) => item.running);
     }
   };
 
-  const runGitAction = (request: GitActionRequest) => runGitOperation(request.action, async (path) => {
-    const changesRefs = !GIT_WORKING_TREE_ACTIONS.has(request.action);
-    gitStatusRevision += 1;
-    if (changesRefs) {
-      gitBranchesDirty = true;
-      gitBranchesRevision += 1;
-    }
-    try {
-      return (await performGitAction(path, request)).output;
-    } finally {
-      if (workspace() === path) {
-        if (changesRefs) invalidateGitHistory();
-        await refreshGit(false, path);
-        await waitForGitRefreshSettled();
+  const runGitAction = (request: GitActionRequest) =>
+    runGitOperation(request.action, async (path) => {
+      const changesRefs = !GIT_WORKING_TREE_ACTIONS.has(request.action);
+      gitStatusRevision += 1;
+      if (changesRefs) {
+        gitBranchesDirty = true;
+        gitBranchesRevision += 1;
       }
-    }
-  });
+      try {
+        return (await performGitAction(path, request)).output;
+      } finally {
+        if (workspace() === path) {
+          if (changesRefs) invalidateGitHistory();
+          await refreshGit(false, path);
+          await waitForGitRefreshSettled();
+        }
+      }
+    });
 
-  const runGitWorktree = (branch: string, path: string, startPoint?: string) => runGitOperation("create-worktree", async (origin) => {
-    const result = await createGitWorktree(origin, branch, path, startPoint);
-    return t("Created worktree {branch}; opened {path} in a new window.", { branch: result.branch, path: result.path });
-  });
+  const runGitWorktree = (branch: string, path: string, startPoint?: string) =>
+    runGitOperation("create-worktree", async (origin) => {
+      const result = await createGitWorktree(origin, branch, path, startPoint);
+      return t("Created worktree {branch}; opened {path} in a new window.", {
+        branch: result.branch,
+        path: result.path,
+      });
+    });
+
+  const expandAndListDirectory = async (entry: DirectoryEntry) => {
+    const generation = workspaceGeneration;
+    setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: true })));
+    try {
+      await refreshDirectory(entry.path, generation);
+    } catch (error) {
+      notify(errorMessage(error, entry.loaded ? "Unable to refresh directory." : "Unable to read directory."), "error");
+    }
+  };
 
   const toggleDirectory = async (entry: DirectoryEntry) => {
     if (entry.kind !== "directory" || confirmedOperationInProgress() || appQuitPrepared()) return;
-    const generation = workspaceGeneration;
     if (!entry.loaded || entry.stale) {
-      setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: true })));
-      try {
-        await refreshDirectory(entry.path, generation);
-      } catch (error) {
-        notify(errorMessage(error, entry.loaded ? "Unable to refresh directory." : "Unable to read directory."));
-      }
+      await expandAndListDirectory(entry);
       return;
     }
     setRoot((current) => updateEntry(current, entry.path, (item) => ({ ...item, expanded: !item.expanded })));
@@ -2766,10 +3647,11 @@ export default function App() {
     try {
       const result = await readFileForEditor(entry.path);
       if (confirmedOperationInProgress() || appQuitPrepared()) return;
-       if (result.size > 5 * 1024 * 1024) notify(t("Large file mode enabled: semantic language features and rich Markdown preview are disabled."));
+      if (result.size > 5 * 1024 * 1024)
+        notify(t("Large file mode enabled: semantic language features and rich Markdown preview are disabled."));
       openReadFile(result);
     } catch (error) {
-      notify(errorMessage(error, "This file cannot be displayed as text."));
+      notify(errorMessage(error, "This file cannot be displayed as text."), "error");
     }
   };
 
@@ -2783,7 +3665,7 @@ export default function App() {
       await revealInFileManager(entry.path);
       notify(t("Opened {name} in File Explorer", { name: entry.name }));
     } catch (error) {
-      notify(errorMessage(error, "Unable to open File Explorer."));
+      notify(errorMessage(error, "Unable to open File Explorer."), "error");
     }
   };
 
@@ -2811,17 +3693,23 @@ export default function App() {
       if (match.line) {
         setMarkdownPreviewEnabled(false);
         setEnvTableEnabled(false);
-        setGoToLine({ line: match.line, tabId: activeTabId(), query: options.query, caseSensitive: options.caseSensitive, actionId: Date.now() });
+        setGoToLine({
+          line: match.line,
+          tabId: activeTabId(),
+          query: options.query,
+          caseSensitive: options.caseSensitive,
+          actionId: Date.now(),
+        });
       }
     } catch (error) {
-      if (generation === workspaceGeneration) notify(errorMessage(error, "Unable to open search result."));
+      if (generation === workspaceGeneration) notify(errorMessage(error, "Unable to open search result."), "error");
     }
   };
 
   const copyEntryText = async (entry: DirectoryEntry, kind: "path" | "relative-path" | "name") => {
     closeFileMenu();
     const folder = folderContaining(entry.path, workspaceFolders(), PATH_OPTIONS);
-    const relativePath = folder ? relativePathWithinRoot(entry.path, folder) : null;
+    const relativePath = folder ? relativeWirePath(entry.path, folder, PATH_OPTIONS) : null;
     const value = kind === "name" ? entry.name : kind === "relative-path" ? relativePath : entry.path;
     const label = kind === "name" ? t("name") : kind === "relative-path" ? t("relative path") : t("path");
     if (!value) {
@@ -2829,30 +3717,33 @@ export default function App() {
       return;
     }
     try {
-      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) throw new Error("Clipboard is unavailable in this window.");
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText)
+        throw new Error("Clipboard is unavailable in this window.");
       await navigator.clipboard.writeText(value);
       notify(t("Copied {label}: {value}", { label, value }));
     } catch (error) {
-      notify(errorMessage(error, t("Unable to copy {label}.", { label })));
+      notify(errorMessage(error, t("Unable to copy {label}.", { label })), "error");
     }
   };
 
   const copyToClipboard = async (value: string, message: string) => {
     try {
-      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) throw new Error("Clipboard is unavailable in this window.");
+      if (typeof navigator === "undefined" || !navigator.clipboard?.writeText)
+        throw new Error("Clipboard is unavailable in this window.");
       await navigator.clipboard.writeText(value);
       notify(message);
       return true;
     } catch (error) {
-      notify(errorMessage(error, t("Unable to copy to the clipboard.")));
+      notify(errorMessage(error, t("Unable to copy to the clipboard.")), "error");
       return false;
     }
   };
 
   const applyActiveTabEdits = (edits: readonly PluginEditorEdit[], isolated = false) => {
     const tab = activeTab();
-    const applied = !!tab && documentController.getActiveHandle(tab.id)?.applyEdits(tab.revision, edits, isolated) === true;
-    if (!applied) notify(t("Unable to apply the change. Switch to Source and try again."));
+    const applied =
+      !!tab && documentController.getActiveHandle(tab.id)?.applyEdits(tab.revision, edits, isolated) === true;
+    if (!applied) notify(t("Unable to apply the change. Switch to Source and try again."), "error");
     return applied;
   };
 
@@ -2863,7 +3754,7 @@ export default function App() {
     if (isWorkspaceRootEntry(entry)) return;
     setTabMenu(undefined);
     const row = document.elementFromPoint(x, y)?.closest<HTMLElement>("[role=treeitem]");
-    contextMenuFocusTarget = row?.querySelector<HTMLElement>("button") ?? undefined;
+    contextMenuFocusTarget = row ?? undefined;
     setFileMenu({ entry, x, y });
   };
 
@@ -2873,7 +3764,14 @@ export default function App() {
       if (!plugins().some((plugin) => plugin.enabled)) return;
       const generation = workspaceGeneration;
       void getPluginHostModules().then((host) => {
-        if (!disposed && generation === workspaceGeneration) activatePluginsForEvent("onFileOpen", { file: { path: file.path, name: baseName(file.path), language: host.activationLanguageId(fileLanguageForPath(file.path).label) } });
+        if (!disposed && generation === workspaceGeneration)
+          activatePluginsForEvent("onFileOpen", {
+            file: {
+              path: file.path,
+              name: baseName(file.path),
+              language: host.activationLanguageId(fileLanguageForPath(file.path).label),
+            },
+          });
       });
     };
     const existing = tabs().find((tab) => samePath(tab.path, file.path));
@@ -2897,24 +3795,39 @@ export default function App() {
     notifyFileOpen();
   };
 
+  const applyTabChanges = (tab: EditorTab, changes: Partial<EditorTab>) => {
+    const selectionFallback = editorSelectionFallbackAfterUpdate(tab, changes);
+    const applied =
+      selectionFallback !== tab.selectionFallback || Object.hasOwn(changes, "selectionFallback")
+        ? { ...changes, selectionFallback }
+        : changes;
+    setTabById(tab.id, applied);
+    return applied;
+  };
+
   const updateTab = (id: string, changes: Partial<EditorTab>) => {
     const current = tabById[id];
     if (!current) return;
-    const selectionFallback = editorSelectionFallbackAfterUpdate(current, changes);
-    if (selectionFallback !== current.selectionFallback || Object.prototype.hasOwnProperty.call(changes, "selectionFallback")) {
-      changes = { ...changes, selectionFallback };
-    }
-    setTabById(id, changes);
-    if (Object.keys(changes).some((key) => key !== "cursorLine" && key !== "cursorColumn")) markSessionDirty();
+    const applied = applyTabChanges(current, changes);
+    if (Object.keys(applied).some((key) => key !== "cursorLine" && key !== "cursorColumn")) markSessionDirty();
   };
 
-  const applySavedSnapshot = (snapshot: SaveSnapshot, result: { modifiedAt?: number; size?: number; fingerprint?: string }) => {
+  const applySavedSnapshot = (
+    snapshot: SaveSnapshot,
+    result: { modifiedAt?: number; size?: number; fingerprint?: string },
+  ) => {
     const current = tabById[snapshot.tabId];
     if (!current || !samePath(current.path, snapshot.path)) return;
     const currentSnapshot = documentController.getHandle(current.id)?.getSnapshot();
     const currentContent = currentSnapshot?.content ?? normalizeDocumentContent(getDocumentText(current));
-    const currentLineEndings = currentSnapshot?.lineEndings ?? normalizeLineEndingMap(currentContent, current.lineEndings, current.lineEnding);
-    const changes = savedTabChanges(current, snapshot, { content: currentContent, lineEndings: currentLineEndings }, result);
+    const currentLineEndings =
+      currentSnapshot?.lineEndings ?? normalizeLineEndingMap(currentContent, current.lineEndings, current.lineEnding);
+    const changes = savedTabChanges(
+      current,
+      snapshot,
+      { content: currentContent, lineEndings: currentLineEndings },
+      result,
+    );
     const currentDirty = changes.dirty === true;
     updateTab(current.id, changes);
     if (!currentDirty) clearRecovery(current.id);
@@ -2923,17 +3836,28 @@ export default function App() {
     if (tabOrder().includes(current.id) && plugins().some((plugin) => plugin.enabled)) {
       const generation = workspaceGeneration;
       void getPluginHostModules().then((host) => {
-        if (!disposed && generation === workspaceGeneration) activatePluginsForEvent("onFileSave", { file: { path: current.path, name: current.name, language: host.activationLanguageId(fileLanguageForPath(current.path).label) } });
+        if (!disposed && generation === workspaceGeneration)
+          activatePluginsForEvent("onFileSave", {
+            file: {
+              path: current.path,
+              name: current.name,
+              language: host.activationLanguageId(fileLanguageForPath(current.path).label),
+            },
+          });
       });
     }
     if (!currentDirty) notify(t("Saved {name}", { name: current.name }));
   };
 
   let saveControllerPromise: Promise<SaveController> | undefined;
-  const getSaveController = () => saveControllerPromise ??= import("./lib/save-controller").then(({ createSaveController }) => createSaveController({
-    saveFile, onSaved: applySavedSnapshot,
-    onSaveFailed: (_snapshot, error) => notify(errorMessage(error, "Unable to save file.")),
-  }));
+  const getSaveController = () =>
+    (saveControllerPromise ??= import("./lib/save-controller").then(({ createSaveController }) =>
+      createSaveController({
+        saveFile,
+        onSaved: applySavedSnapshot,
+        onSaveFailed: (_snapshot, error) => notify(errorMessage(error, "Unable to save file."), "error"),
+      }),
+    ));
   const externalConflictController = createExternalConflictController(
     {
       queued: externalConflicts,
@@ -2961,11 +3885,24 @@ export default function App() {
   const saveTab = async (tab = activeTab()): Promise<boolean> => {
     if (!tab || tab.language === "Image") return false;
     const { trimTrailingWhitespace, insertFinalNewline } = settings();
-    if (trimTrailingWhitespace || insertFinalNewline) documentController.getHandle(tab.id)?.formatForSave({ trimTrailingWhitespace, insertFinalNewline });
+    if (trimTrailingWhitespace || insertFinalNewline)
+      documentController.getHandle(tab.id)?.formatForSave({ trimTrailingWhitespace, insertFinalNewline });
     const liveSnapshot = documentController.getHandle(tab.id)?.getSnapshot();
     const content = liveSnapshot?.content ?? normalizeDocumentContent(getDocumentText(tab));
     const lineEndings = liveSnapshot?.lineEndings ?? normalizeLineEndingMap(content, tab.lineEndings, tab.lineEnding);
-    const snapshot: SaveSnapshot = { tabId: tab.id, path: tab.path, revision: liveSnapshot?.revision ?? tab.revision, content, lineEnding: liveSnapshot?.lineEnding ?? lineEndingFromMap(lineEndings, tab.lineEnding), lineEndings, bom: liveSnapshot?.bom ?? tab.bom === true, encoding: liveSnapshot?.encoding ?? tab.encoding, expectedModifiedAt: tab.diskModifiedAt, expectedSize: tab.diskSize, expectedFingerprint: tab.diskFingerprint };
+    const snapshot: SaveSnapshot = {
+      tabId: tab.id,
+      path: tab.path,
+      revision: liveSnapshot?.revision ?? tab.revision,
+      content,
+      lineEnding: liveSnapshot?.lineEnding ?? lineEndingFromMap(lineEndings, tab.lineEnding),
+      lineEndings,
+      bom: liveSnapshot?.bom ?? tab.bom === true,
+      encoding: liveSnapshot?.encoding ?? tab.encoding,
+      expectedModifiedAt: tab.diskModifiedAt,
+      expectedSize: tab.diskSize,
+      expectedFingerprint: tab.diskFingerprint,
+    };
     const result = await (await getSaveController()).enqueue(snapshot);
     return result.ok;
   };
@@ -2973,23 +3910,50 @@ export default function App() {
   const restoreDirtyProjectDocuments = async (projectId?: string): Promise<boolean> => {
     for (const state of currentProjects().filter((project) => !projectId || project.id === projectId)) {
       const selected = () => state.id === activeProjectId();
-      const current = () => selected() ? captureProject() : projects().find((project) => project.id === state.id)!;
+      const current = () => (selected() ? captureProject() : projects().find((project) => project.id === state.id)!);
       const scope = sessionScope;
       const restored = await projectRuntime!.restoreProjectDocuments({
-        session: state.restoreMetadata, intent: state.restoreIntent, scope, recoveries: restoredCheckpointRecoveries, dirtyOnly: true,
+        session: state.restoreMetadata,
+        intent: state.restoreIntent,
+        scope,
+        recoveries: restoredCheckpointRecoveries,
+        dirtyOnly: true,
         isCurrent: () => !disposed && scope === sessionScope && projects().some((project) => project.id === state.id),
-        readDocument: readFile, normalizeReadFile, createImageTab: makeImageTab, getTabs: () => current().tabIds.map((id) => tabById[id]).filter(Boolean), getIntent: () => current().restoreIntent,
+        readDocument: readFile,
+        normalizeReadFile,
+        createImageTab: makeImageTab,
+        getTabs: () =>
+          current()
+            .tabIds.map((id) => tabById[id])
+            .filter(Boolean),
+        getIntent: () => current().restoreIntent,
         onTabs: (items) => {
           if (selected()) setTabs(items);
-          else batch(() => { for (const tab of items) setTabById(tab.id, tab); setProjects((projects) => projects.map((project) => project.id === state.id ? { ...project, tabIds: items.map((tab) => tab.id) } : project)); });
+          else
+            batch(() => {
+              for (const tab of items) setTabById(tab.id, tab);
+              setProjects((projects) =>
+                projects.map((project) =>
+                  project.id === state.id ? { ...project, tabIds: items.map((tab) => tab.id) } : project,
+                ),
+              );
+            });
         },
         onIntent: (intent) => {
           if (selected()) restoreIntent = intent;
-          else setProjects((items) => items.map((project) => project.id === state.id ? { ...project, restoreIntent: intent } : project));
+          else
+            setProjects((items) =>
+              items.map((project) => (project.id === state.id ? { ...project, restoreIntent: intent } : project)),
+            );
         },
         onConflict: (tab) => {
           if (selected()) externalConflictController.queue(tab);
-          else setProjects((items) => items.map((project) => project.id === state.id ? { ...project, conflicts: [...project.conflicts, tab] } : project));
+          else
+            setProjects((items) =>
+              items.map((project) =>
+                project.id === state.id ? { ...project, conflicts: [...project.conflicts, tab] } : project,
+              ),
+            );
         },
         onFailure: () => notify(t("Some unsaved files could not be restored. Their recovery data has been retained.")),
       });
@@ -2999,7 +3963,7 @@ export default function App() {
   };
 
   const saveAll = async (): Promise<boolean> => {
-    if (!await restoreDirtyProjectDocuments()) return false;
+    if (!(await restoreDirtyProjectDocuments())) return false;
     let failed = false;
     for (const tab of allLoadedTabs()) {
       if (tab.dirty && !(await saveTab(tab))) failed = true;
@@ -3018,23 +3982,42 @@ export default function App() {
       const lineEndings = snapshot?.lineEndings ?? normalizeLineEndingMap(content, tab.lineEndings, tab.lineEnding);
       const bom = snapshot?.bom ?? tab.bom === true;
       updateTab(tab.id, {
-        content, lineEndings, bom, dirty: false,
-        savedContent: content, savedLineEndings: lineEndings, savedBom: bom,
-        savedRevision: tab.revision, normalizedContentVersion: tab.contentVersion,
+        content,
+        lineEndings,
+        bom,
+        dirty: false,
+        savedContent: content,
+        savedLineEndings: lineEndings,
+        savedBom: bom,
+        savedRevision: tab.revision,
+        normalizedContentVersion: tab.contentVersion,
         normalizedSavedRevision: tab.revision,
       });
     }
-    const discardPending = (metadata: SessionMetadata | undefined) => metadata ? { ...metadata, tabs: metadata.tabs.map((tab) => {
-      if (tab.dirty) clearRecovery(tab.id);
-      return { ...tab, dirty: false };
-    }) } : undefined;
+    const discardPending = (metadata: SessionMetadata | undefined) =>
+      metadata
+        ? {
+            ...metadata,
+            tabs: metadata.tabs.map((tab) => {
+              if (tab.dirty) clearRecovery(tab.id);
+              return { ...tab, dirty: false };
+            }),
+          }
+        : undefined;
     restoreMetadata = discardPending(restoreMetadata);
-    setProjects((items) => items.map((project) => ({ ...project, restoreMetadata: discardPending(project.restoreMetadata) })));
+    setProjects((items) =>
+      items.map((project) => ({ ...project, restoreMetadata: discardPending(project.restoreMetadata) })),
+    );
   };
 
   const captureDirtyTabs = () => projectRuntime!.captureDirtyProjectTabs(allLoadedTabs(), documentController.getHandle);
 
-  const restoreCloseAttempt = async (workspacePath: string, discardedTabs: EditorTab[], releaseUiBeforeStorage = false, projectSnapshot?: ProjectWorkspaceState[]) => {
+  const restoreCloseAttempt = async (
+    workspacePath: string,
+    discardedTabs: EditorTab[],
+    releaseUiBeforeStorage = false,
+    projectSnapshot?: ProjectWorkspaceState[],
+  ) => {
     closeCleanupGeneration += 1;
     const restoreCloseGeneration = closeCleanupGeneration;
     if (workspace() !== workspacePath) return;
@@ -3048,7 +4031,10 @@ export default function App() {
         for (const tab of projectSession(project).tabs.filter((tab) => tab.dirty)) {
           if (tabById[tab.id]) continue;
           const snapshot = restoredCheckpointRecoveries?.[recoveryKey(tab.id)];
-          if (snapshot) { pendingRecoverySnapshots.set(recoveryKey(tab.id), { ...snapshot, version: 1 }); pendingRecoveryRemovals.delete(recoveryKey(tab.id)); }
+          if (snapshot) {
+            pendingRecoverySnapshots.set(recoveryKey(tab.id), { ...snapshot, version: 1 });
+            pendingRecoveryRemovals.delete(recoveryKey(tab.id));
+          }
         }
       }
     }
@@ -3057,18 +4043,29 @@ export default function App() {
       for (const [id, tab] of originals) if (tabById[id]) setTabById(id, tab);
     }
     sessionLease = undefined;
-    if (releaseUiBeforeStorage) blockSessionPersistence("Session recovery is being restored after the application quit was cancelled.");
+    if (releaseUiBeforeStorage)
+      blockSessionPersistence("Session recovery is being restored after the application quit was cancelled.");
     watcherSessionId = undefined;
     watcherNeedsRestart = true;
     void restartWatcher();
     scheduleGitRefresh(allGitDirtyState());
     await reattachSessionWindow(workspacePath, restoreGeneration, restoreCloseGeneration);
-    if (closeCleanupGeneration !== restoreCloseGeneration || workspaceGeneration !== restoreGeneration || workspace() !== workspacePath) return;
+    if (
+      closeCleanupGeneration !== restoreCloseGeneration ||
+      workspaceGeneration !== restoreGeneration ||
+      workspace() !== workspacePath
+    )
+      return;
     for (const tab of discardedTabs) {
       if (tab.dirty) persistRecovery(tab.id);
     }
     const recoveryRestored = await flushRecoveryWrites();
-    if (closeCleanupGeneration !== restoreCloseGeneration || workspaceGeneration !== restoreGeneration || workspace() !== workspacePath) return;
+    if (
+      closeCleanupGeneration !== restoreCloseGeneration ||
+      workspaceGeneration !== restoreGeneration ||
+      workspace() !== workspacePath
+    )
+      return;
     if (!recoveryRestored) notify(t("Session recovery could not be restored after the window stayed open."));
   };
 
@@ -3095,7 +4092,7 @@ export default function App() {
     const finishCloseCleanup = async (): Promise<boolean> => {
       let succeeded = true;
       try {
-        if (!await flushRecoveryWrites()) {
+        if (!(await flushRecoveryWrites())) {
           succeeded = false;
           console.warn("Session state could not be saved before closing.");
         }
@@ -3115,9 +4112,9 @@ export default function App() {
       if (cleanupGeneration !== closeCleanupGeneration) return false;
       if (closingLease && sessionLease === closingLease) {
         sessionLease = undefined;
-        if (!await sessionLeaseReleaseQueue.release(closingLease)) succeeded = false;
+        if (!(await sessionLeaseReleaseQueue.release(closingLease))) succeeded = false;
       }
-      if (!await sessionLeaseReleaseQueue.releaseAll()) succeeded = false;
+      if (!(await sessionLeaseReleaseQueue.releaseAll())) succeeded = false;
       return cleanupGeneration === closeCleanupGeneration && succeeded;
     };
     if (timeoutMs <= 0) return finishCloseCleanup();
@@ -3126,7 +4123,10 @@ export default function App() {
     const result = await Promise.race([
       finishCloseCleanup().then((succeeded) => ({ timedOut: false, succeeded })),
       new Promise<{ timedOut: true; succeeded: false }>((resolve) => {
-        closeCleanupTimer = window.setTimeout(() => { closeCleanupTimedOut = true; resolve({ timedOut: true, succeeded: false }); }, timeoutMs);
+        closeCleanupTimer = window.setTimeout(() => {
+          closeCleanupTimedOut = true;
+          resolve({ timedOut: true, succeeded: false });
+        }, timeoutMs);
       }),
     ]);
     window.clearTimeout(closeCleanupTimer);
@@ -3138,7 +4138,16 @@ export default function App() {
   };
 
   const closeWindow = async (decision: AppQuitDecision = "preserve", confirmed = false) => {
-    if (!isTauri || closeSaving() || confirmedOperationInProgress() || appQuitPrepared() || dialogRequestInFlight || projectCloseId() || (closePromptOpen() && !confirmed)) return;
+    if (
+      !isTauri ||
+      closeSaving() ||
+      confirmedOperationInProgress() ||
+      appQuitPrepared() ||
+      dialogRequestInFlight ||
+      projectCloseId() ||
+      (closePromptOpen() && !confirmed)
+    )
+      return;
     if (!confirmed && windowHasDirtyTabs()) {
       setClosePromptOpen(true);
       return;
@@ -3152,11 +4161,11 @@ export default function App() {
     try {
       if (decision === "save" && !(await saveAll())) return;
       cleanupStarted = true;
-      if (!await flushWindowBeforeClose(decision === "discard")) {
+      if (!(await flushWindowBeforeClose(decision === "discard"))) {
         setClosePromptOpen(false);
         void restoreCloseAttempt(closingWorkspace, discardedTabs, true, projectSnapshot).catch((error) => {
           emitDiagnostic("session.restore", error);
-          notify(errorMessage(error, "The window stayed open, but session recovery could not be restored."));
+          notify(errorMessage(error, "The window stayed open, but session recovery could not be restored."), "error");
         });
         cleanupStarted = false;
         notify(t("The window stayed open because its session could not be closed safely."));
@@ -3169,10 +4178,13 @@ export default function App() {
         setClosePromptOpen(false);
         void restoreCloseAttempt(closingWorkspace, discardedTabs, true, projectSnapshot).catch((restoreError) => {
           emitDiagnostic("session.restore", restoreError);
-          notify(errorMessage(restoreError, "The window stayed open, but session recovery could not be restored."));
+          notify(
+            errorMessage(restoreError, "The window stayed open, but session recovery could not be restored."),
+            "error",
+          );
         });
       }
-      notify(errorMessage(error, "Unable to close window."));
+      notify(errorMessage(error, "Unable to close window."), "error");
     } finally {
       setCloseSaving(false);
       setConfirmedOperationInProgress(false);
@@ -3203,7 +4215,7 @@ export default function App() {
       await invokeQuitCommand("app_quit_prepare_reply", { requestId, decision });
     } catch (error) {
       clearAppQuitState(requestId);
-      notify(errorMessage(error, "Unable to confirm the application quit request."));
+      notify(errorMessage(error, "Unable to confirm the application quit request."), "error");
     }
   };
 
@@ -3238,10 +4250,16 @@ export default function App() {
     }
     clearAppQuitState(payload.requestId);
     if (payload.error) notify(t("Application quit was cancelled: {error}", { error: payload.error }));
-    if (restoration) void restoration.catch((error) => {
-      emitDiagnostic("window.restore", error);
-      notify(t("The window stayed open, but session recovery could not be restored: {value}", { value: errorMessage(error, "unknown error") }));
-    });
+    if (restoration)
+      void restoration.catch((error) => {
+        emitDiagnostic("window.restore", error);
+        notify(
+          t("The window stayed open, but session recovery could not be restored: {value}", {
+            value: errorMessage(error, "unknown error"),
+          }),
+          "error",
+        );
+      });
   };
 
   const handleAppQuitCommit = async (payload: AppQuitCommitPayload) => {
@@ -3250,9 +4268,7 @@ export default function App() {
       requestId: payload.requestId,
       workspace: workspace(),
       projects: payload.decision === "discard" ? currentProjects() : undefined,
-      discardedTabs: payload.decision === "discard"
-        ? captureDirtyTabs()
-        : [],
+      discardedTabs: payload.decision === "discard" ? captureDirtyTabs() : [],
     };
     setCloseSaving(true);
     try {
@@ -3261,7 +4277,7 @@ export default function App() {
       await invokeQuitCommand("app_quit_commit_ready", { requestId: payload.requestId });
     } catch (error) {
       emitDiagnostic("window.close", error);
-      notify(errorMessage(error, "Unable to safely close this application window."));
+      notify(errorMessage(error, "Unable to safely close this application window."), "error");
     } finally {
       setCloseSaving(false);
     }
@@ -3279,7 +4295,7 @@ export default function App() {
       const saved = await saveAll();
       await replyToAppQuitPrepare(requestId, saved ? "save" : "cancel");
     } catch (error) {
-      notify(errorMessage(error, "Unable to save all files before quitting."));
+      notify(errorMessage(error, "Unable to save all files before quitting."), "error");
       await replyToAppQuitPrepare(requestId, "cancel");
     } finally {
       setCloseSaving(false);
@@ -3309,12 +4325,17 @@ export default function App() {
     let active = true;
     let unlisten: (() => void) | undefined;
     // The Dock menu and the taskbar Jump List open recent items in the last focused window.
-    void import("@tauri-apps/api/event").then(({ listen }) => listen<{ windowLabel: string; path: string }>("open-recent-path", ({ payload }) => {
-      if (payload.windowLabel === sessionWindowId) void openLaunchPath(payload.path);
-    })).then((stop) => {
-      if (active) unlisten = stop;
-      else stop();
-    }).catch((error) => emitDiagnostic("window.failure", error));
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        listen<{ windowLabel: string; path: string }>("open-recent-path", ({ payload }) => {
+          if (payload.windowLabel === sessionWindowId) void openLaunchPath(payload.path);
+        }),
+      )
+      .then((stop) => {
+        if (active) unlisten = stop;
+        else stop();
+      })
+      .catch((error) => emitDiagnostic("window.failure", error));
     onCleanup(() => {
       active = false;
       unlisten?.();
@@ -3325,24 +4346,37 @@ export default function App() {
     if (!isTauri) return;
     let active = true;
     const unlisteners: Array<() => void> = [];
-    void import("@tauri-apps/api/event").then(({ listen }) => Promise.all([
-      listen<AppQuitPreparePayload>("app-quit-prepare", ({ payload }) => handleAppQuitPrepare(payload)),
-      listen<AppQuitCommitPayload>("app-quit-commit", ({ payload }) => { void handleAppQuitCommit(payload); }),
-      listen<AppQuitAbortPayload>("app-quit-abort", ({ payload }) => { void handleAppQuitAbort(payload); }),
-    ])).then(async (registered) => {
-      if (!active) {
-        registered.forEach((unlisten) => unlisten());
-        return;
-      }
-      unlisteners.push(...registered);
-      await invokeQuitCommand("app_quit_events_ready");
-    }).catch((error) => {
-      emitDiagnostic("window.close", error);
-      notify(errorMessage(error, "Application quit protection could not be initialized."));
-    });
+    void import("@tauri-apps/api/event")
+      .then(({ listen }) =>
+        Promise.all([
+          listen<AppQuitPreparePayload>("app-quit-prepare", ({ payload }) => handleAppQuitPrepare(payload)),
+          listen<AppQuitCommitPayload>("app-quit-commit", ({ payload }) => {
+            void handleAppQuitCommit(payload);
+          }),
+          listen<AppQuitAbortPayload>("app-quit-abort", ({ payload }) => {
+            void handleAppQuitAbort(payload);
+          }),
+        ]),
+      )
+      .then(async (registered) => {
+        if (!active) {
+          registered.forEach((unlisten) => {
+            unlisten();
+          });
+          return;
+        }
+        unlisteners.push(...registered);
+        await invokeQuitCommand("app_quit_events_ready");
+      })
+      .catch((error) => {
+        emitDiagnostic("window.close", error);
+        notify(errorMessage(error, "Application quit protection could not be initialized."), "error");
+      });
     onCleanup(() => {
       active = false;
-      unlisteners.forEach((unlisten) => unlisten());
+      unlisteners.forEach((unlisten) => {
+        unlisten();
+      });
     });
   });
 
@@ -3464,8 +4498,10 @@ export default function App() {
     const generation = workspaceGeneration;
     try {
       if (isImagePath(targetPath)) {
-        if (!await pathExists(targetPath)) throw new Error(t("The image file no longer exists: {path}.", { path: currentDiff.path }));
-        if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
+        if (!(await pathExists(targetPath)))
+          throw new Error(t("The image file no longer exists: {path}.", { path: currentDiff.path }));
+        if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff())
+          return;
         openImageFile(targetPath);
         return;
       }
@@ -3477,9 +4513,14 @@ export default function App() {
       if (requestVersion !== diffRequestVersion || generation !== workspaceGeneration || currentDiff !== diff()) return;
       if (activeTab()) {
         setViewMode("editor");
-        notify(t("{error} Showing the current editor instead.", { error: errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })) }));
+        notify(
+          t("{error} Showing the current editor instead.", {
+            error: errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })),
+          }),
+          "error",
+        );
       } else {
-        notify(errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })));
+        notify(errorMessage(error, t("Unable to open {path}.", { path: currentDiff.path })), "error");
       }
     }
   };
@@ -3490,13 +4531,25 @@ export default function App() {
     const requestedWorkspace = workspace();
     try {
       const result = await getGitDiff(requestedWorkspace, file.path, staged, untrackedHint);
-      if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
+      if (
+        disposed ||
+        requestVersion !== diffRequestVersion ||
+        generation !== workspaceGeneration ||
+        requestedWorkspace !== workspace()
+      )
+        return;
       setDiffReturnToHistory(false);
       setDiff({ ...result, untrackedHint, label: staged ? "STAGED CHANGES" : "WORKING TREE" });
       setViewMode("diff");
     } catch (error) {
-      if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
-      notify(errorMessage(error, "Unable to open Git diff."));
+      if (
+        disposed ||
+        requestVersion !== diffRequestVersion ||
+        generation !== workspaceGeneration ||
+        requestedWorkspace !== workspace()
+      )
+        return;
+      notify(errorMessage(error, "Unable to open Git diff."), "error");
     }
   };
 
@@ -3506,13 +4559,25 @@ export default function App() {
     const requestedWorkspace = workspace();
     try {
       const result = await getGitCommitDiff(requestedWorkspace, commit.hash, file.path);
-      if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
+      if (
+        disposed ||
+        requestVersion !== diffRequestVersion ||
+        generation !== workspaceGeneration ||
+        requestedWorkspace !== workspace()
+      )
+        return;
       setDiffReturnToHistory(returnToHistory);
       setDiff({ ...result, commit: commit.hash, label: t("COMMIT {hash}", { hash: commit.shortHash }) });
       setViewMode("diff");
     } catch (error) {
-      if (disposed || requestVersion !== diffRequestVersion || generation !== workspaceGeneration || requestedWorkspace !== workspace()) return;
-      notify(errorMessage(error, "Unable to open Git diff."));
+      if (
+        disposed ||
+        requestVersion !== diffRequestVersion ||
+        generation !== workspaceGeneration ||
+        requestedWorkspace !== workspace()
+      )
+        return;
+      notify(errorMessage(error, "Unable to open Git diff."), "error");
     }
   };
 
@@ -3520,15 +4585,23 @@ export default function App() {
     const requestVersion = ++diffRequestVersion;
     const generation = workspaceGeneration;
     const requestedWorkspace = workspace();
-    const isCurrent = () => !disposed && requestVersion === diffRequestVersion && generation === workspaceGeneration && requestedWorkspace === workspace();
+    const isCurrent = () =>
+      !disposed &&
+      requestVersion === diffRequestVersion &&
+      generation === workspaceGeneration &&
+      requestedWorkspace === workspace();
     try {
       const result = await getGitStashDiff(requestedWorkspace, stash.hash, file.path, file.untracked);
       if (!isCurrent()) return;
       setDiffReturnToHistory(false);
-      setDiff({ ...result, stash: { hash: stash.hash, untracked: file.untracked }, label: t("STASH {reference}", { reference: stash.reference }) });
+      setDiff({
+        ...result,
+        stash: { hash: stash.hash, untracked: file.untracked },
+        label: t("STASH {reference}", { reference: stash.reference }),
+      });
       setViewMode("diff");
     } catch (error) {
-      if (isCurrent()) notify(errorMessage(error, "Unable to open the stashed change."));
+      if (isCurrent()) notify(errorMessage(error, "Unable to open the stashed change."), "error");
     }
   };
 
@@ -3541,14 +4614,30 @@ export default function App() {
     setDiffContextLoading(true);
     try {
       const result = current.stash
-        ? await getGitStashDiff(requestedWorkspace, current.stash.hash, current.path, current.stash.untracked, current.nextContextLines)
+        ? await getGitStashDiff(
+            requestedWorkspace,
+            current.stash.hash,
+            current.path,
+            current.stash.untracked,
+            current.nextContextLines,
+          )
         : current.commit
-        ? await getGitCommitDiff(requestedWorkspace, current.commit, current.path, current.nextContextLines)
-        : await getGitDiff(requestedWorkspace, current.path, current.staged, current.untrackedHint, current.nextContextLines);
-      if (generation === workspaceGeneration && requestVersion === diffRequestVersion && current === diff()) setDiff({ ...current, ...result, label: current.label });
+          ? await getGitCommitDiff(requestedWorkspace, current.commit, current.path, current.nextContextLines)
+          : await getGitDiff(
+              requestedWorkspace,
+              current.path,
+              current.staged,
+              current.untrackedHint,
+              current.nextContextLines,
+            );
+      if (generation === workspaceGeneration && requestVersion === diffRequestVersion && current === diff())
+        setDiff({ ...current, ...result, label: current.label });
     } catch (error) {
-      if (generation === workspaceGeneration && requestVersion === diffRequestVersion) notify(errorMessage(error, "Unable to expand diff context."));
-    } finally { setDiffContextLoading(false); }
+      if (generation === workspaceGeneration && requestVersion === diffRequestVersion)
+        notify(errorMessage(error, "Unable to expand diff context."), "error");
+    } finally {
+      setDiffContextLoading(false);
+    }
   };
 
   const openCommitDiffFromHistory = (commit: GitCommit, file: GitCommitFile) => void openCommitDiff(commit, file, true);
@@ -3604,13 +4693,13 @@ export default function App() {
   };
   const runEditorCommand = (command: EditorCommandName) => {
     const tabId = activeTabId();
-    if (tabId && viewMode() === "editor" && !isMarkdownPreview()) setEditorCommand({ command, tabId, actionId: Date.now() });
+    if (tabId && viewMode() === "editor" && !isMarkdownPreview())
+      setEditorCommand({ command, tabId, actionId: Date.now() });
   };
   const openProjectSearch = (mode: ProjectSearchRequest["mode"]) => {
     if (!workspace()) return;
     const query = mode === "content" ? selectedSearchText() : undefined;
-    setSidebarHidden(false);
-    setSidebarView("search");
+    showSidebarView("search");
     setProjectSearchRequest({ id: Date.now(), mode, query });
   };
   const collapseExplorer = () => {
@@ -3625,7 +4714,9 @@ export default function App() {
       setViewMode("history");
     }
     window.requestAnimationFrame(() => {
-      const input = document.querySelector<HTMLInputElement>(".editor-slot:not(.editor-slot-hidden) .git-history-full .git-history-search input");
+      const input = document.querySelector<HTMLInputElement>(
+        ".editor-slot:not(.editor-slot-hidden) .git-history-full .git-history-search input",
+      );
       input?.focus();
       input?.select();
     });
@@ -3643,14 +4734,33 @@ export default function App() {
     if (!tabId || !tab) return;
     const generation = workspaceGeneration;
     const snapshot = captureTabOperation(tab);
-    const value = await requestInput({ title: t("Go to line"), label: t("Line number, optionally followed by :column"), initialValue: String(tab.cursorLine), placeholder: "12:5", submitLabel: t("Go") });
+    const value = await requestInput({
+      title: t("Go to line"),
+      label: t("Line number, optionally followed by :column"),
+      initialValue: String(tab.cursorLine),
+      placeholder: "12:5",
+      submitLabel: t("Go"),
+    });
     if (value === null) return;
-    if (generation !== workspaceGeneration || activeTabId() !== tabId || !tabOperationIsCurrent(snapshot) || confirmedOperationInProgress() || appQuitPrepared()) {
+    if (
+      generation !== workspaceGeneration ||
+      activeTabId() !== tabId ||
+      !tabOperationIsCurrent(snapshot) ||
+      confirmedOperationInProgress() ||
+      appQuitPrepared()
+    ) {
       notify(t("The active file changed while Go to line was open."));
       return;
     }
-    const [line, column] = value.trim().split(/\s*[:,]\s*/).map(Number);
-    if (!Number.isSafeInteger(line) || line < 1 || column !== undefined && (!Number.isSafeInteger(column) || column < 1)) {
+    const [line, column] = value
+      .trim()
+      .split(/\s*[:,]\s*/)
+      .map(Number);
+    if (
+      !Number.isSafeInteger(line) ||
+      line < 1 ||
+      (column !== undefined && (!Number.isSafeInteger(column) || column < 1))
+    ) {
       notify(t("Enter a positive whole line number."));
       return;
     }
@@ -3694,36 +4804,67 @@ export default function App() {
         notify(t("Use a single file or folder name without path separators."));
         return;
       }
-      if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || confirmedOperationInProgress() || appQuitPrepared()) return;
+      if (
+        requestGeneration !== workspaceGeneration ||
+        requestWorkspace !== workspace() ||
+        confirmedOperationInProgress() ||
+        appQuitPrepared()
+      )
+        return;
       setConfirmedOperationInProgress(true);
       try {
-        if (!await pathExists(targetDirectory) || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace()) {
+        if (
+          !(await pathExists(targetDirectory)) ||
+          requestGeneration !== workspaceGeneration ||
+          requestWorkspace !== workspace()
+        ) {
           notify(t("The destination folder changed. Try again."));
           return;
         }
         const path = joinPath(targetDirectory, name);
-        if (action === "new-file") await createFile(path); else await createDirectory(path);
-        notify(`${action === "new-file" ? "Created" : "Created folder"} ${name}`);
-        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(targetDirectory);
+        if (action === "new-file") await createFile(path);
+        else await createDirectory(path);
+        notify(action === "new-file" ? t("Created {name}", { name }) : t("Created folder {name}", { name }));
+        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace())
+          await refreshRoot(targetDirectory);
       } catch (error) {
-        notify(errorMessage(error, "Unable to create item."));
+        notify(errorMessage(error, "Unable to create item."), "error");
       } finally {
         setConfirmedOperationInProgress(false);
       }
     }
     if (action === "rename") {
-      const affectedSnapshots = tabs().filter((tab) => isSameOrDescendantPath(tab.path, entry.path)).map(captureTabOperation);
-      const name = await requestInput({ title: t("Rename {name}", { name: entry.name }), label: t("New name"), initialValue: entry.name, submitLabel: t("Rename") });
+      const affectedSnapshots = tabs()
+        .filter((tab) => isSameOrDescendantPath(tab.path, entry.path))
+        .map(captureTabOperation);
+      const name = await requestInput({
+        title: t("Rename {name}", { name: entry.name }),
+        label: t("New name"),
+        initialValue: entry.name,
+        submitLabel: t("Rename"),
+      });
       if (!name || name === entry.name) return;
       if (!isSafeEntryName(name)) {
         notify(t("Use a single file or folder name without path separators."));
         return;
       }
-      if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || confirmedOperationInProgress() || appQuitPrepared() || !tabOperationsAreCurrent(affectedSnapshots)) return;
+      if (
+        requestGeneration !== workspaceGeneration ||
+        requestWorkspace !== workspace() ||
+        confirmedOperationInProgress() ||
+        appQuitPrepared() ||
+        !tabOperationsAreCurrent(affectedSnapshots)
+      )
+        return;
       setConfirmedOperationInProgress(true);
       try {
         const sourceExists = await pathExists(entry.path);
-        if (!sourceExists || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || !tabOperationsAreCurrent(affectedSnapshots)) {
+        if (
+          !sourceExists ||
+          requestGeneration !== workspaceGeneration ||
+          requestWorkspace !== workspace() ||
+          !tabOperationsAreCurrent(affectedSnapshots)
+        ) {
           notify(t("The file or folder changed. It was not renamed."));
           return;
         }
@@ -3732,9 +4873,10 @@ export default function App() {
         renameOpenTabs(entry.path, nextPath);
         setRoot((current) => renameEntryPaths(current, entry.path, nextPath));
         notify(t("Renamed to {name}", { name }));
-        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(parentPath(nextPath));
+        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace())
+          await refreshRoot(parentPath(nextPath));
       } catch (error) {
-        notify(errorMessage(error, "Unable to rename item."));
+        notify(errorMessage(error, "Unable to rename item."), "error");
       } finally {
         setConfirmedOperationInProgress(false);
       }
@@ -3757,8 +4899,15 @@ export default function App() {
       try {
         const currentAffected = tabs().filter((tab) => isSameOrDescendantPath(tab.path, entry.path));
         const sourceExists = await pathExists(entry.path);
-        const latestAffected = tabs().filter((tab) => isSameOrDescendantPath(tab.path, entry.path)).map(captureTabOperation);
-        if (!sourceExists || requestGeneration !== workspaceGeneration || requestWorkspace !== workspace() || !sameTabOperations(affectedSnapshots, latestAffected)) {
+        const latestAffected = tabs()
+          .filter((tab) => isSameOrDescendantPath(tab.path, entry.path))
+          .map(captureTabOperation);
+        if (
+          !sourceExists ||
+          requestGeneration !== workspaceGeneration ||
+          requestWorkspace !== workspace() ||
+          !sameTabOperations(affectedSnapshots, latestAffected)
+        ) {
           notify(t("The file or folder changed while waiting for confirmation. Nothing was moved."));
           return;
         }
@@ -3782,22 +4931,84 @@ export default function App() {
           if (affectedIds.has(activeTabId() ?? "")) setActiveTab(remaining[0]?.id);
         }
         notify(t("Moved {name} to {value}", { name: entry.name, value: trashLocationLabel(windowPlatform) }));
-        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace()) await refreshRoot(parentPath(entry.path));
+        if (requestGeneration === workspaceGeneration && requestWorkspace === workspace())
+          await refreshRoot(parentPath(entry.path));
       } catch (error) {
-        notify(errorMessage(error, "Unable to delete item."));
+        notify(errorMessage(error, "Unable to delete item."), "error");
       } finally {
         setConfirmedOperationInProgress(false);
       }
     }
   };
 
+  const copyExplorerEntry = (entry: DirectoryEntry) => {
+    const root = folderContaining(entry.path, workspaceFolders(), PATH_OPTIONS);
+    if (!root) return;
+    setExplorerClipboard({ path: entry.path, name: entry.name, root });
+    notify(t("Copied {name}", { name: entry.name }));
+  };
+
+  const pasteExplorerEntry = async (entry: DirectoryEntry) => {
+    const copied = explorerClipboard();
+    if (!copied || confirmedOperationInProgress() || appQuitPrepared()) return;
+    if (pasteInFlight) {
+      notify(t("Wait for the current paste to finish."));
+      return;
+    }
+    const targetDirectory = entry.kind === "directory" ? entry.path : parentPath(entry.path);
+    const targetRoot = folderContaining(targetDirectory, workspaceFolders(), PATH_OPTIONS);
+    if (!targetRoot) return;
+    const requestGeneration = workspaceGeneration;
+    const requestWorkspace = workspace();
+    pasteInFlight = true;
+    notify(t("Pasting {name}…", { name: copied.name }));
+    window.clearTimeout(toastTimer);
+    try {
+      const { path, skippedSpecialItems } = await copyPath(copied.path, copied.root, targetDirectory, targetRoot);
+      const name = baseName(path);
+      notify(
+        skippedSpecialItems
+          ? t("Pasted {name}. Skipped {count} sockets or other special items.", { name, count: skippedSpecialItems })
+          : t("Pasted {name}", { name }),
+      );
+      if (requestGeneration !== workspaceGeneration || requestWorkspace !== workspace()) return;
+      setRoot((current) => updateEntry(current, targetDirectory, (item) => ({ ...item, expanded: true })));
+      await refreshRoot(targetDirectory);
+      setExplorerRevealPath(path);
+    } catch (error) {
+      notify(errorMessage(error, "Unable to paste item."), "error");
+    } finally {
+      pasteInFlight = false;
+    }
+  };
+
+  const showGitignoreOutcome = async (outcome: Promise<string>) => {
+    closeFileMenu();
+    contextMenuFocusTarget?.focus({ preventScroll: true });
+    try {
+      notify(await outcome);
+      await refreshGit(false);
+    } catch (error) {
+      notify(errorMessage(error, "Unable to add to .gitignore."), "error");
+    }
+  };
+
   const refreshDirectory = async (path: string, generation = workspaceGeneration) => {
     if (generation !== workspaceGeneration || disposed) return false;
     const currentWorkspace = workspace();
-    if (!currentWorkspace) { setRoot(makeRecentProjectsRoot(recentProjects())); return false; }
+    if (!currentWorkspace) {
+      setRoot(makeRecentProjectsRoot(recentProjects()));
+      return false;
+    }
     const epoch = directoryRefreshEpoch;
     const coordinator = await getDirectoryRefreshCoordinator();
-    if (epoch !== directoryRefreshEpoch || generation !== workspaceGeneration || currentWorkspace !== workspace() || disposed) return false;
+    if (
+      epoch !== directoryRefreshEpoch ||
+      generation !== workspaceGeneration ||
+      currentWorkspace !== workspace() ||
+      disposed
+    )
+      return false;
     return coordinator.refresh(path);
   };
   const scheduleDirectoryRefresh = (path: string) => {
@@ -3805,14 +5016,33 @@ export default function App() {
     if (!currentWorkspace || disposed) return;
     const generation = workspaceGeneration;
     const epoch = directoryRefreshEpoch;
-    void getDirectoryRefreshCoordinator().then((coordinator) => {
-      if (epoch !== directoryRefreshEpoch || generation !== workspaceGeneration || currentWorkspace !== workspace() || disposed) return;
-      coordinator.schedule(path);
-    }).catch((error: unknown) => {
-      if (epoch !== directoryRefreshEpoch || generation !== workspaceGeneration || currentWorkspace !== workspace() || disposed) return;
-      setRoot((current) => updateEntry(markDirectoryStale(current, path), path, (entry) => ({ ...entry, partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") } })));
-      notify(t("Unable to load workspace directory refresh."));
-    });
+    void getDirectoryRefreshCoordinator()
+      .then((coordinator) => {
+        if (
+          epoch !== directoryRefreshEpoch ||
+          generation !== workspaceGeneration ||
+          currentWorkspace !== workspace() ||
+          disposed
+        )
+          return;
+        coordinator.schedule(path);
+      })
+      .catch((error: unknown) => {
+        if (
+          epoch !== directoryRefreshEpoch ||
+          generation !== workspaceGeneration ||
+          currentWorkspace !== workspace() ||
+          disposed
+        )
+          return;
+        setRoot((current) =>
+          updateEntry(markDirectoryStale(current, path), path, (entry) => ({
+            ...entry,
+            partialError: { kind: "metadata", message: errorMessage(error, "Unable to read directory.") },
+          })),
+        );
+        notify(t("Unable to load workspace directory refresh."), "error");
+      });
   };
 
   const relistAllDirectories = () => {
@@ -3837,328 +5067,426 @@ export default function App() {
       await refreshGit(false, requestWorkspace);
     } catch (error) {
       if (!disposed && requestGeneration === workspaceGeneration && requestWorkspace === workspace()) {
-        notify(errorMessage(error, "Unable to refresh workspace."));
+        notify(errorMessage(error, "Unable to refresh workspace."), "error");
       }
     }
   };
 
-  const createPluginApiExecutor = (host: PluginHostModules, plugin: InstalledPlugin, editorRevisionTracker: PluginEditorRevisionTracker): PluginApiV2Dependencies["execute"] => async (method, params, context) => {
-    const requireWorkspaceRoot = () => {
-      if (!context.workspaceRoot) throw new Error("This plugin operation needs an open workspace.");
-      return context.workspaceRoot;
-    };
-    const throwIfCancelled = () => {
-      if (context.signal.aborted) throw new Error("Plugin API operation was cancelled.");
-    };
-    try {
-      switch (method) {
-        case "editor.getText": {
-          const currentTab = activeTab();
-          if (!currentTab) throw new Error("There is no active editor.");
-          const handle = documentController.getHandle(currentTab.id);
-          if ((handle?.getTextLength() ?? currentTab.content.length) > 128 * 1024) throw new host.PluginApiV2OperationError("editor.range_required", "editor.range_required");
-          return handle?.getText() ?? getDocumentText(currentTab);
-        }
-        case "editor.getTextRange": {
-          const currentTab = activeTab();
-          if (!currentTab || currentTab.language === "Image") throw new host.PluginApiV2OperationError("editor.unavailable", "editor.unavailable");
-          if (!editorRevisionTracker.matches(params.revision as number, currentTab.id, currentTab.revision, activeTabSelectionGeneration)) throw new host.PluginApiV2OperationError("editor.stale_revision", "editor.stale_revision");
-          const handle = documentController.getHandle(currentTab.id);
-          const length = handle?.getTextLength() ?? currentTab.content.length;
-          const from = params.from as number;
-          const to = params.to as number;
-          if (from < 0 || to < from || to > length || to - from > 128 * 1024) throw new host.PluginApiV2OperationError("editor.invalid_range", "editor.invalid_range");
-          return { revision: params.revision, from, to, content: handle?.getRange(from, to) ?? currentTab.content.slice(from, to) };
-        }
-        case "editor.getSelection": {
-          const currentTab = activeTab();
-          if (!currentTab) throw new Error("There is no active editor.");
-          const selection = documentController.getHandle(currentTab.id)?.getSelection();
-          if (!selection) throw new Error("The active editor selection is unavailable.");
-          return selection;
-        }
-        case "editor.getCursor": {
-          const currentTab = activeTab();
-          if (!currentTab) throw new Error("There is no active editor.");
-          const cursor = documentController.getHandle(currentTab.id)?.getCursor();
-          if (!cursor) throw new Error("The active editor cursor is unavailable.");
-          return cursor;
-        }
-        case "editor.getFileInfo": {
-          const currentTab = activeTab();
-          if (!currentTab) throw new Error("There is no active editor.");
-          const metadata = documentController.getHandle(currentTab.id)?.getMetadata();
-          return {
-            path: currentTab.path,
-            name: currentTab.name,
-            language: currentTab.language,
-            revision: editorRevisionTracker.capture(currentTab.id, currentTab.revision, activeTabSelectionGeneration),
-            dirty: currentTab.dirty,
-            encoding: currentTab.encoding,
-            lineEnding: currentTab.lineEnding,
-            size: metadata?.estimatedBytes ?? currentTab.estimatedBytes ?? currentTab.diskSize ?? utf8ByteLength(currentTab.content),
-          };
-        }
-        case "editor.applyEdits": {
-          if (appQuitPrepared() || confirmedOperationInProgress()) {
-            throw new Error("Editor changes are blocked while the window is closing.");
+  const createPluginApiExecutor =
+    (
+      host: PluginHostModules,
+      plugin: InstalledPlugin,
+      editorRevisionTracker: PluginEditorRevisionTracker,
+    ): PluginApiV2Dependencies["execute"] =>
+    async (method, params, context) => {
+      const requireWorkspaceRoot = () => {
+        if (!context.workspaceRoot) throw new Error("This plugin operation needs an open workspace.");
+        return context.workspaceRoot;
+      };
+      const throwIfCancelled = () => {
+        if (context.signal.aborted) throw new Error("Plugin API operation was cancelled.");
+      };
+      try {
+        switch (method) {
+          case "editor.getText": {
+            const currentTab = activeTab();
+            if (!currentTab) throw new Error("There is no active editor.");
+            const handle = documentController.getHandle(currentTab.id);
+            if ((handle?.getTextLength() ?? currentTab.content.length) > 128 * 1024)
+              throw new host.PluginApiV2OperationError("editor.range_required", "editor.range_required");
+            return handle?.getText() ?? getDocumentText(currentTab);
           }
-          await context.authorize();
-          throwIfCancelled();
-          if (appQuitPrepared() || confirmedOperationInProgress()) {
-            throw new Error("Editor changes are blocked while the window is closing.");
+          case "editor.getTextRange": {
+            const currentTab = activeTab();
+            if (!currentTab || currentTab.language === "Image")
+              throw new host.PluginApiV2OperationError("editor.unavailable", "editor.unavailable");
+            if (
+              !editorRevisionTracker.matches(
+                params.revision as number,
+                currentTab.id,
+                currentTab.revision,
+                activeTabSelectionGeneration,
+              )
+            )
+              throw new host.PluginApiV2OperationError("editor.stale_revision", "editor.stale_revision");
+            const handle = documentController.getHandle(currentTab.id);
+            const length = handle?.getTextLength() ?? currentTab.content.length;
+            const from = params.from as number;
+            const to = params.to as number;
+            if (from < 0 || to < from || to > length || to - from > 128 * 1024)
+              throw new host.PluginApiV2OperationError("editor.invalid_range", "editor.invalid_range");
+            return {
+              revision: params.revision,
+              from,
+              to,
+              content: handle?.getRange(from, to) ?? currentTab.content.slice(from, to),
+            };
           }
-          const currentTab = activeTab();
-          if (!currentTab || viewMode() !== "editor") throw new Error("There is no active editor.");
-          const revision = params.revision as number;
-          if (!editorRevisionTracker.matches(
-            revision,
-            currentTab.id,
-            currentTab.revision,
-            activeTabSelectionGeneration,
-          )) {
-            throw new Error("The active document or its revision changed; read its file information again before editing.");
+          case "editor.getSelection": {
+            const currentTab = activeTab();
+            if (!currentTab) throw new Error("There is no active editor.");
+            const selection = documentController.getHandle(currentTab.id)?.getSelection();
+            if (!selection) throw new Error("The active editor selection is unavailable.");
+            return selection;
           }
-          const document = documentController.getHandle(currentTab.id);
-          if (!document?.applyEdits(currentTab.revision, params.edits as Array<{ from: number; to: number; insert: string }>)) {
-            throw new Error("The active document changed before the edit could be applied.");
+          case "editor.getCursor": {
+            const currentTab = activeTab();
+            if (!currentTab) throw new Error("There is no active editor.");
+            const cursor = documentController.getHandle(currentTab.id)?.getCursor();
+            if (!cursor) throw new Error("The active editor cursor is unavailable.");
+            return cursor;
           }
-          const updatedTab = tabById[currentTab.id];
-          return {
-            applied: true,
-            revision: editorRevisionTracker.capture(
-              currentTab.id,
-              updatedTab?.revision ?? currentTab.revision + 1,
-              activeTabSelectionGeneration,
-            ),
-          };
-        }
-        case "workspace.list": {
-          await context.authorize();
-          throwIfCancelled();
-          return pluginWorkspaceList(requireWorkspaceRoot(), (params.path as string | undefined) ?? ".");
-        }
-        case "workspace.readFile": {
-          await context.authorize();
-          throwIfCancelled();
-          const root = requireWorkspaceRoot();
-          const info = await pluginWorkspaceFileInfo(root, params.path as string);
-          throwIfCancelled();
-          if (info.sizeBytes > 128 * 1024) throw new host.PluginApiV2OperationError("workspace.file_requires_ranges", "workspace.file_requires_ranges");
-          return await pluginWorkspaceReadFile(root, params.path as string);
-        }
-        case "workspace.getFileInfo":
-          await context.authorize();
-          throwIfCancelled();
-          return await pluginWorkspaceFileInfo(requireWorkspaceRoot(), params.path as string);
-        case "workspace.readFileRange":
-          await context.authorize();
-          throwIfCancelled();
-          return await pluginWorkspaceReadFileRange(requireWorkspaceRoot(), params.path as string, params.revision as string, params.offsetBytes as number, params.maxBytes as number, context.nativeRequestId, context.signal);
-        case "workspace.releaseFileRead":
-          await context.authorize();
-          throwIfCancelled();
-          await pluginWorkspaceReleaseFileRead(requireWorkspaceRoot(), params.path as string, params.revision as string);
-          return { released: true };
-        case "workspace.writeFile": {
-          await context.authorize();
-          throwIfCancelled();
-          return pluginWorkspaceWriteFile(
-            requireWorkspaceRoot(),
-            params.path as string,
-            params.content as string,
-            params.expectedFingerprint as string | undefined,
-          );
-        }
-        case "commands.register":
-          return { registered: true, id: params.id };
-        case "ui.notify":
-          notify(`${plugin.name}: ${params.message}`);
-          return { shown: true };
-        case "ui.statusBar.set": {
-          await context.authorize();
-          throwIfCancelled();
-          const id = params.id as string;
-          const key = pluginStatusItemKey(context.plugin.id, id);
-          const current = pluginStatusItems();
-          if (!current[key] && Object.values(current).filter((item) => item.pluginId === context.plugin.id).length >= 20) {
-            throw new Error("This plugin has reached the status bar item limit.");
+          case "editor.getFileInfo": {
+            const currentTab = activeTab();
+            if (!currentTab) throw new Error("There is no active editor.");
+            const metadata = documentController.getHandle(currentTab.id)?.getMetadata();
+            return {
+              path: currentTab.path,
+              name: currentTab.name,
+              language: currentTab.language,
+              revision: editorRevisionTracker.capture(currentTab.id, currentTab.revision, activeTabSelectionGeneration),
+              dirty: currentTab.dirty,
+              encoding: currentTab.encoding,
+              lineEnding: currentTab.lineEnding,
+              size:
+                metadata?.estimatedBytes ??
+                currentTab.estimatedBytes ??
+                currentTab.diskSize ??
+                utf8ByteLength(currentTab.content),
+            };
           }
-          setPluginStatusItems((items) => ({
-            ...items,
-            [key]: {
-              pluginId: context.plugin.id,
-              pluginName: context.plugin.name,
-              id,
-              text: params.text as string,
-              ...(params.tooltip === undefined ? {} : { tooltip: params.tooltip as string }),
-            },
-          }));
-          return { set: true, id };
-        }
-        case "ui.statusBar.remove": {
-          await context.authorize();
-          throwIfCancelled();
-          const key = pluginStatusItemKey(context.plugin.id, params.id as string);
-          setPluginStatusItems((items) => {
-            if (!items[key]) return items;
-            const next = { ...items };
-            delete next[key];
-            return next;
-          });
-          return { removed: true, id: params.id };
-        }
-        case "ui.quickPick":
-          await context.authorize();
-          throwIfCancelled();
-          return requestPluginQuickPick(context.plugin, params, context.signal);
-        case "git.getStatus": {
-          await context.authorize();
-          throwIfCancelled();
-          const status = await getGitStatus(requireWorkspaceRoot());
-          throwIfCancelled();
-          return {
-            repositoryRoot: status.repositoryRoot,
-            branch: status.branch,
-            repositoryState: status.repositoryState,
-            files: status.files,
-            error: status.error,
-          };
-        }
-        case "git.getDiff": {
-          await context.authorize();
-          throwIfCancelled();
-          return pluginGitDiff(
-            requireWorkspaceRoot(),
-            params.path as string,
-            params.staged === true,
-          );
-        }
-        case "terminal.write":
-          return host.writeToActivePluginTerminal(
-            requireWorkspaceRoot(),
-            params.data as string,
-            params.binary === true,
-            context.signal,
-            context.authorize,
-          ).then(() => ({ written: true }));
-        case "network.fetch": {
-          const url = new URL(params.url as string);
-          const workspaceRoot = requireWorkspaceRoot();
-          const method = ((params.method as string | undefined) ?? "GET").toUpperCase();
-          const headers = (params.headers as Record<string, string> | undefined) ?? {};
-          const body = params.body as string | undefined;
-          await context.authorize();
-          throwIfCancelled();
-          const authorizationToken = await authorizePluginNetwork(
-            context.plugin.id,
-            context.plugin.version,
-            workspaceRoot,
-            url.hostname.toLowerCase(),
-          );
-          const cancelRequest = () => {
-            void cancelPluginNetworkRequest(authorizationToken, workspaceRoot).catch((error) => {
-              emitDiagnostic("plugin.cancel", error);
-            });
-          };
-          if (context.signal.aborted) cancelRequest();
-          else context.signal.addEventListener("abort", cancelRequest, { once: true });
-          try {
+          case "editor.applyEdits": {
+            if (appQuitPrepared() || confirmedOperationInProgress()) {
+              throw new Error("Editor changes are blocked while the window is closing.");
+            }
             await context.authorize();
             throwIfCancelled();
-            return await pluginNetworkRequest(
-              authorizationToken,
-              workspaceRoot,
-              url.toString(),
-              method,
-              headers,
-              body,
+            if (appQuitPrepared() || confirmedOperationInProgress()) {
+              throw new Error("Editor changes are blocked while the window is closing.");
+            }
+            const currentTab = activeTab();
+            if (!currentTab || viewMode() !== "editor") throw new Error("There is no active editor.");
+            const revision = params.revision as number;
+            if (
+              !editorRevisionTracker.matches(revision, currentTab.id, currentTab.revision, activeTabSelectionGeneration)
+            ) {
+              throw new Error(
+                "The active document or its revision changed; read its file information again before editing.",
+              );
+            }
+            const document = documentController.getHandle(currentTab.id);
+            if (
+              !document?.applyEdits(
+                currentTab.revision,
+                params.edits as Array<{ from: number; to: number; insert: string }>,
+              )
+            ) {
+              throw new Error("The active document changed before the edit could be applied.");
+            }
+            const updatedTab = tabById[currentTab.id];
+            return {
+              applied: true,
+              revision: editorRevisionTracker.capture(
+                currentTab.id,
+                updatedTab?.revision ?? currentTab.revision + 1,
+                activeTabSelectionGeneration,
+              ),
+            };
+          }
+          case "workspace.list": {
+            await context.authorize();
+            throwIfCancelled();
+            return pluginWorkspaceList(requireWorkspaceRoot(), (params.path as string | undefined) ?? ".");
+          }
+          case "workspace.readFile": {
+            await context.authorize();
+            throwIfCancelled();
+            const root = requireWorkspaceRoot();
+            const info = await pluginWorkspaceFileInfo(root, params.path as string);
+            throwIfCancelled();
+            if (info.sizeBytes > 128 * 1024)
+              throw new host.PluginApiV2OperationError(
+                "workspace.file_requires_ranges",
+                "workspace.file_requires_ranges",
+              );
+            return await pluginWorkspaceReadFile(root, params.path as string);
+          }
+          case "workspace.getFileInfo":
+            await context.authorize();
+            throwIfCancelled();
+            return await pluginWorkspaceFileInfo(requireWorkspaceRoot(), params.path as string);
+          case "workspace.readFileRange":
+            await context.authorize();
+            throwIfCancelled();
+            return await pluginWorkspaceReadFileRange(
+              requireWorkspaceRoot(),
+              params.path as string,
+              params.revision as string,
+              params.offsetBytes as number,
+              params.maxBytes as number,
+              context.nativeRequestId,
+              context.signal,
             );
-          } finally {
-            context.signal.removeEventListener("abort", cancelRequest);
+          case "workspace.releaseFileRead":
+            await context.authorize();
+            throwIfCancelled();
+            await pluginWorkspaceReleaseFileRead(
+              requireWorkspaceRoot(),
+              params.path as string,
+              params.revision as string,
+            );
+            return { released: true };
+          case "workspace.writeFile": {
+            await context.authorize();
+            throwIfCancelled();
+            return pluginWorkspaceWriteFile(
+              requireWorkspaceRoot(),
+              params.path as string,
+              params.content as string,
+              params.expectedFingerprint as string | undefined,
+            );
+          }
+          case "commands.register":
+            return { registered: true, id: params.id };
+          case "ui.notify":
+            notify(t("{name}: {message}", { name: plugin.name, message: String(params.message) }));
+            return { shown: true };
+          case "ui.statusBar.set": {
+            await context.authorize();
+            throwIfCancelled();
+            const id = params.id as string;
+            const key = pluginStatusItemKey(context.plugin.id, id);
+            const current = pluginStatusItems();
+            if (
+              !current[key] &&
+              Object.values(current).filter((item) => item.pluginId === context.plugin.id).length >= 20
+            ) {
+              throw new Error("This plugin has reached the status bar item limit.");
+            }
+            setPluginStatusItems((items) => ({
+              ...items,
+              [key]: {
+                pluginId: context.plugin.id,
+                pluginName: context.plugin.name,
+                id,
+                text: params.text as string,
+                ...(params.tooltip === undefined ? {} : { tooltip: params.tooltip as string }),
+              },
+            }));
+            return { set: true, id };
+          }
+          case "ui.statusBar.remove": {
+            await context.authorize();
+            throwIfCancelled();
+            const key = pluginStatusItemKey(context.plugin.id, params.id as string);
+            setPluginStatusItems((items) => {
+              if (!items[key]) return items;
+              const next = { ...items };
+              delete next[key];
+              return next;
+            });
+            return { removed: true, id: params.id };
+          }
+          case "ui.quickPick":
+            await context.authorize();
+            throwIfCancelled();
+            return requestPluginQuickPick(context.plugin, params, context.signal);
+          case "git.getStatus": {
+            await context.authorize();
+            throwIfCancelled();
+            const status = await getGitStatus(requireWorkspaceRoot());
+            throwIfCancelled();
+            return {
+              repositoryRoot: status.repositoryRoot,
+              branch: status.branch,
+              repositoryState: status.repositoryState,
+              files: status.files,
+              error: status.error,
+            };
+          }
+          case "git.getDiff": {
+            await context.authorize();
+            throwIfCancelled();
+            return pluginGitDiff(requireWorkspaceRoot(), params.path as string, params.staged === true);
+          }
+          case "terminal.write":
+            return host
+              .writeToActivePluginTerminal(
+                requireWorkspaceRoot(),
+                params.data as string,
+                params.binary === true,
+                context.signal,
+                context.authorize,
+              )
+              .then(() => ({ written: true }));
+          case "network.fetch": {
+            const url = new URL(params.url as string);
+            const workspaceRoot = requireWorkspaceRoot();
+            const method = ((params.method as string | undefined) ?? "GET").toUpperCase();
+            const headers = (params.headers as Record<string, string> | undefined) ?? {};
+            const body = params.body as string | undefined;
+            await context.authorize();
+            throwIfCancelled();
+            const authorizationToken = await authorizePluginNetwork(
+              context.plugin.id,
+              context.plugin.version,
+              workspaceRoot,
+              url.hostname.toLowerCase(),
+            );
+            const cancelRequest = () => {
+              void cancelPluginNetworkRequest(authorizationToken, workspaceRoot).catch((error) => {
+                emitDiagnostic("plugin.cancel", error);
+              });
+            };
+            if (context.signal.aborted) cancelRequest();
+            else context.signal.addEventListener("abort", cancelRequest, { once: true });
+            try {
+              await context.authorize();
+              throwIfCancelled();
+              return await pluginNetworkRequest(
+                authorizationToken,
+                workspaceRoot,
+                url.toString(),
+                method,
+                headers,
+                body,
+              );
+            } finally {
+              context.signal.removeEventListener("abort", cancelRequest);
+            }
+          }
+          case "lsp.start": {
+            const target = await resolvePluginLspTarget(
+              context.plugin,
+              context.workspaceRoot,
+              params.serverId as string,
+            );
+            await context.authorize();
+            await approveLspServer({
+              pluginId: context.plugin.id,
+              pluginVersion: context.plugin.version,
+              workspaceRoot: target.resolved.workspaceRoot,
+              server: target.server,
+              expectedExecutablePath: target.resolved.executablePath,
+            });
+            await context.authorize();
+            await startLspServer(
+              {
+                pluginId: context.plugin.id,
+                pluginVersion: context.plugin.version,
+                workspaceRoot: target.resolved.workspaceRoot,
+                server: target.server,
+              },
+              (event) => {
+                void routeLspEvent(event);
+              },
+            );
+            return { started: true, serverId: target.server.serverId };
+          }
+          case "lsp.send": {
+            const target = await resolvePluginLspTarget(
+              context.plugin,
+              context.workspaceRoot,
+              params.serverId as string,
+            );
+            await context.authorize();
+            await sendLspMessage(
+              {
+                pluginId: context.plugin.id,
+                pluginVersion: context.plugin.version,
+                workspaceRoot: target.resolved.workspaceRoot,
+                language: target.server.language,
+              },
+              params.message as Record<string, unknown>,
+            );
+            return { sent: true };
+          }
+          case "lsp.cancel": {
+            const target = await resolvePluginLspTarget(
+              context.plugin,
+              context.workspaceRoot,
+              params.serverId as string,
+            );
+            await context.authorize();
+            await cancelLspRequest(
+              {
+                pluginId: context.plugin.id,
+                pluginVersion: context.plugin.version,
+                workspaceRoot: target.resolved.workspaceRoot,
+                language: target.server.language,
+              },
+              params.requestId as string | number,
+            );
+            return { cancelled: true };
+          }
+          case "lsp.stop": {
+            const target = await resolvePluginLspTarget(
+              context.plugin,
+              context.workspaceRoot,
+              params.serverId as string,
+            );
+            await context.authorize();
+            await stopLspServer({
+              pluginId: context.plugin.id,
+              pluginVersion: context.plugin.version,
+              workspaceRoot: target.resolved.workspaceRoot,
+              language: target.server.language,
+            });
+            return { stopped: true };
           }
         }
-        case "lsp.start": {
-          const target = await resolvePluginLspTarget(context.plugin, context.workspaceRoot, params.serverId as string);
-          await context.authorize();
-          await approveLspServer({
-            pluginId: context.plugin.id,
-            pluginVersion: context.plugin.version,
-            workspaceRoot: target.resolved.workspaceRoot,
-            server: target.server,
-            expectedExecutablePath: target.resolved.executablePath,
-          });
-          await context.authorize();
-          await startLspServer({
-            pluginId: context.plugin.id,
-            pluginVersion: context.plugin.version,
-            workspaceRoot: target.resolved.workspaceRoot,
-            server: target.server,
-          }, (event) => { void routeLspEvent(event); });
-          return { started: true, serverId: target.server.serverId };
-        }
-        case "lsp.send": {
-          const target = await resolvePluginLspTarget(context.plugin, context.workspaceRoot, params.serverId as string);
-          await context.authorize();
-          await sendLspMessage({
-            pluginId: context.plugin.id,
-            pluginVersion: context.plugin.version,
-            workspaceRoot: target.resolved.workspaceRoot,
-            language: target.server.language,
-          }, params.message as Record<string, unknown>);
-          return { sent: true };
-        }
-        case "lsp.cancel": {
-          const target = await resolvePluginLspTarget(context.plugin, context.workspaceRoot, params.serverId as string);
-          await context.authorize();
-          await cancelLspRequest({
-            pluginId: context.plugin.id,
-            pluginVersion: context.plugin.version,
-            workspaceRoot: target.resolved.workspaceRoot,
-            language: target.server.language,
-          }, params.requestId as string | number);
-          return { cancelled: true };
-        }
-        case "lsp.stop": {
-          const target = await resolvePluginLspTarget(context.plugin, context.workspaceRoot, params.serverId as string);
-          await context.authorize();
-          await stopLspServer({
-            pluginId: context.plugin.id,
-            pluginVersion: context.plugin.version,
-            workspaceRoot: target.resolved.workspaceRoot,
-            language: target.server.language,
-          });
-          return { stopped: true };
-        }
+      } catch (error) {
+        if (error instanceof host.PluginApiV2OperationError) throw error;
+        const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
+        const code =
+          /^(workspace\.(?:file_too_large|file_changed|invalid_range|file_requires_ranges|read_cancelled))(?::|$)/.exec(
+            message,
+          )?.[1];
+        if (code) throw new host.PluginApiV2OperationError(code, code);
+        throw error;
       }
-    } catch (error) {
-      if (error instanceof host.PluginApiV2OperationError) throw error;
-      const message = typeof error === "string" ? error : error instanceof Error ? error.message : "";
-      const code = /^(workspace\.(?:file_too_large|file_changed|invalid_range|file_requires_ranges|read_cancelled))(?::|$)/.exec(message)?.[1];
-      if (code) throw new host.PluginApiV2OperationError(code, code);
-      throw error;
-    }
-  };
+    };
 
-  const getPluginController = (host: PluginHostModules) => pluginController ??= host.createPluginHostController({
-    pluginsRecovered, plugins, workspace, workspaceGeneration: () => workspaceGeneration,
-    isDisposed: () => disposed, notify, readPluginEntry,
-    getEditorText: () => { const tab = activeTab(); return tab ? getDocumentText(tab) : ""; },
-    setPluginStatus: (id, status) => setPlugins((items) => items.map((item) => item.id === id ? { ...item, status } : item)),
-    resolveApiPermission,
-    executeApi: (plugin, revisions) => createPluginApiExecutor(host, plugin, revisions),
-    readStorage, writeStorage,
-    onAuthorizationChange: handleAuthorizationChange,
-  });
+  const getPluginController = (host: PluginHostModules) =>
+    (pluginController ??= host.createPluginHostController({
+      pluginsRecovered,
+      plugins,
+      workspace,
+      workspaceGeneration: () => workspaceGeneration,
+      isDisposed: () => disposed,
+      notify,
+      readPluginEntry,
+      getEditorText: () => {
+        const tab = activeTab();
+        return tab ? getDocumentText(tab) : "";
+      },
+      setPluginStatus: (id, status) =>
+        setPlugins((items) => items.map((item) => (item.id === id ? { ...item, status } : item))),
+      resolveApiPermission,
+      executeApi: (plugin, revisions) => createPluginApiExecutor(host, plugin, revisions),
+      readStorage,
+      writeStorage,
+      onAuthorizationChange: handleAuthorizationChange,
+    }));
 
-  const runPlugin = async (plugin: InstalledPlugin, activationEvent: string, activationPayload: unknown, activationCommand?: string) => {
+  const runPlugin = async (
+    plugin: InstalledPlugin,
+    activationEvent: string,
+    activationPayload: unknown,
+    activationCommand?: string,
+  ) => {
     const generation = workspaceGeneration;
     const host = await getPluginHostModules();
     if (disposed || generation !== workspaceGeneration) return;
     await getPluginController(host).runPlugin(plugin, activationEvent, activationPayload, activationCommand);
   };
 
-  const activatePluginForEvent = (host: PluginHostModules, plugin: InstalledPlugin, event: string, payload: unknown) => {
+  const activatePluginForEvent = (
+    host: PluginHostModules,
+    plugin: InstalledPlugin,
+    event: string,
+    payload: unknown,
+  ) => {
     if (!pluginsRecovered()) return;
     if (!host.pluginActivationMatches(plugin, event)) return;
     const runs = pluginRunsFor(plugin.id);
@@ -4191,9 +5519,7 @@ export default function App() {
     const eventWorkspaceGeneration = workspaceGeneration;
     if (!pluginsRecovered() || !eventWorkspaceRoot) return;
     const plugin = plugins().find((candidate) => candidate.id === event.pluginId);
-    if (!plugin?.enabled
-        || plugin.apiVersion !== "2"
-        || plugin.version !== event.pluginVersion) return;
+    if (!plugin?.enabled || plugin.apiVersion !== "2" || plugin.version !== event.pluginVersion) return;
     const host = await getPluginHostModules();
     if (!host.isPluginEventSubscriptionAllowed(plugin, eventName)) return;
     const server = declaredLspServer(plugin, event.serverId);
@@ -4206,25 +5532,38 @@ export default function App() {
       return;
     }
     const currentPlugin = plugins().find((candidate) => candidate.id === event.pluginId);
-    if (!currentPlugin?.enabled
-        || currentPlugin.apiVersion !== "2"
-        || currentPlugin.version !== event.pluginVersion
-        || workspace() !== eventWorkspaceRoot
-        || workspaceGeneration !== eventWorkspaceGeneration
-        || target.resolved.workspaceRoot !== event.workspaceRoot
-        || target.server.language !== event.language
-        || !host.isPluginEventSubscriptionAllowed(currentPlugin, eventName)) return;
-    if (!(await ensureAuthorizationManager()).hasPermission({
-      plugin: currentPlugin,
-      permission: "process.spawn:lsp",
-      workspaceRoot: target.permissionScope.workspaceRoot,
-      resourceScope: target.permissionScope.resourceScope,
-    })) return;
+    if (
+      !currentPlugin?.enabled ||
+      currentPlugin.apiVersion !== "2" ||
+      currentPlugin.version !== event.pluginVersion ||
+      workspace() !== eventWorkspaceRoot ||
+      workspaceGeneration !== eventWorkspaceGeneration ||
+      target.resolved.workspaceRoot !== event.workspaceRoot ||
+      target.server.language !== event.language ||
+      !host.isPluginEventSubscriptionAllowed(currentPlugin, eventName)
+    )
+      return;
+    if (
+      !(await ensureAuthorizationManager()).hasPermission({
+        plugin: currentPlugin,
+        permission: "process.spawn:lsp",
+        workspaceRoot: target.permissionScope.workspaceRoot,
+        resourceScope: target.permissionScope.resourceScope,
+      })
+    )
+      return;
 
     for (const run of pluginRunsFor(event.pluginId)) {
-      if (!host.isPluginLspEventForRun(run, event, { workspaceRoot: eventWorkspaceRoot, canonicalWorkspaceRoot: target.resolved.workspaceRoot, generation: eventWorkspaceGeneration })
-          || !pluginController?.isLive(run)
-          || !run.subscriptions.has(eventName)) continue;
+      if (
+        !host.isPluginLspEventForRun(run, event, {
+          workspaceRoot: eventWorkspaceRoot,
+          canonicalWorkspaceRoot: target.resolved.workspaceRoot,
+          generation: eventWorkspaceGeneration,
+        }) ||
+        !pluginController?.isLive(run) ||
+        !run.subscriptions.has(eventName)
+      )
+        continue;
       run.send({ type: "host-event", event: eventName, payload: event });
     }
   };
@@ -4254,6 +5593,12 @@ export default function App() {
     });
   };
 
+  const changePythonEnvironmentTrust = (trusted: boolean) => {
+    void import("./lib/python-environment-trust").then((trust) =>
+      trust.changePythonEnvironmentTrust(workspace(), trusted, notify),
+    );
+  };
+
   const runPaletteCommand = (command: CommandPaletteItem) => {
     setCommandPaletteOpen(false);
     if (command.source === "plugin" && command.pluginId && command.commandId) {
@@ -4261,42 +5606,116 @@ export default function App() {
       return;
     }
     if (plugins().some((plugin) => plugin.enabled)) {
-      void getPluginHostModules().then((host) => activatePluginsForEvent(host.commandEventName(command.id), { command: command.id }));
+      void getPluginHostModules().then((host) =>
+        activatePluginsForEvent(host.commandEventName(command.id), { command: command.id }),
+      );
     }
     switch (command.id) {
-      case "pude.builtin.openFile": void openFileAction(); break;
-      case "pude.builtin.openFolder": void loadWorkspace(); break;
-      case "pude.builtin.openWorkspace": void runWorkspaceAction((actions) => actions.openFromDialog()); break;
-      case "pude.builtin.addFolderToWorkspace": void runWorkspaceAction((actions) => actions.addFolder()); break;
-      case "pude.builtin.saveWorkspaceAs": void runWorkspaceAction((actions) => actions.saveAs()); break;
-      case "pude.builtin.save": void saveTab(); break;
-      case "pude.builtin.saveAs": void saveTabAs(); break;
-      case "pude.builtin.find": showFind(false); break;
-      case "pude.builtin.replace": showFind(true); break;
-      case "pude.builtin.toggleTerminal": toggleTerminal(); break;
-      case "pude.builtin.managePlugins": setPluginsOpen(true); break;
-      case "pude.builtin.saveAll": void saveAll(); break;
-      case "pude.builtin.closeEditor": runTabMenuAction(activeTabId() ?? "", "close"); break;
-      case "pude.builtin.closeAllEditors": void closeAll(); break;
-      case "pude.builtin.reopenClosedTab": reopenClosedTab(); break;
-      case "pude.builtin.copyPath": runTabMenuAction(activeTabId() ?? "", "copy-path"); break;
-      case "pude.builtin.copyRelativePath": runTabMenuAction(activeTabId() ?? "", "copy-relative-path"); break;
-      case "pude.builtin.revealActiveFile": runTabMenuAction(activeTabId() ?? "", "reveal"); break;
-      case "pude.builtin.goToFile": openProjectSearch("files"); break;
-      case "pude.builtin.goToLine": void goToLineAction(); break;
-      case "pude.builtin.searchProject": openProjectSearch("content"); break;
-      case "pude.builtin.toggleSidebar": setSidebarHidden((hidden) => !hidden); break;
-      case "pude.builtin.collapseExplorer": collapseExplorer(); break;
-      case "pude.builtin.toggleWordWrap": toggleSetting("wordWrap"); break;
-      case "pude.builtin.toggleLineNumbers": toggleSetting("lineNumbers"); break;
-      case "pude.builtin.toggleWhitespace": toggleSetting("showWhitespace"); break;
-      case "pude.builtin.toggleTheme": updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" }); break;
-      case "pude.builtin.zoomIn": zoomEditor(1); break;
-      case "pude.builtin.zoomOut": zoomEditor(-1); break;
-      case "pude.builtin.resetZoom": zoomEditor(0); break;
-      case "pude.builtin.toggleMarkdownPreview": if (activeTab()?.language === "Markdown") setMarkdownPreviewEnabled((enabled) => !enabled); break;
-      case "pude.builtin.openSettings": setSettingsOpen(true); break;
-      default: if (command.id.startsWith("pude.builtin.editor.")) runEditorCommand(command.id.slice("pude.builtin.editor.".length) as EditorCommandName);
+      case "pude.builtin.openFile":
+        void openFileAction();
+        break;
+      case "pude.builtin.openFolder":
+        void loadWorkspace();
+        break;
+      case "pude.builtin.openWorkspace":
+        void runWorkspaceAction((actions) => actions.openFromDialog());
+        break;
+      case "pude.builtin.addFolderToWorkspace":
+        void runWorkspaceAction((actions) => actions.addFolder());
+        break;
+      case "pude.builtin.saveWorkspaceAs":
+        void runWorkspaceAction((actions) => actions.saveAs());
+        break;
+      case "pude.builtin.save":
+        void saveTab();
+        break;
+      case "pude.builtin.saveAs":
+        void saveTabAs();
+        break;
+      case "pude.builtin.find":
+        showFind(false);
+        break;
+      case "pude.builtin.replace":
+        showFind(true);
+        break;
+      case "pude.builtin.toggleTerminal":
+        toggleTerminal();
+        break;
+      case "pude.builtin.trustPythonEnvironment":
+        changePythonEnvironmentTrust(true);
+        break;
+      case "pude.builtin.stopTrustingPythonEnvironment":
+        changePythonEnvironmentTrust(false);
+        break;
+      case "pude.builtin.managePlugins":
+        setPluginsOpen(true);
+        break;
+      case "pude.builtin.saveAll":
+        void saveAll();
+        break;
+      case "pude.builtin.closeEditor":
+        runTabMenuAction(activeTabId() ?? "", "close");
+        break;
+      case "pude.builtin.closeAllEditors":
+        void closeAll();
+        break;
+      case "pude.builtin.reopenClosedTab":
+        reopenClosedTab();
+        break;
+      case "pude.builtin.copyPath":
+        runTabMenuAction(activeTabId() ?? "", "copy-path");
+        break;
+      case "pude.builtin.copyRelativePath":
+        runTabMenuAction(activeTabId() ?? "", "copy-relative-path");
+        break;
+      case "pude.builtin.revealActiveFile":
+        runTabMenuAction(activeTabId() ?? "", "reveal");
+        break;
+      case "pude.builtin.goToFile":
+        openProjectSearch("files");
+        break;
+      case "pude.builtin.goToLine":
+        void goToLineAction();
+        break;
+      case "pude.builtin.searchProject":
+        openProjectSearch("content");
+        break;
+      case "pude.builtin.toggleSidebar":
+        setSidebarHidden((hidden) => !hidden);
+        break;
+      case "pude.builtin.collapseExplorer":
+        collapseExplorer();
+        break;
+      case "pude.builtin.toggleWordWrap":
+        toggleSetting("wordWrap");
+        break;
+      case "pude.builtin.toggleLineNumbers":
+        toggleSetting("lineNumbers");
+        break;
+      case "pude.builtin.toggleWhitespace":
+        toggleSetting("showWhitespace");
+        break;
+      case "pude.builtin.toggleTheme":
+        updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" });
+        break;
+      case "pude.builtin.zoomIn":
+        zoomEditor(1);
+        break;
+      case "pude.builtin.zoomOut":
+        zoomEditor(-1);
+        break;
+      case "pude.builtin.resetZoom":
+        zoomEditor(0);
+        break;
+      case "pude.builtin.toggleMarkdownPreview":
+        if (activeTab()?.language === "Markdown") setMarkdownPreviewEnabled((enabled) => !enabled);
+        break;
+      case "pude.builtin.openSettings":
+        setSettingsOpen(true);
+        break;
+      default:
+        if (command.id.startsWith("pude.builtin.editor."))
+          runEditorCommand(command.id.slice("pude.builtin.editor.".length) as EditorCommandName);
     }
   };
 
@@ -4326,14 +5745,21 @@ export default function App() {
     workspaceRoot: string,
   ): Promise<PluginAuthorizationReviewManifest> => {
     if (!workspaceRoot || !manifest.lspServers?.length) return { ...manifest, resolvedLspServers: [] };
-    const resolvedLspServers = await Promise.all(manifest.lspServers.map(async (server) => {
-      try {
-        return await resolvePluginLspServer(workspaceRoot, server);
-      } catch {
-        return undefined;
-      }
-    }));
-    return { ...manifest, resolvedLspServers: resolvedLspServers.filter((server): server is NonNullable<typeof server> => server !== undefined) };
+    const resolvedLspServers = await Promise.all(
+      manifest.lspServers.map(async (server) => {
+        try {
+          return await resolvePluginLspServer(workspaceRoot, server);
+        } catch {
+          return undefined;
+        }
+      }),
+    );
+    return {
+      ...manifest,
+      resolvedLspServers: resolvedLspServers.filter(
+        (server): server is NonNullable<typeof server> => server !== undefined,
+      ),
+    };
   };
 
   const approveLspPermissionGrant = async (
@@ -4342,12 +5768,22 @@ export default function App() {
   ) => {
     const scope = request.resourceScope;
     if (request.permission !== "process.spawn:lsp" || scope?.kind !== "executable" || !request.workspaceRoot) return;
-    const server = manifest.lspServers?.find((candidate) => candidate.serverId === scope.serverId
-      && candidate.language === scope.language
-      && JSON.stringify(candidate.args) === JSON.stringify(scope.args));
+    const server = manifest.lspServers?.find(
+      (candidate) =>
+        candidate.serverId === scope.serverId &&
+        candidate.language === scope.language &&
+        JSON.stringify(candidate.args) === JSON.stringify(scope.args),
+    );
     const host = await getPluginHostModules();
-    const resolved = manifest.resolvedLspServers?.find((candidate) => host.matchesResolvedPluginLspGrant(candidate, request));
-    if (!server || !resolved) throw new Error(t("Language server {serverId} no longer matches the reviewed executable and arguments.", { serverId: scope.serverId }));
+    const resolved = manifest.resolvedLspServers?.find((candidate) =>
+      host.matchesResolvedPluginLspGrant(candidate, request),
+    );
+    if (!server || !resolved)
+      throw new Error(
+        t("Language server {serverId} no longer matches the reviewed executable and arguments.", {
+          serverId: scope.serverId,
+        }),
+      );
     await approveLspServer({
       pluginId: request.pluginId,
       pluginVersion: request.pluginVersion,
@@ -4359,22 +5795,33 @@ export default function App() {
 
   const restorePluginLspAuthorizations = async (plugin: PluginAuthorizationReviewManifest, workspaceRoot: string) => {
     if (!workspaceRoot) return;
-    const grants = (await ensureAuthorizationManager()).getSnapshot().grants.filter((grant) => grant.pluginId === plugin.id
-      && grant.pluginVersion === plugin.version
-      && grant.permission === "process.spawn:lsp"
-      && grant.workspaceRoot === workspaceRoot);
+    const grants = (await ensureAuthorizationManager())
+      .getSnapshot()
+      .grants.filter(
+        (grant) =>
+          grant.pluginId === plugin.id &&
+          grant.pluginVersion === plugin.version &&
+          grant.permission === "process.spawn:lsp" &&
+          grant.workspaceRoot === workspaceRoot,
+      );
     if (!grants.length) return;
     const resolvedManifest = await resolveAuthorizationReviewManifest(plugin, workspaceRoot);
     for (const grant of grants) await approveLspPermissionGrant(resolvedManifest, grant);
   };
 
   const restoreAllPluginLspAuthorizations = async (plugin: PluginAuthorizationReviewManifest) => {
-    const workspaceRoots = new Set((await ensureAuthorizationManager()).getSnapshot().grants
-      .filter((grant) => grant.pluginId === plugin.id
-        && grant.pluginVersion === plugin.version
-        && grant.permission === "process.spawn:lsp"
-        && Boolean(grant.workspaceRoot))
-      .map((grant) => grant.workspaceRoot as string));
+    const workspaceRoots = new Set(
+      (await ensureAuthorizationManager())
+        .getSnapshot()
+        .grants.filter(
+          (grant) =>
+            grant.pluginId === plugin.id &&
+            grant.pluginVersion === plugin.version &&
+            grant.permission === "process.spawn:lsp" &&
+            Boolean(grant.workspaceRoot),
+        )
+        .map((grant) => grant.workspaceRoot as string),
+    );
     for (const workspaceRoot of workspaceRoots) await restorePluginLspAuthorizations(plugin, workspaceRoot);
   };
 
@@ -4387,17 +5834,25 @@ export default function App() {
       nextPluginRunGeneration(id);
       stopPluginRun(id);
       clearPluginStatusItems(id);
-      void stopPluginLsp(id).catch((error) => notify(errorMessage(error, "Unable to stop plugin language servers.")));
-      void revokePluginNetwork(id).catch((error) => notify(errorMessage(error, "Unable to cancel plugin network requests.")));
-      setPlugins((items) => items.map((item) => item.id === id ? { ...item, enabled: false, status: "inactive" } : item));
+      void stopPluginLsp(id).catch((error) =>
+        notify(errorMessage(error, "Unable to stop plugin language servers."), "error"),
+      );
+      void revokePluginNetwork(id).catch((error) =>
+        notify(errorMessage(error, "Unable to cancel plugin network requests."), "error"),
+      );
+      setPlugins((items) =>
+        items.map((item) => (item.id === id ? { ...item, enabled: false, status: "inactive" } : item)),
+      );
       return;
     }
     void (async () => {
       try {
         await restorePluginLspAuthorizations(plugin, workspace());
-        setPlugins((items) => items.map((item) => item.id === id ? { ...item, enabled: true, status: "inactive" } : item));
+        setPlugins((items) =>
+          items.map((item) => (item.id === id ? { ...item, enabled: true, status: "inactive" } : item)),
+        );
       } catch (error) {
-        notify(errorMessage(error, "Unable to restore plugin language-server approvals."));
+        notify(errorMessage(error, "Unable to restore plugin language-server approvals."), "error");
       }
     })();
   };
@@ -4416,10 +5871,12 @@ export default function App() {
     const lineEndings = liveSnapshot?.lineEndings ?? normalizeLineEndingMap(content, tab.lineEndings, tab.lineEnding);
     const lineEnding = liveSnapshot?.lineEnding ?? lineEndingFromMap(lineEndings, tab.lineEnding);
     const bom = liveSnapshot?.bom ?? tab.bom === true;
-    const isSourceCurrent = () => generation === workspaceGeneration
-      && tabOperationIsCurrent(sourceSnapshot)
-      && (documentController.getHandle(tab.id)?.getMetadata()?.revision ?? tabById[tab.id]?.revision) === documentRevision;
-    const isDestinationOpen = (destination: string) => tabs().some((item) => item.id !== tab.id && samePath(item.path, destination));
+    const isSourceCurrent = () =>
+      generation === workspaceGeneration &&
+      tabOperationIsCurrent(sourceSnapshot) &&
+      (documentController.getHandle(tab.id)?.getMetadata()?.revision ?? tabById[tab.id]?.revision) === documentRevision;
+    const isDestinationOpen = (destination: string) =>
+      tabs().some((item) => item.id !== tab.id && samePath(item.path, destination));
     let operationLocked = false;
     try {
       const destination = await saveFileDialog(tab.name);
@@ -4440,24 +5897,36 @@ export default function App() {
       if (destinationState.exists) {
         const confirmed = await requestConfirmation({
           title: t("Overwrite {value}?", { value: baseName(destination) }),
-          message: t("A file named {value} already exists. Replace its contents with this file?", { value: baseName(destination) }),
+          message: t("A file named {value} already exists. Replace its contents with this file?", {
+            value: baseName(destination),
+          }),
           confirmLabel: t("Overwrite"),
           cancelLabel: t("Cancel"),
           destructive: true,
         });
         if (!confirmed) return false;
-        if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent() || isDestinationOpen(destination)) {
+        if (
+          confirmedOperationInProgress() ||
+          appQuitPrepared() ||
+          !isSourceCurrent() ||
+          isDestinationOpen(destination)
+        ) {
           notify(t("The file or destination changed while waiting for confirmation. Try again."));
           return false;
         }
       }
-      if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent() || isDestinationOpen(destination)) return false;
+      if (confirmedOperationInProgress() || appQuitPrepared() || !isSourceCurrent() || isDestinationOpen(destination))
+        return false;
       setConfirmedOperationInProgress(true);
       operationLocked = true;
       const result = await saveFileAs(destination, content, lineEnding, lineEndings, bom, destinationState.token);
       const current = tabById[tab.id];
       if (!isSourceCurrent() || !current) {
-        notify(t("Saved a copy as {value}, but the source tab changed and stayed at its original path.", { value: baseName(destination) }));
+        notify(
+          t("Saved a copy as {value}, but the source tab changed and stayed at its original path.", {
+            value: baseName(destination),
+          }),
+        );
         return false;
       }
       const nextRevision = current.revision + 1;
@@ -4490,12 +5959,20 @@ export default function App() {
       syncExternalWatchParents();
       scheduleGitRefresh();
       if (plugins().some((plugin) => plugin.enabled)) {
-        void getPluginHostModules().then((host) => activatePluginsForEvent("onFileSave", { file: { path: destination, name: baseName(destination), language: host.activationLanguageId(fileLanguageForPath(destination).label) } }));
+        void getPluginHostModules().then((host) =>
+          activatePluginsForEvent("onFileSave", {
+            file: {
+              path: destination,
+              name: baseName(destination),
+              language: host.activationLanguageId(fileLanguageForPath(destination).label),
+            },
+          }),
+        );
       }
       notify(t("Saved {sourceName} as {value}", { sourceName, value: baseName(destination) }));
       return true;
     } catch (error) {
-      notify(errorMessage(error, "Unable to save file as the selected destination."));
+      notify(errorMessage(error, "Unable to save file as the selected destination."), "error");
       return false;
     } finally {
       if (operationLocked) setConfirmedOperationInProgress(false);
@@ -4507,33 +5984,76 @@ export default function App() {
   };
 
   const verifyOpenFile = (tab: EditorTab, generation: number, readRevision: number) => {
-    void getSaveController().then((controller) => controller.readAfterSaves(tab.id, () => readFileWithIoLimit(tab.path))).then(normalizeReadFile).then((file) => {
-      if (generation !== workspaceGeneration || fileReadRevisions.get(tab.id) !== readRevision) return;
-      const current = tabById[tab.id];
-      if (!current || !samePath(current.path, tab.path)) return;
-      if (current.dirty) {
-        if (file.content !== current.savedContent || !sameTextMetadata(file, { encoding: current.encoding === "UTF-8 BOM" ? "utf-8-bom" : "utf-8", bom: current.savedBom, lineEndings: current.savedLineEndings, lineEnding: current.lineEnding }, current.savedContent)) externalConflictController.queue(current);
-        else updateTab(current.id, { orphaned: false, diskModifiedAt: file.modifiedAt, diskSize: file.size, estimatedBytes: file.size, diskFingerprint: file.fingerprint, diskIdentity: file.identity ?? undefined });
-        return;
-      }
-      if (file.content === current.savedContent && sameTextMetadata(file, { encoding: current.encoding === "UTF-8 BOM" ? "utf-8-bom" : "utf-8", bom: current.bom, lineEndings: current.lineEndings, lineEnding: current.lineEnding }, current.savedContent)) {
-        updateTab(current.id, { orphaned: false, diskModifiedAt: file.modifiedAt, diskSize: file.size, estimatedBytes: file.size, diskFingerprint: file.fingerprint, diskIdentity: file.identity ?? undefined });
-        return;
-      }
-      const revision = current.revision + 1;
-      updateTab(current.id, { content: file.content, savedContent: file.content, dirty: false, orphaned: false, lineEnding: file.lineEnding, lineEndings: file.lineEndings, savedLineEndings: file.lineEndings, bom: file.bom, savedBom: file.bom, encoding: file.encoding === "utf-8-bom" ? "UTF-8 BOM" : "UTF-8", revision, savedRevision: revision, contentVersion: current.contentVersion + 1, normalizedContentVersion: current.contentVersion + 1, normalizedSavedRevision: revision, diskModifiedAt: file.modifiedAt, diskSize: file.size, estimatedBytes: file.size, diskFingerprint: file.fingerprint, diskIdentity: file.identity ?? undefined, largeFile: file.size > 5 * 1024 * 1024 });
-      getDocumentRevision(current.id).bump();
-    }).catch((error) => {
-      if (generation !== workspaceGeneration || fileReadRevisions.get(tab.id) !== readRevision) return;
-      const current = tabById[tab.id];
-      if (!current) return;
-      if (isMissingFileError(error)) {
-        if (current.dirty) externalConflictController.queue(current);
-        else updateTab(current.id, { orphaned: true });
-      } else {
-        notify(errorMessage(error, t("Unable to reload {name}.", { name: current.name })));
-      }
-    });
+    void getSaveController()
+      .then((controller) => controller.readAfterSaves(tab.id, () => readFileWithIoLimit(tab.path)))
+      .then(normalizeReadFile)
+      .then((file) => {
+        if (generation !== workspaceGeneration || fileReadRevisions.get(tab.id) !== readRevision) return;
+        const current = tabById[tab.id];
+        if (!current || !samePath(current.path, tab.path)) return;
+        if (current.dirty) {
+          if (
+            file.content !== current.savedContent ||
+            !sameTextMetadata(
+              file,
+              {
+                encoding: current.encoding === "UTF-8 BOM" ? "utf-8-bom" : "utf-8",
+                bom: current.savedBom,
+                lineEndings: current.savedLineEndings,
+                lineEnding: current.lineEnding,
+              },
+              current.savedContent,
+            )
+          )
+            externalConflictController.queue(current);
+          else
+            updateTab(current.id, {
+              orphaned: false,
+              diskModifiedAt: file.modifiedAt,
+              diskSize: file.size,
+              estimatedBytes: file.size,
+              diskFingerprint: file.fingerprint,
+              diskIdentity: file.identity ?? undefined,
+            });
+          return;
+        }
+        if (
+          file.content === current.savedContent &&
+          sameTextMetadata(
+            file,
+            {
+              encoding: current.encoding === "UTF-8 BOM" ? "utf-8-bom" : "utf-8",
+              bom: current.bom,
+              lineEndings: current.lineEndings,
+              lineEnding: current.lineEnding,
+            },
+            current.savedContent,
+          )
+        ) {
+          updateTab(current.id, {
+            orphaned: false,
+            diskModifiedAt: file.modifiedAt,
+            diskSize: file.size,
+            estimatedBytes: file.size,
+            diskFingerprint: file.fingerprint,
+            diskIdentity: file.identity ?? undefined,
+          });
+          return;
+        }
+        updateTab(current.id, adoptDiskVersionChanges(current, file));
+        getDocumentRevision(current.id).bump();
+      })
+      .catch((error) => {
+        if (generation !== workspaceGeneration || fileReadRevisions.get(tab.id) !== readRevision) return;
+        const current = tabById[tab.id];
+        if (!current) return;
+        if (isMissingFileError(error)) {
+          if (current.dirty) externalConflictController.queue(current);
+          else updateTab(current.id, { orphaned: true });
+        } else {
+          notify(errorMessage(error, t("Unable to reload {name}.", { name: current.name })), "error");
+        }
+      });
   };
 
   const verifyOpenFiles = () => {
@@ -4543,8 +6063,12 @@ export default function App() {
     const readRevisions = new Map(candidates.map((tab) => [tab.id, fileReadRevisions.get(tab.id)]));
     const currentCandidate = (tab: EditorTab) => {
       const current = tabById[tab.id];
-      return generation === workspaceGeneration && current && samePath(current.path, tab.path)
-        && readRevisions.get(tab.id) === fileReadRevisions.get(tab.id) ? current : undefined;
+      return generation === workspaceGeneration &&
+        current &&
+        samePath(current.path, tab.path) &&
+        readRevisions.get(tab.id) === fileReadRevisions.get(tab.id)
+        ? current
+        : undefined;
     };
     const queueFullRead = (tab: EditorTab) => {
       const current = currentCandidate(tab);
@@ -4562,22 +6086,24 @@ export default function App() {
       for (const tab of candidates) queueFullRead(tab);
       return;
     }
-    void statFiles(candidates.map((tab) => tab.path)).then((entries) => {
-      if (generation !== workspaceGeneration) return;
-      const entryByPath = new Map(entries.map((entry) => [pathKey(entry.path), entry]));
-      for (const tab of candidates) {
-        const current = currentCandidate(tab);
-        if (!current) continue;
-        const entry = entryByPath.get(pathKey(tab.path));
-        if (entry && !entry.exists) {
-          queueFullRead(tab);
-          continue;
+    void statFiles(candidates.map((tab) => tab.path))
+      .then((entries) => {
+        if (generation !== workspaceGeneration) return;
+        const entryByPath = new Map(entries.map((entry) => [pathKey(entry.path), entry]));
+        for (const tab of candidates) {
+          const current = currentCandidate(tab);
+          if (!current) continue;
+          const entry = entryByPath.get(pathKey(tab.path));
+          if (entry && !entry.exists) {
+            queueFullRead(tab);
+            continue;
+          }
+          if (diskMetadataChanged(current, entry)) queueFullRead(tab);
         }
-        if (diskMetadataChanged(current, entry)) queueFullRead(tab);
-      }
-    }).catch(() => {
-      for (const tab of candidates) queueFullRead(tab);
-    });
+      })
+      .catch(() => {
+        for (const tab of candidates) queueFullRead(tab);
+      });
   };
 
   const openPluginAuthorizationReview = async (targetPluginId?: string) => {
@@ -4598,7 +6124,10 @@ export default function App() {
       if (plan.installedManifest && plan.manifest.id !== plan.installedManifest.id) {
         throw new Error("The selected plugin does not match the installed plugin being updated.");
       }
-      if (targetPluginId && (plan.manifest.id !== targetPluginId || plan.installedManifest?.id !== targetPluginId || !existing)) {
+      if (
+        targetPluginId &&
+        (plan.manifest.id !== targetPluginId || plan.installedManifest?.id !== targetPluginId || !existing)
+      ) {
         await cancelPluginInstall(plan.transactionId);
         plan = null;
         notify(t("The selected folder contains a different plugin. The update was cancelled."));
@@ -4632,7 +6161,7 @@ export default function App() {
           emitDiagnostic("plugin.cancel", cancelError);
         }
       }
-      notify(errorMessage(error, "Unable to inspect the selected plugin folder."));
+      notify(errorMessage(error, "Unable to inspect the selected plugin folder."), "error");
     } finally {
       pluginOperationInFlight = false;
     }
@@ -4647,7 +6176,7 @@ export default function App() {
     try {
       await cancelPluginInstall(review.plan.transactionId);
     } catch (error) {
-      notify(errorMessage(error, "Unable to discard the inspected plugin."));
+      notify(errorMessage(error, "Unable to discard the inspected plugin."), "error");
     }
   };
 
@@ -4661,9 +6190,13 @@ export default function App() {
     const nativeLspApprovals: PluginPermissionGrantRequest[] = [];
     let failureMessage = "Unable to install the selected plugin.";
     try {
-      const validRequests = requests.filter((request) => request.pluginId === proposed.id && request.pluginVersion === proposed.version);
-      if (validRequests.length !== requests.length) throw new Error("Permission review does not match the inspected plugin version.");
-      if (workspaceRoot !== workspace()) throw new Error("The workspace changed during permission review. Review the plugin again before approving.");
+      const validRequests = requests.filter(
+        (request) => request.pluginId === proposed.id && request.pluginVersion === proposed.version,
+      );
+      if (validRequests.length !== requests.length)
+        throw new Error("Permission review does not match the inspected plugin version.");
+      if (workspaceRoot !== workspace())
+        throw new Error("The workspace changed during permission review. Review the plugin again before approving.");
       if (plan.installedManifest && plan.manifest.id !== plan.installedManifest.id) {
         throw new Error("The inspected update no longer matches the installed plugin.");
       }
@@ -4671,7 +6204,9 @@ export default function App() {
         nextPluginRunGeneration(proposed.id);
         stopPluginRun(proposed.id);
         clearPluginStatusItems(proposed.id);
-        setPlugins((items) => items.map((plugin) => plugin.id === proposed.id ? { ...plugin, status: "inactive" } : plugin));
+        setPlugins((items) =>
+          items.map((plugin) => (plugin.id === proposed.id ? { ...plugin, status: "inactive" } : plugin)),
+        );
         await stopPluginLsp(proposed.id);
         await revokePluginNetwork(proposed.id);
       }
@@ -4690,17 +6225,21 @@ export default function App() {
       }
 
       if (result.cleanupPending) {
-        setPendingCleanupIds((ids) => ids.includes(proposed.id) ? ids : [...ids, proposed.id]);
+        setPendingCleanupIds((ids) => (ids.includes(proposed.id) ? ids : [...ids, proposed.id]));
       }
       const installed = { ...result.plugin, enabled: wasEnabled, status: "inactive" as const };
-      setPlugins((items) => items.some((plugin) => plugin.id === installed.id)
-        ? items.map((plugin) => plugin.id === installed.id ? installed : plugin)
-        : [...items, installed]);
+      setPlugins((items) =>
+        items.some((plugin) => plugin.id === installed.id)
+          ? items.map((plugin) => (plugin.id === installed.id ? installed : plugin))
+          : [...items, installed],
+      );
       setAuthorizationReview(undefined);
       setPluginsOpen(true);
-      notify(plan.installedManifest
-        ? t("Updated {name}. Review granted permissions before use.", { name: installed.name })
-        : t("Installed {name}. Review granted permissions before use.", { name: installed.name }));
+      notify(
+        plan.installedManifest
+          ? t("Updated {name}. Review granted permissions before use.", { name: installed.name })
+          : t("Installed {name}. Review granted permissions before use.", { name: installed.name }),
+      );
       if (wasEnabled && workspace()) activatePluginsForEvent("onWorkspaceOpen", { workspace: workspace() });
     } catch (error) {
       failureMessage = errorMessage(error, failureMessage);
@@ -4712,7 +6251,12 @@ export default function App() {
             pluginId: request.pluginId,
             pluginVersion: request.pluginVersion,
             workspaceRoot: request.workspaceRoot,
-            server: { serverId: scope.serverId, language: scope.language, executable: scope.executablePath, args: [...scope.args] },
+            server: {
+              serverId: scope.serverId,
+              language: scope.language,
+              executable: scope.executablePath,
+              args: [...scope.args],
+            },
           });
         } catch (revokeError) {
           emitDiagnostic("plugin.failure", revokeError);
@@ -4723,27 +6267,42 @@ export default function App() {
           try {
             const rolledBack = await rollbackPluginUpdate(proposed.id);
             const restored = { ...rolledBack, enabled: wasEnabled, status: "inactive" as const };
-            setPlugins((items) => items.some((plugin) => plugin.id === restored.id)
-              ? items.map((plugin) => plugin.id === restored.id ? restored : plugin)
-              : [...items, restored]);
+            setPlugins((items) =>
+              items.some((plugin) => plugin.id === restored.id)
+                ? items.map((plugin) => (plugin.id === restored.id ? restored : plugin))
+                : [...items, restored],
+            );
             if (wasEnabled) await restoreAllPluginLspAuthorizations(restored);
           } catch (rollbackError) {
             if (committedPlugin) {
-              setPlugins((items) => items.some((plugin) => plugin.id === committedPlugin!.id)
-                ? items.map((plugin) => plugin.id === committedPlugin!.id ? { ...committedPlugin!, enabled: false, status: "inactive" } : plugin)
-                : [...items, { ...committedPlugin!, enabled: false, status: "inactive" }]);
+              setPlugins((items) =>
+                items.some((plugin) => plugin.id === committedPlugin!.id)
+                  ? items.map((plugin) =>
+                      plugin.id === committedPlugin!.id
+                        ? { ...committedPlugin!, enabled: false, status: "inactive" }
+                        : plugin,
+                    )
+                  : [...items, { ...committedPlugin!, enabled: false, status: "inactive" }],
+              );
             }
             failureMessage += ` Rollback also failed: ${errorMessage(rollbackError, "unknown error")}`;
           }
         } else {
           try {
             const removed = await uninstallPlugin(proposed.id);
-            if (removed.cleanupPending) setPendingCleanupIds((ids) => ids.includes(proposed.id) ? ids : [...ids, proposed.id]);
+            if (removed.cleanupPending)
+              setPendingCleanupIds((ids) => (ids.includes(proposed.id) ? ids : [...ids, proposed.id]));
           } catch (rollbackError) {
             if (committedPlugin) {
-              setPlugins((items) => items.some((plugin) => plugin.id === committedPlugin!.id)
-                ? items.map((plugin) => plugin.id === committedPlugin!.id ? { ...committedPlugin!, enabled: false, status: "inactive" } : plugin)
-                : [...items, { ...committedPlugin!, enabled: false, status: "inactive" }]);
+              setPlugins((items) =>
+                items.some((plugin) => plugin.id === committedPlugin!.id)
+                  ? items.map((plugin) =>
+                      plugin.id === committedPlugin!.id
+                        ? { ...committedPlugin!, enabled: false, status: "inactive" }
+                        : plugin,
+                    )
+                  : [...items, { ...committedPlugin!, enabled: false, status: "inactive" }],
+              );
             }
             failureMessage += ` Cleanup also failed: ${errorMessage(rollbackError, "unknown error")}`;
           }
@@ -4797,9 +6356,9 @@ export default function App() {
           nextPluginRunGeneration(id);
           stopPluginRun(id);
           clearPluginStatusItems(id);
-          const disabledPlugins = plugins().map((item) => item.id === id
-            ? { ...item, enabled: false, status: "inactive" as const }
-            : item);
+          const disabledPlugins = plugins().map((item) =>
+            item.id === id ? { ...item, enabled: false, status: "inactive" as const } : item,
+          );
           setPlugins(disabledPlugins);
           const persistedPlugins = disabledPlugins.map((item) => ({ ...item, status: "inactive" as const }));
           return writeStorage(PLUGINS_STORAGE_KEY, JSON.stringify(persistedPlugins));
@@ -4811,20 +6370,27 @@ export default function App() {
         uninstallNative: () => uninstallPlugin(id),
       });
       if (result.status === "blocked") {
-        notify(result.reason === "plugin-state-storage-failed"
-          ? t("Plugin is disabled for this session, but its disabled state could not be saved. Uninstall was cancelled.")
-          : t("Plugin is disabled, but its permissions could not be removed from storage. Uninstall was cancelled."));
+        notify(
+          result.reason === "plugin-state-storage-failed"
+            ? t(
+                "Plugin is disabled for this session, but its disabled state could not be saved. Uninstall was cancelled.",
+              )
+            : t("Plugin is disabled, but its permissions could not be removed from storage. Uninstall was cancelled."),
+        );
         return;
       }
-      if (result.cleanupPending) setPendingCleanupIds((ids) => ids.includes(id) ? ids : [...ids, id]);
+      if (result.cleanupPending) setPendingCleanupIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
       if (result.status === "removed") {
         setPlugins((items) => items.filter((item) => item.id !== id));
         notify(t("Uninstalled {name}.", { name: plugin.name }));
       } else {
-        notify(t("Could not uninstall {name}. It is disabled; you can retry the uninstall.", { name: plugin.name }));
+        notify(
+          t("Could not uninstall {name}. It is disabled; you can retry the uninstall.", { name: plugin.name }),
+          "error",
+        );
       }
     } catch (error) {
-      notify(errorMessage(error, t("Unable to uninstall {name}.", { name: plugin.name })));
+      notify(errorMessage(error, t("Unable to uninstall {name}.", { name: plugin.name })), "error");
     } finally {
       pluginOperationInFlight = false;
       setConfirmedOperationInProgress(false);
@@ -4841,7 +6407,7 @@ export default function App() {
         notify(t("Plugin cleanup completed."));
       }
     } catch (error) {
-      notify(errorMessage(error, "Unable to retry plugin cleanup."));
+      notify(errorMessage(error, "Unable to retry plugin cleanup."), "error");
     }
   };
 
@@ -4852,7 +6418,8 @@ export default function App() {
 
   const revokePluginPermission = (grantId: string) => {
     void ensureAuthorizationManager().then((manager) => {
-      if (!manager.revoke(grantId)) notify(t("Permission could not be revoked because authorization storage is unavailable."));
+      if (!manager.revoke(grantId))
+        notify(t("Permission could not be revoked because authorization storage is unavailable."));
     });
   };
 
@@ -4889,22 +6456,13 @@ export default function App() {
       return;
     }
     const modifier = event.ctrlKey || event.metaKey;
-    if (modifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === "p") {
+    const global = globalShortcut(event);
+    if (global && (global !== "searchProject" || workspace())) {
       event.preventDefault();
       openFolderChord = null;
-      setCommandPaletteOpen(true);
-      return;
-    }
-    if (modifier && event.shiftKey && !event.altKey && event.key.toLowerCase() === "f" && workspace()) {
-      event.preventDefault();
-      openFolderChord = null;
-      openProjectSearch("content");
-      return;
-    }
-    if (modifier && !event.shiftKey && !event.altKey && event.key === ",") {
-      event.preventDefault();
-      openFolderChord = null;
-      setSettingsOpen(true);
+      if (global === "commandPalette") setCommandPaletteOpen(true);
+      else if (global === "searchProject") openProjectSearch("content");
+      else setSettingsOpen(true);
       return;
     }
     if (historyViewActive() && modifier && !event.altKey) {
@@ -4918,7 +6476,13 @@ export default function App() {
       }
     }
     const isEditorContent = Boolean(target?.closest(".cm-content"));
-    if (!isEditorContent && (target?.isContentEditable || target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.tagName === "SELECT")) {
+    if (
+      !isEditorContent &&
+      (target?.isContentEditable ||
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT")
+    ) {
       openFolderChord = null;
       return;
     }
@@ -4929,30 +6493,77 @@ export default function App() {
       if (chord.action === "open") void loadWorkspace();
       return;
     }
-    if (!modifier && event.altKey && !event.shiftKey && event.code === "KeyZ") { event.preventDefault(); toggleSetting("wordWrap"); return; }
-    if (!modifier) return;
-    const key = event.key.toLowerCase();
-    if (key === "s") { event.preventDefault(); void (event.shiftKey ? saveTabAs() : event.altKey ? saveAll() : saveTab()); }
-    if (key === "o" && !event.altKey) { event.preventDefault(); void openFileAction(); }
-    if (key === "w") { event.preventDefault(); const id = activeTabId(); if (id) closeTab(id); }
-    if (key === "f" && isMacPlatform() && event.altKey) { event.preventDefault(); showFind(true); }
-    else if (key === "f" && !event.altKey) { event.preventDefault(); showFind(false); }
-    if (key === "h" && !isMacPlatform() && !event.altKey) { event.preventDefault(); showFind(true); }
-    if (key === "g") { event.preventDefault(); void goToLineAction(); }
-    if (event.key === "Tab") { event.preventDefault(); cycleTab(event.shiftKey ? -1 : 1); }
-    if (event.altKey) return;
-    if (key === "t" && event.shiftKey) { event.preventDefault(); reopenClosedTab(); }
-    if (key === "b" && !event.shiftKey) { event.preventDefault(); setSidebarHidden((hidden) => !hidden); }
-    if (key === "p" && !event.shiftKey) { event.preventDefault(); openProjectSearch("files"); }
-    if (key === "v" && event.shiftKey && activeTab()?.language === "Markdown") { event.preventDefault(); setMarkdownPreviewEnabled((enabled) => !enabled); }
-    if (key === "=" || key === "+") { event.preventDefault(); zoomEditor(1); }
-    if (key === "-" && !event.shiftKey) { event.preventDefault(); zoomEditor(-1); }
-    if (key === "0" && !event.shiftKey) { event.preventDefault(); zoomEditor(0); }
+    const shortcut = editorShortcut(event, isMacPlatform());
+    if (!shortcut || (shortcut === "toggleMarkdownPreview" && activeTab()?.language !== "Markdown")) return;
+    event.preventDefault();
+    runEditorShortcut(shortcut);
+  };
+
+  const runEditorShortcut = (shortcut: EditorShortcut) => {
+    switch (shortcut) {
+      case "save":
+        void saveTab();
+        break;
+      case "saveAs":
+        void saveTabAs();
+        break;
+      case "saveAll":
+        void saveAll();
+        break;
+      case "openFile":
+        void openFileAction();
+        break;
+      case "closeTab": {
+        const id = activeTabId();
+        if (id) closeTab(id);
+        break;
+      }
+      case "find":
+        showFind(false);
+        break;
+      case "replace":
+        showFind(true);
+        break;
+      case "goToLine":
+        void goToLineAction();
+        break;
+      case "nextTab":
+        cycleTab(1);
+        break;
+      case "previousTab":
+        cycleTab(-1);
+        break;
+      case "reopenClosedTab":
+        reopenClosedTab();
+        break;
+      case "toggleSidebar":
+        setSidebarHidden((hidden) => !hidden);
+        break;
+      case "goToFile":
+        openProjectSearch("files");
+        break;
+      case "toggleMarkdownPreview":
+        setMarkdownPreviewEnabled((enabled) => !enabled);
+        break;
+      case "zoomIn":
+        zoomEditor(1);
+        break;
+      case "zoomOut":
+        zoomEditor(-1);
+        break;
+      case "resetZoom":
+        zoomEditor(0);
+        break;
+      case "toggleWordWrap":
+        toggleSetting("wordWrap");
+        break;
+    }
   };
 
   const handleTerminalShortcut = (event: KeyboardEvent) => {
     if (isImeComposing(event) || confirmedOperationInProgress() || appQuitPrepared()) return;
-    if (!(event.ctrlKey || event.metaKey) || event.altKey || (event.key !== "`" && event.key !== "~")) return;
+    // Ctrl+` on every platform: on macOS, Cmd+` cycles the app's windows.
+    if (!event.ctrlKey || event.metaKey || event.altKey || (event.key !== "`" && event.key !== "~")) return;
     if ((event.target as HTMLElement | null)?.closest(".modal, .settings-dialog, .command-palette")) return;
     event.preventDefault();
     event.stopPropagation();
@@ -4977,11 +6588,19 @@ export default function App() {
   const showBlankContextMenu = (event: MouseEvent) => {
     // Selected text keeps the native menu so it can still be copied.
     if (event.defaultPrevented || !(event.target instanceof Element) || !window.getSelection()?.isCollapsed) return;
-    if (event.target.closest("input, textarea, select, [contenteditable], .cm-editor, .terminal-pane, .modal, .settings-dialog, .settings-dialog-backdrop, .command-palette, button, a, [role=menu], [role=treeitem], [role=tab]")) return;
+    if (
+      event.target.closest(
+        "input, textarea, select, [contenteditable], .cm-editor, .terminal-pane, .modal, .settings-dialog, .settings-dialog-backdrop, .command-palette, button, a, [role=menu], [role=treeitem], [role=tab]",
+      )
+    )
+      return;
     event.preventDefault();
     closeContextMenus();
     contextMenuFocusTarget = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-    setRefreshMenu({ x: Math.min(event.clientX, window.innerWidth - 210), y: Math.min(event.clientY, window.innerHeight - 48) });
+    setRefreshMenu({
+      x: Math.min(event.clientX, window.innerWidth - 210),
+      y: Math.min(event.clientY, window.innerHeight - 48),
+    });
     queueMicrotask(() => document.querySelector<HTMLElement>(".refresh-context-menu [role=menuitem]")?.focus());
   };
   onMount(() => window.addEventListener("contextmenu", showBlankContextMenu));
@@ -5050,7 +6669,9 @@ export default function App() {
     }
     if (requestGeneration !== workspaceGeneration || !tabOperationsAreCurrent(snapshots)) return;
     const remaining = tabs().filter((tab) => !ids.includes(tab.id));
-    targets.forEach((tab) => rememberClosedTab({ ...tab, content: getDocumentText(tab) }));
+    targets.forEach((tab) => {
+      rememberClosedTab({ ...tab, content: getDocumentText(tab) });
+    });
     setTabs(remaining);
     for (const tab of targets) {
       clearRecovery(tab.id);
@@ -5059,7 +6680,9 @@ export default function App() {
     if (ids.includes(activeTabId() ?? "")) setActiveTab(remaining[0]?.id);
     markSessionDirty();
     syncExternalWatchParents();
-    targets.forEach((tab) => externalConflictController.dismiss(tab.id));
+    targets.forEach((tab) => {
+      externalConflictController.dismiss(tab.id);
+    });
     setTabMenu(undefined);
   };
 
@@ -5084,7 +6707,8 @@ export default function App() {
     if (action === "close-right") void closeToRight(id);
     if (action === "close-saved") void closeSaved();
     if (action === "close-all") void closeAll();
-    if (action === "copy-path" || action === "copy-relative-path") void copyEntryText(entry, action === "copy-relative-path" ? "relative-path" : "path");
+    if (action === "copy-path" || action === "copy-relative-path")
+      void copyEntryText(entry, action === "copy-relative-path" ? "relative-path" : "path");
     if (action === "reveal") void openInFileExplorer(entry);
   };
 
@@ -5105,18 +6729,27 @@ export default function App() {
   const toggleTabPinned = (id: string) => {
     const target = tabById[id];
     if (!target) return;
-    setTabs(tabs().map((tab) => tab.id === id ? { ...tab, pinned: !tab.pinned } : tab));
+    setTabs(tabs().map((tab) => (tab.id === id ? { ...tab, pinned: !tab.pinned } : tab)));
     markSessionDirty();
     setTabMenu(undefined);
   };
 
-  const handleDocumentChange = ({ tabId, revision, dirty, lineEnding, estimatedBytes, largeFile }: EditorDocumentChange) => {
+  const handleDocumentChange = ({
+    tabId,
+    revision,
+    dirty,
+    lineEnding,
+    estimatedBytes,
+    largeFile,
+  }: EditorDocumentChange) => {
     const tab = tabById[tabId];
     if (!tab) return;
     // The editor owns the document text; App only tracks the small metadata
     // needed for dirty state, recovery, and saving. Full text is read on
     // demand through the document handle snapshot interface.
-    updateTab(tabId, { lineEnding, revision, dirty, estimatedBytes, largeFile });
+    const wasDirty = tab.dirty;
+    applyTabChanges(tab, { lineEnding, revision, dirty, estimatedBytes, largeFile });
+    if (editNeedsSessionCheckpoint(wasDirty, dirty, recoverySizeBytes(tab))) markSessionDirty();
     getDocumentRevision(tabId).bump();
     scheduleRecovery(tabId);
     scheduleDocumentCacheBudget();
@@ -5126,203 +6759,1003 @@ export default function App() {
     setTopbarMenu(undefined);
     action();
   };
-  const statusTab = () => historyViewActive() ? undefined : activeTab();
-  const windowControls = () => <WindowControls
-    maximized={windowMaximized()}
-    onClose={() => void closeWindow("preserve")}
-    onMinimize={() => { if (isTauri) void getWindowApi().then(({ getCurrentWindow }) => getCurrentWindow().minimize()); }}
-    onMaximize={() => void toggleWindowMaximize()}
-  />;
+  const statusTab = () => (historyViewActive() ? undefined : activeTab());
+  const windowControls = () => (
+    <WindowControls
+      maximized={windowMaximized()}
+      onClose={() => void closeWindow("preserve")}
+      onMinimize={() => {
+        if (isTauri) void getWindowApi().then(({ getCurrentWindow }) => getCurrentWindow().minimize());
+      }}
+      onMaximize={() => void toggleWindowMaximize()}
+    />
+  );
 
   return (
     <div class="app-shell" inert={appQuitPrepared() || confirmedOperationInProgress()}>
       <header class="topbar" data-platform={windowPlatform} onMouseDown={startWindowDrag}>
-        <div class="brand-lockup"><img class="brand-logo" src="/pude-logo.webp" width="36" height="36" alt="pude" /></div>
+        <div class="brand-lockup">
+          <img class="brand-logo" src="/pude-logo.webp" width="36" height="36" alt="pude" />
+        </div>
         <nav class="topbar-actions" aria-label={t("Application menu")}>
-          <TopbarMenu label={t("File")} open={topbarMenu() === "file"} onToggle={() => setTopbarMenu((current) => current === "file" ? undefined : "file")}>
-            <TopbarMenuItem icon="external" label={t("New window")} onSelect={() => selectTopbarAction(() => void openNewWindowAction())} />
-            <TopbarMenuItem icon="folder-open" label={t("Open folder")} onSelect={() => selectTopbarAction(() => void loadWorkspace())} />
-            <TopbarMenuItem icon="split" label={t("Open workspace…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.openFromDialog()))} />
-            <TopbarMenuItem icon="plus" label={t("Add folder to workspace…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.addFolder()))} />
-            <TopbarMenuItem icon="save" label={t("Save workspace as…")} onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.saveAs()))} />
-            <TopbarMenuItem icon="file" label={t("Open file")} shortcut={`${shortcutModifier()}+O`} onSelect={() => selectTopbarAction(() => void openFileAction())} />
+          <TopbarMenu
+            label={t("File")}
+            open={topbarMenu() === "file"}
+            onToggle={() => setTopbarMenu((current) => (current === "file" ? undefined : "file"))}
+          >
+            <TopbarMenuItem
+              icon="external"
+              label={t("New window")}
+              onSelect={() => selectTopbarAction(() => void openNewWindowAction())}
+            />
+            <TopbarMenuItem
+              icon="folder-open"
+              label={t("Open folder")}
+              onSelect={() => selectTopbarAction(() => void loadWorkspace())}
+            />
+            <TopbarMenuItem
+              icon="split"
+              label={t("Open workspace…")}
+              onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.openFromDialog()))}
+            />
+            <TopbarMenuItem
+              icon="plus"
+              label={t("Add folder to workspace…")}
+              onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.addFolder()))}
+            />
+            <TopbarMenuItem
+              icon="save"
+              label={t("Save workspace as…")}
+              onSelect={() => selectTopbarAction(() => void runWorkspaceAction((actions) => actions.saveAs()))}
+            />
+            <TopbarMenuItem
+              icon="file"
+              label={t("Open file")}
+              shortcut={`${shortcutModifier()}+O`}
+              onSelect={() => selectTopbarAction(() => void openFileAction())}
+            />
             <div class="topbar-menu-divider" />
-            <TopbarMenuItem icon="save" label={t("Save")} shortcut={`${shortcutModifier()}+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTab(); })} />
-            <TopbarMenuItem icon="save" label={t("Save As")} shortcut={`${shortcutModifier()}+Shift+S`} onSelect={() => selectTopbarAction(() => { if (!historyViewActive()) void saveTabAs(); })} />
-            <TopbarMenuItem icon="save" label={t("Save All")} shortcut={`${shortcutModifier()}+${isMacPlatform() ? "Option" : "Alt"}+S`} onSelect={() => selectTopbarAction(() => void saveAll())} />
+            <TopbarMenuItem
+              icon="save"
+              label={t("Save")}
+              shortcut={`${shortcutModifier()}+S`}
+              onSelect={() =>
+                selectTopbarAction(() => {
+                  if (!historyViewActive()) void saveTab();
+                })
+              }
+            />
+            <TopbarMenuItem
+              icon="save"
+              label={t("Save As")}
+              shortcut={`${shortcutModifier()}+Shift+S`}
+              onSelect={() =>
+                selectTopbarAction(() => {
+                  if (!historyViewActive()) void saveTabAs();
+                })
+              }
+            />
+            <TopbarMenuItem
+              icon="save"
+              label={t("Save All")}
+              shortcut={`${shortcutModifier()}+${isMacPlatform() ? "Option" : "Alt"}+S`}
+              onSelect={() => selectTopbarAction(() => void saveAll())}
+            />
             <div class="topbar-menu-divider" />
-            <TopbarMenuItem icon="arrow-up" label={t("Reopen closed tab")} shortcut={`${shortcutModifier()}+Shift+T`} onSelect={() => selectTopbarAction(reopenClosedTab)} />
-            <TopbarMenuItem icon="close" label={t("Close tab")} shortcut={`${shortcutModifier()}+W`} onSelect={() => selectTopbarAction(() => runTabMenuAction(activeTabId() ?? "", "close"))} />
+            <TopbarMenuItem
+              icon="arrow-up"
+              label={t("Reopen closed tab")}
+              shortcut={`${shortcutModifier()}+Shift+T`}
+              onSelect={() => selectTopbarAction(reopenClosedTab)}
+            />
+            <TopbarMenuItem
+              icon="close"
+              label={t("Close tab")}
+              shortcut={`${shortcutModifier()}+W`}
+              onSelect={() => selectTopbarAction(() => runTabMenuAction(activeTabId() ?? "", "close"))}
+            />
           </TopbarMenu>
-          <TopbarMenu label={t("Edit")} triggerRef={(element) => { editMenuTrigger = element; }} open={topbarMenu() === "edit"} onToggle={() => setTopbarMenu((current) => current === "edit" ? undefined : "edit")}>
-          <TopbarMenuItem icon="search" label={t("Find")} shortcut={`${shortcutModifier()}+F`} onSelect={() => selectTopbarAction(findAction)} />
-          <TopbarMenuItem icon="search" label={t("Replace")} shortcut={isMacPlatform() ? "Cmd+Option+F" : "Ctrl+H"} onSelect={() => selectTopbarAction(() => showFind(true))} />
-            <TopbarMenuItem icon="file" label={t("Go to file")} shortcut={`${shortcutModifier()}+P`} onSelect={() => selectTopbarAction(() => openProjectSearch("files"))} />
-            <TopbarMenuItem icon="arrow-down" label={t("Go to line")} shortcut={`${shortcutModifier()}+G`} onSelect={() => selectTopbarAction(() => void goToLineAction())} />
-            <TopbarMenuItem icon="command" label={t("Commands")} shortcut={`${shortcutModifier()}+Shift+P`} onSelect={() => selectTopbarAction(() => setCommandPaletteOpen(true))} />
+          <TopbarMenu
+            label={t("Edit")}
+            triggerRef={(element) => {
+              editMenuTrigger = element;
+            }}
+            open={topbarMenu() === "edit"}
+            onToggle={() => setTopbarMenu((current) => (current === "edit" ? undefined : "edit"))}
+          >
+            <TopbarMenuItem
+              icon="search"
+              label={t("Find")}
+              shortcut={`${shortcutModifier()}+F`}
+              onSelect={() => selectTopbarAction(findAction)}
+            />
+            <TopbarMenuItem
+              icon="search"
+              label={t("Replace")}
+              shortcut={isMacPlatform() ? "Cmd+Option+F" : "Ctrl+H"}
+              onSelect={() => selectTopbarAction(() => showFind(true))}
+            />
+            <TopbarMenuItem
+              icon="file"
+              label={t("Go to file")}
+              shortcut={`${shortcutModifier()}+P`}
+              onSelect={() => selectTopbarAction(() => openProjectSearch("files"))}
+            />
+            <TopbarMenuItem
+              icon="arrow-down"
+              label={t("Go to line")}
+              shortcut={`${shortcutModifier()}+G`}
+              onSelect={() => selectTopbarAction(() => void goToLineAction())}
+            />
+            <TopbarMenuItem
+              icon="command"
+              label={t("Commands")}
+              shortcut={`${shortcutModifier()}+Shift+P`}
+              onSelect={() => selectTopbarAction(() => setCommandPaletteOpen(true))}
+            />
           </TopbarMenu>
-          <TopbarMenu label={t("View")} triggerRef={(element) => { viewMenuTrigger = element; }} open={topbarMenu() === "view"} onToggle={() => setTopbarMenu((current) => current === "view" ? undefined : "view")}>
-            <TopbarMenuItem icon="split" label={sidebarHidden() ? t("Show sidebar") : t("Hide sidebar")} shortcut={`${shortcutModifier()}+B`} onSelect={() => selectTopbarAction(() => setSidebarHidden((hidden) => !hidden))} />
-            <TopbarMenuItem icon="terminal" label={t("Toggle terminal")} shortcut={`${shortcutModifier()}+\``} onSelect={() => selectTopbarAction(toggleTerminal)} />
-            <TopbarMenuItem icon="file" label={settings().wordWrap ? t("Turn off word wrap") : t("Turn on word wrap")} shortcut={isMacPlatform() ? "Option+Z" : "Alt+Z"} onSelect={() => selectTopbarAction(() => toggleSetting("wordWrap"))} />
+          <TopbarMenu
+            label={t("View")}
+            triggerRef={(element) => {
+              viewMenuTrigger = element;
+            }}
+            open={topbarMenu() === "view"}
+            onToggle={() => setTopbarMenu((current) => (current === "view" ? undefined : "view"))}
+          >
+            <TopbarMenuItem
+              icon="split"
+              label={sidebarHidden() ? t("Show sidebar") : t("Hide sidebar")}
+              shortcut={`${shortcutModifier()}+B`}
+              onSelect={() => selectTopbarAction(() => setSidebarHidden((hidden) => !hidden))}
+            />
+            <TopbarMenuItem
+              icon="terminal"
+              label={t("Toggle terminal")}
+              shortcut="Ctrl+`"
+              onSelect={() => selectTopbarAction(toggleTerminal)}
+            />
+            <TopbarMenuItem
+              icon="file"
+              label={settings().wordWrap ? t("Turn off word wrap") : t("Turn on word wrap")}
+              shortcut={isMacPlatform() ? "Option+Z" : "Alt+Z"}
+              onSelect={() => selectTopbarAction(() => toggleSetting("wordWrap"))}
+            />
             <div class="topbar-menu-divider" />
-            <TopbarMenuItem icon="plugin" label={t("Plugins")} onSelect={() => selectTopbarAction(() => setPluginsOpen(true))} />
-            <TopbarMenuItem icon="settings" label={t("Settings")} shortcut={`${shortcutModifier()}+,`} onSelect={() => selectTopbarAction(() => setSettingsOpen(true))} />
+            <TopbarMenuItem
+              icon="plugin"
+              label={t("Plugins")}
+              onSelect={() => selectTopbarAction(() => setPluginsOpen(true))}
+            />
+            <TopbarMenuItem
+              icon="settings"
+              label={t("Settings")}
+              shortcut={`${shortcutModifier()}+,`}
+              onSelect={() => selectTopbarAction(() => setSettingsOpen(true))}
+            />
           </TopbarMenu>
-          <TopbarMenu label={t("Help")} open={topbarMenu() === "help"} triggerRef={(element) => { helpMenuTrigger = element; }} onToggle={() => setTopbarMenu((current) => current === "help" ? undefined : "help")}>
-            <TopbarMenuItem icon="external" label={["available", "downloading", "ready"].includes(updateStatus().phase) ? t("About pude · Update available") : t("About pude")} onSelect={() => selectTopbarAction(() => setAboutOpen(true))} />
+          <TopbarMenu
+            label={t("Help")}
+            open={topbarMenu() === "help"}
+            triggerRef={(element) => {
+              helpMenuTrigger = element;
+            }}
+            onToggle={() => setTopbarMenu((current) => (current === "help" ? undefined : "help"))}
+          >
+            <TopbarMenuItem
+              icon="external"
+              label={
+                ["available", "downloading", "ready"].includes(updateStatus().phase)
+                  ? t("About pude · Update available")
+                  : t("About pude")
+              }
+              onSelect={() => selectTopbarAction(() => setAboutOpen(true))}
+            />
           </TopbarMenu>
         </nav>
-        <LazyProjectTabs projects={projectTabItems()} activeId={activeProjectId()} busy={!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || projectCloseBusy()}
-          onSelect={selectProject} onClose={requestCloseProject} onAdd={() => void addProjectTab()}
-          onReorder={(source, target) => { setProjects((items) => reorderProjects(items, source, target)); markSessionDirty(); }} />
-        <button class="theme-button header-theme-button" onClick={() => updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" })} title={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")} aria-label={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")}><Icon name={settings().theme === "dark" ? "sun" : "moon"} size={16} /></button>
+        <LazyProjectTabs
+          projects={projectTabItems()}
+          activeId={activeProjectId()}
+          busy={!hydrated() || confirmedOperationInProgress() || appQuitPrepared() || projectCloseBusy()}
+          onSelect={selectProject}
+          onClose={requestCloseProject}
+          onAdd={() => void addProjectTab()}
+          onReorder={(source, target) => {
+            setProjects((items) => reorderProjects(items, source, target));
+            markSessionDirty();
+          }}
+        />
+        <button
+          type="button"
+          class="theme-button header-theme-button"
+          onClick={() => updateSettings({ theme: settings().theme === "dark" ? "light" : "dark" })}
+          title={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")}
+          aria-label={settings().theme === "dark" ? t("Switch to light theme") : t("Switch to dark theme")}
+        >
+          <Icon name={settings().theme === "dark" ? "sun" : "moon"} size={16} />
+        </button>
         <Show when={windowPlatform !== "mac"}>{windowControls()}</Show>
       </header>
       <Show when={settingsOpen()}>
-        <LazySettingsDialog settings={settings()} onChange={updateSettings} onClose={() => setSettingsOpen(false)} returnFocus={() => viewMenuTrigger} />
-      </Show>
-      <Show when={aboutOpen()}>
-        <LazyAboutDialog
-          version={appVersion}
-          returnFocus={() => helpMenuTrigger}
-          onClose={() => setAboutOpen(false)}
+        <LazySettingsDialog
+          settings={settings()}
+          onChange={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+          returnFocus={() => viewMenuTrigger}
         />
       </Show>
+      <Show when={aboutOpen()}>
+        <LazyAboutDialog version={appVersion} returnFocus={() => helpMenuTrigger} onClose={() => setAboutOpen(false)} />
+      </Show>
 
-      <div classList={{ "main-layout": true, "sidebar-hidden": sidebarHidden() }} id="project-workspace-panel" role="tabpanel" aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined} style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}>
+      <div
+        classList={{ "main-layout": true, "sidebar-hidden": sidebarHidden() }}
+        id="project-workspace-panel"
+        role="tabpanel"
+        aria-labelledby={activeProjectId() ? `project-tab-${activeProjectId()}` : undefined}
+        style={{ "--sidebar-width": `${settings().sidebarWidth}px` }}
+      >
+        <ActivityBar
+          selected={sidebarView()}
+          sidebarHidden={sidebarHidden()}
+          onSelect={(view) => {
+            sidebarViewChosenByArrowKey = true;
+            setProjectSearchRequest(undefined);
+            showSidebarView(view);
+          }}
+          onToggle={(view) => {
+            sidebarViewChosenByArrowKey = false;
+            toggleSidebarView(view);
+          }}
+        />
         <aside class="sidebar">
-           <div class="sidebar-header"><SidebarTabs selected={sidebarView()} onSelect={setSidebarView} /></div>
-           <div role="tabpanel" id={SIDEBAR_EXPLORER_PANEL_ID} aria-labelledby={SIDEBAR_EXPLORER_TAB_ID} hidden={sidebarView() !== "explorer"}>
-             <Show when={sidebarView() === "explorer"}>
-               <Show when={workspace() && root().path !== "pude://recent-projects"} fallback={
-                 <div class="explorer-scroll">
-                 <Show when={recentProjectEntries().length || recentWorkspaceEntries().length} fallback={<div class="recent-empty">{t("No recent folders or workspaces")}</div>}>
-                   <Suspense fallback={<div class="recent-empty" aria-busy="true" />}>
-                     <Show when={recentProjectEntries().length}>
-                       <LazyRecentProjectsList label={t("Recent folders")} icon="folder" entries={recentProjectEntries()} onOpen={(entry) => void openWorkspacePath(entry.path)} />
-                     </Show>
-                     <Show when={recentWorkspaceEntries().length}>
-                       <LazyRecentProjectsList label={t("Recent workspaces")} icon="split" entries={recentWorkspaceEntries()} onOpen={(entry) => void openWorkspaceFile(entry.path)} />
-                     </Show>
-                   </Suspense>
-                 </Show>
-                 </div>
-               }>
-                 <div class="sidebar-toolbar">{t("Files")}<div class="sidebar-create-actions"><button class="icon-button" onClick={() => void contextAction("new-file", explorerCreateTarget())} title={additionalFolders().length ? t("New file in {value}", { value: baseName(workspace()) }) : t("New file")} aria-label={t("New file")}><Icon name="plus" size={14} /></button><button class="icon-button sidebar-new-folder" onClick={() => void contextAction("new-folder", explorerCreateTarget())} title={additionalFolders().length ? t("New folder in {value}", { value: baseName(workspace()) }) : t("New folder")} aria-label={t("New folder")}><Icon name="folder" size={14} /></button><button class="icon-button" onClick={() => void runWorkspaceAction((actions) => actions.addFolder())} title={t("Add folder to workspace")} aria-label={t("Add folder to workspace")}><Icon name="split" size={14} /></button><button class="icon-button" onClick={collapseExplorer} title={t("Collapse folders")} aria-label={t("Collapse folders")}><Icon name="chevron-right" size={14} /></button></div></div>
-                 <div class="explorer-scroll">
-                   <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
-                     <LazyExplorer groupIgnored={settings().groupGitIgnoredFiles} ignoredPaths={gitIgnoredPaths()} ignoredExpanded={gitIgnoredExpanded()} onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)} root={root()} repositoryRoot={git().repositoryRoot} activePath={activeTab()?.path} gitFiles={git().files} hideDotFiles={settings().hideDotFiles} onToggle={(entry) => void toggleDirectory(entry)} onOpen={(entry) => void openEntry(entry)} onContextMenu={showFileContextMenu} />
-                   </Suspense>
-                 </div>
-               </Show>
-             </Show>
-           </div>
-           <div role="tabpanel" id={SIDEBAR_GIT_PANEL_ID} aria-labelledby={SIDEBAR_GIT_TAB_ID} hidden={sidebarView() !== "git"}>
-             <Show when={sidebarView() === "git"}><LazyGitPanel workspaceKey={`${activeProjectId()}:${workspace()}`} operation={gitOperations()[workspace()]} status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onOpenHistory={openHistoryTab} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={runGitWorktree} stashes={gitStashes()} onLoadStashFiles={(stash) => getGitStashFiles(workspace(), stash.hash)} onOpenStashDiff={(stash, file) => void openStashDiff(stash, file)} /></Show>
-           </div>
-           <div role="tabpanel" id={SIDEBAR_SEARCH_PANEL_ID} aria-labelledby={SIDEBAR_SEARCH_TAB_ID} hidden={sidebarView() !== "search"}>
-             <Show when={sidebarView() === "search"}>
-                 <Suspense fallback={<div aria-busy="true" aria-label={t("Loading project search")} />}>
-                   <LazyProjectSearch request={projectSearchRequest()} folders={workspaceFolders()} onOpen={openProjectSearchResult} onConfirm={requestConfirmation} unsavedPaths={() => allLoadedTabs().filter((tab) => tab.dirty).map((tab) => tab.path)} onBusy={setConfirmedOperationInProgress} onReplaced={() => { verifyOpenFiles(); scheduleGitRefresh(); }} notify={notify} onClose={() => { setSidebarView("explorer"); queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus()); }} />
-                 </Suspense>
-             </Show>
-           </div>
-            <div class="sidebar-footer"><Show when={sidebarView() === "explorer" && workspace()}><label class="sidebar-ignored-toggle" title={t("Group Git ignored files in Explorer")}><input type="checkbox" aria-label={t("Group Git ignored files")} checked={settings().groupGitIgnoredFiles} onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })} />{t("Group ignored")}</label></Show><button class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}><Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? t("plugin") : t("plugins")}</button></div>
-         </aside>
-         <div class="sidebar-resizer" role="separator" aria-orientation="vertical" aria-valuemin="215" aria-valuemax="520" aria-valuenow={settings().sidebarWidth} aria-label={t("Resize sidebar")} onPointerDown={startSidebarResize} onKeyDown={nudgeSidebarWidth} tabIndex={0} />
+          <div
+            role="tabpanel"
+            id={SIDEBAR_EXPLORER_PANEL_ID}
+            aria-labelledby={SIDEBAR_EXPLORER_TAB_ID}
+            hidden={sidebarView() !== "explorer"}
+          >
+            <Show when={sidebarView() === "explorer"}>
+              <Show
+                when={workspace() && root().path !== "pude://recent-projects"}
+                fallback={
+                  <div class="explorer-scroll">
+                    <Show
+                      when={recentProjectEntries().length || recentWorkspaceEntries().length}
+                      fallback={<div class="recent-empty">{t("No recent folders or workspaces")}</div>}
+                    >
+                      <Suspense fallback={<div class="recent-empty" aria-busy="true" />}>
+                        <Show when={recentProjectEntries().length}>
+                          <LazyRecentProjectsList
+                            label={t("Recent folders")}
+                            icon="folder"
+                            entries={recentProjectEntries()}
+                            onOpen={(entry) => void openWorkspacePath(entry.path)}
+                          />
+                        </Show>
+                        <Show when={recentWorkspaceEntries().length}>
+                          <LazyRecentProjectsList
+                            label={t("Recent workspaces")}
+                            icon="split"
+                            entries={recentWorkspaceEntries()}
+                            onOpen={(entry) => void openWorkspaceFile(entry.path)}
+                          />
+                        </Show>
+                      </Suspense>
+                    </Show>
+                  </div>
+                }
+              >
+                <div class="sidebar-toolbar">
+                  {t("Files")}
+                  <div class="sidebar-create-actions">
+                    <button
+                      type="button"
+                      class="icon-button"
+                      onClick={() => void contextAction("new-file", explorerCreateTarget())}
+                      title={
+                        additionalFolders().length
+                          ? t("New file in {value}", { value: baseName(workspace()) })
+                          : t("New file")
+                      }
+                      aria-label={t("New file")}
+                    >
+                      <Icon name="plus" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-button sidebar-new-folder"
+                      onClick={() => void contextAction("new-folder", explorerCreateTarget())}
+                      title={
+                        additionalFolders().length
+                          ? t("New folder in {value}", { value: baseName(workspace()) })
+                          : t("New folder")
+                      }
+                      aria-label={t("New folder")}
+                    >
+                      <Icon name="folder" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-button"
+                      onClick={() => void runWorkspaceAction((actions) => actions.addFolder())}
+                      title={t("Add folder to workspace")}
+                      aria-label={t("Add folder to workspace")}
+                    >
+                      <Icon name="split" size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      class="icon-button"
+                      onClick={collapseExplorer}
+                      title={t("Collapse folders")}
+                      aria-label={t("Collapse folders")}
+                    >
+                      <Icon name="chevron-right" size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div class="explorer-scroll">
+                  <Suspense fallback={<div aria-busy="true" aria-label={t("Loading workspace files")} />}>
+                    <LazyExplorer
+                      groupIgnored={settings().groupGitIgnoredFiles}
+                      ignoredPaths={gitIgnoredPaths()}
+                      ignoredExpanded={gitIgnoredExpanded()}
+                      onToggleIgnored={() => setGitIgnoredExpanded((expanded) => !expanded)}
+                      root={root()}
+                      repositoryRoot={git().repositoryRoot}
+                      activePath={activeTab()?.path}
+                      gitFiles={git().files}
+                      hideDotFiles={settings().hideDotFiles}
+                      onToggle={(entry) => void toggleDirectory(entry)}
+                      onOpen={(entry) => void openEntry(entry)}
+                      onRetry={(entry) => void refreshRoot(entry.path)}
+                      onContextMenu={showFileContextMenu}
+                      platform={windowPlatform}
+                      onClipboardAction={(action, entry) => {
+                        if (action === "copy") copyExplorerEntry(entry);
+                        else void pasteExplorerEntry(entry);
+                      }}
+                      revealPath={explorerRevealPath()}
+                      onRevealed={() => setExplorerRevealPath(undefined)}
+                    />
+                  </Suspense>
+                </div>
+              </Show>
+            </Show>
+          </div>
+          <div
+            role="tabpanel"
+            id={SIDEBAR_GIT_PANEL_ID}
+            aria-labelledby={SIDEBAR_GIT_TAB_ID}
+            hidden={sidebarView() !== "git"}
+          >
+            <Show when={sidebarView() === "git"}>
+              <LazyGitPanel
+                workspaceKey={`${activeProjectId()}:${workspace()}`}
+                operation={gitOperations()[workspace()]}
+                status={git()}
+                branches={gitBranches()}
+                historyLoading={gitHistoryLoading()}
+                historyIncomplete={gitHistoryIncomplete()}
+                historyHasMore={gitHistoryHasMore()}
+                historyLoadingMore={gitHistoryLoadingOlder()}
+                historyRevision={gitHistoryRevision()}
+                onLoadMoreHistory={() => void loadOlderGitHistory()}
+                onLoadHistory={() => void loadGitHistory()}
+                onOpenHistory={openHistoryTab}
+                onRefreshHistory={() => void refreshGitHistory()}
+                onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)}
+                onOpenCommitDiff={(commit, file) => void openCommitDiff(commit, file)}
+                onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)}
+                onAction={(request) => runGitAction(request)}
+                onCreateWorktree={runGitWorktree}
+                stashes={gitStashes()}
+                onLoadStashFiles={(stash) => getGitStashFiles(workspace(), stash.hash)}
+                onOpenStashDiff={(stash, file) => void openStashDiff(stash, file)}
+              />
+            </Show>
+          </div>
+          <div
+            role="tabpanel"
+            id={SIDEBAR_SEARCH_PANEL_ID}
+            aria-labelledby={SIDEBAR_SEARCH_TAB_ID}
+            hidden={sidebarView() !== "search"}
+          >
+            <Show when={sidebarView() === "search"}>
+              <Suspense fallback={<div aria-busy="true" aria-label={t("Loading project search")} />}>
+                <LazyProjectSearch
+                  focusOnOpen={!sidebarViewChosenByArrowKey}
+                  request={projectSearchRequest()}
+                  folders={workspaceFolders()}
+                  onOpen={openProjectSearchResult}
+                  onConfirm={requestConfirmation}
+                  unsavedPaths={() =>
+                    allLoadedTabs()
+                      .filter((tab) => tab.dirty)
+                      .map((tab) => tab.path)
+                  }
+                  onBusy={setConfirmedOperationInProgress}
+                  onReplaced={() => {
+                    verifyOpenFiles();
+                    scheduleGitRefresh();
+                  }}
+                  notify={notify}
+                  onClose={() => {
+                    setSidebarView("explorer");
+                    queueMicrotask(() => document.getElementById(SIDEBAR_EXPLORER_TAB_ID)?.focus());
+                  }}
+                />
+              </Suspense>
+            </Show>
+          </div>
+          <div class="sidebar-footer">
+            <Show when={sidebarView() === "explorer" && workspace()}>
+              <label class="sidebar-ignored-toggle" title={t("Group Git ignored files in Explorer")}>
+                <input
+                  type="checkbox"
+                  aria-label={t("Group Git ignored files")}
+                  checked={settings().groupGitIgnoredFiles}
+                  onChange={(event) => updateSettings({ groupGitIgnoredFiles: event.currentTarget.checked })}
+                />
+                {t("Group ignored")}
+              </label>
+            </Show>
+            <button type="button" class="sidebar-footer-button" onClick={() => setPluginsOpen(true)}>
+              <Icon name="plugin" size={12} /> {plugins().length} {plugins().length === 1 ? t("plugin") : t("plugins")}
+            </button>
+          </div>
+        </aside>
+        <div
+          class="sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-valuemin="215"
+          aria-valuemax="520"
+          aria-valuenow={settings().sidebarWidth}
+          aria-label={t("Resize sidebar")}
+          onPointerDown={startSidebarResize}
+          onKeyDown={nudgeSidebarWidth}
+          tabIndex={0}
+        />
 
-         <main class="workbench">
+        <main class="workbench">
           <div class="tabbar">
-            <WorkbenchTabs tabs={tabs()} activeTabId={activeTabId()} historyTabOpen={historyTabOpen()} historySelected={historyViewActive()}
-              onSelectTab={(id) => { if (historyViewActive()) { diffRequestVersion += 1; setDiff(undefined); } setActiveTab(id); markSessionDirty(); setDiffReturnToHistory(false); setViewMode("editor"); }}
-              onSelectHistory={() => { diffRequestVersion += 1; setDiffReturnToHistory(false); setDiff(undefined); setViewMode("history"); }}
-              onCloseTab={closeTab} onCloseHistory={closeHistoryTab} onDragStart={setDraggedTabId} onDragEnd={() => setDraggedTabId(undefined)} onDrop={reorderTab}
-              onContextMenu={(id, event, button) => { contextMenuFocusTarget = button; setTabMenu({ id, x: event.clientX, y: event.clientY }); }} />
+            <WorkbenchTabs
+              tabs={tabs()}
+              activeTabId={activeTabId()}
+              historyTabOpen={historyTabOpen()}
+              historySelected={historyViewActive()}
+              onSelectTab={(id) => {
+                if (historyViewActive()) {
+                  diffRequestVersion += 1;
+                  setDiff(undefined);
+                }
+                setActiveTab(id);
+                markSessionDirty();
+                setDiffReturnToHistory(false);
+                setViewMode("editor");
+              }}
+              onSelectHistory={() => {
+                diffRequestVersion += 1;
+                setDiffReturnToHistory(false);
+                setDiff(undefined);
+                setViewMode("history");
+              }}
+              onCloseTab={closeTab}
+              onCloseHistory={closeHistoryTab}
+              onDragStart={setDraggedTabId}
+              onDragEnd={() => setDraggedTabId(undefined)}
+              onDrop={reorderTab}
+              onContextMenu={(id, event, button) => {
+                contextMenuFocusTarget = button;
+                setTabMenu({ id, x: event.clientX, y: event.clientY });
+              }}
+            />
             <div class="tabbar-actions">
-              <button class="icon-button tabbar-action" onClick={reopenClosedTab} title={t("Reopen closed tab")}><Icon name="arrow-up" size={13} /></button>
-              <button class="icon-button tabbar-action" onClick={toggleTerminal} title={t("Toggle terminal")}><Icon name="terminal" size={14} /></button>
+              <button
+                type="button"
+                class="icon-button tabbar-action"
+                onClick={reopenClosedTab}
+                title={t("Reopen closed tab")}
+              >
+                <Icon name="arrow-up" size={13} />
+              </button>
+              <button
+                type="button"
+                class="icon-button tabbar-action"
+                onClick={toggleTerminal}
+                title={t("Toggle terminal")}
+              >
+                <Icon name="terminal" size={14} />
+              </button>
             </div>
           </div>
-           <Show when={refreshMenu()}>{(menu) => <div class="tab-context-menu refresh-context-menu" role="menu" style={{ left: `${Math.max(8, menu().x)}px`, top: `${Math.max(8, menu().y)}px` }}>
-             <button role="menuitem" onClick={() => { setRefreshMenu(undefined); relistAllDirectories(); verifyOpenFiles(); scheduleGitRefresh(allGitDirtyState()); }}>{t("Refresh")}</button>
-           </div>}</Show>
-           <Show when={tabMenu()}>{(menu) => <LazyTabContextMenu x={menu().x} y={menu().y} pinned={tabById[menu().id]?.pinned === true} canSaveAs={tabById[menu().id]?.language !== "Image"} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")} onAction={(action) => runTabMenuAction(menu().id, action)} />}</Show>
-           <Show when={fileMenu()}>{(menu) => <LazyFileContextMenu entry={menu().entry} x={menu().x} y={menu().y}
-             showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))} revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
-             onRemoveFolder={workspaceFolders().length > 1 && workspaceFolders().some((folder) => samePath(folder, menu().entry.path)) ? () => { const folder = menu().entry.path; closeFileMenu(); void runWorkspaceAction((actions) => actions.removeFolder(folder)); } : undefined}
-             onAction={(action) => { const entry = menu().entry; closeFileMenu(); void contextAction(action, entry); }}
-             onCopy={(kind) => void copyEntryText(menu().entry, kind)} onOpenTerminal={() => openInIntegratedTerminal(menu().entry)} onReveal={() => void openInFileExplorer(menu().entry)} />}</Show>
+          <Show when={refreshMenu()}>
+            {(menu) => (
+              <div
+                class="tab-context-menu refresh-context-menu"
+                role="menu"
+                style={{ left: `${Math.max(8, menu().x)}px`, top: `${Math.max(8, menu().y)}px` }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setRefreshMenu(undefined);
+                    relistAllDirectories();
+                    verifyOpenFiles();
+                    scheduleGitRefresh(allGitDirtyState());
+                  }}
+                >
+                  {t("Refresh")}
+                </button>
+              </div>
+            )}
+          </Show>
+          <Show when={tabMenu()}>
+            {(menu) => (
+              <LazyTabContextMenu
+                x={menu().x}
+                y={menu().y}
+                pinned={tabById[menu().id]?.pinned === true}
+                canSaveAs={tabById[menu().id]?.language !== "Image"}
+                revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
+                onAction={(action) => runTabMenuAction(menu().id, action)}
+              />
+            )}
+          </Show>
+          <Show when={fileMenu()}>
+            {(menu) => (
+              <LazyFileContextMenu
+                entry={menu().entry}
+                x={menu().x}
+                y={menu().y}
+                showRelativePath={Boolean(folderContaining(menu().entry.path, workspaceFolders(), PATH_OPTIONS))}
+                revealLabel={isMacPlatform() ? t("Reveal in Finder") : t("Open in File Explorer")}
+                onRemoveFolder={
+                  workspaceFolders().length > 1 &&
+                  workspaceFolders().some((folder) => samePath(folder, menu().entry.path))
+                    ? () => {
+                        const folder = menu().entry.path;
+                        closeFileMenu();
+                        void runWorkspaceAction((actions) => actions.removeFolder(folder));
+                      }
+                    : undefined
+                }
+                onAction={(action) => {
+                  const entry = menu().entry;
+                  closeFileMenu();
+                  void contextAction(action, entry);
+                }}
+                canPaste={Boolean(explorerClipboard())}
+                onCopyItem={onFileMenuEntry(copyExplorerEntry)}
+                onPasteItem={onFileMenuEntry(pasteExplorerEntry)}
+                workspace={workspace()}
+                repositoryRoot={git().repositoryRoot}
+                ignored={gitIgnoredPaths().has(pathKey(menu().entry.path))}
+                onGitignoreOutcome={(outcome) => void showGitignoreOutcome(outcome)}
+                onCopy={(kind) => void copyEntryText(menu().entry, kind)}
+                onOpenTerminal={() => openInIntegratedTerminal(menu().entry)}
+                onReveal={() => void openInFileExplorer(menu().entry)}
+              />
+            )}
+          </Show>
           <Show when={searchOpen() && !historyViewActive()}>
             <div class="findbar">
-              <div class="findbar-input-wrap"><Icon name="search" size={14} /><input ref={(element) => { findInputRef = element; }} class="find-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().query} onInput={(event) => updateSearch({ query: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind(event.shiftKey ? "findPrevious" : "find"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Find in file")} aria-label={t("Find in file")} /><Show when={search().query}><span class="find-count" aria-live="polite">{matchCountLabel()}</span></Show></div>
-              <Show when={replaceOpen()}><input ref={(element) => { replaceInputRef = element; }} class="replace-input" autocorrect="off" autocapitalize="off" spellcheck={false} value={search().replace} onInput={(event) => updateSearch({ replace: event.currentTarget.value })} onKeyDown={(event) => { if (event.key === "Enter") requestFind(event.metaKey || event.ctrlKey ? "replaceAll" : "replace"); if (event.key === "Escape") setSearchOpen(false); }} placeholder={t("Replace")} aria-label={t("Replace")} /></Show>
-              <button classList={{ "find-option": true, "find-option-active": search().caseSensitive }} onClick={() => updateSearch({ caseSensitive: !search().caseSensitive })} title={t("Match case")} aria-label={t("Match case")} aria-pressed={search().caseSensitive}>Aa</button>
-              <button classList={{ "find-option": true, "find-option-active": search().wholeWord }} onClick={() => updateSearch({ wholeWord: !search().wholeWord })} title={t("Match whole word")} aria-label={t("Match whole word")} aria-pressed={search().wholeWord}>ab</button>
-              <button classList={{ "find-option": true, "find-option-active": search().regexp }} onClick={() => updateSearch({ regexp: !search().regexp })} title={t("Use regular expression")} aria-label={t("Use regular expression")} aria-pressed={search().regexp}>.*</button>
-              <button class="find-action" onClick={() => requestFind("findPrevious")} title={t("Find previous (Shift+Enter)")} aria-label={t("Find previous")}><Icon name="arrow-up" size={14} /></button>
-              <button class="find-action" onClick={() => requestFind("find")} title={t("Find next (Enter)")} aria-label={t("Find next")}><Icon name="arrow-down" size={14} /></button>
-              <Show when={replaceOpen()}><button class="find-action" onClick={() => requestFind("replace")} title={t("Replace next match")} aria-label={t("Replace next match")}><Icon name="replace" size={14} /></button><button class="find-action" onClick={() => requestFind("replaceAll")} title={t("Replace all matches in this file")} aria-label={t("Replace all matches in this file")}><span class="replace-all-label">{t("All")}</span></button></Show>
-              <button class="find-action" onClick={() => setSearchOpen(false)} title={t("Close find (Escape)")} aria-label={t("Close find")}><Icon name="close" size={14} /></button>
+              <div class="findbar-input-wrap">
+                <Icon name="search" size={14} />
+                <input
+                  ref={(element) => {
+                    findInputRef = element;
+                  }}
+                  class="find-input"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck={false}
+                  value={search().query}
+                  onInput={(event) => updateSearch({ query: event.currentTarget.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") requestFind(event.shiftKey ? "findPrevious" : "find");
+                    if (event.key === "Escape") setSearchOpen(false);
+                  }}
+                  placeholder={t("Find in file")}
+                  aria-label={t("Find in file")}
+                />
+                <Show when={search().query}>
+                  <span class="find-count" aria-live="polite">
+                    {matchCountLabel()}
+                  </span>
+                </Show>
+              </div>
+              <Show when={replaceOpen()}>
+                <input
+                  ref={(element) => {
+                    replaceInputRef = element;
+                  }}
+                  class="replace-input"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck={false}
+                  value={search().replace}
+                  onInput={(event) => updateSearch({ replace: event.currentTarget.value })}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") requestFind(event.metaKey || event.ctrlKey ? "replaceAll" : "replace");
+                    if (event.key === "Escape") setSearchOpen(false);
+                  }}
+                  placeholder={t("Replace")}
+                  aria-label={t("Replace")}
+                />
+              </Show>
+              <button
+                type="button"
+                classList={{ "find-option": true, "find-option-active": search().caseSensitive }}
+                onClick={() => updateSearch({ caseSensitive: !search().caseSensitive })}
+                title={t("Match case")}
+                aria-label={t("Match case")}
+                aria-pressed={search().caseSensitive}
+              >
+                Aa
+              </button>
+              <button
+                type="button"
+                classList={{ "find-option": true, "find-option-active": search().wholeWord }}
+                onClick={() => updateSearch({ wholeWord: !search().wholeWord })}
+                title={t("Match whole word")}
+                aria-label={t("Match whole word")}
+                aria-pressed={search().wholeWord}
+              >
+                ab
+              </button>
+              <button
+                type="button"
+                classList={{ "find-option": true, "find-option-active": search().regexp }}
+                onClick={() => updateSearch({ regexp: !search().regexp })}
+                title={t("Use regular expression")}
+                aria-label={t("Use regular expression")}
+                aria-pressed={search().regexp}
+              >
+                .*
+              </button>
+              <button
+                type="button"
+                class="find-action"
+                onClick={() => requestFind("findPrevious")}
+                title={t("Find previous (Shift+Enter)")}
+                aria-label={t("Find previous")}
+              >
+                <Icon name="arrow-up" size={14} />
+              </button>
+              <button
+                type="button"
+                class="find-action"
+                onClick={() => requestFind("find")}
+                title={t("Find next (Enter)")}
+                aria-label={t("Find next")}
+              >
+                <Icon name="arrow-down" size={14} />
+              </button>
+              <Show when={replaceOpen()}>
+                <button
+                  type="button"
+                  class="find-action"
+                  onClick={() => requestFind("replace")}
+                  title={t("Replace next match")}
+                  aria-label={t("Replace next match")}
+                >
+                  <Icon name="replace" size={14} />
+                </button>
+                <button
+                  type="button"
+                  class="find-action"
+                  onClick={() => requestFind("replaceAll")}
+                  title={t("Replace all matches in this file")}
+                  aria-label={t("Replace all matches in this file")}
+                >
+                  <span class="replace-all-label">{t("All")}</span>
+                </button>
+              </Show>
+              <button
+                type="button"
+                class="find-action"
+                onClick={() => setSearchOpen(false)}
+                title={t("Close find (Escape)")}
+                aria-label={t("Close find")}
+              >
+                <Icon name="close" size={14} />
+              </button>
             </div>
           </Show>
           <div class="editor-stage">
-            <div class="editor-document-panel" role="tabpanel" id={WORKBENCH_EDITOR_PANEL_ID} aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined} aria-label={!activeTabId() ? t("Editor") : undefined} hidden={viewMode() === "history"}>
-            <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>{(tab) => <div classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() || isEnvTable() }}>
-              <LazyEditorPane tab={tab()} openTabIds={allLoadedTabs().map((tab) => tab.id)} settings={editorSettings()} searchQuery={search().query} searchReplace={search().replace} searchCaseSensitive={search().caseSensitive} searchRegexp={search().regexp} searchWholeWord={search().wholeWord} searchAction={search().action} searchActionId={search().actionId} searchActionTargetTabId={searchActionTargetTabId()} onSearchActionConsumed={acknowledgeSearchAction} getCachedDocument={documentController.getCachedDocument} goToLine={goToLine()} editorCommand={editorCommand()} countSearchMatches={searchOpen()} onSearchMatchesChange={setSearchMatches} onFontSizeChange={(fontSize) => updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })} onDocumentChange={handleDocumentChange} onCursorChange={(tabId, line, column, characters) => { updateTab(tabId, { cursorLine: line, cursorColumn: column }); setSelection({ tabId, characters }); scheduleCursorPersistence(); }} onRegisterDocument={registerDocument} onUnregisterDocument={unregisterDocument} />
-            </div>}</Show>
+            <div
+              class="editor-document-panel"
+              role="tabpanel"
+              id={WORKBENCH_EDITOR_PANEL_ID}
+              aria-labelledby={activeTabId() ? workbenchTabId(activeTabId()!) : undefined}
+              aria-label={!activeTabId() ? t("Editor") : undefined}
+              hidden={viewMode() === "history"}
+            >
+              <Show when={activeTab()?.language !== "Image" ? activeTab() : undefined}>
+                {(tab) => (
+                  <div
+                    classList={{
+                      "editor-slot": true,
+                      "editor-slot-hidden": viewMode() !== "editor" || isMarkdownPreview() || isEnvTable(),
+                    }}
+                  >
+                    <LazyEditorPane
+                      tab={tab()}
+                      openTabIds={allLoadedTabs().map((tab) => tab.id)}
+                      settings={editorSettings()}
+                      searchQuery={search().query}
+                      searchReplace={search().replace}
+                      searchCaseSensitive={search().caseSensitive}
+                      searchRegexp={search().regexp}
+                      searchWholeWord={search().wholeWord}
+                      searchAction={search().action}
+                      searchActionId={search().actionId}
+                      searchActionTargetTabId={searchActionTargetTabId()}
+                      onSearchActionConsumed={acknowledgeSearchAction}
+                      getCachedDocument={documentController.getCachedDocument}
+                      goToLine={goToLine()}
+                      editorCommand={editorCommand()}
+                      countSearchMatches={searchOpen()}
+                      onSearchMatchesChange={setSearchMatches}
+                      onFontSizeChange={(fontSize) =>
+                        updateSettings({ fontSize: clampSetting("fontSize", fontSize, settings().fontSize) })
+                      }
+                      onDocumentChange={handleDocumentChange}
+                      onCursorChange={(tabId, line, column, characters) => {
+                        updateTab(tabId, { cursorLine: line, cursorColumn: column });
+                        setSelection({ tabId, characters });
+                        scheduleCursorPersistence();
+                      }}
+                      onRegisterDocument={registerDocument}
+                      onUnregisterDocument={unregisterDocument}
+                    />
+                  </div>
+                )}
+              </Show>
 
-            <Show when={viewMode() === "diff" && diff()}>{(currentDiff) => <LazyDiffPane contextLines={currentDiff().contextLines} nextContextLines={currentDiff().nextContextLines ?? undefined} loading={diffContextLoading()} onExpandContext={() => void expandDiffContext()} path={currentDiff().path} diff={currentDiff().diff} staged={currentDiff().staged} label={currentDiff().label} backLabel={diffReturnToHistory() ? t("Back to history") : undefined} onBack={() => void returnToDiffFile()} />}</Show>
-            <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}><LazyMarkdownPreview documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`} revision={activeTab()!.revision} length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length} readRange={(from, to) => { const tab = activeTab(); return tab ? documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to) : ""; }} /></Show>
-            <Show when={activeTab() && viewMode() === "editor" && isEnvTable()}><LazyEnvTable revision={activeTab()!.revision} readText={() => getDocumentText(activeTab())} applyEdits={applyActiveTabEdits} onHistory={(direction) => { const tab = activeTab(); if (tab) documentController.getActiveHandle(tab.id)?.history?.(direction); }} onCopy={copyToClipboard} /></Show>
-            <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}><LazyImagePreview path={activeTab()?.path ?? ""} workspace={imageWorkspaceRoot(activeTab()?.path ?? "")} /></Show>
-            <Show when={!activeTab() && viewMode() === "editor"}><EmptyEditor onOpenFolder={() => void loadWorkspace()} /></Show>
-            <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isMarkdownPreview() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("Markdown preview is disabled in large file mode") : undefined} onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)} aria-label={isMarkdownPreview() ? t("Show Markdown source") : t("Show Markdown preview")} aria-pressed={isMarkdownPreview()}><span>{isMarkdownPreview() ? t("Source") : t("Preview")}</span></button></Show>
-            <Show when={activeTab()?.language === "Dotenv" && viewMode() === "editor"}><button class="markdown-toggle" classList={{ "markdown-toggle-active": isEnvTable() }} disabled={activeTab()?.largeFile} title={activeTab()?.largeFile ? t("The table view is disabled in large file mode") : undefined} onClick={() => setEnvTableEnabled((enabled) => !enabled)} aria-label={isEnvTable() ? t("Show .env source") : t("Show .env as a table")} aria-pressed={isEnvTable()}><span>{isEnvTable() ? t("Source") : t("Table")}</span></button></Show>
+              <Show when={viewMode() === "diff" && diff()}>
+                {(currentDiff) => (
+                  <LazyDiffPane
+                    contextLines={currentDiff().contextLines}
+                    nextContextLines={currentDiff().nextContextLines ?? undefined}
+                    loading={diffContextLoading()}
+                    onExpandContext={() => void expandDiffContext()}
+                    path={currentDiff().path}
+                    diff={currentDiff().diff}
+                    staged={currentDiff().staged}
+                    label={currentDiff().label}
+                    backLabel={diffReturnToHistory() ? t("Back to history") : undefined}
+                    onBack={() => void returnToDiffFile()}
+                  />
+                )}
+              </Show>
+              <Show when={activeTab() && viewMode() === "editor" && isMarkdownPreview()}>
+                <LazyMarkdownPreview
+                  documentKey={`${activeTab()!.id}:${activeTab()!.contentVersion}`}
+                  revision={activeTab()!.revision}
+                  length={documentController.getHandle(activeTab()!.id)?.getTextLength() ?? activeTab()!.content.length}
+                  readRange={(from, to) => {
+                    const tab = activeTab();
+                    return tab
+                      ? (documentController.getHandle(tab.id)?.getRange(from, to) ?? tab.content.slice(from, to))
+                      : "";
+                  }}
+                />
+              </Show>
+              <Show when={activeTab() && viewMode() === "editor" && isEnvTable()}>
+                <LazyEnvTable
+                  revision={activeTab()!.revision}
+                  readText={() => getDocumentText(activeTab())}
+                  applyEdits={applyActiveTabEdits}
+                  onHistory={(direction) => {
+                    const tab = activeTab();
+                    if (tab) documentController.getActiveHandle(tab.id)?.history?.(direction);
+                  }}
+                  onCopy={copyToClipboard}
+                />
+              </Show>
+              <Show when={activeTab()?.language === "Image" && viewMode() === "editor"}>
+                <LazyImagePreview
+                  path={activeTab()?.path ?? ""}
+                  workspace={imageWorkspaceRoot(activeTab()?.path ?? "")}
+                />
+              </Show>
+              <Show when={!activeTab() && viewMode() === "editor"}>
+                <EmptyEditor onOpenFolder={() => void loadWorkspace()} />
+              </Show>
+              <Show when={activeTab()?.language === "Markdown" && viewMode() === "editor"}>
+                <button
+                  type="button"
+                  class="markdown-toggle"
+                  classList={{ "markdown-toggle-active": isMarkdownPreview() }}
+                  disabled={activeTab()?.largeFile}
+                  title={activeTab()?.largeFile ? t("Markdown preview is disabled in large file mode") : undefined}
+                  onClick={() => setMarkdownPreviewEnabled((enabled) => !enabled)}
+                  aria-label={isMarkdownPreview() ? t("Show Markdown source") : t("Show Markdown preview")}
+                  aria-pressed={isMarkdownPreview()}
+                >
+                  <span>{isMarkdownPreview() ? t("Source") : t("Preview")}</span>
+                </button>
+              </Show>
+              <Show when={activeTab()?.language === "Dotenv" && viewMode() === "editor"}>
+                <button
+                  type="button"
+                  class="markdown-toggle"
+                  classList={{ "markdown-toggle-active": isEnvTable() }}
+                  disabled={activeTab()?.largeFile}
+                  title={activeTab()?.largeFile ? t("The table view is disabled in large file mode") : undefined}
+                  onClick={() => setEnvTableEnabled((enabled) => !enabled)}
+                  aria-label={isEnvTable() ? t("Show .env source") : t("Show .env as a table")}
+                  aria-pressed={isEnvTable()}
+                >
+                  <span>{isEnvTable() ? t("Source") : t("Table")}</span>
+                </button>
+              </Show>
             </div>
-            <Show when={historyTabOpen()}><div role="tabpanel" id={WORKBENCH_HISTORY_PANEL_ID} aria-labelledby={WORKBENCH_HISTORY_TAB_ID} classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}><LazyGitPanel historyOnly workspaceKey={`${activeProjectId()}:${workspace()}`} operation={gitOperations()[workspace()]} status={git()} branches={gitBranches()} historyLoading={gitHistoryLoading()} historyIncomplete={gitHistoryIncomplete()} historyHasMore={gitHistoryHasMore()} historyLoadingMore={gitHistoryLoadingOlder()} historyRevision={gitHistoryRevision()} onLoadMoreHistory={() => void loadOlderGitHistory()} onLoadHistory={() => void loadGitHistory()} onRefreshHistory={() => void refreshGitHistory()} onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)} onOpenCommitDiff={openCommitDiffFromHistory} onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)} onAction={(request) => runGitAction(request)} onCreateWorktree={runGitWorktree} /></div></Show>
+            <Show when={historyTabOpen()}>
+              <div
+                role="tabpanel"
+                id={WORKBENCH_HISTORY_PANEL_ID}
+                aria-labelledby={WORKBENCH_HISTORY_TAB_ID}
+                classList={{ "editor-slot": true, "editor-slot-hidden": viewMode() !== "history" }}
+              >
+                <LazyGitPanel
+                  historyOnly
+                  workspaceKey={`${activeProjectId()}:${workspace()}`}
+                  operation={gitOperations()[workspace()]}
+                  status={git()}
+                  branches={gitBranches()}
+                  historyLoading={gitHistoryLoading()}
+                  historyIncomplete={gitHistoryIncomplete()}
+                  historyHasMore={gitHistoryHasMore()}
+                  historyLoadingMore={gitHistoryLoadingOlder()}
+                  historyRevision={gitHistoryRevision()}
+                  onLoadMoreHistory={() => void loadOlderGitHistory()}
+                  onLoadHistory={() => void loadGitHistory()}
+                  onRefreshHistory={() => void refreshGitHistory()}
+                  onOpenDiff={(file, staged, untrackedHint) => void openDiff(file, staged, untrackedHint)}
+                  onOpenCommitDiff={openCommitDiffFromHistory}
+                  onLoadCommitFiles={(commit) => getGitCommitFiles(workspace(), commit.hash)}
+                  onAction={(request) => runGitAction(request)}
+                  onCreateWorktree={runGitWorktree}
+                />
+              </div>
+            </Show>
           </div>
-           <For each={projects().map((project) => project.id)}>{(id) => {
-             const project = () => projects().find((item) => item.id === id)!;
-             const selected = () => activeProjectId() === id;
-             const terminalWorkspace = createMemo(() => selected() ? workspace() : project().workspace);
-             return <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
-               <LazyTerminalPane openRequest={terminalOpenRequests()[id]} workspace={terminalWorkspace()} height={settings().terminalHeight} fontSize={settings().terminalFontSize} visible={selected() && terminalOpen()} onSettingsChange={updateSettings} onHide={hideTerminal} onClose={hideTerminal} />
-             </Show>;
-           }}</For>
+          <For each={projects().map((project) => project.id)}>
+            {(id) => {
+              const project = () => projects().find((item) => item.id === id)!;
+              const selected = () => activeProjectId() === id;
+              const terminalWorkspace = createMemo(() => (selected() ? workspace() : project().workspace));
+              return (
+                <Show when={selected() ? terminalInitialized() : project().terminalInitialized}>
+                  <LazyTerminalPane
+                    openRequest={terminalOpenRequests()[id]}
+                    workspace={terminalWorkspace()}
+                    height={settings().terminalHeight}
+                    fontSize={settings().terminalFontSize}
+                    visible={selected() && terminalOpen()}
+                    onSettingsChange={updateSettings}
+                    onHide={hideTerminal}
+                    onClose={hideTerminal}
+                  />
+                </Show>
+              );
+            }}
+          </For>
         </main>
       </div>
 
       <footer class="statusbar">
         <div class="status-left">
-          <span class="status-branch" title={git().upstream ? t("Compared with locally stored {upstream}: ↑{ahead} ↓{behind}", { upstream: git().upstream!, ahead: git().ahead ?? "?", behind: git().behind ?? "?" }) : t(git().repositoryState === "normal" || git().repositoryState === "unborn" ? "No upstream configured" : "Upstream status unavailable")}><Icon name="git" size={12} /> {git().branch ?? t("local")}<Show when={(git().ahead ?? 0) > 0}> ↑{git().ahead}</Show><Show when={(git().behind ?? 0) > 0}> ↓{git().behind}</Show></span>
+          <span
+            class="status-branch"
+            title={
+              git().upstream
+                ? t("Compared with locally stored {upstream}: ↑{ahead} ↓{behind}", {
+                    upstream: git().upstream!,
+                    ahead: git().ahead ?? "?",
+                    behind: git().behind ?? "?",
+                  })
+                : t(
+                    git().repositoryState === "normal" || git().repositoryState === "unborn"
+                      ? "No upstream configured"
+                      : "Upstream status unavailable",
+                  )
+            }
+          >
+            <Icon name="git" size={12} /> {git().branch ?? t("local")}
+            <Show when={(git().ahead ?? 0) > 0}> ↑{git().ahead}</Show>
+            <Show when={(git().behind ?? 0) > 0}> ↓{git().behind}</Show>
+          </span>
           <Show when={["available", "downloading", "ready"].includes(updateStatus().phase)}>
             <LazyStatusUpdateButton onError={() => setAboutOpen(true)} />
           </Show>
-          <Show when={statusTab()?.dirty}><span class="status-unsaved">{t("Unsaved changes")}</span></Show>
-          <Show when={statusTab()?.orphaned}><span class="status-unsaved">{t("File missing on disk")}</span></Show>
+          <Show when={statusTab()?.dirty}>
+            <span class="status-unsaved">{t("Unsaved changes")}</span>
+          </Show>
+          <Show when={statusTab()?.orphaned}>
+            <span class="status-unsaved">{t("File missing on disk")}</span>
+          </Show>
         </div>
         <div class="status-right">
-          <Show when={statusTab()} fallback={<span>{t("Ready")}</span>}>{(tab) =>
-            <Show when={tab().language === "Image"} fallback={<>
-              <span><button class="status-button" onClick={() => void goToLineAction()} title={t("Go to line")}>{t("Ln {line}, Col {column}", { line: tab().cursorLine, column: tab().cursorColumn })}{selection()?.tabId === tab().id && selection()!.characters ? t(" ({count} selected)", { count: selection()!.characters }) : ""}</button></span>
-              <span>{settings().insertSpaces ? t("Spaces: {size}", { size: settings().tabSize }) : t("Tab Size: {size}", { size: settings().tabSize })}</span>
-              <span>{tab().encoding}</span><span>{tab().lineEnding.toUpperCase()}</span><span>{tab().language}</span>
-            </>}><span>{t("Image preview")}</span><span>{tab().name}</span></Show>
-          }</Show>
-          <For each={Object.values(pluginStatusItems())}>{(item) => <span title={item.tooltip}>{item.pluginName}: {item.text}</span>}</For>
+          <Show when={statusTab()} fallback={<span>{t("Ready")}</span>}>
+            {(tab) => (
+              <Show
+                when={tab().language === "Image"}
+                fallback={
+                  <>
+                    <span>
+                      <button
+                        type="button"
+                        class="status-button"
+                        onClick={() => void goToLineAction()}
+                        title={t("Go to line")}
+                      >
+                        {t("Ln {line}, Col {column}", { line: tab().cursorLine, column: tab().cursorColumn })}
+                        {selection()?.tabId === tab().id && selection()!.characters
+                          ? t(" ({count} selected)", { count: selection()!.characters })
+                          : ""}
+                      </button>
+                    </span>
+                    <span>
+                      {settings().insertSpaces
+                        ? t("Spaces: {size}", { size: settings().tabSize })
+                        : t("Tab Size: {size}", { size: settings().tabSize })}
+                    </span>
+                    <span>{tab().encoding}</span>
+                    <span>{tab().lineEnding.toUpperCase()}</span>
+                    <span>{tab().language}</span>
+                  </>
+                }
+              >
+                <span>{t("Image preview")}</span>
+                <span>{tab().name}</span>
+              </Show>
+            )}
+          </Show>
+          <For each={Object.values(pluginStatusItems())}>
+            {(item) => (
+              <span title={item.tooltip}>
+                {item.pluginName}: {item.text}
+              </span>
+            )}
+          </For>
         </div>
       </footer>
-      <Show when={toast()}><div class="toast" role="status"><Icon name="check" size={14} />{toast()}</div></Show>
-      <Show when={commandPaletteOpen()}><LazyCommandPalette mac={isMacPlatform()} commands={commandPaletteItems()} onRun={runPaletteCommand} onClose={() => setCommandPaletteOpen(false)} returnFocus={() => editMenuTrigger} /></Show>
-      <Show when={activePluginQuickPick()}>{(request) => (
-        <LazyPluginQuickPickDialog
-          title={request().title}
-          placeholder={request().placeholder}
-          items={request().items}
-          onSelect={(item) => settlePluginQuickPick(request(), item)}
+      <Show when={toast()}>
+        {(current) => (
+          <div
+            classList={{ toast: true, "toast-error": current().tone === "error" }}
+            role={current().tone === "error" ? "alert" : "status"}
+          >
+            <Icon name={current().tone === "error" ? "close" : "check"} size={14} />
+            {current().text}
+          </div>
+        )}
+      </Show>
+      <Show when={commandPaletteOpen()}>
+        <LazyCommandPalette
+          mac={isMacPlatform()}
+          commands={commandPaletteItems()}
+          onRun={runPaletteCommand}
+          onClose={() => setCommandPaletteOpen(false)}
+          returnFocus={() => editMenuTrigger}
         />
-      )}</Show>
+      </Show>
+      <Show when={activePluginQuickPick()}>
+        {(request) => (
+          <LazyPluginQuickPickDialog
+            title={request().title}
+            placeholder={request().placeholder}
+            items={request().items}
+            onSelect={(item) => settlePluginQuickPick(request(), item)}
+          />
+        )}
+      </Show>
       <Show when={pluginsOpen()}>
         <LazyPluginModal
           plugins={plugins()}
@@ -5337,37 +7770,119 @@ export default function App() {
           onManagePermissions={managePluginPermissions}
         />
       </Show>
-      <Show when={authorizationReview()}>{(review) => (
-        <LazyPluginAuthorizationDialog
-          current={review().current}
-          proposed={review().proposed}
-          existingGrants={authorizationStore().grants}
-          workspaceRoot={review().workspaceRoot}
-          onApprove={approvePluginAuthorizationReview}
-          onCancel={cancelPluginAuthorizationReview}
-        />
-      )}</Show>
+      <Show when={authorizationReview()}>
+        {(review) => (
+          <LazyPluginAuthorizationDialog
+            current={review().current}
+            proposed={review().proposed}
+            existingGrants={authorizationStore().grants}
+            workspaceRoot={review().workspaceRoot}
+            onApprove={approvePluginAuthorizationReview}
+            onCancel={cancelPluginAuthorizationReview}
+          />
+        )}
+      </Show>
       <Show when={authorizationManagementOpen()}>
         <LazyPluginAuthorizationManagementDialog
           plugins={plugins()}
           grants={authorizationStore().grants}
           onRevoke={revokePluginPermission}
-          onClose={() => { setAuthorizationManagementOpen(false); setPluginsOpen(true); }}
+          onClose={() => {
+            setAuthorizationManagementOpen(false);
+            setPluginsOpen(true);
+          }}
         />
       </Show>
-      <Show when={externalConflictController.first()}>{(conflict) => <LazyConflictDialog tab={conflict()} onCompare={() => void compareExternalFile(conflict())} onReload={() => void reloadExternalFile()} onSaveAs={() => void saveExternalFileAs(conflict())} onKeep={() => { externalConflictController.dismiss(conflict().id); notify(t("Keeping the editor version.")); }} />}</Show>
-      <Show when={projectCloseId()}><LazyCloseWindowDialog busy={projectCloseBusy()} projectName={projectTabItems().find((project) => project.id === projectCloseId())?.label ?? "Files"}
-        onSave={() => void closeProjectWithDecision("save")} onDiscard={() => void closeProjectWithDecision("discard")} onCancel={() => setProjectCloseId(undefined)} /></Show>
-      <Show when={closePromptOpen()}><LazyCloseWindowDialog busy={closeSaving()} onSave={() => void handleCloseDialogSave()} onDiscard={handleCloseDialogDiscard} onPreserve={handleCloseDialogPreserve} onCancel={handleCloseDialogCancel} /></Show>
-      <Show when={confirmationDialog()}>{(dialog) => <LazyConfirmDialog title={dialog().title} message={dialog().message} confirmLabel={dialog().confirmLabel} cancelLabel={dialog().cancelLabel} destructive={dialog().destructive} onConfirm={() => closeConfirmationDialog(true)} onCancel={() => closeConfirmationDialog(false)} />}</Show>
-      <Show when={inputDialog()}>{(dialog) => <LazyInputDialog title={dialog().title} label={dialog().label} initialValue={dialog().initialValue} placeholder={dialog().placeholder} submitLabel={dialog().submitLabel} onSubmit={(value) => closeInputDialog(value)} onClose={() => closeInputDialog(null)} />}</Show>
+      <Show when={externalConflictController.first()}>
+        {(conflict) => (
+          <LazyConflictDialog
+            tab={conflict()}
+            onCompare={() => void compareExternalFile(conflict())}
+            onReload={() => void reloadExternalFile()}
+            onSaveAs={() => void saveExternalFileAs(conflict())}
+            onKeep={() => {
+              externalConflictController.dismiss(conflict().id);
+              notify(t("Keeping the editor version."));
+            }}
+          />
+        )}
+      </Show>
+      <Show when={projectCloseId()}>
+        <LazyCloseWindowDialog
+          busy={projectCloseBusy()}
+          projectName={projectTabItems().find((project) => project.id === projectCloseId())?.label ?? "Files"}
+          onSave={() => void closeProjectWithDecision("save")}
+          onDiscard={() => void closeProjectWithDecision("discard")}
+          onCancel={() => setProjectCloseId(undefined)}
+        />
+      </Show>
+      <Show when={closePromptOpen()}>
+        <LazyCloseWindowDialog
+          busy={closeSaving()}
+          onSave={() => void handleCloseDialogSave()}
+          onDiscard={handleCloseDialogDiscard}
+          onPreserve={handleCloseDialogPreserve}
+          onCancel={handleCloseDialogCancel}
+        />
+      </Show>
+      <Show when={confirmationDialog()}>
+        {(dialog) => (
+          <LazyConfirmDialog
+            title={dialog().title}
+            message={dialog().message}
+            confirmLabel={dialog().confirmLabel}
+            cancelLabel={dialog().cancelLabel}
+            destructive={dialog().destructive}
+            onConfirm={() => closeConfirmationDialog(true)}
+            onCancel={() => closeConfirmationDialog(false)}
+          />
+        )}
+      </Show>
+      <Show when={inputDialog()}>
+        {(dialog) => (
+          <LazyInputDialog
+            title={dialog().title}
+            label={dialog().label}
+            initialValue={dialog().initialValue}
+            placeholder={dialog().placeholder}
+            submitLabel={dialog().submitLabel}
+            onSubmit={(value) => closeInputDialog(value)}
+            onClose={() => closeInputDialog(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 }
 
 function EmptyEditor(props: { onOpenFolder: () => void }) {
   const modifier = isMacPlatform() ? "Cmd" : "Ctrl";
-  return <div class="empty-editor"><img class="empty-editor-logo" src="/pude-logo.webp" width="156" height="156" alt="pude" /><h1 class="sr-only">pude</h1><p>{t("pure code editor")}</p><div class="empty-actions"><button class="primary-button" onClick={props.onOpenFolder}><Icon name="folder-open" size={14} /> {t("Open folder")}</button><span>{t("Open a file with")} <kbd>{modifier}+O</kbd></span></div><div class="empty-shortcuts"><span><kbd>{modifier}+S</kbd> {t("Save")}</span><span><kbd>{modifier}+F</kbd> {t("Find")}</span><span><kbd>{modifier}+Backtick</kbd> {t("Terminal")}</span></div></div>;
+  return (
+    <div class="empty-editor">
+      <img class="empty-editor-logo" src="/pude-logo.webp" width="156" height="156" alt="pude" />
+      <h1 class="sr-only">pude</h1>
+      <p>{t("pure code editor")}</p>
+      <div class="empty-actions">
+        <button type="button" class="primary-button" onClick={props.onOpenFolder}>
+          <Icon name="folder-open" size={14} /> {t("Open folder")}
+        </button>
+        <span>
+          {t("Open a file with")} <kbd>{modifier}+O</kbd>
+        </span>
+      </div>
+      <div class="empty-shortcuts">
+        <span>
+          <kbd>{modifier}+S</kbd> {t("Save")}
+        </span>
+        <span>
+          <kbd>{modifier}+F</kbd> {t("Find")}
+        </span>
+        <span>
+          <kbd>Ctrl+`</kbd> {t("Terminal")}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 const normalizedReadFileResults = new WeakSet<ReadFileResult>();
@@ -5377,22 +7892,87 @@ function makeTab(file: ReadFileResult): EditorTab {
   const content = normalizedFile.content;
   const lineEndings = normalizedFile.lineEndings;
   const encoding = normalizedFile.encoding === "utf-8-bom" ? "UTF-8 BOM" : "UTF-8";
-  return { id: createStableTabId(), path: normalizedFile.path, name: baseName(normalizedFile.path), pinned: false, content, savedContent: content, dirty: false, lineEnding: normalizedFile.lineEnding, lineEndings, savedLineEndings: lineEndings, bom: normalizedFile.bom === true, savedBom: normalizedFile.bom === true, encoding, language: fileLanguageForPath(normalizedFile.path).label, cursorLine: 1, cursorColumn: 1, revision: 0, savedRevision: 0, contentVersion: 0, normalizedContentVersion: 0, normalizedSavedRevision: 0, diskModifiedAt: normalizedFile.modifiedAt, diskSize: normalizedFile.size, estimatedBytes: normalizedFile.size, diskFingerprint: normalizedFile.fingerprint, diskIdentity: normalizedFile.identity ?? undefined, largeFile: normalizedFile.size > 5 * 1024 * 1024 };
+  return {
+    id: createStableTabId(),
+    path: normalizedFile.path,
+    name: baseName(normalizedFile.path),
+    pinned: false,
+    content,
+    savedContent: content,
+    dirty: false,
+    lineEnding: normalizedFile.lineEnding,
+    lineEndings,
+    savedLineEndings: lineEndings,
+    bom: normalizedFile.bom === true,
+    savedBom: normalizedFile.bom === true,
+    encoding,
+    language: fileLanguageForPath(normalizedFile.path).label,
+    cursorLine: 1,
+    cursorColumn: 1,
+    revision: 0,
+    savedRevision: 0,
+    contentVersion: 0,
+    normalizedContentVersion: 0,
+    normalizedSavedRevision: 0,
+    diskModifiedAt: normalizedFile.modifiedAt,
+    diskSize: normalizedFile.size,
+    estimatedBytes: normalizedFile.size,
+    diskFingerprint: normalizedFile.fingerprint,
+    diskIdentity: normalizedFile.identity ?? undefined,
+    largeFile: normalizedFile.size > 5 * 1024 * 1024,
+  };
 }
 
-function makeImageTabChanges(size?: number): Omit<EditorTab, "id" | "path" | "name" | "pinned" | "revision" | "savedRevision" | "contentVersion"> {
-  return { content: "", savedContent: "", dirty: false, orphaned: false, lineEnding: "lf", lineEndings: "", savedLineEndings: "", bom: false, savedBom: false, encoding: "UTF-8", language: "Image", cursorLine: 1, cursorColumn: 1, diskModifiedAt: undefined, diskSize: size, diskFingerprint: undefined, diskIdentity: undefined, largeFile: false };
+function makeImageTabChanges(
+  size?: number,
+): Omit<EditorTab, "id" | "path" | "name" | "pinned" | "revision" | "savedRevision" | "contentVersion"> {
+  return {
+    content: "",
+    savedContent: "",
+    dirty: false,
+    orphaned: false,
+    lineEnding: "lf",
+    lineEndings: "",
+    savedLineEndings: "",
+    bom: false,
+    savedBom: false,
+    encoding: "UTF-8",
+    language: "Image",
+    cursorLine: 1,
+    cursorColumn: 1,
+    diskModifiedAt: undefined,
+    diskSize: size,
+    diskFingerprint: undefined,
+    diskIdentity: undefined,
+    largeFile: false,
+  };
 }
 
 function makeImageTab(path: string, size?: number): EditorTab {
-  return { id: createStableTabId(), path, name: baseName(path), pinned: false, ...makeImageTabChanges(size), revision: 0, savedRevision: 0, contentVersion: 0 };
+  return {
+    id: createStableTabId(),
+    path,
+    name: baseName(path),
+    pinned: false,
+    ...makeImageTabChanges(size),
+    revision: 0,
+    savedRevision: 0,
+    contentVersion: 0,
+  };
 }
 
 function normalizeReadFile(file: ReadFileResult): ReadFileResult {
   if (normalizedReadFileResults.has(file)) return file;
   const content = normalizeDocumentContent(file.content);
   const lineEndings = normalizeLineEndingMap(content, file.lineEndings, file.lineEnding);
-  const normalized = { ...file, content, lineEnding: lineEndingFromMap(lineEndings, file.lineEnding), lineEndings, bom: file.bom === true, fingerprint: file.fingerprint ?? contentFingerprint(content) };
+  const normalized = {
+    ...file,
+    content,
+    lineEnding: lineEndingFromMap(lineEndings, file.lineEnding),
+    lineEndings,
+    bom: file.bom === true,
+    fingerprint: file.fingerprint ?? contentFingerprint(content),
+  };
   normalizedReadFileResults.add(normalized);
   return normalized;
 }
@@ -5405,7 +7985,11 @@ function createStableTabId(): string {
 const loadSessionRestoreDocuments = () => import("./lib/session-restore-documents");
 const loadDirectoryRestoreRuntime = () => import("./lib/directory-restore");
 
-function mapRestoreWithConcurrency<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+function mapRestoreWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
   return loadSessionRestoreDocuments().then(({ mapWithConcurrency }) => mapWithConcurrency(items, limit, mapper));
 }
 
@@ -5416,7 +8000,14 @@ async function restoreDirectoryTreeByLevelLazy(options: DirectoryRestoreOptions)
   return restoreDirectoryTreeByLevel(options);
 }
 
-async function restorePersistedTab(persistedTab: PersistedTab, cursor: CursorPosition | undefined, sessionScope: string, checkpointRecoveries: Readonly<Record<string, RecoverySnapshot>> | undefined, readDocument: (path: string) => Promise<ReadFileResult>, isCurrent: () => boolean): Promise<RestoredTabResult | null> {
+async function restorePersistedTab(
+  persistedTab: PersistedTab,
+  cursor: CursorPosition | undefined,
+  sessionScope: string,
+  checkpointRecoveries: Readonly<Record<string, RecoverySnapshot>> | undefined,
+  readDocument: (path: string) => Promise<ReadFileResult>,
+  isCurrent: () => boolean,
+): Promise<RestoredTabResult | null> {
   if (!isCurrent()) return null;
   try {
     const { restorePersistedTab: restore } = await loadSessionRestoreDocuments();
@@ -5432,7 +8023,11 @@ async function restorePersistedTab(persistedTab: PersistedTab, cursor: CursorPos
   }
 }
 
-function updateEntry(entry: DirectoryEntry, path: string, update: (entry: DirectoryEntry) => DirectoryEntry): DirectoryEntry {
+function updateEntry(
+  entry: DirectoryEntry,
+  path: string,
+  update: (entry: DirectoryEntry) => DirectoryEntry,
+): DirectoryEntry {
   if (samePath(entry.path, path)) return update(entry);
   if (!isWorkspaceRootEntry(entry) && !isSameOrDescendantPath(path, entry.path)) return entry;
   if (!entry.children?.length) return entry;
@@ -5446,7 +8041,8 @@ function updateEntry(entry: DirectoryEntry, path: string, update: (entry: Direct
 }
 
 function markDirectoryStale(entry: DirectoryEntry, targetPath: string): DirectoryEntry {
-  if (isWorkspaceRootEntry(entry)) return mapWorkspaceFolders(entry, (folder) => markDirectoryStale(folder, targetPath));
+  if (isWorkspaceRootEntry(entry))
+    return mapWorkspaceFolders(entry, (folder) => markDirectoryStale(folder, targetPath));
   if (entry.kind !== "directory" || !isSameOrDescendantPath(targetPath, entry.path)) return entry;
   let changed = false;
   const children = entry.children?.map((child) => {
@@ -5473,7 +8069,10 @@ function markAllDirectoriesStale(entry: DirectoryEntry): DirectoryEntry {
 }
 
 /** The workspace row is never listed or marked stale itself; only its folders are. */
-function mapWorkspaceFolders(entry: DirectoryEntry, update: (folder: DirectoryEntry) => DirectoryEntry): DirectoryEntry {
+function mapWorkspaceFolders(
+  entry: DirectoryEntry,
+  update: (folder: DirectoryEntry) => DirectoryEntry,
+): DirectoryEntry {
   let changed = false;
   const children = entry.children?.map((child) => {
     const next = update(child);
@@ -5484,7 +8083,16 @@ function mapWorkspaceFolders(entry: DirectoryEntry, update: (folder: DirectoryEn
 }
 
 function withDirectoryListing(entry: DirectoryEntry, listing: DirectoryListResult): DirectoryEntry {
-  return { ...entry, loaded: true, stale: false, expanded: true, children: mergeDirectoryState(entry.children, listing.entries), partialError: listing.partialError ?? undefined, incomplete: listing.incomplete, listingStopReason: listing.stopReason };
+  return {
+    ...entry,
+    loaded: true,
+    stale: false,
+    expanded: true,
+    children: mergeDirectoryState(entry.children, listing.entries),
+    partialError: listing.partialError ?? undefined,
+    incomplete: listing.incomplete,
+    listingStopReason: listing.stopReason,
+  };
 }
 
 function mergeDirectoryState(previous: DirectoryEntry[] | undefined, next: DirectoryEntry[]) {
@@ -5524,24 +8132,6 @@ function isSameOrDescendantPath(path: string, parent: string): boolean {
   return isDescendantIdentity(path, parent, PATH_OPTIONS);
 }
 
-function isGitReferencePath(path: string, repositoryRoot: string): boolean {
-  const candidate = pathKey(path);
-  const root = pathKey(repositoryRoot);
-  const gitRoot = `${root}/.git/`;
-  const repositoryRelative = candidate.startsWith(gitRoot) ? candidate.slice(gitRoot.length) : candidate;
-  const segments = candidate.split("/");
-  const gitDirectoryIndex = segments.findIndex((segment) => segment === ".git" || segment.endsWith(".git"));
-  const relative = gitDirectoryIndex >= 0 ? segments.slice(gitDirectoryIndex + 1).join("/") : repositoryRelative;
-  return relative === "head"
-    || relative === "packed-refs"
-    || relative === "config"
-    || relative.startsWith("refs/")
-    || relative.startsWith("logs/refs/")
-    || (gitDirectoryIndex >= 0 && relative.startsWith("worktrees/"))
-    || candidate.endsWith("/.git")
-    || candidate.endsWith("/head");
-}
-
 function sameGitPath(left: string, right: string, repositoryRoot: string): boolean {
   if (samePath(left, right)) return true;
   if (!repositoryRoot) return false;
@@ -5566,7 +8156,12 @@ function renameEntryPaths(entry: DirectoryEntry, from: string, to: string): Dire
   const normalizedFrom = pathKey(from);
   if (normalizedEntryPath === normalizedFrom || normalizedEntryPath.startsWith(`${normalizedFrom}/`)) {
     const nextPath = replacePathPrefix(entry.path, from, to);
-    return { ...entry, name: normalizedEntryPath === normalizedFrom ? baseName(to) : entry.name, path: nextPath, children: entry.children?.map((child) => renameEntryPaths(child, from, to)) };
+    return {
+      ...entry,
+      name: normalizedEntryPath === normalizedFrom ? baseName(to) : entry.name,
+      path: nextPath,
+      children: entry.children?.map((child) => renameEntryPaths(child, from, to)),
+    };
   }
   if (!isWorkspaceRootEntry(entry) && !isSameOrDescendantPath(from, entry.path)) return entry;
   if (!entry.children?.length) return entry;
@@ -5588,8 +8183,13 @@ function replacePathPrefix(path: string, from: string, to: string): string {
 }
 
 function isSafeEntryName(name: string) {
-  return Boolean(name) && name !== "." && name !== ".." && !name.includes("\0")
-    && !(PATH_OPTIONS.platform === "windows" ? /[\\/]/ : /\//).test(name);
+  return (
+    Boolean(name) &&
+    name !== "." &&
+    name !== ".." &&
+    !name.includes("\0") &&
+    !(PATH_OPTIONS.platform === "windows" ? /[\\/]/ : /\//).test(name)
+  );
 }
 
 function detectWindowPlatform(): "mac" | "windows" | "linux" {
@@ -5611,7 +8211,14 @@ function makeRecentProjectsRoot(paths: string[]): DirectoryEntry {
     kind: "directory",
     expanded: true,
     loaded: true,
-    children: paths.map((path) => ({ name: baseName(path), path, kind: "directory", loaded: false, expanded: false, recentProject: true })),
+    children: paths.map((path) => ({
+      name: baseName(path),
+      path,
+      kind: "directory",
+      loaded: false,
+      expanded: false,
+      recentProject: true,
+    })),
   };
 }
 
@@ -5670,7 +8277,9 @@ function samePath(left: string, right: string): boolean {
   return samePathIdentity(left, right, PATH_OPTIONS);
 }
 
-function gitSnapshotKey(status: Pick<GitStatusResult, "repositoryRoot" | "repositoryState" | "branch" | "headOid">): string {
+function gitSnapshotKey(
+  status: Pick<GitStatusResult, "repositoryRoot" | "repositoryState" | "branch" | "headOid">,
+): string {
   return `${status.repositoryRoot}:${status.repositoryState ?? "unknown"}:${status.branch ?? ""}:${status.headOid ?? ""}`;
 }
 

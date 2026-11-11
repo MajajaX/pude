@@ -16,7 +16,10 @@ describe("uncertain session lease cleanup", () => {
     expect(close).toHaveBeenCalledTimes(2);
   });
   it("retains unavailable results but clears proven lost ownership", async () => {
-    const close = vi.fn().mockResolvedValueOnce({ ok: false, reason: "unavailable" }).mockResolvedValue({ ok: false, reason: "stale-lease" });
+    const close = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, reason: "unavailable" })
+      .mockResolvedValue({ ok: false, reason: "stale-lease" });
     const queue = createSessionLeaseReleaseQueue({ close, onPending: vi.fn(), onError: vi.fn() });
     expect(await queue.release(lease)).toBe(false);
     expect(queue.hasPending()).toBe(true);
@@ -24,7 +27,12 @@ describe("uncertain session lease cleanup", () => {
   });
   it("coalesces concurrent release attempts for the exact same lease", async () => {
     let finish!: (value: { ok: boolean }) => void;
-    const close = vi.fn(() => new Promise<{ ok: boolean }>((resolve) => { finish = resolve; }));
+    const close = vi.fn(
+      () =>
+        new Promise<{ ok: boolean }>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const queue = createSessionLeaseReleaseQueue({ close, onPending: vi.fn(), onError: vi.fn() });
     const first = queue.release(lease);
     const second = queue.release(lease);

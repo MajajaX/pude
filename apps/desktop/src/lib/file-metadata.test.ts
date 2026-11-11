@@ -3,7 +3,16 @@ import { EditorState, Compartment } from "@codemirror/state";
 import { ensureSyntaxTree, language } from "@codemirror/language";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import { loadEditorLanguageSupport, shouldLoadEditorLanguage } from "./editor-languages";
-import { fileLanguageForPath, lineEndingFromMap, lineEndingMapForContent, normalizeDocumentContent, normalizeEditorDocumentSource, normalizeLineEndingMap, reconcileLineEndingMap, serializeDocumentBytes } from "./file-metadata";
+import {
+  fileLanguageForPath,
+  isImagePath,
+  lineEndingFromMap,
+  lineEndingMapForContent,
+  normalizeDocumentContent,
+  normalizeEditorDocumentSource,
+  normalizeLineEndingMap,
+  serializeDocumentBytes,
+} from "./file-metadata";
 
 describe("file metadata", () => {
   it("normalizes editor documents to LF", () => {
@@ -56,41 +65,12 @@ describe("file metadata", () => {
     });
   });
 
-  it("keeps mixed separators for unchanged lines and uses the preceding line for inserted lines", () => {
-    const original = "alpha\nbeta\ngamma";
-    const originalMap = "cl";
-    expect(reconcileLineEndingMap(original, "alpha!\nbeta\ngamma", originalMap, "lf")).toBe("cl");
-    expect(reconcileLineEndingMap(original, "alpha\ninserted\nbeta\ngamma", originalMap, "lf")).toBe("ccl");
-    expect(reconcileLineEndingMap(original, "alpha\ngamma", originalMap, "lf")).toBe("c");
-  });
-
-  it("preserves separators for edits at the start, middle, end, and across repeated edits", () => {
-    const original = "one\ntwo\nthree\nfour";
-    const map = "clc";
-    const atStart = reconcileLineEndingMap(original, "ONE\ntwo\nthree\nfour", map, "lf");
-    const atMiddle = reconcileLineEndingMap("ONE\ntwo\nthree\nfour", "ONE\nTWO\nthree\nfour", atStart, "lf");
-    const atEnd = reconcileLineEndingMap("ONE\nTWO\nthree\nfour", "ONE\nTWO\nthree\nFOUR", atMiddle, "lf");
-    expect(atStart).toBe(map);
-    expect(atMiddle).toBe(map);
-    expect(atEnd).toBe(map);
-  });
-
-  it("uses the closest existing ending for lines added before or after a mixed-ending document", () => {
-    const original = "alpha\nbeta\ngamma";
-    const map = "lc";
-    expect(reconcileLineEndingMap(original, "prefix\nalpha\nbeta\ngamma", map, "lf")).toBe("llc");
-    expect(reconcileLineEndingMap(original, "alpha\nbeta\ngamma\nsuffix", map, "lf")).toBe("lcc");
-  });
-
-  it("handles BOM-only and unterminated documents without inventing separators", () => {
+  it("handles BOM-only documents without inventing separators", () => {
     expect(normalizeLineEndingMap("", "", "crlf")).toBe("");
-    expect(reconcileLineEndingMap("", "text", "", "crlf")).toBe("");
-    expect(reconcileLineEndingMap("text", "text\n", "", "crlf")).toBe("c");
   });
 
   it("uses the preferred ending when a new document has no neighbouring line", () => {
     expect(lineEndingMapForContent("one\ntwo", "crlf")).toBe("c");
-    expect(reconcileLineEndingMap("", "one\ntwo", "", "crlf")).toBe("c");
     expect(lineEndingFromMap("clc", "lf")).toBe("crlf");
     expect(normalizeLineEndingMap("one\ntwo", undefined, "crlf")).toBe("c");
   });
@@ -116,10 +96,34 @@ describe("file metadata", () => {
   });
 
   it("uses extension metadata for labels and JavaScript variants", () => {
-    expect(fileLanguageForPath("src/view.ts")).toMatchObject({ label: "TypeScript", key: "javascript", typescript: true });
-    expect(fileLanguageForPath("src/view.tsx")).toMatchObject({ label: "TSX", key: "javascript", typescript: true, jsx: true });
+    expect(fileLanguageForPath("src/view.ts")).toMatchObject({
+      label: "TypeScript",
+      key: "javascript",
+      typescript: true,
+    });
+    expect(fileLanguageForPath("src/view.tsx")).toMatchObject({
+      label: "TSX",
+      key: "javascript",
+      typescript: true,
+      jsx: true,
+    });
     expect(fileLanguageForPath("src/view.jsx")).toMatchObject({ label: "JSX", key: "javascript", jsx: true });
     expect(fileLanguageForPath("README").label).toBe("Plain Text");
+  });
+
+  it.each(["bin/go", "src/c", "C:\\tools\\sql", "docs/md", "Dockerfile", "Makefile", "repo.go/Makefile"])(
+    "does not treat the extensionless name %s as an extension",
+    (path) => {
+      expect(fileLanguageForPath(path).label).toBe("Plain Text");
+    },
+  );
+
+  it("recognizes image files by extension only", () => {
+    expect(isImagePath("a/photo.PNG")).toBe(true);
+    expect(isImagePath("C:\\images\\logo.webp")).toBe(true);
+    expect(isImagePath("assets/png")).toBe(false);
+    expect(isImagePath("png")).toBe(false);
+    expect(isImagePath("photo.png/notes")).toBe(false);
   });
 
   it.each([
@@ -145,19 +149,22 @@ describe("file metadata", () => {
     expect(state.facet(language)?.name).toBe(supports[5].language.name);
   });
 
-  it.each([".env", ".env.local", ".env.production", "/repo/.env.example", "C:\\repo\\.env.development.local"])("recognizes dotenv file %s", (path) => {
-    expect(fileLanguageForPath(path)).toMatchObject({ key: "shell", label: "Dotenv", icon: "sh" });
-    expect(fileLanguageForPath("environment.txt").label).toBe("Plain Text");
-  });
+  it.each([".env", ".env.local", ".env.production", "/repo/.env.example", "C:\\repo\\.env.development.local"])(
+    "recognizes dotenv file %s",
+    (path) => {
+      expect(fileLanguageForPath(path)).toMatchObject({ key: "shell", label: "Dotenv", icon: "sh" });
+      expect(fileLanguageForPath("environment.txt").label).toBe("Plain Text");
+    },
+  );
 
   it.each([
     ["Main.java", "public class Main { int value = 1; }"] as const,
     ["main.c", "int main(void) { return 0; }"] as const,
     ["main.cpp", "#include <iostream>\nint main() { return 0; }"] as const,
     ["Program.cs", "class Program { static void Main() { } }"] as const,
-    ["script.sh", "#!/bin/sh\nprintf \"%s\\n\" \"hello\""] as const,
-    ["settings.toml", "[package]\nname = \"pude\"\nversion = \"1.0\""] as const,
-    [".env", "# Local configuration\nexport APP_NAME=\"pude\"\nPORT=5173\nAPI_URL=${BASE_URL}/api"] as const,
+    ["script.sh", '#!/bin/sh\nprintf "%s\\n" "hello"'] as const,
+    ["settings.toml", '[package]\nname = "pude"\nversion = "1.0"'] as const,
+    [".env", '# Local configuration\nexport APP_NAME="pude"\nPORT=5173\nAPI_URL=${BASE_URL}/api'] as const,
   ])("parses and highlights %s", async (path, source) => {
     const support = await loadEditorLanguageSupport(fileLanguageForPath(path));
     const state = EditorState.create({ doc: source, extensions: [support.extension] });
@@ -165,7 +172,11 @@ describe("file metadata", () => {
     expect(tree).not.toBeNull();
 
     let nodeCount = 0;
-    tree?.iterate({ enter: () => { nodeCount += 1; } });
+    tree?.iterate({
+      enter: () => {
+        nodeCount += 1;
+      },
+    });
     expect(nodeCount).toBeGreaterThan(3);
 
     const styles: Array<{ from: number; to: number; classes: string }> = [];

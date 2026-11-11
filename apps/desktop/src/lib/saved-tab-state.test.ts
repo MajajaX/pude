@@ -72,11 +72,15 @@ describe("saved tab state", () => {
     let liveDocument = { content: accepted.content, lineEndings: accepted.lineEndings };
     let completeSave!: (result: SaveFileOutcome) => void;
     let markSaveStarted!: () => void;
-    const saveStarted = new Promise<void>((resolve) => { markSaveStarted = resolve; });
+    const saveStarted = new Promise<void>((resolve) => {
+      markSaveStarted = resolve;
+    });
     const controller = createSaveController({
       saveFile: async () => {
         markSaveStarted();
-        return await new Promise<SaveFileOutcome>((resolve) => { completeSave = resolve; });
+        return await new Promise<SaveFileOutcome>((resolve) => {
+          completeSave = resolve;
+        });
       },
       onSaved: (saved, result) => {
         current = {
@@ -95,7 +99,15 @@ describe("saved tab state", () => {
     completeSave({ modifiedAt: 20, size: savedText.length, fingerprint: "saved-fingerprint" });
     expect((await pending).ok).toBe(true);
 
-    expect(current).toMatchObject({ content: newerText, savedContent: savedText, dirty: true, revision: 3, savedRevision: 2, contentVersion: 4, normalizedSavedRevision: 2 });
+    expect(current).toMatchObject({
+      content: newerText,
+      savedContent: savedText,
+      dirty: true,
+      revision: 3,
+      savedRevision: 2,
+      contentVersion: 4,
+      normalizedSavedRevision: 2,
+    });
     expect(current.normalizedContentVersion).toBeUndefined();
     expect(liveDocument.content).toBe(newerText);
   });

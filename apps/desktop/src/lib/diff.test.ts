@@ -7,11 +7,12 @@ const DIFF_OVERSCAN = 8;
 const BOUNDARY_COUNTS = [9_999, 10_000, 10_001, 20_000];
 
 function changePatch(kind: "added" | "removed" | "replaced", count: number): string {
-  const header = kind === "added"
-    ? `@@ -0,0 +1,${count} @@`
-    : kind === "removed"
-      ? `@@ -1,${count} +0,0 @@`
-      : `@@ -1,${count} +1,${count} @@`;
+  const header =
+    kind === "added"
+      ? `@@ -0,0 +1,${count} @@`
+      : kind === "removed"
+        ? `@@ -1,${count} +0,0 @@`
+        : `@@ -1,${count} +1,${count} @@`;
   const lines = [header];
   if (kind !== "added") for (let index = 0; index < count; index += 1) lines.push(`-old-${index + 1}`);
   if (kind !== "removed") for (let index = 0; index < count; index += 1) lines.push(`+new-${index + 1}`);
@@ -20,18 +21,20 @@ function changePatch(kind: "added" | "removed" | "replaced", count: number): str
 
 describe("diff parser", () => {
   it("shows changed lines while hiding patch metadata", () => {
-    const result = parseDiff([
-      "diff --git a/src/app.ts b/src/app.ts",
-      "index 1234567..abcdef0 100644",
-      "--- a/src/app.ts",
-      "+++ b/src/app.ts",
-      "@@ -2,3 +2,3 @@ function run()",
-      " keep();",
-      "-before();",
-      "+after();",
-      " finish();",
-      "\\ No newline at end of file",
-    ].join("\n"));
+    const result = parseDiff(
+      [
+        "diff --git a/src/app.ts b/src/app.ts",
+        "index 1234567..abcdef0 100644",
+        "--- a/src/app.ts",
+        "+++ b/src/app.ts",
+        "@@ -2,3 +2,3 @@ function run()",
+        " keep();",
+        "-before();",
+        "+after();",
+        " finish();",
+        "\\ No newline at end of file",
+      ].join("\n"),
+    );
 
     expect(result).toEqual({
       rows: [
@@ -85,7 +88,9 @@ describe("diff parser", () => {
   });
 
   it("keeps a removed block before additions in stacked mode", () => {
-    const { rows } = parseDiff(["@@ -8,4 +8,5 @@", " before", "-old one", "-old two", "+new one", "+new two", "+new three", " after"].join("\n"));
+    const { rows } = parseDiff(
+      ["@@ -8,4 +8,5 @@", " before", "-old one", "-old two", "+new one", "+new two", "+new three", " after"].join("\n"),
+    );
     expect(toStackedDiffLines(rows)).toEqual([
       { kind: "context", text: "before", oldNumber: 8, newNumber: 8 },
       { kind: "removed", label: "BEFORE", text: "old one", oldNumber: 9 },
@@ -104,9 +109,21 @@ describe("diff parser", () => {
     const result = parseDiff(lines.join("\n"));
     expect(result.truncated).toBe(true);
     expect(result.rows).toHaveLength(10_000);
-    expect(result.rows[0]).toEqual({ state: "context", left: "leading-context", right: "leading-context", leftNumber: 1, rightNumber: 1 });
+    expect(result.rows[0]).toEqual({
+      state: "context",
+      left: "leading-context",
+      right: "leading-context",
+      leftNumber: 1,
+      rightNumber: 1,
+    });
     expect(result.rows[1]).toEqual({ state: "changed", left: "old-1", right: "new-1", leftNumber: 2, rightNumber: 2 });
-    expect(result.rows.at(-1)).toEqual({ state: "changed", left: "old-9999", right: "new-9999", leftNumber: 10_000, rightNumber: 10_000 });
+    expect(result.rows.at(-1)).toEqual({
+      state: "changed",
+      left: "old-9999",
+      right: "new-9999",
+      leftNumber: 10_000,
+      rightNumber: 10_000,
+    });
   });
 
   it("pairs unequal change runs and preserves rows that have only one side", () => {
@@ -125,22 +142,24 @@ describe("diff parser", () => {
   });
 
   it("continues after a combined hunk and keeps binary, metadata, and following files safe", () => {
-    const result = parseDiff([
-      "diff --cc src/combined.ts",
-      "index 1234567,abcdef0..7654321",
-      "@@@ -1,1 -1,1 +1,1 @@@",
-      "--from-parent();",
-      "++combined();",
-      "diff --git a/image.bin b/image.bin",
-      "Binary files a/image.bin and b/image.bin differ",
-      "diff --git a/src/regular.ts b/src/regular.ts",
-      "index 1234567..abcdef0 100644",
-      "--- a/src/regular.ts",
-      "+++ b/src/regular.ts",
-      "@@ -1 +1 @@",
-      "-old();",
-      "+new();",
-    ].join("\n"));
+    const result = parseDiff(
+      [
+        "diff --cc src/combined.ts",
+        "index 1234567,abcdef0..7654321",
+        "@@@ -1,1 -1,1 +1,1 @@@",
+        "--from-parent();",
+        "++combined();",
+        "diff --git a/image.bin b/image.bin",
+        "Binary files a/image.bin and b/image.bin differ",
+        "diff --git a/src/regular.ts b/src/regular.ts",
+        "index 1234567..abcdef0 100644",
+        "--- a/src/regular.ts",
+        "+++ b/src/regular.ts",
+        "@@ -1 +1 @@",
+        "-old();",
+        "+new();",
+      ].join("\n"),
+    );
 
     expect(result.rows).toEqual([{ state: "changed", left: "old();", right: "new();", leftNumber: 1, rightNumber: 1 }]);
     expect(result.truncated).toBe(false);
@@ -168,13 +187,23 @@ describe("diff parser", () => {
 
     const viewportHeight = 540;
     const topWindow = virtualTreeWindow(rows.length, 0, viewportHeight, DIFF_ROW_HEIGHT, DIFF_OVERSCAN);
-    const bottomWindow = virtualTreeWindow(rows.length, rows.length * DIFF_ROW_HEIGHT, viewportHeight, DIFF_ROW_HEIGHT, DIFF_OVERSCAN);
+    const bottomWindow = virtualTreeWindow(
+      rows.length,
+      rows.length * DIFF_ROW_HEIGHT,
+      viewportHeight,
+      DIFF_ROW_HEIGHT,
+      DIFF_OVERSCAN,
+    );
     const expectedSize = Math.ceil(viewportHeight / DIFF_ROW_HEIGHT) + 2 * DIFF_OVERSCAN;
 
     expect(topWindow.end - topWindow.start).toBeLessThanOrEqual(expectedSize);
     expect(bottomWindow.end - bottomWindow.start).toBeLessThanOrEqual(expectedSize);
     expect(topWindow.end - topWindow.start).toBe(bottomWindow.end - bottomWindow.start);
     expect(bottomWindow.end).toBe(rows.length);
-    expect(virtualTreeWindow(0, 0, viewportHeight, DIFF_ROW_HEIGHT, DIFF_OVERSCAN)).toMatchObject({ start: 0, end: 0, totalHeight: 0 });
+    expect(virtualTreeWindow(0, 0, viewportHeight, DIFF_ROW_HEIGHT, DIFF_OVERSCAN)).toMatchObject({
+      start: 0,
+      end: 0,
+      totalHeight: 0,
+    });
   });
 });

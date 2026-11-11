@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { DirectoryEntry } from "../types";
-import { collapseSubfolders, folderContaining, isWorkspaceRootEntry, makeWorkspaceRoot, watcherExcludesForFolders, workspaceLabel, workspaceRootFolders, WORKSPACE_ROOT_PATH } from "./workspace-folders";
+import {
+  collapseSubfolders,
+  folderContaining,
+  isWorkspaceRootEntry,
+  makeWorkspaceRoot,
+  watcherExcludesForFolders,
+  workspaceLabel,
+  workspaceRootFolders,
+  WORKSPACE_ROOT_PATH,
+} from "./workspace-folders";
 
 const posix = { platform: "posix" as const };
 
@@ -15,7 +24,11 @@ describe("workspace folders", () => {
   it("uses a folder as its own root and groups several folders under a workspace row", () => {
     const single = makeWorkspaceRoot(["/work/web"], "web", undefined, posix);
     expect(single).toMatchObject({ path: "/work/web", name: "web", expanded: true, loaded: false });
-    const loadedWeb: DirectoryEntry = { ...single, loaded: true, children: [{ name: "index.ts", path: "/work/web/index.ts", kind: "file" }] };
+    const loadedWeb: DirectoryEntry = {
+      ...single,
+      loaded: true,
+      children: [{ name: "index.ts", path: "/work/web/index.ts", kind: "file" }],
+    };
     const multi = makeWorkspaceRoot(["/work/web", "/work/api"], "team", loadedWeb, posix);
     expect(isWorkspaceRootEntry(multi)).toBe(true);
     expect(multi.name).toBe("team (Workspace)");
@@ -37,13 +50,23 @@ describe("workspace folders", () => {
 
   it("applies relative watcher excludes to every folder", () => {
     const join = (folder: string, path: string) => `${folder}/${path}`;
-    expect(watcherExcludesForFolders(["node_modules", "/tmp/cache"], ["/work/web", "/work/api"], join))
-      .toEqual(["node_modules", "/tmp/cache", "/work/api/node_modules"]);
+    expect(watcherExcludesForFolders(["node_modules", "/tmp/cache"], ["/work/web", "/work/api"], join)).toEqual([
+      "node_modules",
+      "/tmp/cache",
+      "/work/api/node_modules",
+    ]);
   });
 });
 
 describe("collapse subfolders", () => {
-  const folder = (path: string, children: DirectoryEntry[] = []): DirectoryEntry => ({ name: path, path, kind: "directory", expanded: true, loaded: true, children });
+  const folder = (path: string, children: DirectoryEntry[] = []): DirectoryEntry => ({
+    name: path,
+    path,
+    kind: "directory",
+    expanded: true,
+    loaded: true,
+    children,
+  });
   it("keeps top-level folders open and closes everything below them", () => {
     const tree = folder("/a", [folder("/a/b", [folder("/a/b/c")]), { name: "f", path: "/a/f", kind: "file" }]);
     const collapsed = collapseSubfolders(tree);
@@ -54,7 +77,13 @@ describe("collapse subfolders", () => {
   });
 
   it("keeps every folder of a multi-folder workspace open", () => {
-    const tree: DirectoryEntry = { name: "w", path: WORKSPACE_ROOT_PATH, kind: "directory", expanded: true, children: [folder("/a", [folder("/a/b")]), folder("/c")] };
+    const tree: DirectoryEntry = {
+      name: "w",
+      path: WORKSPACE_ROOT_PATH,
+      kind: "directory",
+      expanded: true,
+      children: [folder("/a", [folder("/a/b")]), folder("/c")],
+    };
     const collapsed = collapseSubfolders(tree);
     expect(collapsed.children?.map((entry) => entry.expanded)).toEqual([true, true]);
     expect(collapsed.children?.[0].children?.[0].expanded).toBe(false);

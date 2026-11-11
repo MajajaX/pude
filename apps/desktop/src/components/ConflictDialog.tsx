@@ -4,7 +4,13 @@ import { activateModalFocus, type ModalFocusController } from "../lib/modal-focu
 import type { EditorTab } from "../types";
 import { t } from "../lib/i18n";
 
-export function ConflictDialog(props: { tab: EditorTab; onCompare: () => void; onReload: () => void; onSaveAs: () => void; onKeep: () => void }) {
+export function ConflictDialog(props: {
+  tab: EditorTab;
+  onCompare: () => void;
+  onReload: () => void;
+  onSaveAs: () => void;
+  onKeep: () => void;
+}) {
   let dialog: HTMLElement | undefined;
   let compareButton: HTMLButtonElement | undefined;
   let modalFocus: ModalFocusController | undefined;
@@ -32,7 +38,9 @@ export function ConflictDialog(props: { tab: EditorTab; onCompare: () => void; o
   return (
     <div class="modal-backdrop">
       <section
-        ref={(element) => { dialog = element; }}
+        ref={(element) => {
+          dialog = element;
+        }}
         class="modal conflict-modal"
         role="dialog"
         aria-modal="true"
@@ -46,17 +54,38 @@ export function ConflictDialog(props: { tab: EditorTab; onCompare: () => void; o
             <span class="modal-kicker">{t("EXTERNAL CHANGE")}</span>
             <h2 id="conflict-title">{t("File changed on disk")}</h2>
           </div>
-          <button class="icon-button" onClick={props.onKeep} aria-label={t("Keep editor version")}><Icon name="close" /></button>
+          <button type="button" class="icon-button" onClick={props.onKeep} aria-label={t("Keep editor version")}>
+            <Icon name="close" />
+          </button>
         </div>
         <div class="conflict-body">
-          <p id="conflict-description"><strong>{props.tab.name}</strong> {t("has changed outside pude while this tab still has unsaved edits.")}</p>
-          <p id="conflict-warning" class="conflict-warning">{t("Your editor version will never be overwritten automatically.")}</p>
+          <p id="conflict-description">
+            <strong>{props.tab.name}</strong> {t("has changed outside pude while this tab still has unsaved edits.")}
+          </p>
+          <p id="conflict-warning" class="conflict-warning">
+            {t("Your editor version will never be overwritten automatically.")}
+          </p>
         </div>
         <div class="modal-footer conflict-actions">
-          <button ref={(element) => { compareButton = element; }} class="secondary-button" onClick={props.onCompare}>{t("Compare")}</button>
-          <button class="secondary-button" onClick={props.onReload}>{t("Reload from disk")}</button>
-          <button class="secondary-button" onClick={props.onSaveAs}>{t("Save As…")}</button>
-          <button class="primary-button" onClick={props.onKeep}>{t("Keep editor version")}</button>
+          <button
+            type="button"
+            ref={(element) => {
+              compareButton = element;
+            }}
+            class="secondary-button"
+            onClick={props.onCompare}
+          >
+            {t("Compare")}
+          </button>
+          <button type="button" class="secondary-button" onClick={props.onReload}>
+            {t("Reload from disk")}
+          </button>
+          <button type="button" class="secondary-button" onClick={props.onSaveAs}>
+            {t("Save As…")}
+          </button>
+          <button type="button" class="primary-button" onClick={props.onKeep}>
+            {t("Keep editor version")}
+          </button>
         </div>
       </section>
     </div>

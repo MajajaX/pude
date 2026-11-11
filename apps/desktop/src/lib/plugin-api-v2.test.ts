@@ -44,12 +44,14 @@ function request(requestId: unknown = "pude_1", method = "editor.getText", param
   return { type: "api-request", protocolVersion: 2, requestId, method, params };
 }
 
-function createHost(overrides: {
-  context?: Partial<PluginApiV2Context>;
-  resolvePermission?: (permission: string) => boolean | Promise<boolean>;
-  execute?: PluginApiV2Dependencies["execute"];
-  now?: () => number;
-} = {}) {
+function createHost(
+  overrides: {
+    context?: Partial<PluginApiV2Context>;
+    resolvePermission?: (permission: string) => boolean | Promise<boolean>;
+    execute?: PluginApiV2Dependencies["execute"];
+    now?: () => number;
+  } = {},
+) {
   const context = createContext(overrides.context);
   const execute = vi.fn(overrides.execute ?? (() => "hello"));
   const host = createPluginApiV2Host({
@@ -76,12 +78,24 @@ describe("plugin API v2 host protocol", () => {
         result: "hello",
       },
     });
-    expect(execute).toHaveBeenCalledWith("editor.getText", {}, expect.objectContaining({ workspaceRoot: "/work/project" }));
+    expect(execute).toHaveBeenCalledWith(
+      "editor.getText",
+      {},
+      expect.objectContaining({ workspaceRoot: "/work/project" }),
+    );
   });
 
   it("keeps the initial read, command registration, and notification operations testable", async () => {
     const execute = vi.fn((method: string, params: Record<string, unknown>) => ({ method, ...params }));
-    const networkPlugin = { ...createContext().installedPlugin!, permissions: ["editor.read", "commands.register", "ui.notification", "network"] as PluginApiV2InstalledPlugin["permissions"] };
+    const networkPlugin = {
+      ...createContext().installedPlugin!,
+      permissions: [
+        "editor.read",
+        "commands.register",
+        "ui.notification",
+        "network",
+      ] as PluginApiV2InstalledPlugin["permissions"],
+    };
     const context = createContext({ expectedPlugin: networkPlugin, installedPlugin: networkPlugin });
     const host = createPluginApiV2Host({
       getContext: () => context,
@@ -89,34 +103,59 @@ describe("plugin API v2 host protocol", () => {
       execute,
     });
     const read = await host.handle(request("read_1"), frame, token);
-    const command = await host.handle(request("command_1", "commands.register", { id: "pude.example.run" }), frame, token);
+    const command = await host.handle(
+      request("command_1", "commands.register", { id: "pude.example.run" }),
+      frame,
+      token,
+    );
     const notification = await host.handle(request("notify_1", "ui.notify", { message: "Saved" }), frame, token);
 
     expect(read).toMatchObject({ response: { ok: true, result: { method: "editor.getText" } } });
-    expect(command).toMatchObject({ response: { ok: true, result: { method: "commands.register", id: "pude.example.run" } } });
+    expect(command).toMatchObject({
+      response: { ok: true, result: { method: "commands.register", id: "pude.example.run" } },
+    });
     expect(notification).toMatchObject({ response: { ok: true, result: { method: "ui.notify", message: "Saved" } } });
   });
 
   it("rejects malformed parameters and invalid request IDs while allowing completed IDs to be reused", async () => {
     const { host } = createHost();
-    const invalidParams = await host.handle(request("pude_1", "commands.register", { id: "valid", extra: true }), frame, token);
+    const invalidParams = await host.handle(
+      request("pude_1", "commands.register", { id: "valid", extra: true }),
+      frame,
+      token,
+    );
     const invalidId = await host.handle(request("has spaces"), frame, token);
     const invalidVersion = await host.handle({ ...request("pude_version"), protocolVersion: 1 }, frame, token);
     const first = await host.handle(request("pude_2"), frame, token);
     const repeated = await host.handle(request("pude_2"), frame, token);
 
-    expect(invalidParams).toMatchObject({ accepted: true, response: { ok: false, error: { code: "protocol.invalid_params" } } });
-    expect(invalidId).toMatchObject({ accepted: true, response: { requestId: null, error: { code: "protocol.invalid_request_id" } } });
-    expect(invalidVersion).toMatchObject({ accepted: true, response: { error: { code: "protocol.unsupported_version" } } });
+    expect(invalidParams).toMatchObject({
+      accepted: true,
+      response: { ok: false, error: { code: "protocol.invalid_params" } },
+    });
+    expect(invalidId).toMatchObject({
+      accepted: true,
+      response: { requestId: null, error: { code: "protocol.invalid_request_id" } },
+    });
+    expect(invalidVersion).toMatchObject({
+      accepted: true,
+      response: { error: { code: "protocol.unsupported_version" } },
+    });
     expect(first).toMatchObject({ accepted: true, response: { ok: true } });
     expect(repeated).toMatchObject({ accepted: true, response: { requestId: "pude_2", ok: true } });
   });
 
   it("requires both a declared permission and a positive grant decision", async () => {
-    const noEditorRead = { ...createContext().installedPlugin!, permissions: ["commands.register"] as PluginApiV2InstalledPlugin["permissions"] };
+    const noEditorRead = {
+      ...createContext().installedPlugin!,
+      permissions: ["commands.register"] as PluginApiV2InstalledPlugin["permissions"],
+    };
     const undeclared = createHost({ context: { expectedPlugin: noEditorRead, installedPlugin: noEditorRead } });
     const undeclaredResult = await undeclared.host.handle(request(), frame, token);
-    expect(undeclaredResult).toMatchObject({ accepted: true, response: { error: { code: "permission.not_declared" } } });
+    expect(undeclaredResult).toMatchObject({
+      accepted: true,
+      response: { error: { code: "permission.not_declared" } },
+    });
     expect(undeclared.execute).not.toHaveBeenCalled();
 
     const denied = createHost({ resolvePermission: () => false });
@@ -136,7 +175,11 @@ describe("plugin API v2 host protocol", () => {
       ["workspace.list", {}, "workspace.read"],
       ["workspace.readFile", { path: "src/main.ts" }, "workspace.read"],
       ["workspace.getFileInfo", { path: "src/main.ts" }, "workspace.read"],
-      ["workspace.readFileRange", { path: "src/main.ts", revision: "revision-1", offsetBytes: 0, maxBytes: 128 * 1024 }, "workspace.read"],
+      [
+        "workspace.readFileRange",
+        { path: "src/main.ts", revision: "revision-1", offsetBytes: 0, maxBytes: 128 * 1024 },
+        "workspace.read",
+      ],
       ["workspace.releaseFileRead", { path: "src/main.ts", revision: "revision-1" }, "workspace.read"],
       ["workspace.writeFile", { path: "src/new.ts", content: "new" }, "workspace.write"],
       ["commands.register", { id: "pude.example.run" }, "commands.register"],
@@ -150,7 +193,10 @@ describe("plugin API v2 host protocol", () => {
       ["network.fetch", { url: "https://api.example.com/v1" }, "network"],
     ];
     const permissions = cases.map(([, , permission]) => permission);
-    const plugin = { ...createContext().installedPlugin!, permissions: [...new Set(permissions)] as PluginApiV2InstalledPlugin["permissions"] };
+    const plugin = {
+      ...createContext().installedPlugin!,
+      permissions: [...new Set(permissions)] as PluginApiV2InstalledPlugin["permissions"],
+    };
     const context = createContext({ expectedPlugin: plugin, installedPlugin: plugin });
     const resolved: Array<[string, string | undefined]> = [];
     let now = 0;
@@ -176,9 +222,21 @@ describe("plugin API v2 host protocol", () => {
   it("rejects undeclared commands and invalid network targets before dispatch", async () => {
     const execute = vi.fn(() => "must not run");
     const { host } = createHost({ execute });
-    const undeclaredCommand = await host.handle(request("command_1", "commands.register", { id: "pude.example.missing" }), frame, token);
-    const nonHttps = await host.handle(request("network_1", "network.fetch", { url: "http://api.example.com/data" }), frame, token);
-    const undeclaredDomain = await host.handle(request("network_2", "network.fetch", { url: "https://other.example.com/data" }), frame, token);
+    const undeclaredCommand = await host.handle(
+      request("command_1", "commands.register", { id: "pude.example.missing" }),
+      frame,
+      token,
+    );
+    const nonHttps = await host.handle(
+      request("network_1", "network.fetch", { url: "http://api.example.com/data" }),
+      frame,
+      token,
+    );
+    const undeclaredDomain = await host.handle(
+      request("network_2", "network.fetch", { url: "https://other.example.com/data" }),
+      frame,
+      token,
+    );
 
     expect(undeclaredCommand).toMatchObject({ response: { error: { code: "manifest.command_not_declared" } } });
     expect(nonHttps).toMatchObject({ response: { error: { code: "network.invalid_url" } } });
@@ -200,7 +258,9 @@ describe("plugin API v2 host protocol", () => {
     };
     const context = createContext({ expectedPlugin: plugin, installedPlugin: plugin });
     const resolvedScopes: Array<{ method: string; permission: string; scope: unknown }> = [];
-    const execute = vi.fn((method: string, _params: Record<string, unknown>, _context: PluginApiV2ExecutionContext) => method);
+    const execute = vi.fn(
+      (method: string, _params: Record<string, unknown>, _context: PluginApiV2ExecutionContext) => method,
+    );
     const host = createPluginApiV2Host({
       getContext: () => context,
       resolvePermission: (_plugin, permission, scope) => {
@@ -226,20 +286,22 @@ describe("plugin API v2 host protocol", () => {
     }
 
     expect(execute).toHaveBeenCalledTimes(cases.length);
-    expect(resolvedScopes).toEqual(cases.map(([method]) => ({
-      method,
-      permission: "process.spawn:lsp",
-      scope: {
-        workspaceRoot: "/work/project",
-        resourceScope: {
-          kind: "executable",
-          serverId: "rust-analyzer",
-          language: "rust",
-          executablePath: "/usr/local/bin/rust-analyzer",
-          args: ["--stdio", "--log-file=/tmp/rust-analyzer.log"],
+    expect(resolvedScopes).toEqual(
+      cases.map(([method]) => ({
+        method,
+        permission: "process.spawn:lsp",
+        scope: {
+          workspaceRoot: "/work/project",
+          resourceScope: {
+            kind: "executable",
+            serverId: "rust-analyzer",
+            language: "rust",
+            executablePath: "/usr/local/bin/rust-analyzer",
+            args: ["--stdio", "--log-file=/tmp/rust-analyzer.log"],
+          },
         },
-      },
-    })));
+      })),
+    );
   });
 
   it("rejects undeclared or malformed LSP servers and denied process grants before dispatch", async () => {
@@ -261,16 +323,32 @@ describe("plugin API v2 host protocol", () => {
       resolvePermission: () => false,
       execute,
     });
-    const undeclared = await denied.handle(request("lsp_missing", "lsp.start", { serverId: "typescript" }), frame, token);
-    const malformed = await denied.handle(request("lsp_bad", "lsp.send", { serverId: "rust-analyzer", message: { jsonrpc: "1.0", method: "initialize" } }), frame, token);
-    const deniedStart = await denied.handle(request("lsp_denied", "lsp.start", { serverId: "rust-analyzer" }), frame, token);
+    const undeclared = await denied.handle(
+      request("lsp_missing", "lsp.start", { serverId: "typescript" }),
+      frame,
+      token,
+    );
+    const malformed = await denied.handle(
+      request("lsp_bad", "lsp.send", { serverId: "rust-analyzer", message: { jsonrpc: "1.0", method: "initialize" } }),
+      frame,
+      token,
+    );
+    const deniedStart = await denied.handle(
+      request("lsp_denied", "lsp.start", { serverId: "rust-analyzer" }),
+      frame,
+      token,
+    );
     const duplicatePlugin: PluginApiV2InstalledPlugin = { ...plugin, lspServers: [lspServer, lspServer] };
     const duplicate = createPluginApiV2Host({
       getContext: () => createContext({ expectedPlugin: duplicatePlugin, installedPlugin: duplicatePlugin }),
       resolvePermission: () => true,
       execute,
     });
-    const duplicateServer = await duplicate.handle(request("lsp_duplicate", "lsp.start", { serverId: "rust-analyzer" }), frame, token);
+    const duplicateServer = await duplicate.handle(
+      request("lsp_duplicate", "lsp.start", { serverId: "rust-analyzer" }),
+      frame,
+      token,
+    );
 
     expect(undeclared).toMatchObject({ response: { error: { code: "manifest.lsp_not_declared" } } });
     expect(malformed).toMatchObject({ response: { error: { code: "protocol.invalid_params" } } });
@@ -285,11 +363,35 @@ describe("plugin API v2 host protocol", () => {
       ["bad_path_1", "workspace.readFile", { path: "../secret.txt" }],
       ["bad_path_2", "workspace.writeFile", { path: "src\\secret.txt", content: "x" }],
       ["bad_editor_range", "editor.getTextRange", { revision: 1, from: 0, to: 128 * 1024 + 1 }],
-      ["bad_workspace_range", "workspace.readFileRange", { path: "src/main.ts", revision: "r1", offsetBytes: 0, maxBytes: 128 * 1024 + 1 }],
+      [
+        "bad_workspace_range",
+        "workspace.readFileRange",
+        { path: "src/main.ts", revision: "r1", offsetBytes: 0, maxBytes: 128 * 1024 + 1 },
+      ],
       ["bad_workspace_release", "workspace.releaseFileRead", { path: "src/main.ts", revision: "" }],
       ["bad_edit", "editor.applyEdits", { revision: -1, edits: [] }],
-      ["bad_edit_overlap", "editor.applyEdits", { revision: 0, edits: [{ from: 0, to: 3, insert: "a" }, { from: 2, to: 4, insert: "b" }] }],
-      ["bad_edit_order", "editor.applyEdits", { revision: 0, edits: [{ from: 3, to: 4, insert: "b" }, { from: 0, to: 1, insert: "a" }] }],
+      [
+        "bad_edit_overlap",
+        "editor.applyEdits",
+        {
+          revision: 0,
+          edits: [
+            { from: 0, to: 3, insert: "a" },
+            { from: 2, to: 4, insert: "b" },
+          ],
+        },
+      ],
+      [
+        "bad_edit_order",
+        "editor.applyEdits",
+        {
+          revision: 0,
+          edits: [
+            { from: 3, to: 4, insert: "b" },
+            { from: 0, to: 1, insert: "a" },
+          ],
+        },
+      ],
       ["bad_status", "ui.statusBar.set", { id: "state", text: "x".repeat(121) }],
       ["bad_header", "network.fetch", { url: "https://api.example.com", headers: { Cookie: "session=secret" } }],
     ];
@@ -308,8 +410,9 @@ describe("plugin API v2 host protocol", () => {
     expect(oversized).toMatchObject({ response: { error: { code: "protocol.message_too_large" } } });
     expect(execute).not.toHaveBeenCalled();
 
-    const results = await Promise.all(Array.from({ length: 21 }, (_, index) =>
-      host.handle(request(`rate_${index}`, "editor.getText"), frame, token)));
+    const results = await Promise.all(
+      Array.from({ length: 21 }, (_, index) => host.handle(request(`rate_${index}`, "editor.getText"), frame, token)),
+    );
     expect(results.slice(0, 20).every((result) => result.accepted && result.response.ok)).toBe(true);
     expect(results[20]).toMatchObject({ response: { error: { code: "protocol.rate_limit" } } });
     expect(execute).toHaveBeenCalledTimes(20);
@@ -319,7 +422,13 @@ describe("plugin API v2 host protocol", () => {
       resolvePermission: () => true,
       execute: () => "x".repeat(1024 * 1024),
     });
-    expect(await largeResponseHost.handle(request("large_response", "commands.register", { id: "pude.example.run" }), frame, token)).toMatchObject({
+    expect(
+      await largeResponseHost.handle(
+        request("large_response", "commands.register", { id: "pude.example.run" }),
+        frame,
+        token,
+      ),
+    ).toMatchObject({
       response: { error: { code: "protocol.response_too_large" } },
     });
   });
@@ -333,13 +442,16 @@ describe("plugin API v2 host protocol", () => {
     const host = createPluginApiV2Host({
       getContext: () => createContext({ expectedPlugin: plugin, installedPlugin: plugin }),
       resolvePermission: () => true,
-      execute: (method) => method === "editor.getText" ? oversizedText : { path: "src/main.ts", content: oversizedText },
+      execute: (method) =>
+        method === "editor.getText" ? oversizedText : { path: "src/main.ts", content: oversizedText },
     });
 
     await expect(host.handle(request("large_editor", "editor.getText"), frame, token)).resolves.toMatchObject({
       response: { error: { code: "editor.range_required" } },
     });
-    await expect(host.handle(request("large_workspace", "workspace.readFile", { path: "src/main.ts" }), frame, token)).resolves.toMatchObject({
+    await expect(
+      host.handle(request("large_workspace", "workspace.readFile", { path: "src/main.ts" }), frame, token),
+    ).resolves.toMatchObject({
       response: { error: { code: "workspace.file_requires_ranges" } },
     });
   });
@@ -371,20 +483,29 @@ describe("plugin API v2 host protocol", () => {
 
     expect(nativeRequestIds).toHaveLength(2);
     expect(new Set(nativeRequestIds).size).toBe(2);
-    expect(nativeRequestIds.every((requestId) => requestId.startsWith("pude_native_") && requestId !== "caller-chosen")).toBe(true);
+    expect(
+      nativeRequestIds.every((requestId) => requestId.startsWith("pude_native_") && requestId !== "caller-chosen"),
+    ).toBe(true);
   });
 
   it("ignores duplicate in-flight IDs without resolving the earlier request, then allows reuse after completion", async () => {
     let markStarted!: () => void;
     let markSecondStarted!: () => void;
     const finishers: Array<(value: string) => void> = [];
-    const started = new Promise<void>((resolve) => { markStarted = resolve; });
-    const secondStarted = new Promise<void>((resolve) => { markSecondStarted = resolve; });
-    const execute = vi.fn(() => new Promise<string>((resolve) => {
-      finishers.push(resolve);
-      if (finishers.length === 1) markStarted();
-      if (finishers.length === 2) markSecondStarted();
-    }));
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const secondStarted = new Promise<void>((resolve) => {
+      markSecondStarted = resolve;
+    });
+    const execute = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          finishers.push(resolve);
+          if (finishers.length === 1) markStarted();
+          if (finishers.length === 2) markSecondStarted();
+        }),
+    );
     const { host } = createHost({ execute });
     const first = host.handle(request("reused_id"), frame, token);
     await started;
@@ -392,13 +513,17 @@ describe("plugin API v2 host protocol", () => {
     expect(await host.handle(request("reused_id"), frame, token)).toEqual({ accepted: false });
     expect(execute).toHaveBeenCalledOnce();
     finishers[0]("first result");
-    await expect(first).resolves.toMatchObject({ response: { requestId: "reused_id", ok: true, result: "first result" } });
+    await expect(first).resolves.toMatchObject({
+      response: { requestId: "reused_id", ok: true, result: "first result" },
+    });
 
     const second = host.handle(request("reused_id"), frame, token);
     await secondStarted;
     expect(execute).toHaveBeenCalledTimes(2);
     finishers[1]("second result");
-    await expect(second).resolves.toMatchObject({ response: { requestId: "reused_id", ok: true, result: "second result" } });
+    await expect(second).resolves.toMatchObject({
+      response: { requestId: "reused_id", ok: true, result: "second result" },
+    });
   });
 
   it("bounds simultaneous API requests and clears their tracking on stop", async () => {
@@ -425,7 +550,9 @@ describe("plugin API v2 host protocol", () => {
 
   it("rechecks authorization immediately before a host operation and aborts it when stopped", async () => {
     let granted = true;
-    let executionContext: Parameters<NonNullable<Parameters<typeof createPluginApiV2Host>[0]["execute"]>>[2] | undefined;
+    let executionContext:
+      | Parameters<NonNullable<Parameters<typeof createPluginApiV2Host>[0]["execute"]>>[2]
+      | undefined;
     const context = createContext();
     const host = createPluginApiV2Host({
       getContext: () => context,
@@ -443,15 +570,18 @@ describe("plugin API v2 host protocol", () => {
 
     let resume!: () => void;
     let markStarted!: () => void;
-    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
     const waitingHost = createPluginApiV2Host({
       getContext: () => context,
       resolvePermission: () => true,
-      execute: (_method, _params, operationContext) => new Promise((resolve) => {
-        executionContext = operationContext;
-        markStarted();
-        resume = () => resolve("late result");
-      }),
+      execute: (_method, _params, operationContext) =>
+        new Promise((resolve) => {
+          executionContext = operationContext;
+          markStarted();
+          resume = () => resolve("late result");
+        }),
     });
     const waiting = waitingHost.handle(request("wait_1"), frame, token);
     await started;
@@ -465,7 +595,9 @@ describe("plugin API v2 host protocol", () => {
     vi.useFakeTimers();
     try {
       let markStarted!: () => void;
-      const started = new Promise<void>((resolve) => { markStarted = resolve; });
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
       let signal: AbortSignal | undefined;
       const { host } = createHost({
         execute: (_method, _params, context) => {
@@ -478,7 +610,9 @@ describe("plugin API v2 host protocol", () => {
       await started;
       await vi.advanceTimersByTimeAsync(30_001);
       expect(signal?.aborted).toBe(true);
-      expect(await requestPromise).toMatchObject({ response: { error: { code: "host.operation_timeout", retryable: true } } });
+      expect(await requestPromise).toMatchObject({
+        response: { error: { code: "host.operation_timeout", retryable: true } },
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -489,33 +623,56 @@ describe("plugin API v2 host protocol", () => {
     const workspaceResult = await changedWorkspace.host.handle(request(), frame, token);
     const changedGeneration = createHost({ context: { workspaceGeneration: 8 } });
     const generationResult = await changedGeneration.host.handle(request(), frame, token);
-    const disabled = createHost({ context: { installedPlugin: { ...createContext().installedPlugin!, enabled: false } } });
+    const disabled = createHost({
+      context: { installedPlugin: { ...createContext().installedPlugin!, enabled: false } },
+    });
     const disabledResult = await disabled.host.handle(request(), frame, token);
-    const changedManifest = createHost({ context: { installedPlugin: { ...createContext().installedPlugin!, version: "2.0.0" } } });
+    const changedManifest = createHost({
+      context: { installedPlugin: { ...createContext().installedPlugin!, version: "2.0.0" } },
+    });
     const manifestResult = await changedManifest.host.handle(request(), frame, token);
 
-    expect(workspaceResult).toMatchObject({ accepted: true, response: { error: { code: "workspace.context_changed" } } });
-    expect(generationResult).toMatchObject({ accepted: true, response: { error: { code: "workspace.context_changed" } } });
+    expect(workspaceResult).toMatchObject({
+      accepted: true,
+      response: { error: { code: "workspace.context_changed" } },
+    });
+    expect(generationResult).toMatchObject({
+      accepted: true,
+      response: { error: { code: "workspace.context_changed" } },
+    });
     expect(disabledResult).toMatchObject({ accepted: true, response: { error: { code: "plugin.disabled" } } });
     expect(manifestResult).toMatchObject({ accepted: true, response: { error: { code: "plugin.not_installed" } } });
   });
 
   it("ignores invalid sources and returns structured operation errors", async () => {
-    const hostWithFailure = createHost({ execute: () => { throw new Error("private implementation detail"); } });
+    const hostWithFailure = createHost({
+      execute: () => {
+        throw new Error("private implementation detail");
+      },
+    });
     const invalidSource = await hostWithFailure.host.handle(request(), {}, token);
     const invalidToken = await hostWithFailure.host.handle(request(), frame, "wrong-token");
     const operationFailure = await hostWithFailure.host.handle(request(), frame, token);
 
     expect(invalidSource).toEqual({ accepted: false });
     expect(invalidToken).toEqual({ accepted: false });
-    expect(operationFailure).toMatchObject({ accepted: true, response: { ok: false, error: { code: "host.operation_failed", message: "Plugin API operation failed.", retryable: true } } });
+    expect(operationFailure).toMatchObject({
+      accepted: true,
+      response: {
+        ok: false,
+        error: { code: "host.operation_failed", message: "Plugin API operation failed.", retryable: true },
+      },
+    });
     expect(JSON.stringify(operationFailure)).not.toContain("private implementation detail");
   });
 
   it("clears in-flight requests when stopped", async () => {
     let resolvePermission!: (granted: boolean) => void;
     const { host } = createHost({
-      resolvePermission: () => new Promise<boolean>((resolve) => { resolvePermission = resolve; }),
+      resolvePermission: () =>
+        new Promise<boolean>((resolve) => {
+          resolvePermission = resolve;
+        }),
     });
     const requestPromise = host.handle(request(), frame, token);
     await Promise.resolve();
