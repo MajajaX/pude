@@ -24,6 +24,8 @@
 
 - 2026-11-05 v0.1.8：新增直接依賴 `@xterm/addon-search` 0.16.0（MIT，用於終端機搜尋）；`tauri-plugin-single-instance` 更新為 2.5.5、`tauri-plugin-updater` 更新為 2.14.1，建置工具 `@tauri-apps/cli` 更新為 2.12.4、`vite` 更新為 8.3.5。新增與更新的 runtime archive 與 `package-lock.json` SRI／`Cargo.lock` SHA-256 相符；兩個 Tauri 外掛的授權文件與前一版逐位元組相同，`@xterm/addon-search` 的 LICENSE 已收錄於完整清冊。
 
+- 2026-11-11 v0.1.9：未新增直接依賴。runtime 依賴 `solid-js` 更新為 1.9.18、`notify` 更新為 8.2.1、`tokio` 更新為 1.54.1、`uuid` 更新為 1.29.0；建置與測試工具 `tauri-build` 更新為 2.7.4、`vite-plugin-solid` 更新為 2.11.15、`vitest` 更新為 5.1.0、`fake-indexeddb` 更新為 6.2.7、`@types/node` 更新為 26.6.6。`npm ci` 與 Cargo 已依 `package-lock.json` SRI／`Cargo.lock` SHA-256 驗證安裝；各套件的 SPDX 授權未變，授權檔與前一版逐位元組相同，僅 `vitest` 的 LICENSE.md 中一個內附依賴的 repository 網址格式不同；`vite-plugin-solid` 套件未附授權檔，依 package.json 為 MIT。
+
 ## JavaScript／npm
 
 ### Desktop runtime
@@ -59,7 +61,7 @@
 | `@xterm/addon-search` | 0.16.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-search) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
 | `codemirror` | 6.0.2 | MIT | [repository](https://github.com/codemirror/basic-setup) | desktop runtime |
-| `solid-js` | 1.9.17 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
+| `solid-js` | 1.9.18 | MIT | [repository](https://github.com/solidjs/solid) | desktop and web runtime |
 
 ### 建置、型別與測試工具
 
@@ -69,12 +71,12 @@
 | --- | ---: | --- | --- | --- |
 | `@tauri-apps/cli` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
-| `fake-indexeddb` | 6.2.6 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
-| `@types/node` | 26.6.5 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
+| `fake-indexeddb` | 6.2.7 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
+| `@types/node` | 26.6.6 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | web typecheck |
 | `typescript` | 7.0.2 | Apache-2.0 | [repository](https://github.com/microsoft/TypeScript) | desktop and web build |
 | `vite` | 8.3.5 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
-| `vite-plugin-solid` | 2.11.14 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
-| `vitest` | 5.0.5 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
+| `vite-plugin-solid` | 2.11.15 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
+| `vitest` | 5.1.0 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
 
 ### npm 核對限制
 
@@ -88,17 +90,17 @@
 | --- | ---: | --- | --- | --- |
 | `tauri` | 2.12.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.4) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime；ST-07 單一執行個體 |
-| `tauri-build` | 2.7.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.3) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
+| `tauri-build` | 2.7.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.4) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
 | `libc` | 0.2.191 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.191) · [repository](https://github.com/rust-lang/libc) | runtime |
-| `notify` | 8.2.0 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.0) · [repository](https://github.com/notify-rs/notify) | runtime |
+| `notify` | 8.2.1 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.1) · [repository](https://github.com/notify-rs/notify) | runtime |
 | `portable-pty` | 0.9.0 | MIT | [crates.io](https://crates.io/crates/portable-pty/0.9.0) · [repository](https://github.com/wezterm/wezterm) | runtime |
 | `reqwest` | 0.13.5 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/reqwest/0.13.5) · [repository](https://github.com/seanmonstar/reqwest) | runtime |
 | `rfd` | 0.17.2 | MIT | [crates.io](https://crates.io/crates/rfd/0.17.2) · [repository](https://github.com/PolyMeilex/rfd) | runtime |
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde/1.0.229) · [repository](https://github.com/serde-rs/serde) | runtime |
 | `serde_json` | 1.0.154 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.154) · [repository](https://github.com/serde-rs/json) | runtime |
-| `tokio` | 1.53.3 | MIT | [crates.io](https://crates.io/crates/tokio/1.53.3) · [repository](https://github.com/tokio-rs/tokio) | runtime |
-| `uuid` | 1.28.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.28.0) · [repository](https://github.com/uuid-rs/uuid) | runtime |
+| `tokio` | 1.54.1 | MIT | [crates.io](https://crates.io/crates/tokio/1.54.1) · [repository](https://github.com/tokio-rs/tokio) | runtime |
+| `uuid` | 1.29.0 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.29.0) · [repository](https://github.com/uuid-rs/uuid) | runtime |
 
 ### Cargo 核對限制與 2026-09-27 快照
 

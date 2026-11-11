@@ -6,6 +6,8 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-11
+
 ### Added
 
 - **Generate key** in the `.env` table toolbar opens the random value generator without
@@ -22,6 +24,9 @@ All notable changes to `pude` are recorded here. The format follows
 
 ### Changed
 
+- Dependency updates: Solid 1.9.18, notify 8.2.1, Tokio 1.54.1, uuid 1.29.0 and
+  tauri-build 2.7.4, plus vite-plugin-solid 2.11.15 and Vitest 5.1.0 for builds and
+  tests, and zizmor-action 0.8.1 in CI.
 - **Copy**, **Copy Name**, **Copy Path** and **Copy Relative Path** on the Explorer context
   menu moved into one **Copy** submenu, where copying the item reads **Copy File** or
   **Copy Folder**. Hover, click or press the right arrow key to open it; the left arrow
