@@ -1211,6 +1211,13 @@ struct ProcessTreeGuard {
     cleanup_error: Mutex<Option<String>>,
 }
 
+// SAFETY: a job object handle is a kernel handle that any thread may use, and
+// the other fields are already thread-safe.
+#[cfg(windows)]
+unsafe impl Send for ProcessTreeGuard {}
+#[cfg(windows)]
+unsafe impl Sync for ProcessTreeGuard {}
+
 impl ProcessTreeGuard {
     #[cfg(unix)]
     fn attach(child: &Child) -> Self {

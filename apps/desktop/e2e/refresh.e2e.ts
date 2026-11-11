@@ -59,16 +59,20 @@ test("reloading restores project order, selection and unsaved content", async ({
           request.onerror = () => reject(request.error);
         });
         const transaction = db.transaction(["checkpoints", "snapshots"]);
-        const read = (store: string) =>
-          new Promise<unknown[]>((resolve, reject) => {
+        const read = <T>(store: string) =>
+          new Promise<T[]>((resolve, reject) => {
             const request = transaction.objectStore(store).getAll();
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
           });
-        const [checkpoints, snapshots] = await Promise.all([read("checkpoints"), read("snapshots")]);
+        const [checkpoints, snapshots] = await Promise.all([
+          read<{ checkpoint?: { session?: { projects?: unknown[] } } }>("checkpoints"),
+          read<unknown>("snapshots"),
+        ]);
         db.close();
+        // The first checkpoint can land before the second project exists, so wait for one that has both.
         return (
-          JSON.stringify(checkpoints).includes('"projects"') &&
+          checkpoints.some((record) => record.checkpoint?.session?.projects?.length === 2) &&
           JSON.stringify(snapshots).includes("reload-recovery-marker")
         );
       }),

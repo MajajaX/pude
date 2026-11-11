@@ -285,7 +285,6 @@ fn missing_or_failure(error: io::Error, missing_message: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::wire_path;
     use uuid::Uuid;
 
     struct Project(PathBuf);
@@ -595,7 +594,7 @@ mod tests {
             let target = project.folder("target");
 
             let result = copy_path_sync(
-                decode_wire_path(&wire_path(&source)),
+                decode_wire_path(&crate::wire_path(&source)),
                 project.0.clone(),
                 target.clone(),
                 project.0.clone(),
