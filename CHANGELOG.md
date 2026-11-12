@@ -6,6 +6,10 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Dependency update: Tauri 2.12.5.
+
 ## [0.1.9] - 2026-11-12
 
 ### Added

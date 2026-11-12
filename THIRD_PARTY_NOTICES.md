@@ -91,7 +91,7 @@ The license identifiers below come from the published `Cargo.toml` metadata of t
 
 | Crate | Locked version | License identifier | Upstream source | Used by |
 | --- | ---: | --- | --- | --- |
-| `tauri` | 2.12.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.4) · [repository](https://github.com/tauri-apps/tauri) | runtime |
+| `tauri` | 2.12.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.5) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime (ST-07 single instance) |
 | `tauri-plugin-updater` | 2.14.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-updater/2.14.1) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime |
 | `tauri-build` | 2.7.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.4) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
