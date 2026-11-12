@@ -10,6 +10,10 @@ import {
 } from "../release-info";
 import { detectDownloadRecommendation, recommendInstaller, NO_RECOMMENDATION } from "../lib/download-platform";
 import BrandMark from "./BrandMark";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:reveal directive
+import { reveal } from "../lib/reveal";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 const { releaseUrl, stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, version);
 const releaseAvailable = releaseStage === "published";

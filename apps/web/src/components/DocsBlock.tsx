@@ -1,6 +1,8 @@
 import { For, Match, Show, Switch } from "solid-js";
 import type { DocBlock } from "../i18n-docs";
 import { blockSource, highlightLine, inlineParts } from "../lib/docs-source";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 export type DocsViewMode = "preview" | "source";
 

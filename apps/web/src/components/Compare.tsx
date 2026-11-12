@@ -1,6 +1,8 @@
 import { For, Show } from "solid-js";
 import { BENCHMARK, formatMegabytes, formatRatio, formatSeconds, sizeMetric, type LaunchTimes } from "../benchmark";
 import { t } from "../i18n";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:reveal directive
+import { reveal } from "../lib/reveal";
 
 const MEGABYTES_PER_DOT = 5;
 const DOT_COLUMNS = 40;

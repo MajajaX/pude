@@ -10,6 +10,12 @@ All notable changes to `pude` are recorded here. The format follows
 
 - Dependency update: Tauri 2.12.5.
 
+### Fixed
+
+- Website: scroll animations play again. Sections fade in as they come into view, and
+  scroll-linked effects on the home page and docs follow the page again. In 0.1.9 a
+  script error during page load stopped them.
+
 ## [0.1.9] - 2026-11-12
 
 ### Added
