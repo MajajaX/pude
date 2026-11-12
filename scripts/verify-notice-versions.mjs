@@ -1,9 +1,9 @@
 // Checks that THIRD_PARTY_NOTICES.md lists every direct npm and Cargo dependency at
 // the version the lockfiles resolve, so a dependency update cannot leave the
-// notices describing an older release.
-import { readFile } from "node:fs/promises";
+// notices describing an older release. `--write` updates the listed versions first.
+import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFile(resolve(root, path), "utf8");
@@ -46,18 +46,50 @@ async function cargoDependencies() {
   return dependencies;
 }
 
-const listed = listedVersions(await read("THIRD_PARTY_NOTICES.md"));
-const problems = [];
-for (const [name, version] of [...(await npmDependencies()), ...(await cargoDependencies())]) {
-  if (!version) problems.push(`${name}: not resolved in the lockfile`);
-  else if (!listed.has(name)) problems.push(`${name} ${version}: missing from THIRD_PARTY_NOTICES.md`);
-  else if (listed.get(name) !== version)
-    problems.push(`${name}: THIRD_PARTY_NOTICES.md lists ${listed.get(name)}, the lockfile resolves ${version}`);
+/**
+ * Moves each listed dependency to its locked version: the version cell and, for crates,
+ * the versioned crates.io link. A new dependency still needs its license checked and a
+ * row written by hand, so missing rows are left alone.
+ */
+export function updateListedVersions(notices, lockedVersions) {
+  return notices.replace(/^\| `([^`]+)` \| ([^ |]+) \|.*$/gm, (row, name, listedVersion) => {
+    const lockedVersion = lockedVersions.get(name);
+    if (!lockedVersion || lockedVersion === listedVersion) return row;
+    return row
+      .replace(` ${listedVersion} |`, ` ${lockedVersion} |`)
+      .replace(`/crates/${name}/${listedVersion})`, `/crates/${name}/${lockedVersion})`);
+  });
 }
 
-if (problems.length) {
-  console.error("THIRD_PARTY_NOTICES.md is out of date with the direct dependencies:");
-  for (const problem of problems) console.error(`  ${problem}`);
-  process.exit(1);
+async function main() {
+  const write = process.argv.includes("--write");
+  const lockedVersions = new Map([...(await npmDependencies()), ...(await cargoDependencies())]);
+  let notices = await read("THIRD_PARTY_NOTICES.md");
+  if (write) {
+    const updated = updateListedVersions(notices, lockedVersions);
+    if (updated !== notices) {
+      await writeFile(resolve(root, "THIRD_PARTY_NOTICES.md"), updated);
+      console.log("Updated the outdated versions in THIRD_PARTY_NOTICES.md.");
+    }
+    notices = updated;
+  }
+
+  const listed = listedVersions(notices);
+  const problems = [];
+  for (const [name, version] of lockedVersions) {
+    if (!version) problems.push(`${name}: not resolved in the lockfile`);
+    else if (!listed.has(name)) problems.push(`${name} ${version}: missing from THIRD_PARTY_NOTICES.md`);
+    else if (listed.get(name) !== version)
+      problems.push(`${name}: THIRD_PARTY_NOTICES.md lists ${listed.get(name)}, the lockfile resolves ${version}`);
+  }
+
+  if (problems.length) {
+    console.error("THIRD_PARTY_NOTICES.md is out of date with the direct dependencies:");
+    for (const problem of problems) console.error(`  ${problem}`);
+    if (!write) console.error("Run `npm run notices:sync` to update the listed versions.");
+    process.exit(1);
+  }
+  console.log("THIRD_PARTY_NOTICES.md lists every direct dependency at its locked version.");
 }
-console.log("THIRD_PARTY_NOTICES.md lists every direct dependency at its locked version.");
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

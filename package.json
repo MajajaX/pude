@@ -42,6 +42,7 @@
     "web:preview": "npm run preview --workspace @pude/web --",
     "release:version:check": "node scripts/release-version.mjs check",
     "release:version:sync": "node scripts/release-version.mjs sync",
+    "notices:sync": "node scripts/verify-notice-versions.mjs --write",
     "lint": "biome ci",
     "format": "biome format --write",
     "check": "npm run lint && npm run release:version:check && node scripts/verify-notice-versions.mjs && npm test && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run typecheck --workspace @pude/web && npm run web:build"

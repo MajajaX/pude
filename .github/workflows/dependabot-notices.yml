@@ -1,0 +1,54 @@
+name: Dependabot notices
+
+# Dependabot updates the lockfiles but not the versions listed in THIRD_PARTY_NOTICES.md,
+# so its pull requests would fail CI's notice check. This commits the listed versions to
+# the Dependabot branch and starts CI for that commit.
+on:
+  pull_request:
+    paths:
+      - "package-lock.json"
+      - "apps/desktop/src-tauri/Cargo.lock"
+
+permissions: {}
+
+concurrency:
+  group: dependabot-notices-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync third-party notice versions
+    # Only Dependabot's own branches in this repository.
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write # Pushes the updated notices to the Dependabot branch
+      actions: write # Starts CI, which a push made with GITHUB_TOKEN does not trigger
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      # Fails without committing when a new direct dependency needs a row written by hand.
+      - run: npm run notices:sync
+      - name: Commit the notices and start CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet THIRD_PARTY_NOTICES.md; then
+            echo "THIRD_PARTY_NOTICES.md already lists the locked versions."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "List the updated dependency versions in the third-party notices" THIRD_PARTY_NOTICES.md
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+          gh workflow run ci.yml --ref "$BRANCH"

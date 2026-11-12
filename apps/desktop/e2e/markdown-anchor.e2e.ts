@@ -1,14 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 test("a Markdown preview anchor scrolls to its heading without opening a new page", async ({ page }) => {
   await page.goto("/");
-  const readme = page.getByText("README.md").first();
-  // A click that lands before the app finishes restoring its session is undone by that restore.
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder" }).first().click();
-    await expect(readme).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
-  await readme.click();
+  await openDemoProject(page);
+  await page.getByText("README.md").first().click();
 
   await page.locator(".cm-content").click();
   await page.keyboard.press("ControlOrMeta+a");
@@ -31,12 +27,8 @@ test("a Markdown anchor with a stray percent sign does not throw", async ({ page
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  const readme = page.getByText("README.md").first();
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder" }).first().click();
-    await expect(readme).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
-  await readme.click();
+  await openDemoProject(page);
+  await page.getByText("README.md").first().click();
 
   await page.locator(".cm-content").click();
   await page.keyboard.press("ControlOrMeta+a");

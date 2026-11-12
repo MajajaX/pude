@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 const browserErrors = new WeakMap<Page, string[]>();
 test.beforeEach(({ page }) => {
@@ -16,10 +17,7 @@ test.afterEach(async ({ page }) => {
 
 async function openProject(page: Page) {
   await page.goto("/");
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page);
   await expect(page).toHaveTitle("pude - pude-demo");
   await expect(page).toHaveURL("http://localhost:5173/");
 }

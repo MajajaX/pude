@@ -71,7 +71,10 @@ Use a feature branch when you do not have direct push access. Keep unrelated loc
 changes out of the branch, and update `package-lock.json` only when the dependency
 change is intentional. Before adding or updating a dependency, check the latest stable
 version, confirm compatibility with the affected workspaces, and include the lockfile update
-in the same pull request.
+in the same pull request. Run `npm run notices:sync` afterwards so `THIRD_PARTY_NOTICES.md`
+lists the locked versions; a new direct dependency also needs its own row with a checked
+license. On Dependabot pull requests, the Dependabot notices workflow commits the synced
+versions and starts CI for that commit.
 
 ## Common commands
 
@@ -86,13 +89,18 @@ Run these from the repository root:
 | `npm run lint` | Check formatting and lint rules with Biome, as CI does. |
 | `npm run format` | Format TypeScript, JavaScript and CSS with Biome. |
 | `npm run check` | Run Biome, the version and third-party notice checks, every unit test, the bundle budget check, type checks, and both production builds. |
+| `npm run notices:sync` | Update the versions listed in `THIRD_PARTY_NOTICES.md` to the ones the lockfiles resolve. |
 | `npm run build` | Build the desktop frontend. |
 | `npm run web:build` | Build the website. |
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. |
 | `node scripts/run-rust-tests.mjs` | Run the Rust test suite exactly as CI does: each test in its own process, with `Cargo.lock` unchanged. Plain `cargo test` shares one process and can disagree on process-group tests. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
 | `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
-| `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo in Chromium and WebKit (install them once with `npx playwright install chromium webkit`). |
+| `npm run test:e2e --workspace @pude/desktop` | Run the browser smoke tests against the in-memory demo in Chromium and WebKit (install them once with `npx playwright install chromium webkit`). CI retries a failed test up to twice and annotates a test that passed only on retry as flaky. |
+
+Browser tests open the demo with `openDemoProject` from `apps/desktop/e2e/open-demo-project.ts`.
+It waits until the open has finished, because the Explorer lists the folder first and
+the app ignores shortcuts such as `` Ctrl+` `` and project tab actions until then.
 
 For a normal code change, run at least `npm run check` and the Rust test command.
 Run `npm run tauri:dev` for changes that touch the native bridge, filesystem
@@ -102,7 +110,8 @@ Use the native command on each platform affected by the change when possible.
 For documentation-only changes, check local links, anchors, obsolete references, and
 `git diff --check`; a full application rebuild is unnecessary unless an executable
 example or behavior claim needs verification. Pull requests that change only
-documentation skip the CI web and tooling job. Keep reusable test fixtures in Git.
+documentation skip the CI web and tooling job, and pull requests that change only the
+website skip the desktop end-to-end job. Keep reusable test fixtures in Git.
 Generated schemas, permissions, logs, raw measurement reports, and QA bundles are
 local outputs and are ignored.
 

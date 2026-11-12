@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Runs every job; the Dependabot notices workflow starts it after committing to a pull request.
+  workflow_dispatch:
   workflow_call:
 
 permissions:
@@ -23,12 +25,13 @@ jobs:
       contents: read
       pull-requests: read # Lists the files a pull request changes
     outputs:
-      # Release calls (tag refs) always run everything. Pull requests and pushes
-      # to main run what the changed files affect.
-      web: ${{ github.ref_type == 'tag' || steps.filter.outputs.web == 'true' }}
-      rust: ${{ github.ref_type == 'tag' || steps.filter.outputs.rust == 'true' }}
-      security: ${{ github.ref_type == 'tag' || steps.filter.outputs.security == 'true' }}
-      workflows: ${{ github.ref_type == 'tag' || steps.filter.outputs.workflows == 'true' }}
+      # Release calls (tag refs) and manual runs always run everything. Pull requests
+      # and pushes to main run what the changed files affect.
+      web: ${{ steps.filter.outcome == 'skipped' || steps.filter.outputs.web == 'true' }}
+      desktop: ${{ steps.filter.outcome == 'skipped' || steps.filter.outputs.desktop == 'true' }}
+      rust: ${{ steps.filter.outcome == 'skipped' || steps.filter.outputs.rust == 'true' }}
+      security: ${{ steps.filter.outcome == 'skipped' || steps.filter.outputs.security == 'true' }}
+      workflows: ${{ steps.filter.outcome == 'skipped' || steps.filter.outputs.workflows == 'true' }}
       site: ${{ steps.filter.outputs.site == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -37,7 +40,7 @@ jobs:
       # The frontend sources are not in the rust filter: the web job builds and tests
       # them on every pull request, and Rust only embeds the built output.
       - id: filter
-        if: github.ref_type != 'tag'
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
@@ -51,6 +54,12 @@ jobs:
               - 'THIRD_PARTY_NOTICES.md'
               - 'THIRD_PARTY_LICENSES.md'
               - 'wrangler.jsonc'
+              - '.github/workflows/ci.yml'
+            desktop:
+              - 'apps/desktop/**'
+              - 'shared/**'
+              - 'package.json'
+              - 'package-lock.json'
               - '.github/workflows/ci.yml'
             rust:
               - 'apps/desktop/src-tauri/**'
@@ -112,31 +121,46 @@ jobs:
       - if: matrix.node == 24
         run: npm run release:tooling:self-test
 
+  # Website-only changes skip these browser tests of the desktop interface.
+  desktop-e2e:
+    name: Desktop end-to-end
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Playwright serves this production build in CI.
+      - run: npm run desktop:build
       - name: Read Playwright version
-        if: matrix.node == 24
         id: playwright
         run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
-        if: matrix.node == 24
         id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Make apt downloads fail fast and retry
-        if: matrix.node == 24
         run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
       - name: Install Playwright browsers
-        if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         timeout-minutes: 15
         run: bash scripts/ci-retry.sh 3 240 npx playwright install --with-deps --only-shell chromium webkit
       - name: Install Playwright system dependencies
-        if: matrix.node == 24 && steps.playwright-cache.outputs.cache-hit == 'true'
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
         timeout-minutes: 15
         run: bash scripts/ci-retry.sh 3 240 npx playwright install-deps chromium webkit
-      - if: matrix.node == 24
-        run: npm run test:e2e --workspace @pude/desktop
-      - if: failure() && matrix.node == 24
+      - run: npm run test:e2e --workspace @pude/desktop
+      # Also uploaded when a retry passed, so the trace of the flaky attempt can be inspected.
+      - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report
@@ -237,7 +261,7 @@ jobs:
   ci-result:
     name: CI result
     if: always()
-    needs: [changes, web, rust-format, rust, security, workflow-lint]
+    needs: [changes, web, desktop-e2e, rust-format, rust, security, workflow-lint]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

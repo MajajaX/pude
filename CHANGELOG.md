@@ -9,6 +9,13 @@ All notable changes to `pude` are recorded here. The format follows
 ### Changed
 
 - Dependency update: Tauri 2.12.5.
+- CI: the desktop browser tests run in their own job, which website-only pull requests
+  skip, and retry a failed test up to twice while reporting it as flaky. The tests wait
+  for a project to finish opening before using shortcuts or project tabs, which removes
+  the race behind the recent intermittent failures.
+- CI: Dependabot pull requests update the versions in `THIRD_PARTY_NOTICES.md`
+  themselves, so the notice check no longer fails on them. `npm run notices:sync` does
+  the same locally.
 
 ## [0.1.9] - 2026-11-12
 

@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 
 // Workflow lint runs only for workflow changes, and the website deploy is opt-in.
 const jobsThatMayBeSkipped = ["Workflow lint", "Deploy website"];
-const jobsThatMustHaveRun = ["Web and tooling (", "Rust formatting", "Rust (", "Security"];
+const jobsThatMustHaveRun = ["Web and tooling (", "Desktop end-to-end", "Rust formatting", "Rust (", "Security"];
 
 /** A run is trusted only when the whole suite ran for its commit and every job succeeded. */
 export function isFullyValidated(jobs) {
