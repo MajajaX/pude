@@ -6,6 +6,8 @@ import { blockLineNumbers, blockSource } from "../lib/docs-source";
 import BrandMark from "./BrandMark";
 import DocsBlock, { type DocsViewMode } from "./DocsBlock";
 import LanguageToggle from "./LanguageToggle";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 /** The line, as a share of the viewport height, that decides what is being read. */
 const READING_LINE = 0.4;

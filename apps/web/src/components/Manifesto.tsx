@@ -1,5 +1,7 @@
 import { For } from "solid-js";
 import { locale, t } from "../i18n";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 export default function Manifesto() {
   const pieces = () =>

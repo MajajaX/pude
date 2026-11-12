@@ -1,5 +1,9 @@
 import { For } from "solid-js";
 import { languageNames, t } from "../i18n";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:reveal directive
+import { reveal } from "../lib/reveal";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 const forward = [...languageNames, ...languageNames];
 const backward = [...forward].reverse();

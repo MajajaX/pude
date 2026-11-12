@@ -3,6 +3,8 @@ import { t } from "../i18n";
 import { version } from "../../package.json";
 import { getSiteRelease } from "../release-info";
 import ProductFilm from "./ProductFilm";
+// biome-ignore lint/correctness/noUnusedImports: used by the use:scroll directive
+import { scroll } from "../lib/scroll-progress";
 
 export default function Hero() {
   const { stage: releaseStage } = getSiteRelease(import.meta.env.VITE_RELEASE_URL, version);
