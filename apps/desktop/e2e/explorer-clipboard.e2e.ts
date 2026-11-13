@@ -116,10 +116,7 @@ test("a copied file and folder paste into another project tab", async ({ page })
   await copyWithMenu(page, "main.ts");
   await menuButton(page, "New tab").click();
   await page.evaluate(() => sessionStorage.setItem("pude-demo-open-folder", "pude-samples"));
-  await expect(async () => {
-    await menuButton(page, "Open folder").first().click();
-    await expect(row(page, "notes")).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page, "notes");
 
   await pasteWithMenu(page, "notes");
   await expect(row(page, "notes")).toHaveAttribute("aria-expanded", "true");

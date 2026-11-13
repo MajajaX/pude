@@ -9,10 +9,7 @@ test("terminal tabs, search, clear and interrupts remain usable", async ({ page 
     if (["error", "warning"].includes(message.type())) errors.push(message.text());
   });
   await page.goto("/");
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page);
   await expect(page).toHaveTitle("pude - pude-demo");
   await page.keyboard.press("Control+Backquote");
   const session = page.locator(".terminal-session:visible");
@@ -75,10 +72,7 @@ test("terminal tabs, search, clear and interrupts remain usable", async ({ page 
 test("terminal copy writes the selection and keeps the clipboard when nothing is selected", async ({ page }) => {
   const clipboard = await useRecordedClipboard(page);
   await page.goto("/");
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page);
   await page.keyboard.press("Control+Backquote");
   const session = page.locator(".terminal-session:visible");
   await expect(session.getByRole("status")).toContainText("Ready");

@@ -7,6 +7,7 @@ const fullSuite = [
   { name: "Web and tooling (Node 22)", conclusion: "success" },
   { name: "Web and tooling (Node 24)", conclusion: "success" },
   { name: "Web and tooling (Node 26)", conclusion: "success" },
+  { name: "Desktop end-to-end", conclusion: "success" },
   { name: "Rust formatting", conclusion: "success" },
   { name: "Rust (ubuntu-latest)", conclusion: "success" },
   { name: "Rust (macos-latest)", conclusion: "success" },
@@ -40,5 +41,6 @@ test("a failed or cancelled job is not trusted", () => {
 
 test("a run missing a whole group of jobs is not trusted", () => {
   assert.equal(isFullyValidated(fullSuite.filter((job) => !job.name.startsWith("Security"))), false);
+  assert.equal(isFullyValidated(fullSuite.filter((job) => job.name !== "Desktop end-to-end")), false);
   assert.equal(isFullyValidated([]), false);
 });

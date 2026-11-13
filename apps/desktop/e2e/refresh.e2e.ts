@@ -1,11 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { openDemoProject } from "./open-demo-project";
 
 test("blank-area refresh preserves editor content and terminal sessions", async ({ page }) => {
   await page.goto("/");
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page);
   await page.getByRole("treeitem", { name: "README.md", exact: true }).click();
   const editor = page.locator(".cm-content");
   await editor.click();
@@ -31,7 +29,7 @@ test("blank-area refresh preserves editor content and terminal sessions", async 
 
 test("editable controls keep their native context menu", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
+  await openDemoProject(page);
   await page.getByRole("tab", { name: "Search", exact: true }).click();
   await page.getByRole("textbox", { name: "Search project text" }).click({ button: "right" });
   await expect(page.getByRole("menuitem", { name: "Refresh", exact: true })).toHaveCount(0);
@@ -39,10 +37,7 @@ test("editable controls keep their native context menu", async ({ page }) => {
 
 test("reloading restores project order, selection and unsaved content", async ({ page }) => {
   await page.goto("/");
-  await expect(async () => {
-    await page.getByRole("button", { name: "Open folder", exact: true }).first().click();
-    await expect(page.getByRole("treeitem", { name: "README.md", exact: true })).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await openDemoProject(page);
   await page.getByRole("treeitem", { name: "README.md", exact: true }).click();
   await page.locator(".cm-content").click();
   await page.keyboard.type("reload-recovery-marker ");

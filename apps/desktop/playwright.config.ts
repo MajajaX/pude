@@ -4,7 +4,9 @@ export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   forbidOnly: Boolean(process.env.CI),
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // A test that only passes on retry is reported as flaky and annotated on the pull request.
+  retries: process.env.CI ? 2 : 0,
+  reporter: process.env.CI ? [["list"], ["github"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: "http://localhost:5173",
     trace: "retain-on-failure",
