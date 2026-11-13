@@ -22,6 +22,8 @@ All notable changes to `pude` are recorded here. The format follows
 - Website: scroll animations play again. Sections fade in as they come into view, and
   scroll-linked effects on the home page and docs follow the page again. In 0.1.9 a
   script error during page load stopped them.
+- Website: the Content-Security-Policy allows the Cloudflare Web Analytics script, so
+  it no longer logs a blocked-script error in the browser console.
 
 ## [0.1.9] - 2026-11-12
 

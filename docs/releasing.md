@@ -245,6 +245,11 @@ SHA-256 hash; `npm run web:build` fails if the built pages contain an inline scr
 whose hash is missing from the policy, so update the hash in `_headers` when it
 reports one (for example after upgrading `solid-js`).
 
+The policy also allows scripts from `https://static.cloudflareinsights.com`, the
+Cloudflare Web Analytics beacon that Cloudflare injects into the pages. The beacon
+reports to `/cdn-cgi/rum` on the site itself, so `connect-src 'self'` already covers
+it. Remove that source if Web Analytics is turned off for `pude.dev`.
+
 The English pages use `/` and `/docs`; Traditional Chinese uses `/zh/` and
 `/zh/docs`. The website build generates canonical URLs, language alternates and
 the sitemap from `apps/web/src/site.ts`. Keep `apps/web/public/_redirects` when
