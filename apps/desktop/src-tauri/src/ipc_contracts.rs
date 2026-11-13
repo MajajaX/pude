@@ -559,6 +559,7 @@ fn git_in(directory: &std::path::Path, args: &[&str]) -> String {
 fn committed_repository(scratch: &ScratchDirectory) -> PathBuf {
     let root = scratch.0.canonicalize().unwrap();
     git_in(&root, &["init", "--quiet", "--initial-branch=main"]);
+    git_in(&root, &["config", "core.autocrlf", "false"]);
     git_in(&root, &["config", "user.name", "Pude Test"]);
     git_in(
         &root,
