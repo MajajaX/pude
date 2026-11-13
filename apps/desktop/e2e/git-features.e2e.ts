@@ -32,7 +32,6 @@ test("Git sync shows locally known counts and shared operation progress", async 
   await page.getByRole("button", { name: /Push ↑3/ }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Push", exact: true }).click();
   await expect(page.getByRole("dialog").getByText("Push in progress…")).toBeVisible();
-  await expect(page.locator(".git-panel-history-only").getByText("Push in progress…")).toBeVisible();
   await expect(page.getByRole("button", { name: /Pull ↓2/ })).toBeDisabled();
   await expect(page.getByText(/push completed/i).first()).toBeVisible({ timeout: 10_000 });
 });
@@ -61,8 +60,69 @@ test("a slow Git action remains attached to its originating project", async ({ p
   await expect(page.getByText("Stage all in progress…")).toHaveCount(0);
   await page.waitForTimeout(4500); // Allow the deliberately delayed operation to finish while away.
   await page.locator('.project-tabs [role="tab"]').first().click();
-  await expect(page.getByText(/add completed/i).first()).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText("STAGED CHANGES 3")).toBeVisible();
+  await expect(page.getByText("STAGED CHANGES 3")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("tab", { name: /LOG/ }).click();
+  await expect(page.getByRole("button", { name: /Stage all/ }).filter({ hasText: "add completed" })).toBeVisible();
+});
+
+test("Git operations are listed in the log, and a long response opens from the notification", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Instruments Vite development modules to return a long Git response.");
+  await page.route("**/src/lib/bridge.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      /command: `git \$\{request\.action\}`/,
+      (command) => `${command}, stderr: "To origin\\n   a1b2c3d..e4f5a6b  main -> main"`,
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.goto("/");
+  await openDemoProject(page);
+  await page.getByRole("tab", { name: "Git", exact: true }).click();
+  await page.getByRole("tab", { name: "LOG", exact: true }).click();
+  await expect(page.getByText("No Git operations have run yet.")).toBeVisible();
+  await page.getByRole("tab", { name: "STATUS", exact: true }).click();
+
+  await page
+    .getByRole("group", { name: "Git operations" })
+    .getByRole("button", { name: "Stage all", exact: true })
+    .click();
+  await expect(page.locator(".git-action-feedback")).toHaveCount(0);
+  const toast = page.locator(".toast");
+  await expect(toast).toContainText("add completed in browser preview.");
+  await toast.getByRole("button", { name: "View full response" }).click();
+
+  await expect(page.getByRole("tab", { name: /LOG/ })).toHaveAttribute("aria-selected", "true");
+  const entry = page.getByRole("button", { name: /Stage all/ }).filter({ hasText: "browser preview" });
+  await expect(entry).toHaveAttribute("aria-expanded", "true");
+  await expect(entry).toBeFocused();
+  await expect(page.getByText("git add", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Full response" })).toContainText("main -> main");
+  await entry.click();
+  await expect(entry).toHaveAttribute("aria-expanded", "false");
+});
+
+test("a Git notification with a button stays while it is hovered", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Instruments Vite development modules to return a long Git response.");
+  await page.route("**/src/lib/bridge.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      /command: `git \$\{request\.action\}`/,
+      (command) => `${command}, stderr: "details"`,
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.goto("/");
+  await openDemoProject(page);
+  await page.getByRole("tab", { name: "Git", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Git operations" })
+    .getByRole("button", { name: "Stage all", exact: true })
+    .click();
+  const toast = page.locator(".toast");
+  await expect(toast).toBeVisible();
+  await toast.hover();
+  await page.waitForTimeout(11_000);
+  await expect(toast).toBeVisible();
 });
 
 test("unknown upstream has no sync emphasis", async ({ page }) => {

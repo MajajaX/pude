@@ -6,8 +6,43 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A **LOG** tab in the Git view (**操作紀錄** in Traditional Chinese) lists the Git
+  operations run from pude in this window for the current project, newest first. Each
+  entry shows whether it succeeded, the action, time, duration and a one-line summary;
+  selecting it shows the command that ran and the complete response (standard output
+  and standard error, or the error message of a failed operation) with a **Copy**
+  button. It records Stage all, Unstage all, discards, Commit, Push, Pull, stash
+  operations, branch switch, create and delete, and worktree creation, but not
+  staging or unstaging a single file. It lives in memory only, keeps the latest 50
+  entries per project, limits each response to 64 KiB and is cleared when the window
+  closes.
+- **View full response** on a Git operation's notification opens the **LOG** tab with
+  that entry expanded.
+
 ### Changed
 
+- Git operations no longer show a message above the action buttons, so the buttons stay
+  where they are. A running action shows its spinner on the button or dialog that
+  started it, including **Stage all**, **Unstage all** and staging a single file. A
+  failed Push or Pull offers **Retry** in its error dialog.
+- The notification after a Git operation shows a one-line, translated summary instead of
+  Git's whole output: `5 files changed, +20 −3` or `Already up to date.` for Pull,
+  `[branch hash] subject` for Commit, and the updated ref or `Everything up to date` for
+  Push. With a **View full response** button it stays while the pointer is over it or it
+  has keyboard focus. A successful Git operation's standard error, such as the details
+  of a Push, is now part of its response, and Git's output is shown exactly as printed
+  (`(no output)` when there is none).
+- Memory: a window that has been hidden for 5 minutes releases what it can rebuild when
+  it is shown again: editors of open files that are not shown and have no unsaved
+  changes or undo history, loaded Git history commits when no Git view or history tab is
+  open, and the native Git cache of its project's repository. Unsaved text, undo history,
+  terminals, the Git operation log and anything on screen are kept. With
+  `PUDE_PERF_LOG=1` it writes one `idle release:` line to the log.
+- Memory: the native Git cache holds at most 8 MiB per repository and 32 MiB in total,
+  down from 32 MiB and 128 MiB. A single Git output above 8 MiB is read again instead of
+  cached.
 - Dependency update: Tauri 2.12.5.
 - CI: the desktop browser tests run in their own job, which website-only pull requests
   skip, and retry a failed test up to twice while reporting it as flaky. The tests wait
@@ -16,9 +51,48 @@ All notable changes to `pude` are recorded here. The format follows
 - CI: Dependabot pull requests update the versions in `THIRD_PARTY_NOTICES.md`
   themselves, so the notice check no longer fails on them. `npm run notices:sync` does
   the same locally.
+- Faster startup: the window now opens as soon as it is created, showing a placeholder
+  layout of the title bar, activity bar, sidebar and status bar (in the stored light or
+  dark theme) until the interface renders, instead of appearing after the first render.
+  This applies to the first window and to windows opened with **New Window** on macOS and
+  Windows. The code the interface needs at startup loads as one file instead of about 20,
+  a Traditional Chinese interface starts downloading its language file together with the
+  rest of the app instead of after it, and the Latin subsets of the two fonts the first
+  frame uses start loading at the same time. The first frame waits for the language file
+  and the fonts, so neither text nor fonts change after it appears.
+- Development: `npm run tauri:dev` runs as **pude Dev** with the identifier
+  `com.pude.editor.dev`, so it no longer shares settings, session data, logs or the
+  single-instance lock with an installed pude and the two can run side by side.
+  `npm run tauri:build -- --config src-tauri/tauri.dev.conf.json` builds the same way.
+  See [CONTRIBUTING.md](CONTRIBUTING.md).
+- The startup bundle check now measures the script `index.html` loads and its static
+  imports, and limits both their size and their number of files.
+- Smaller app, about 0.4 MB less on macOS: the `THIRD_PARTY_LICENSES.md` inside the
+  app (1.28 MB → 0.93 MB) keeps every third-party license and notice text and lists the
+  license of each package, but no longer carries the verification inventory (archive
+  links, lock digests, review notes). The build generates it from the complete file
+  with `scripts/write-bundled-licenses.mjs`; the complete file stays in the repository
+  and is attached to every release, and the release check compares the app's copy with
+  what the script generates. The Inter font ships only its Latin and Latin Extended
+  subsets (83 KB less); interface text in Cyrillic, Greek or Vietnamese now uses the
+  system font, while code keeps JetBrains Mono, which still covers those scripts. The
+  app icon file is recompressed without changing a pixel.
 
 ### Fixed
 
+- Opening a `.pdw` workspace file in a window that has no project yet did nothing: the
+  command line (`pude team.pdw`), **File > Open workspace…** and an entry under Recent
+  workspaces reported "Opened workspace" and added it to Recent workspaces, but no project
+  tab appeared. It now opens.
+- A JetBrains Mono subset (Cyrillic Extended) was inlined into the style sheet as a
+  `data:` URL, which the content security policy blocks. Every font is now a separate
+  file.
+- `THIRD_PARTY_LICENSES.md`: eight license texts sat inside the text block of another
+  license, so the links to them did not work. They are separate blocks now; the license
+  wording is unchanged.
+
+- Website and README: a plugin marketplace is no longer listed among the things pude
+  leaves out on purpose. Plugins are welcome; there is no marketplace yet.
 - Website: scroll animations play again. Sections fade in as they come into view, and
   scroll-linked effects on the home page and docs follow the page again. In 0.1.9 a
   script error during page load stopped them.

@@ -73,12 +73,25 @@ fn rust_serde_responses_match_versioned_wire_fixtures() {
     )
     .unwrap();
 
+    let git_operation = GitOperationResult {
+        output: "Already up to date.".to_string(),
+        stderr: "From github.com:example/例子\n * branch            main       -> FETCH_HEAD"
+            .to_string(),
+        command: "git pull".to_string(),
+    };
+    assert_fixture(
+        &serde_json::to_value(git_operation).unwrap(),
+        &fixture["gitOperationResponse"],
+    )
+    .unwrap();
+
     let git_error = git_runtime::GitErrorInfo {
         kind: git_runtime::GitErrorKind::Failed,
         message: "Open a folder before running Git operations.".to_string(),
         exit_code: None,
         stream: None,
         limit: None,
+        command: None,
     };
     assert_fixture(
         &serde_json::to_value(git_error).unwrap(),
@@ -610,6 +623,47 @@ fn git_branch_operations_never_treat_user_values_as_options() {
     assert_eq!(git_in(&root, &["branch", "--show-current"]), "feature");
     git_action(&webview, &root, "delete-branch", "topic", None).expect("branch names still delete");
     assert_eq!(git_in(&root, &["branch", "--list", "topic"]), "");
+}
+
+#[test]
+fn git_operations_report_the_command_and_both_output_streams() {
+    let scratch = ScratchDirectory::new();
+    let root = committed_repository(&scratch);
+    let webview = test_webview();
+
+    let created = git_action(&webview, &root, "create-branch", "topic", None).unwrap();
+    assert_eq!(created["command"], "git switch -c topic");
+    assert_eq!(created["output"], "");
+    assert!(created["stderr"]
+        .as_str()
+        .unwrap()
+        .contains("Switched to a new branch 'topic'"));
+
+    fs::write(root.join("new.txt"), "new\n").unwrap();
+    let committed = invoke(
+        &webview,
+        "git_operation",
+        json!({
+            "workspace": wire_path(&root),
+            "action": "commit-all",
+            "message": "add new file",
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        committed["command"],
+        "git add --all && git commit -m \"add new file\""
+    );
+    assert!(committed["output"].as_str().unwrap().starts_with("[topic "));
+
+    fs::write(root.join("other.txt"), "other\n").unwrap();
+    let staged = git_action(&webview, &root, "add", "", None).unwrap();
+    assert_eq!(staged["output"], "");
+    assert_eq!(staged["stderr"], "");
+
+    let failed = git_action(&webview, &root, "delete-branch", "missing", None).unwrap_err();
+    assert_eq!(failed["command"], "git branch -d --end-of-options missing");
+    assert!(failed["message"].as_str().unwrap().contains("missing"));
 }
 
 #[test]

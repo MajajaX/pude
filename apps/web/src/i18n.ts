@@ -217,7 +217,7 @@ const en = {
       "Indexing your whole repository",
       "A debugger or build system",
       "AI services and cloud sync",
-      "A plugin marketplace",
+      "Silent automatic updates",
       "Language servers that never sleep",
     ],
     willTitle: "Always part of pude",
@@ -499,7 +499,7 @@ const zhHant: Dict = {
     title: "把人的這一步，做得更輕。",
     sub: "讀程式碼、看變更、親手修改。維持精簡的核心，把資源留給正在處理繁重工作的工具。",
     wontTitle: "核心刻意不做",
-    wont: ["索引你的整個儲存庫", "除錯器或建置系統", "AI 服務與雲端同步", "外掛市集", "永不休息的語言伺服器"],
+    wont: ["索引你的整個儲存庫", "除錯器或建置系統", "AI 服務與雲端同步", "靜默自動更新", "永不休息的語言伺服器"],
     willTitle: "pude 始終堅持",
     will: [
       "快速啟動，安靜運行",

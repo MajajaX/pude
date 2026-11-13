@@ -2,10 +2,13 @@ import "../styles/git-operations.css";
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { Icon } from "./Icons";
 import { GitHistory } from "./GitHistory";
+import { GitOperationLogView } from "./GitOperationLogView";
 import { GitStashView } from "./GitStashView";
 import { errorMessage, gitStatusLabel } from "../lib/core";
+import { gitActionLabel } from "../lib/git-action-labels";
 import { splitDisplayPath } from "../lib/display-path";
 import { isTauri } from "../lib/bridge";
+import type { GitOperationLogEntry } from "../lib/git-operation-log";
 import { defaultGitWorktreePath } from "../lib/git-worktree";
 import { activateModalFocus, type ModalFocusController } from "../lib/modal-focus";
 import {
@@ -28,7 +31,7 @@ import type {
   GitStashFile,
   GitStatusResult,
 } from "../types";
-import { t, translatable } from "../lib/i18n";
+import { t } from "../lib/i18n";
 
 type GitDialog =
   | { kind: "commit" }
@@ -37,33 +40,16 @@ type GitDialog =
   | { kind: "create-worktree" }
   | { kind: "delete-branch" }
   | { kind: "confirm"; request: GitActionRequest; message: string }
-  | { kind: "error"; title: string; message: string };
-
-const actionLabel = (action: GitActionRequest["action"]) => t(actionLabels[action]);
-const actionLabels: Record<GitActionRequest["action"], string> = {
-  add: translatable("Stage all"),
-  "stage-file": translatable("Stage file"),
-  "unstage-file": translatable("Unstage file"),
-  "unstage-all": translatable("Unstage all"),
-  "discard-file": translatable("Discard change"),
-  "discard-untracked-file": translatable("Discard untracked file"),
-  commit: translatable("Commit"),
-  "commit-all": translatable("Stage all and commit"),
-  push: translatable("Push"),
-  pull: translatable("Pull"),
-  stash: translatable("Stash"),
-  "stash-pop": translatable("Stash pop"),
-  "stash-apply": translatable("Apply stash"),
-  "stash-drop": translatable("Drop stash"),
-  switch: translatable("Switch branch"),
-  "create-branch": translatable("Create branch"),
-  "delete-branch": translatable("Delete branch"),
-};
+  | { kind: "error"; title: string; message: string; retry?: GitActionRequest };
 
 export type GitPanelProps = {
   status: GitStatusResult;
   workspaceKey: string;
-  operation?: { action: string; running: boolean; message?: string; error?: boolean };
+  operation?: { action: string; running: boolean };
+  operationLog?: GitOperationLogEntry[];
+  /** The log entry to show expanded in the Log view. */
+  logRequest?: number;
+  onLogRequestHandled?: () => void;
   branches: GitBranch[];
   historyLoading: boolean;
   historyIncomplete?: string;
@@ -87,10 +73,19 @@ export type GitPanelProps = {
 };
 
 export function GitPanel(props: GitPanelProps) {
-  const [view, setView] = createSignal<"status" | "graph" | "stash">(props.historyOnly ? "graph" : "status");
+  const [view, setView] = createSignal<"status" | "graph" | "stash" | "log">(props.historyOnly ? "graph" : "status");
   const stashCount = () => props.stashes?.length ?? 0;
   createEffect(() => {
     if (view() === "stash" && !stashCount()) setView("status");
+  });
+  const [expandedLogEntry, setExpandedLogEntry] = createSignal<number>();
+  createEffect(() => {
+    const entryId = props.logRequest;
+    if (entryId === undefined) return;
+    setView("log");
+    setExpandedLogEntry(entryId);
+    props.onLogRequestHandled?.();
+    queueMicrotask(() => document.getElementById(`git-log-entry-${entryId}`)?.focus());
   });
   const [dialog, setDialog] = createSignal<GitDialog>();
   const [commitMessage, setCommitMessage] = createSignal("");
@@ -99,6 +94,7 @@ export function GitPanel(props: GitPanelProps) {
   const [worktreePath, setWorktreePath] = createSignal("");
   const [selectedBranch, setSelectedBranch] = createSignal("");
   const busy = () => props.operation?.running ?? false;
+  const [pendingRequest, setPendingRequest] = createSignal<GitActionRequest>();
   const [commitFiles, setCommitFiles] = createSignal<Record<string, GitCommitFile[]>>({});
   const [loadingCommit, setLoadingCommit] = createSignal<string>();
   const [commitLoadErrors, setCommitLoadErrors] = createSignal<Record<string, string>>({});
@@ -164,6 +160,7 @@ export function GitPanel(props: GitPanelProps) {
   const run = async (request: GitActionRequest) => {
     if (busy()) return;
     const origin = workspaceEpoch;
+    setPendingRequest(request);
     try {
       await props.onAction(request);
       if (workspaceEpoch !== origin) return;
@@ -176,9 +173,12 @@ export function GitPanel(props: GitPanelProps) {
       if (workspaceEpoch === origin)
         setDialog({
           kind: "error",
-          title: t("{action} failed", { action: actionLabel(request.action) }),
+          title: t("{action} failed", { action: gitActionLabel(request.action) }),
           message: errorMessage(error, "Git operation failed."),
+          retry: request.action === "push" || request.action === "pull" ? request : undefined,
         });
+    } finally {
+      setPendingRequest(undefined);
     }
   };
 
@@ -297,33 +297,6 @@ export function GitPanel(props: GitPanelProps) {
             </span>
           </span>
         </div>
-      </Show>
-      <Show when={props.operation}>
-        {(operation) => (
-          <div classList={{ "git-action-feedback": true, "git-operation-error": operation().error }} role="status">
-            <Show
-              when={operation().running}
-              fallback={
-                <>
-                  {operation().message}
-                  <Show when={operation().error && (operation().action === "push" || operation().action === "pull")}>
-                    <button type="button" onClick={() => void run({ action: operation().action as "push" | "pull" })}>
-                      {t("Retry")}
-                    </button>
-                  </Show>
-                </>
-              }
-            >
-              <span class="git-operation-spinner" aria-hidden="true" />
-              {t("{action} in progress…", {
-                action:
-                  operation().action === "create-worktree"
-                    ? t("Create worktree")
-                    : actionLabel(operation().action as GitActionRequest["action"]),
-              })}
-            </Show>
-          </div>
-        )}
       </Show>
       <div
         classList={{
@@ -502,6 +475,18 @@ export function GitPanel(props: GitPanelProps) {
                 {t("STASH")} <span>{stashCount()}</span>
               </button>
             </Show>
+            <button
+              type="button"
+              classList={{ "git-view-tab": true, "git-view-tab-active": view() === "log" }}
+              role="tab"
+              aria-selected={view() === "log"}
+              onClick={() => setView("log")}
+            >
+              {t("LOG")}
+              <Show when={props.operationLog?.length}>
+                <span>{props.operationLog?.length}</span>
+              </Show>
+            </button>
           </div>
           <Show when={props.status.error}>
             <div class="empty-git git-error-message">{props.status.error}</div>
@@ -510,6 +495,7 @@ export function GitPanel(props: GitPanelProps) {
             <StatusView
               status={props.status}
               busy={busy()}
+              pending={pendingRequest()}
               onOpenDiff={props.onOpenDiff}
               onAction={(request) => void run(request)}
               onDiscard={(file) =>
@@ -555,6 +541,13 @@ export function GitPanel(props: GitPanelProps) {
                   }),
                 )
               }
+            />
+          </Show>
+          <Show when={view() === "log"}>
+            <GitOperationLogView
+              entries={props.operationLog ?? []}
+              expandedId={expandedLogEntry()}
+              onToggle={(id) => setExpandedLogEntry((current) => (current === id ? undefined : id))}
             />
           </Show>
         </Show>
@@ -605,6 +598,7 @@ export function GitPanel(props: GitPanelProps) {
             onClose={() => {
               if (!busy()) setDialog(undefined);
             }}
+            onRetry={(request) => void run(request)}
             onCommit={() => void run({ action: "commit", message: commitMessage() })}
             onSwitch={() => void run({ action: "switch", value: selectedBranch() })}
             onCreateBranch={() => {
@@ -666,6 +660,7 @@ const GIT_STATUS_OVERSCAN = 8;
 function StatusView(props: {
   status: GitStatusResult;
   busy: boolean;
+  pending?: GitActionRequest;
   onOpenDiff: (file: GitFileStatus, staged: boolean, untrackedHint?: boolean) => void;
   onAction: (request: GitActionRequest) => void;
   onDiscard: (file: GitFileStatus) => void;
@@ -726,8 +721,8 @@ function StatusView(props: {
     updateViewport();
     const resizeObserver = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateViewport);
     resizeObserver?.observe(scrollHost);
-    // The quick-commit form, action menu, and feedback message sit above the
-    // list and change its offset when they appear or collapse.
+    // The quick-commit form and action menu sit above the list and change its
+    // offset when they appear or collapse.
     const mutationObserver = typeof MutationObserver === "undefined" ? undefined : new MutationObserver(updateViewport);
     mutationObserver?.observe(scrollHost, { childList: true, subtree: true });
     onCleanup(() => {
@@ -836,6 +831,7 @@ function StatusView(props: {
                 <GitStatusRowItem
                   item={item}
                   busy={props.busy}
+                  pending={props.pending}
                   onOpenDiff={props.onOpenDiff}
                   onAction={props.onAction}
                   onDiscard={props.onDiscard}
@@ -860,6 +856,7 @@ function StatusView(props: {
 function GitStatusRowItem(props: {
   item: { row: GitStatusRow; index: number; top: number };
   busy: boolean;
+  pending?: GitActionRequest;
   onOpenDiff: (file: GitFileStatus, staged: boolean, untrackedHint?: boolean) => void;
   onAction: (request: GitActionRequest) => void;
   onDiscard: (file: GitFileStatus) => void;
@@ -873,6 +870,7 @@ function GitStatusRowItem(props: {
         <GitStatusFileRow
           item={props.item}
           busy={props.busy}
+          pending={props.pending}
           onOpenDiff={props.onOpenDiff}
           onAction={props.onAction}
           onDiscard={props.onDiscard}
@@ -891,6 +889,7 @@ function GitStatusRowItem(props: {
         rowKey={props.item.row.key}
         row={props.item.row as Extract<GitStatusRow, { kind: "header" }>}
         busy={props.busy}
+        pending={props.pending}
         onAction={props.onAction}
       />
     </Show>
@@ -908,6 +907,7 @@ function diffUntrackedHint(file: GitFileStatus, staged: boolean): boolean | unde
 function GitStatusFileRow(props: {
   item: { row: GitStatusRow; index: number; top: number };
   busy: boolean;
+  pending?: GitActionRequest;
   onOpenDiff: (file: GitFileStatus, staged: boolean, untrackedHint?: boolean) => void;
   onAction: (request: GitActionRequest) => void;
   onDiscard: (file: GitFileStatus) => void;
@@ -928,6 +928,10 @@ function GitStatusFileRow(props: {
       badge={props.badge(row().file, row().staged ? "staged" : "working")}
       title={title()}
       busy={props.busy}
+      running={
+        props.pending?.action === (row().staged ? "unstage-file" : "stage-file") &&
+        props.pending.value === row().file.path
+      }
       staged={row().staged}
       onClick={() => props.onOpenDiff(row().file, row().staged, diffUntrackedHint(row().file, row().staged))}
       onStage={() =>
@@ -947,6 +951,7 @@ function GitGroupHeader(props: {
   rowKey: string;
   row: Extract<GitStatusRow, { kind: "header" }>;
   busy: boolean;
+  pending?: GitActionRequest;
   onAction: (request: GitActionRequest) => void;
 }) {
   return (
@@ -960,6 +965,9 @@ function GitGroupHeader(props: {
         onClick={() => props.onAction(props.row.group === "staged" ? { action: "unstage-all" } : { action: "add" })}
         title={props.row.group === "staged" ? t("Move all staged files back to Changes") : t("Stage all changes")}
       >
+        <Show when={props.pending?.action === (props.row.group === "staged" ? "unstage-all" : "add")}>
+          <span class="git-operation-spinner" aria-hidden="true" />
+        </Show>
         {props.row.group === "staged" ? t("Unstage all") : t("Stage all")}
       </button>
     </div>
@@ -973,6 +981,7 @@ function GitRow(props: {
   badge: string;
   title: string;
   busy: boolean;
+  running?: boolean;
   staged?: boolean;
   onClick: () => void;
   onStage: () => void;
@@ -996,6 +1005,7 @@ function GitRow(props: {
         <button
           type="button"
           disabled={props.busy}
+          aria-busy={props.running}
           onClick={props.onStage}
           title={
             props.staged ? t("Unstage {path}", { path: props.file.path }) : t("Stage {path}", { path: props.file.path })
@@ -1004,7 +1014,9 @@ function GitRow(props: {
             props.staged ? t("Unstage {path}", { path: props.file.path }) : t("Stage {path}", { path: props.file.path })
           }
         >
-          <Icon name={props.staged ? "git-unstage" : "git-stage"} size={16} />
+          <Show when={props.running} fallback={<Icon name={props.staged ? "git-unstage" : "git-stage"} size={16} />}>
+            <span class="git-operation-spinner" aria-hidden="true" />
+          </Show>
         </button>
         <Show when={props.onDiscard}>
           <button
@@ -1038,6 +1050,7 @@ function GitDialogView(props: {
   onWorktreeBranchName: (value: string) => void;
   onSelectedBranch: (value: string) => void;
   onClose: () => void;
+  onRetry: (request: GitActionRequest) => void;
   onCommit: () => void;
   onSwitch: () => void;
   onCreateBranch: () => void;
@@ -1088,11 +1101,12 @@ function GitDialogView(props: {
     if (props.dialog.kind === "create-worktree") return t("Create worktree");
     if (props.dialog.kind === "delete-branch") return t("Delete branch");
     if (props.dialog.kind === "confirm")
-      return t("Confirm {action}", { action: actionLabel(props.dialog.request.action) });
+      return t("Confirm {action}", { action: gitActionLabel(props.dialog.request.action) });
     return props.dialog.title;
   };
   const branchCommit = () => (props.dialog.kind === "create-branch" ? props.dialog.commit : undefined);
   const errorMessage = () => (props.dialog.kind === "error" ? props.dialog.message : "");
+  const retryRequest = () => (props.dialog.kind === "error" ? props.dialog.retry : undefined);
 
   return (
     <div
@@ -1312,8 +1326,8 @@ function GitDialogView(props: {
                 busy={props.busy}
                 submitLabel={
                   props.busy
-                    ? t("{action} in progress…", { action: actionLabel(confirmation().request.action) })
-                    : actionLabel(confirmation().request.action)
+                    ? t("{action} in progress…", { action: gitActionLabel(confirmation().request.action) })
+                    : gitActionLabel(confirmation().request.action)
                 }
                 danger={!props.busy}
                 onClose={props.onClose}
@@ -1327,7 +1341,22 @@ function GitDialogView(props: {
             <p>{errorMessage()}</p>
           </div>
           <div class="modal-footer input-dialog-actions">
-            <button type="button" class="primary-button" onClick={props.onClose}>
+            <Show when={retryRequest()}>
+              {(request) => (
+                <button
+                  type="button"
+                  class="secondary-button"
+                  disabled={props.busy}
+                  onClick={() => props.onRetry(request())}
+                >
+                  <Show when={props.busy}>
+                    <span class="git-operation-spinner" aria-hidden="true" />
+                  </Show>
+                  {props.busy ? t("{action} in progress…", { action: gitActionLabel(request().action) }) : t("Retry")}
+                </button>
+              )}
+            </Show>
+            <button type="button" class="primary-button" disabled={props.busy} onClick={props.onClose}>
               {t("Close")}
             </button>
           </div>

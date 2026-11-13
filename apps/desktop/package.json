@@ -21,12 +21,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && tsc -p tsconfig.node.json && vite build",
+    "build": "node ../../scripts/write-bundled-licenses.mjs && tsc -b && tsc -p tsconfig.node.json && vite build",
     "preview": "vite preview",
     "test": "vitest run --environment node",
     "check:bundle": "node ../../scripts/check-bundle-budget.mjs",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "tauri:build": "tauri build",
     "test:e2e": "playwright test"
   },

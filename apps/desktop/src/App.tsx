@@ -39,7 +39,13 @@ import { Icon } from "./components/Icons";
 import type { PluginQuickPickItem } from "./components/PluginQuickPickDialog";
 import { TopbarMenu, TopbarMenuItem } from "./components/TopbarMenu";
 import type { ProjectWorkspaceState } from "./lib/project-workspace";
-import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./lib/project-tabs";
+import {
+  isActiveProject,
+  projectAfterClose,
+  projectTabLabel,
+  projectTabTitle,
+  reorderProjects,
+} from "./lib/project-tabs";
 import {
   collapseSubfolders,
   folderContaining,
@@ -58,6 +64,7 @@ import { defaultSettings, SETTINGS_STORAGE_KEY } from "./lib/settings";
 import { getStartupFolder, setRecentItems } from "./lib/bridge";
 import {
   cancelWorkspaceOperations,
+  releaseNativeIdleMemory,
   copyPath,
   createGitWorktree,
   getGitBranches,
@@ -160,6 +167,7 @@ import {
   mergeGitDirtyState,
   type GitDirtyState,
 } from "./lib/git-scheduler";
+import type { GitOperationAction, GitOperationLogEntry, GitOperationRecord } from "./lib/git-operation-log";
 import type { CommandPaletteItem } from "./lib/plugin-activation";
 import { parseInstalledPlugin } from "./lib/plugin-manifest";
 import type { PluginApiV2Dependencies, PluginApiV2InstalledPlugin, PluginApiV2Permission } from "./lib/plugin-api-v2";
@@ -220,6 +228,7 @@ import { setRecoveryDatabaseBlockedHandler } from "./lib/recovery-database-statu
 import { editNeedsSessionCheckpoint, RecoveryWriteScheduler } from "./lib/recovery-scheduler";
 import type { DirectoryRefreshCoordinator } from "./lib/directory-refresh";
 import type { GitHistoryController } from "./lib/git-history-controller";
+import type { IdleRelease } from "./lib/idle-release";
 import type { VersionedFileReader } from "./lib/versioned-file-reader";
 import { createExpandedPathsCache } from "./lib/expanded-paths";
 import type { RestoredTabRecord, RestoredTabResult } from "./lib/session-restore-documents";
@@ -238,6 +247,8 @@ import type {
   GitCommit,
   GitCommitFile,
   GitFileStatus,
+  GitErrorInfo,
+  GitOperationResult,
   GitStash,
   GitStashFile,
   GitStatusResult,
@@ -596,7 +607,7 @@ export default function App() {
     return host ? host.collectCommandPaletteItems(plugins()) : undefined;
   });
   const [diff, setDiff] = createSignal<DiffResult>();
-  const [toast, setToast] = createSignal<{ text: string; tone?: NotifyTone }>();
+  const [toast, setToast] = createSignal<{ text: string; tone?: NotifyTone; gitLogEntryId?: number }>();
   const [searchOpen, setSearchOpen] = createSignal(false);
   const [replaceOpen, setReplaceOpen] = createSignal(false);
   const [search, setSearch] = createSignal<SearchRequest>({
@@ -772,9 +783,9 @@ export default function App() {
   let disposed = false;
   let dialogRequestInFlight = false;
   let gitMutationInFlight = false;
-  const [gitOperations, setGitOperations] = createSignal<
-    Record<string, { action: string; running: boolean; message?: string; error?: boolean }>
-  >({});
+  const [gitOperations, setGitOperations] = createSignal<Record<string, { action: string; running: boolean }>>({});
+  const [gitOperationLog, setGitOperationLog] = createSignal<Record<string, GitOperationLogEntry[]>>({});
+  const [gitLogRequest, setGitLogRequest] = createSignal<number>();
   let gitDirtyState: GitDirtyState = allGitDirtyState();
   let sessionStorageWarningShown = false;
   let recoveryStorageWarningShown = false;
@@ -1200,42 +1211,44 @@ export default function App() {
   const getDocumentRevision = documentController.getRevision;
   let documentCacheTimer: number | undefined;
   let documentCacheWarningShown = false;
+  const enforceDocumentCacheBudget = (maxBytes?: number) =>
+    documentController.enforceCacheBudget(maxBytes, (tabId, seed) => {
+      const tab = tabById[tabId];
+      if (!tab || tab.revision !== seed.revision || tab.contentVersion !== seed.sourceVersion || tab.dirty)
+        return false;
+      const selectionFallback = createEditorSelectionFallback(
+        seed.selectionJSON,
+        seed.revision,
+        seed.sourceVersion,
+        seed.content.length,
+      );
+      if (!selectionFallback) return false;
+      updateTab(tabId, {
+        content: seed.content,
+        savedContent: seed.savedContent,
+        lineEndings: seed.lineEndings,
+        savedLineEndings: seed.savedLineEndings,
+        lineEnding: seed.lineEnding,
+        bom: seed.bom,
+        savedBom: seed.savedBom,
+        encoding: seed.encoding,
+        savedRevision: seed.savedRevision,
+        normalizedContentVersion: seed.sourceVersion,
+        normalizedSavedRevision: seed.savedRevision,
+        estimatedBytes: seed.estimatedBytes,
+        largeFile: seed.largeFile,
+        cursorLine: seed.cursor?.line ?? tab.cursorLine,
+        cursorColumn: seed.cursor?.column ?? tab.cursorColumn,
+        selectionFallback,
+      });
+      return true;
+    });
   const scheduleDocumentCacheBudget = () => {
     if (documentCacheTimer !== undefined) window.clearTimeout(documentCacheTimer);
     documentCacheTimer = window.setTimeout(() => {
       documentCacheTimer = undefined;
       if (disposed) return;
-      const status = documentController.enforceCacheBudget(undefined, (tabId, seed) => {
-        const tab = tabById[tabId];
-        if (!tab || tab.revision !== seed.revision || tab.contentVersion !== seed.sourceVersion || tab.dirty)
-          return false;
-        const selectionFallback = createEditorSelectionFallback(
-          seed.selectionJSON,
-          seed.revision,
-          seed.sourceVersion,
-          seed.content.length,
-        );
-        if (!selectionFallback) return false;
-        updateTab(tabId, {
-          content: seed.content,
-          savedContent: seed.savedContent,
-          lineEndings: seed.lineEndings,
-          savedLineEndings: seed.savedLineEndings,
-          lineEnding: seed.lineEnding,
-          bom: seed.bom,
-          savedBom: seed.savedBom,
-          encoding: seed.encoding,
-          savedRevision: seed.savedRevision,
-          normalizedContentVersion: seed.sourceVersion,
-          normalizedSavedRevision: seed.savedRevision,
-          estimatedBytes: seed.estimatedBytes,
-          largeFile: seed.largeFile,
-          cursorLine: seed.cursor?.line ?? tab.cursorLine,
-          cursorColumn: seed.cursor?.column ?? tab.cursorColumn,
-          selectionFallback,
-        });
-        return true;
-      });
+      const status = enforceDocumentCacheBudget();
       if (status.overBudget && !documentCacheWarningShown) {
         notify(
           t("Editor memory exceeds the cache budget. Documents that cannot be safely rebuilt are being retained."),
@@ -1364,14 +1377,31 @@ export default function App() {
       notify(t("pude {version} is available. Click Update beside the branch name.", { version: status.version }));
   };
 
+  const dismissToastAfter = (duration: number) => {
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => setToast(undefined), duration);
+  };
   // Messages from the native side and from controllers arrive in English; known ones are translated here.
   // Errors stay longer, and longer messages stay long enough to read.
-  const notify = (message: string, tone?: NotifyTone) => {
+  const notify = (message: string, tone?: NotifyTone, gitLogEntryId?: number) => {
     const text = translateMessage(message);
-    setToast({ text, tone });
-    if (toastTimer) window.clearTimeout(toastTimer);
-    const duration = Math.min(10_000, Math.max(tone === "error" ? 6000 : 2600, text.length * 60));
-    toastTimer = window.setTimeout(() => setToast(undefined), duration);
+    setToast({ text, tone, gitLogEntryId });
+    const duration =
+      gitLogEntryId === undefined
+        ? Math.min(10_000, Math.max(tone === "error" ? 6000 : 2600, text.length * 60))
+        : 10_000;
+    dismissToastAfter(duration);
+  };
+  const holdToast = () => {
+    if (toast()?.gitLogEntryId !== undefined) window.clearTimeout(toastTimer);
+  };
+  const releaseToast = () => {
+    if (toast()?.gitLogEntryId !== undefined) dismissToastAfter(4000);
+  };
+  const showGitOperationLog = (entryId: number) => {
+    setToast(undefined);
+    setGitLogRequest(entryId);
+    showSidebarView("git");
   };
 
   const pluginStatusItemKey = (pluginId: string, itemId: string) => `${pluginId}\u0000${itemId}`;
@@ -3267,7 +3297,7 @@ export default function App() {
       const existing = currentProjects().find(
         (project) => project.workspaceFile && samePath(project.workspaceFile, file),
       );
-      if (existing?.id === activeProjectId()) return true;
+      if (isActiveProject(existing, activeProjectId())) return true;
       const blankProjectId = activeProjectIsBlank() ? activeProjectId() : undefined;
       const target = existing ?? createWorkspaceProject(folders, file);
       if (!(await transitionToProject(target, !existing))) return false;
@@ -3558,27 +3588,46 @@ export default function App() {
     return request.promise;
   };
 
-  const runGitOperation = async (action: string, operation: (path: string) => Promise<string>) => {
+  const runGitOperation = async (
+    action: GitOperationAction,
+    operation: (path: string) => Promise<GitOperationResult>,
+  ) => {
     const path = workspace();
+    const logKey = `${activeProjectId()}:${path}`;
     const generation = workspaceGeneration;
     if (gitOperations()[path]?.running) throw new Error("Another Git operation is already running.");
     setGitOperations((current) => ({ ...current, [path]: { action, running: true } }));
     gitMutationInFlight = true;
+    const startedAt = Date.now();
+    const logged = action !== "stage-file" && action !== "unstage-file";
+    const record = async (outcome: Pick<GitOperationRecord, "ok" | "output" | "stderr" | "command">) => {
+      const durationMs = Date.now() - startedAt;
+      try {
+        const { appendGitOperationLog, createGitOperationLogEntry } = await import("./lib/git-operation-log");
+        const entry = createGitOperationLogEntry({ action, startedAt, durationMs, ...outcome });
+        if (logged) setGitOperationLog((log) => ({ ...log, [logKey]: appendGitOperationLog(log[logKey], entry) }));
+        return entry;
+      } catch {
+        return undefined;
+      }
+    };
     try {
-      const output = await operation(path);
-      setGitOperations((current) => ({
-        ...current,
-        [path]: { action, running: false, message: output || t("{action} completed.", { action }) },
-      }));
+      const entry = await record({ ok: true, ...(await operation(path)) });
       if (workspaceGeneration === generation && workspace() === path)
-        notify(output || t("{action} completed.", { action }));
+        notify(
+          entry?.summary ?? t("Git operation completed."),
+          undefined,
+          logged && entry?.hasDetails ? entry.id : undefined,
+        );
     } catch (error) {
-      setGitOperations((current) => ({
-        ...current,
-        [path]: { action, running: false, message: errorMessage(error, "Git operation failed."), error: true },
-      }));
+      await record({
+        ok: false,
+        output: errorMessage(error, "Git operation failed."),
+        command: (error as GitErrorInfo | null)?.command,
+      });
       throw error;
     } finally {
+      setGitOperations((current) => ({ ...current, [path]: { action, running: false } }));
       gitMutationInFlight = Object.values(gitOperations()).some((item) => item.running);
     }
   };
@@ -3592,7 +3641,7 @@ export default function App() {
         gitBranchesRevision += 1;
       }
       try {
-        return (await performGitAction(path, request)).output;
+        return await performGitAction(path, request);
       } finally {
         if (workspace() === path) {
           if (changesRefs) invalidateGitHistory();
@@ -3605,10 +3654,14 @@ export default function App() {
   const runGitWorktree = (branch: string, path: string, startPoint?: string) =>
     runGitOperation("create-worktree", async (origin) => {
       const result = await createGitWorktree(origin, branch, path, startPoint);
-      return t("Created worktree {branch}; opened {path} in a new window.", {
-        branch: result.branch,
-        path: result.path,
-      });
+      return {
+        output: t("Created worktree {branch}; opened {path} in a new window.", {
+          branch: result.branch,
+          path: result.path,
+        }),
+        stderr: "",
+        command: `git worktree add -b ${result.branch} ${result.path}`,
+      };
     });
 
   const expandAndListDirectory = async (entry: DirectoryEntry) => {
@@ -6647,6 +6700,32 @@ export default function App() {
       window.removeEventListener("focus", refreshAfterFocusResume);
       document.removeEventListener("visibilitychange", refreshAfterFocusResume);
     });
+    // A window hidden for five minutes gives back what is rebuilt on demand:
+    // detached clean documents, Git history that is not on screen, and the
+    // native Git output cache.
+    const releaseIdleMemory = () => {
+      if (disposed) return;
+      const documents = enforceDocumentCacheBudget(0).evictedTabIds.length;
+      const historyCommits = historyTabOpen() || sidebarView() === "git" ? 0 : git().commits.length;
+      if (historyCommits) gitHistoryController?.reset();
+      void releaseNativeIdleMemory(workspace(), documents, historyCommits).catch((error) =>
+        emitDiagnostic("memory.release", error),
+      );
+    };
+    let idleRelease: Promise<IdleRelease> | undefined;
+    const trackHiddenWindow = () => {
+      if (!document.hidden && !idleRelease) return;
+      idleRelease ??= import("./lib/idle-release").then(({ createIdleRelease }) =>
+        createIdleRelease(releaseIdleMemory),
+      );
+      void idleRelease.then((idle) => idle.setHidden(document.hidden));
+    };
+    trackHiddenWindow();
+    document.addEventListener("visibilitychange", trackHiddenWindow);
+    onCleanup(() => {
+      document.removeEventListener("visibilitychange", trackHiddenWindow);
+      void idleRelease?.then((idle) => idle.dispose());
+    });
   });
 
   const closeTabGroup = async (ids: string[]) => {
@@ -7133,6 +7212,9 @@ export default function App() {
               <LazyGitPanel
                 workspaceKey={`${activeProjectId()}:${workspace()}`}
                 operation={gitOperations()[workspace()]}
+                operationLog={gitOperationLog()[`${activeProjectId()}:${workspace()}`]}
+                logRequest={gitLogRequest()}
+                onLogRequestHandled={() => setGitLogRequest(undefined)}
                 status={git()}
                 branches={gitBranches()}
                 historyLoading={gitHistoryLoading()}
@@ -7731,9 +7813,20 @@ export default function App() {
           <div
             classList={{ toast: true, "toast-error": current().tone === "error" }}
             role={current().tone === "error" ? "alert" : "status"}
+            onMouseEnter={holdToast}
+            onMouseLeave={releaseToast}
+            onFocusIn={holdToast}
+            onFocusOut={releaseToast}
           >
             <Icon name={current().tone === "error" ? "close" : "check"} size={14} />
             {current().text}
+            <Show when={current().gitLogEntryId}>
+              {(entryId) => (
+                <button type="button" onClick={() => showGitOperationLog(entryId())}>
+                  {t("View full response")}
+                </button>
+              )}
+            </Show>
           </div>
         )}
       </Show>

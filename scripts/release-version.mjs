@@ -154,7 +154,7 @@ async function check(expectedVersion) {
   if (
     tauriConfig.bundle?.resources?.["../../../LICENSE"] !== "LICENSE" ||
     tauriConfig.bundle?.resources?.["../../../THIRD_PARTY_NOTICES.md"] !== "THIRD_PARTY_NOTICES.md" ||
-    tauriConfig.bundle?.resources?.["../../../THIRD_PARTY_LICENSES.md"] !== "THIRD_PARTY_LICENSES.md"
+    tauriConfig.bundle?.resources?.["gen/THIRD_PARTY_LICENSES.md"] !== "THIRD_PARTY_LICENSES.md"
   ) {
     throw new Error(`${paths.tauriConfig} must bundle LICENSE, THIRD_PARTY_NOTICES.md, and THIRD_PARTY_LICENSES.md`);
   }

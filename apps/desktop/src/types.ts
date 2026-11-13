@@ -182,6 +182,8 @@ export type GitActionRequest = {
 
 export type GitOperationResult = {
   output: string;
+  stderr: string;
+  command: string;
 };
 
 export type GitWorktreeResult = {
@@ -208,6 +210,7 @@ export type GitErrorInfo = {
   exitCode: number | null;
   stream: string | null;
   limit: number | null;
+  command?: string;
 };
 
 export type DiffResult = {

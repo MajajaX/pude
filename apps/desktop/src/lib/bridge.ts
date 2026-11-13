@@ -468,7 +468,11 @@ export async function performGitAction(workspace: string, request: GitActionRequ
     if (index < 0) throw new Error(`Branch not found: ${request.value}`);
     browserBranches.splice(index, 1);
   }
-  return { output: `${request.action} completed in browser preview.` };
+  return {
+    output: `${request.action} completed in browser preview.`,
+    stderr: "",
+    command: `git ${request.action}`,
+  };
 }
 
 export async function createGitWorktree(
@@ -587,6 +591,14 @@ export async function startWatcher(
 
 export async function cancelWorkspaceOperations(workspace: string): Promise<void> {
   if (isTauri) await invoke("cancel_workspace", { workspace });
+}
+
+export async function releaseNativeIdleMemory(
+  workspace: string,
+  releasedDocuments: number,
+  releasedHistoryCommits: number,
+): Promise<void> {
+  if (isTauri) await invoke("release_idle_memory", { workspace, releasedDocuments, releasedHistoryCommits });
 }
 
 export async function stopWatcher(sessionId?: string): Promise<void> {

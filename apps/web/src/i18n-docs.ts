@@ -121,7 +121,7 @@ const en: DocsDict = {
             items: [
               "Project-wide indexing, a debugger or a build system",
               "AI services, cloud sync and accounts",
-              "A plugin marketplace, silent automatic updates and bundled language servers",
+              "Silent automatic updates and bundled language servers",
             ],
           },
           { t: "h3", text: "Reading these docs" },
@@ -246,7 +246,7 @@ const en: DocsDict = {
               "`.env` and `.env.*` files have shell syntax highlighting for assignments, quoted strings, numbers, expansions and comments, and show `Dotenv` in the status bar. The same large-file limits apply.",
               "`.env` files open as a table: each variable has a name field and a value field, each with a copy button, and `Line` copies the whole `NAME=value` line. Use `Add variable` in the toolbar or below the table to add a row after the last variable, before trailing comments. Right-click a row or use its actions menu to insert above or below. Rename, edit or delete variables, and generate random values in Hex, Base64URL, Base64, alphanumeric or UUIDv4 format. The default is 32-byte Base64URL; lengths range from 1 to 1,024 bytes or characters, with 16, 32 and 64 presets. `Generate key` in the toolbar works even in an empty file: copy the value or add it as a new variable. A row's ✦ button or actions menu generates a value for that row, including a new variable's row. The preview shows its character count. Preview, regenerate, copy, apply or cancel; format and length are saved locally, not the generated value. Outside a draft row or generator, Cmd/Ctrl+Z undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation are separate undo steps. Only the changed text is rewritten, and a value is quoted when it needs to be. The `Source / Table` button in the lower-right corner switches views, and every `.env` file in the project follows that choice. The table is off for files over 512 KiB. Values are masked each time the table opens; `Show values` in the toolbar reveals them, and a value you are editing always shows its text.",
               "Hold `⌘` (or `Ctrl`) and scroll over the editor, or press `⌘=` / `⌘-` (`Ctrl+=` / `Ctrl+-`), to set the font size between 11 and 24; `⌘0` (`Ctrl+0`) returns to 14.",
-              "The interface uses the open-source Inter typeface; the editor, terminals and diffs use JetBrains Mono. Both are bundled with pude, so they look the same offline and on every platform. Chinese text falls back to the system font.",
+              "The interface uses the open-source Inter typeface; the editor, terminals and diffs use JetBrains Mono. Both are bundled with pude, so they look the same offline and on every platform. Interface text in Chinese, Cyrillic, Greek or Vietnamese falls back to the system font; code keeps JetBrains Mono, which also covers Cyrillic, Greek and Vietnamese.",
               "Markdown opens as source. The `Source / Preview` button in the lower-right corner of the editor switches to a rendered preview, and every Markdown file in the project follows that choice. Preview uses the available editor width with smaller side margins and clear body text in both themes.",
             ],
           },
@@ -286,14 +286,23 @@ const en: DocsDict = {
             items: [
               "Select the Git icon in the activity bar for the branch plus staged, unstaged, untracked, renamed and conflicted files. The current branch sits at the top, and each changed file shows its name first with its folder in a dimmer color.",
               "The commit graph handles detached HEAD, unborn branches and multiple refs. History loads 200 commits at a time, and older commits load automatically before you reach the end. The history refreshes after commits, push, pull, branch and stash operations, including ones run outside pude. Open the full history as an editor tab, filter it by branch, and select a commit to see its subject, author, age and changed files. Rest the pointer on a row for its full metadata.",
-              "When the repository has stashes, a `STASH` tab appears beside `STATUS` and `HISTORY`. Expand a stash to see its changed files and open their diffs. `Apply` keeps the stash, `Pop` applies and removes it, and the trash button drops it; each asks first.",
+              "When the repository has stashes, a `STASH` tab appears beside `STATUS` and `HISTORY`, before `LOG`. Expand a stash to see its changed files and open their diffs. `Apply` keeps the stash, `Pop` applies and removes it, and the trash button drops it; each asks first.",
               "Open any change as a `Side by side` or `Stacked` diff.",
             ],
           },
           { t: "h3", text: "Actions" },
           {
             t: "p",
-            text: "The action groups `Changes`, `Sync`, `Branches` and `Stash` are always shown in the Git view. Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. When a command fails, the full Git output opens in a dialog instead of a toast that disappears.",
+            text: "The action groups `Changes`, `Sync`, `Branches` and `Stash` are always shown in the Git view. Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. Nothing appears above the action buttons while a command runs, so they never move: a spinner shows on the button or dialog that started the action. When a command fails, the Git message opens in a dialog instead of a toast that disappears, and a failed push or pull offers `Retry` beside `Close`.",
+          },
+          { t: "h3", text: "Notifications and the operation log" },
+          {
+            t: "list",
+            items: [
+              "A finished operation shows a one-line summary in a notification: for pull, `Already up to date.` or the files changed with insertions and deletions, such as `5 files changed, +20 −3`; for commit, `[branch hash] subject`; for push, the updated ref or `Everything up to date`; otherwise the first line of Git's output, shortened to 100 characters. When Git said more, for example the details of a push, the notification also has `View full response` and stays while you point at it or focus it.",
+              "The `LOG` tab beside `STATUS`, `HISTORY` and `STASH` lists the Git operations run from pude in this window for the current project, newest first, with success or failure, action, time, duration and summary. Select an entry to see the command that ran (such as `git pull`) and the complete response, exactly what Git printed (standard output then standard error) or the error message of a failed operation, in a scrollable block with a `Copy` button; it says `(no output)` when Git printed nothing. The full history tab does not have the `LOG` tab.",
+              "The log records stage all, unstage all, discard, commit, push, pull, stash, branch switch, create and delete, and worktree creation, whether they succeed or fail. It does not record staging or unstaging a single file, or reading status, history and diffs. It is kept in memory only: the latest 50 entries per project, each response limited to 64 KiB with a truncation marker, cleared when the window closes. Git's own messages stay in English.",
+            ],
           },
           {
             t: "note",
@@ -448,7 +457,7 @@ const en: DocsDict = {
           { t: "h2", text: "Building a plugin" },
           {
             t: "p",
-            text: "A plugin is a local folder with a `plugin.json` manifest and a JavaScript entry. It runs in a Web Worker inside an opaque-origin sandbox and reaches pude only through the asynchronous `pude` API — no DOM, CodeMirror, Tauri or browser storage.",
+            text: "A plugin is a local folder with a `plugin.json` manifest and a JavaScript entry. It runs in a Web Worker inside an opaque-origin sandbox and reaches pude only through the asynchronous `pude` API — no DOM, CodeMirror, Tauri or browser storage. You install a plugin from a local folder and review its permissions one by one; there is no marketplace yet.",
           },
           {
             t: "note",
@@ -523,7 +532,7 @@ const en: DocsDict = {
             t: "table",
             head: ["Command", "Purpose"],
             rows: [
-              ["`npm run tauri:dev`", "Run the native desktop app"],
+              ["`npm run tauri:dev`", "Run the native desktop app as pude Dev, apart from an installed pude"],
               ["`npm run dev`", "Desktop UI in a browser shell (port 5173)"],
               ["`npm run web:dev`", "This website (port 5174)"],
               ["`npm test`", "Desktop Vitest suite"],
@@ -592,11 +601,7 @@ const zhHant: DocsDict = {
           { t: "h3", text: "刻意不做什麼" },
           {
             t: "list",
-            items: [
-              "全專案索引、除錯器或建置系統",
-              "AI 服務、雲端同步與帳號",
-              "外掛市集、靜默自動更新與內附語言伺服器",
-            ],
+            items: ["全專案索引、除錯器或建置系統", "AI 服務、雲端同步與帳號", "靜默自動更新與內附語言伺服器"],
           },
           { t: "h3", text: "如何閱讀本文件" },
           {
@@ -716,7 +721,7 @@ const zhHant: DocsDict = {
               "`.env` 與 `.env.*` 支援 shell 語法高亮，包括變數賦值、引號、數字、變數展開與註解，狀態列顯示 `Dotenv`；沿用相同的大型檔案限制。",
               "`.env` 檔會以表格開啟：每個變數都有名稱與值兩個輸入框，各自附有複製按鈕，`整行` 則複製整行 `NAME=value`。工具列或表格下方的 `新增變數` 會在最後一個變數之後、結尾註解之前新增一列。對列按右鍵或開啟列操作選單，可在上方或下方插入。可以改名、修改或刪除變數，並產生 Hex、Base64URL、Base64、英數字或 UUIDv4 格式的隨機值。預設為 32 位元組的 Base64URL；長度可設定為 1 至 1,024 位元組或字元，並提供 16、32、64 預設值。工具列的 `產生金鑰` 連空白檔案也能使用，可以複製產生的值，或新增為變數。列上的 ✦ 按鈕或列操作選單會為該列產生值，新增中的那一列也一樣。預覽會顯示字元數。可預覽、重新產生、複製、套用或取消；格式和長度會儲存在本機，產生的值不會作為偏好設定儲存。不在草稿列或產生器中時，Cmd/Ctrl+Z 可復原，Shift+Cmd/Ctrl+Z 或 Ctrl+Y 可重做；插入、刪除與產生各自是獨立的復原步驟。只會改寫變動的文字，值需要時會自動加上引號。編輯器右下角的 `原始碼 / 表格` 按鈕可切換檢視，同一個專案裡的 `.env` 檔都會沿用這個選擇。超過 512 KiB 的檔案不提供表格檢視。每次開啟表格時值都會遮蔽，按工具列的 `顯示值` 才會顯示；正在編輯的值一律顯示原文。",
               "按住 `⌘`（或 `Ctrl`）在編輯器上捲動滾輪，或按 `⌘=` / `⌘-`（`Ctrl+=` / `Ctrl+-`），可將字體大小調整為 11 到 24；`⌘0`（`Ctrl+0`）還原為 14。",
-              "介面使用開源字型 Inter，編輯器、終端機與差異檢視使用 JetBrains Mono。兩者都隨 pude 內建，離線與各平台顯示一致；中文會使用系統字型。",
+              "介面使用開源字型 Inter，編輯器、終端機與差異檢視使用 JetBrains Mono。兩者都隨 pude 內建，離線與各平台顯示一致；介面中的中文、西里爾字母、希臘字母與越南文會使用系統字型，程式碼則維持 JetBrains Mono，它也涵蓋西里爾字母、希臘字母與越南文。",
               "Markdown 預設顯示原始碼；編輯器右下角的 `Source / Preview` 按鈕可切換為渲染預覽，同一個專案裡的 Markdown 檔都會沿用這個選擇。預覽會使用編輯區可用寬度，縮小兩側留白，並在深淺主題使用清晰的內文字色。",
             ],
           },
@@ -756,14 +761,23 @@ const zhHant: DocsDict = {
             items: [
               "選取活動列的 Git 圖示，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。目前分支顯示在最上方，每個變更檔案先顯示檔名，所在資料夾以較淡的顏色列在旁邊。",
               "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs。歷史每次載入 200 個提交，並在捲動到底部之前自動載入更早的提交；提交、推送、拉取、分支與 stash 操作後（包括在 pude 以外執行的操作）歷史會自動更新。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看主旨、作者、時間與變更的檔案；游標停在某一列上可查看完整資訊。",
-              "儲存庫有 stash 時，`STATUS` 與 `HISTORY` 旁會出現 `STASH` 分頁。展開 stash 可查看變更的檔案並開啟差異。`Apply` 套用並保留 stash，`Pop` 套用後移除，垃圾桶按鈕則直接刪除；每項操作都會先請你確認。",
+              "儲存庫有 stash 時，`STATUS` 與 `HISTORY` 旁、`LOG` 之前會出現 `STASH` 分頁。展開 stash 可查看變更的檔案並開啟差異。`Apply` 套用並保留 stash，`Pop` 套用後移除，垃圾桶按鈕則直接刪除；每項操作都會先請你確認。",
               "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。",
             ],
           },
           { t: "h3", text: "操作" },
           {
             t: "p",
-            text: "Git 檢視會一直顯示 `Changes`、`Sync`、`Branches` 與 `Stash` 操作群組。暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令失敗時，完整的 Git 輸出會顯示在對話框中，而不是一閃即逝的提示。",
+            text: "Git 檢視會一直顯示 `Changes`、`Sync`、`Branches` 與 `Stash` 操作群組。暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令執行時，操作按鈕上方不會出現任何訊息，按鈕不會移動：啟動該操作的按鈕或對話框會顯示旋轉圖示。指令失敗時，Git 的訊息會顯示在對話框中，而不是一閃即逝的提示；推送或拉取失敗時，`Close` 旁會有 `Retry`。",
+          },
+          { t: "h3", text: "通知與操作紀錄" },
+          {
+            t: "list",
+            items: [
+              "操作完成後，通知只顯示一行摘要：拉取顯示「已是最新」或變更的檔案數與增刪行數（例如「5 個檔案變更，+20 −3」）；提交顯示 `[分支 雜湊] 主旨`；推送顯示更新的 ref 或「已是最新」；其他操作顯示 Git 輸出的第一行，最長 100 個字元。若 Git 還有更多輸出（例如推送的細節），通知會多一個 `View full response` 按鈕，游標停在上面或聚焦時通知不會消失。",
+              "`STATUS`、`HISTORY` 與 `STASH` 旁的 `LOG` 分頁（繁體中文介面顯示為「操作紀錄」）會依新到舊列出在這個視窗中、針對目前專案從 pude 執行的 Git 操作，並顯示成功或失敗、操作、時間、耗時與摘要。選取項目可看到執行的指令（例如 `git pull`）與完整回應（Git 原本印出的內容：標準輸出，接著是標準錯誤；失敗時為錯誤訊息），顯示在可捲動的區塊中，並附 `Copy` 按鈕；Git 沒有任何輸出時會顯示「（沒有輸出）」。完整歷史分頁沒有 `LOG` 分頁。",
+              "紀錄涵蓋全部暫存、全部取消暫存、捨棄變更、提交、推送、拉取、stash、切換／建立／刪除分支與建立 worktree，無論成功或失敗；不記錄單一檔案的暫存與取消暫存，也不記錄讀取狀態、歷史與差異。紀錄只保留在記憶體中：每個專案最多 50 筆，每筆回應最多 64 KiB（超過會加上截斷標記），關閉視窗後即清除。Git 本身的訊息維持英文。",
+            ],
           },
           {
             t: "note",
@@ -899,7 +913,7 @@ const zhHant: DocsDict = {
           { t: "h2", text: "製作外掛" },
           {
             t: "p",
-            text: "外掛是一個本機資料夾，包含 `plugin.json` 宣告檔與一個 JavaScript 進入點。它在 opaque-origin 沙箱裡的 Web Worker 中執行，只能透過非同步的 `pude` API 與 pude 溝通——無法取得 DOM、CodeMirror、Tauri 或瀏覽器儲存空間。",
+            text: "外掛是一個本機資料夾，包含 `plugin.json` 宣告檔與一個 JavaScript 進入點。它在 opaque-origin 沙箱裡的 Web Worker 中執行，只能透過非同步的 `pude` API 與 pude 溝通——無法取得 DOM、CodeMirror、Tauri 或瀏覽器儲存空間。外掛從本機資料夾安裝，並逐項審核權限；目前沒有外掛市集。",
           },
           {
             t: "note",
@@ -974,7 +988,7 @@ const zhHant: DocsDict = {
             t: "table",
             head: ["指令", "用途"],
             rows: [
-              ["`npm run tauri:dev`", "執行原生桌面應用程式"],
+              ["`npm run tauri:dev`", "以 pude Dev 執行原生桌面應用程式，設定與已安裝的 pude 分開，兩者可同時開啟"],
               ["`npm run dev`", "在瀏覽器殼層中執行桌面介面（port 5173）"],
               ["`npm run web:dev`", "本網站（port 5174）"],
               ["`npm test`", "桌面版 Vitest 測試"],

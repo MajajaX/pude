@@ -171,9 +171,13 @@ coverage and no published installer yet.
 
 - The interface uses the bundled Inter variable font. The editor, terminals, diffs
   and other code text use the bundled JetBrains Mono variable font. Both are SIL Open
-  Font License 1.1, ship inside the app and are never downloaded. Text outside their
-  character sets, such as Chinese, falls back to the system font (PingFang TC on
-  macOS, Microsoft JhengHei on Windows).
+  Font License 1.1, ship inside the app and are never downloaded. Inter covers Latin
+  and Latin Extended text; JetBrains Mono also covers Cyrillic, Greek and Vietnamese
+  because it renders code. Interface text outside these sets, such as Cyrillic, Greek,
+  Vietnamese or Chinese, falls back to the system font (PingFang TC on macOS,
+  Microsoft JhengHei on Windows). Fonts are separate files, never inlined into the
+  style sheet, because the content security policy only allows fonts from the app
+  itself.
 - Interface text is 13 px, with 11–12 px for labels and metadata; the terminal uses
   13 px. The editor font size setting is unchanged (default 14, range 11–24).
 - Primary, secondary and hint text reach at least 4.5:1 contrast against sidebar and
@@ -186,7 +190,9 @@ coverage and no published installer yet.
   settings. The Dock and taskbar menu follow the same language.
 - Translations are bundled with the app and never downloaded. Each language is a
   separate file loaded only when that language is in use, so English adds nothing to
-  startup. Messages from Git, shells, plugins and language servers, and some
+  startup. A Traditional Chinese interface starts loading its file together with the
+  rest of the app, and the first frame waits for it, so text never switches language
+  after it appears. Messages from Git, shells, plugins and language servers, and some
   low-level native errors, stay in their original language.
 - An activity bar runs down the left edge of the window with icon-only **Explorer**,
   **Search** and **Git** views, in that order. Each icon names its view in a tooltip
@@ -195,219 +201,70 @@ coverage and no published installer yet.
   dimmed beside it.
 - Notifications appear at the lower right. Errors are marked in red, are announced to
   screen readers as alerts and stay at least 6 seconds; longer messages stay up to 10
-  seconds.
-- If the interface fails to render, the window shows a short error message and
-  **Reload window**; unsaved changes come back from their recovery checkpoints.
-
-## Editing and Markdown
-
-- CodeMirror provides syntax highlighting, file-local find/replace, multiple
-  cursors, undo/redo and indentation. File tabs support reorder, pin, Save As and
-  reopening closed tabs.
-- Hovering a find bar button shows what it does: **Match case**, **Match whole
-  word**, **Use regular expression**, **Find previous (Shift+Enter)**, **Find next
-  (Enter)**, **Replace next match**, **Replace all matches in this file** and **Close
-  find (Escape)**. Screen readers announce the same names and whether each option is
-  on.
-- The find bar shows **N of M** when the selection is a match, **M found** otherwise,
-  **No results** or **Invalid pattern**. Counting runs shortly after typing stops,
-  stops at 1,000 matches (shown as `1000+`), runs only while the find bar is open and
-  is skipped in large-file mode. Opening Find with a short single-line selection
-  searches for it. In the replace field Enter replaces the next match, Cmd+Enter /
-  Ctrl+Enter replaces all, and Escape closes the bar.
-- The editor highlights the active line, the bracket matching the one at the cursor
-  and other occurrences of the selected text. It closes brackets and quotes as you
-  type (setting **Close brackets and quotes automatically**, on by default),
-  re-indents a line when a closing bracket is typed, and folds blocks from the
-  gutter or with CodeMirror's fold keys. Alt-drag makes a rectangular selection.
-  **Cmd+D** / **Ctrl+D** adds the next occurrence to the selection and
-  **Cmd+Shift+L** / **Ctrl+Shift+L** selects every occurrence. Large-file mode leaves
-  out folding, auto-closing and the other editing aids.
-- **Go to line** (**Cmd+G** / **Ctrl+G**, or clicking **Ln, Col** in the status bar)
-  starts with the current line and accepts `line` or `line:column`. Values beyond the
-  document are clamped to its last line or the line's end.
-- The status bar shows **Spaces: N** or **Tab Size: N** depending on **Indent with
-  spaces**, and the number of selected characters across all selections.
-- Editing commands in the command palette: **Sort Lines Ascending / Descending**
-  (natural number order; the selected lines, or the whole file without a
-  selection), **Transform to Uppercase / Lowercase** (the selection, or the word at
-  the cursor), **Trim Trailing Whitespace**, **Toggle Line Comment**, **Duplicate
-  Line**, **Delete Line**, **Add Next Occurrence**, **Select All Occurrences**,
-  **Expand Selection**, **Fold All** and **Unfold All**. Each is one undo step.
-- With **Trim trailing whitespace on save** or **End files with a newline on save**
-  turned on (both off by default), saving the file shown in the editor first removes
-  spaces and tabs at line ends or adds a final newline, as an undoable edit. Files
-  saved while not shown, for example by Save All, are written unchanged.
-- `.env` and `.env.*` files use shell syntax highlighting for variable assignments,
-  quoted strings, numbers, expansions and comments. The status bar labels them **Dotenv**;
-  they follow the same large-file parsing limits as other languages.
-- `.env` and `.env.*` files open in a table view: each variable has its own name and
-  value field, and comment lines show as section labels. Beside each field a copy
-  button copies the name or the value (without quotes), and **Line** copies the
-  `NAME=value` text as written in the file, without `export` or a trailing comment.
-  **Add variable** in the toolbar or below the table opens an empty row after the last
-  variable, before any trailing comments; it is written when focus leaves the row and
-  discarded if both fields are blank. The trash button deletes a variable's lines.
-  Right-click a row or open its actions menu to insert above or below it. Names that
-  appear more than once are marked **Duplicate**.
-- Values are masked each time the table opens, so a shared or recorded screen does not
-  show secrets. **Show values** in the toolbar reveals them until the table closes, and
-  a value field being edited always shows its text. Copy buttons copy the real value.
-- Random values are generated with the system's secure random source in Hex,
-  Base64URL, Base64, alphanumeric or UUIDv4 format. The default is Base64URL with
-  32 bytes; byte or character lengths range from 1 to 1,024, with presets of 16, 32
-  and 64. **Generate key** in the table toolbar is always available, including in an
-  empty file: it can copy the value or add it as a new variable, leaving only the name
-  to type. A row's ✦ button or actions menu generates a value for that row, including a
-  new variable's row, which stays unsaved while the generator is open. The preview reports its character count and can be regenerated, copied, applied or
-  cancelled. The generator belongs to the table view; **Table** in the editor corner
-  returns to it from source. Format and length are saved locally; generated values are
-  never saved as preferences.
-- Table edits change the same document as the source editor, so undo, dirty state,
-  saving and recovery work as usual. Outside a draft row or generator, Cmd/Ctrl+Z
-  undoes and Shift+Cmd/Ctrl+Z or Ctrl+Y redoes; insertion, deletion and generation
-  are separate undo steps. Only the edited name or value changes; quotes,
-  `export`, spacing and comments stay. A value that needs quoting (leading or
-  trailing spaces, ` #`, a leading quote or a line break) is written in double quotes.
-- The lower-right **Source / Table** control switches views. The choice follows
-  `.env` files in that project. Search results and **Go to line** switch to source.
-  The table is off in large-file mode and for files over 512 KiB.
-- Markdown starts in source mode. The lower-right **Source / Preview** control
-  switches the project's Markdown files to a rendered view. The choice follows
-  Markdown files in that project, including after switching file types or diffs.
-- Preview fills the editor's available width with modest responsive side padding.
-  Body text is legible in both dark and light themes. Switching modes never changes
-  the source text.
-- A file reached through a symbolic link or a Windows reparse point does not open, and
-  saving never replaces a link: open the link's target instead.
-- UTF-8 and UTF-8 with BOM are accepted. Text files are limited to 20 MiB. Above
-  5 MiB, large-file mode disables heavy parsing and Markdown preview while keeping
-  editing and file-local search.
-
-## Settings, shortcuts and the command palette
-
-- **Settings** opens from **View > Settings** or **Cmd+,** / **Ctrl+,**. It groups
-  **Interface** (Language, Theme), **Editor** (Font size, Tab size, Indent with
-  spaces, Word wrap, Line numbers, Show whitespace, Close brackets and quotes
-  automatically), **Saving** (Trim trailing whitespace on save, End files with a
-  newline on save), **Explorer** (Hide dot files, Group Git ignored files, Watcher
-  excluded paths) and **Updates** (Check for updates on startup). New settings
-  default to the previous behavior except Close brackets, which is on.
-- Font size and Tab size show their ranges and apply when the field is committed
-  (Enter, Tab or leaving it), so typing a two-digit value no longer jumps through
-  the minimum. Out-of-range values are clamped, and a field left empty keeps its value.
-- **Restore defaults** asks for a second click, then resets every setting except the
-  language. Settings stay in local storage.
-- **Cmd+=** / **Cmd+-** / **Cmd+0** (Ctrl on Windows) change the editor font size by
-  one step or reset it to 14, like Cmd/Ctrl + scroll. **Option+Z** / **Alt+Z** toggles
-  word wrap. **Cmd+Shift+T** / **Ctrl+Shift+T** reopens closed tabs. **Cmd+Shift+V** /
-  **Ctrl+Shift+V** switches a Markdown file between source and preview.
-- **Edit: Replace** shows **Ctrl+H** on Windows and Linux and **⌥⌘F** on macOS.
-  Close tab (**Cmd/Ctrl+W**) and Go to line (**Cmd/Ctrl+G**) ignore the same keys with
-  Shift. On Linux, Ctrl+K Ctrl+O opens a folder, as on Windows.
-- The command palette lists more than 40 built-in commands with their shortcuts
-  (**⌘⇧P** on macOS, **Ctrl+Shift+P** elsewhere). Every word typed must match the
-  title, description or id, in any order. The eight commands run most recently are
-  listed first; that list is kept in local storage. The built-in command list loads
-  with the palette instead of at startup.
-- The **File** menu adds **Save All**, **Reopen closed tab** and **Close tab**; **Edit**
-  adds **Go to file** and **Go to line**; **View** adds **Hide sidebar**, **Toggle
-  terminal** and word wrap, and shows the Settings shortcut.
-
-## Tabs
-
-- Right-click a file tab for **Pin**, **Save As…**, **Close**, **Close others**,
-  **Close to right**, **Close saved**, **Close all**, **Copy Path**, **Copy Relative
-  Path** and **Reveal in Finder** (**Open in File Explorer** on Windows). The menu
-  stays inside the window and loads on first use.
-- **Close others**, **Close to right**, **Close saved** and **Close all** keep pinned
-  tabs open; close a pinned tab on its own.
-- Reopening a closed tab restores tabs most recent first. The latest one is saved with
-  the session as before; up to nine older ones are remembered per project while the
-  window is open. Reopening a file that is already open switches to its tab instead
-  of opening a duplicate.
-
-## Integrated terminals
-
-- The panel opens with **Ctrl+`** on every platform; on macOS **Cmd+`** stays the
-  system shortcut for switching between pude windows. A normal new terminal uses the project
-  root; xterm.js and a PTY start only when a terminal first appears.
-- Tabs stay on one line with no visible scrollbar: long names shorten, the selected tab
-  scrolls into view, the mouse wheel moves the strip and **New terminal** stays in reach.
-  Tabs show the native shell executable basename and starting directory basename, with
-  the full path in the title; the browser labels its shell **Demo**. Double-click
-  to rename a tab for the session. Status shows Starting, Ready, Exited or Failed;
-  exited or failed sessions offer restart. Settings saves terminal font size locally
-  (8–32 px, default 13).
-- Right-click for Copy, Paste, Select all and Clear terminal. Copy/paste use Cmd+C/V
-  on macOS and Ctrl+Shift+C/V elsewhere; Ctrl+C interrupts. Escape dismisses the
-  context menu. Copy and the menu's Paste use the Web Clipboard API, which may be
-  unavailable or denied (macOS may ask to confirm a menu Paste); keyboard paste uses
-  the webview's own paste. Copying with nothing selected leaves the clipboard unchanged.
-  Cmd+F on macOS or Ctrl+Shift+F elsewhere opens terminal
-  search; Enter and Shift+Enter find the next or previous match, and Escape closes it.
-  The browser uses a demo terminal.
-- Drag the panel's top edge to change its height, or focus the edge and press the
-  Up/Down arrow keys to change it by 16 px. The height ranges from 160 px to
-  1,200 px, always leaves at least 120 px for the editor, and is saved with the
-  settings for every project and window.
-- Explorer's **Open in Integrated Terminal** creates a separate terminal tab in
-  the selected folder, or in the parent directory of a selected file. It shows the
-  panel and keeps existing tabs' directories and processes intact. The tab belongs
-  to the originating project even when its starting directory is a subfolder.
-- Hiding the panel or switching projects keeps sessions running. Closing a tab,
-  project or window stops its process tree. Ctrl+C interrupts the foreground program
-  and returns to the same shell, as in the operating system's terminal. When a shell
-  ends, the tab shows its exit status and a **Restart terminal** button; pude never
-  starts a replacement shell on its own. Project state refreshes do not restart
-  sessions.
-- Windows starts PowerShell 7 (`pwsh.exe`) when it is on `PATH`, otherwise Windows
-  PowerShell, matching Windows Terminal; `ComSpec` is no longer used. The shell runs
-  behind a small bootstrap process that survives Ctrl+C and Ctrl+Break, so an
-  interrupt reaches the shell and its jobs without ending the terminal. Unix uses `SHELL` as a login
-  shell, falling back to `/bin/sh`. Scrollback holds 5,000 lines.
-- A project's Python virtual environment (`.venv`, `venv` or `env`) is not activated
-  automatically, because a cloned repository could otherwise put its own executables
-  first on `PATH`. When one is found, the terminal prints `Python environment found:
-  <name> (not activated). Run "Trust Python environment" from the command palette to
-  activate it.` The palette commands **Terminal: Trust Python Environment** (activate
-  it for the project's folder from then on and restart the visible terminal; other
-  open terminals pick it up when they restart) and **Terminal: Stop Trusting Python
-  Environment** (revert) control it. The choice is remembered per folder on this
-  machine, in the app's local storage. It covers the project's main folder; a terminal
-  opened in a subfolder or an added workspace folder is not trusted by it.
-- Terminals run with the user's account and can access the network and files
-  outside the project. Windows assigns processes to a Job before releasing the
-  shell bootstrap. Linux cleanup requires kernel 5.1+, permitted pidfd signals and
-  readable `/proc`; processes that deliberately leave the session are excluded.
-
-## Saves, Git, plugins and updates
-
-- Saves are atomic, queued per file and preserve LF/CRLF: the new text goes to a
-  `.pude-tmp-*.tmp` file beside the original, which then replaces it. On macOS and
-  Linux, a file with more than one hard link, or whose owner or group the saving user
-  cannot keep, is rewritten in place instead after the same change check, so its links
-  and owner stay; that write is not atomic. Temporary files left by a crash or forced
-  kill are removed from a folder the first time pude saves there, once they are an
-  hour old. External changes offer comparison or explicit recovery choices. Local
-  checkpoints recover the last
-  completed snapshot of unsaved work. While typing, checkpoints land within about
-  1 s below 1 MiB, about 5 s from 1 MiB to under 5 MiB and about 15 s from 5 MiB.
-  The edit that makes a clean document dirty is checkpointed within about 1 s at
-  any size. Blurring, hiding or closing the window writes pending checkpoints at
-  once, so a longer window only applies to a crash or forced kill.
-- Git operations use system Git, update from events, and include status, history,
-  diffs, staging, commits, branches, stash, push/pull and worktrees. Destructive
-  operations require explicit confirmation. Full merge/rebase editing is planned.
-- Git runs with English messages (`LC_MESSAGES=C`) so pude can recognize its errors.
-  Hooks and filters keep the user's character set: a user-set `LC_ALL` is passed on as
-  `LANG` instead of being replaced.
-- Git sync accents Push green when the ahead count is nonzero and Pull blue when the
-  behind count is nonzero, displaying the corresponding count; without an upstream
-  neither is accented. Counts compare with the locally stored upstream ref (no fetch),
-  and can be unavailable. The busy state of a Git action is scoped to its project.
-- The Git view always shows its action groups (**Changes**, **Sync**, **Branches**,
-  **Stash**); they no longer collapse.
+  seconds. A finished Git operation shows a one-line summary instead of Git's full
+  output; when there is more to read, the notification also has **View full response**
+  and stays for 10 seconds, and while the pointer is over it or it has keyboard focus.
+- A window is visible as soon as it is created, on macOS and Windows, including windows
+  opened with **New Window**. Until the interface renders, which takes a fraction of a
+  second, it shows the dark native background (`#101214`) and a placeholder layout of
+  the title bar, activity bar, sidebar and status bar. The placeholder follows the
+  stored theme, so a light-theme window is light from its first painted frame, but the
+  native background before that is always dark. The interface replaces the placeholder
+  on the first render. Everything the interface needs at startup loads as one file, and
+  the first frame waits for the Latin subsets of Inter and JetBrains Mono, so it does
+  not change fonts afterwards.
+- Development builds (`npm run tauri:dev`) are named pude Dev and use the identifier
+  `com.pude.editor.dev`, so they keep their own settings, session data, logs and
+  single-instance lock and run next to an installed pude.
+- The native Git cache keeps the output of repeated read-only Git commands (status, refs,
+  diffs, stash and commit file lists) until the repository changes. It holds at most 8 MiB
+  per repository and 32 MiB across all repositories, evicting the least recently used
+  entries first; a single output above 8 MiB is not cached and is read again. Git history
+  pages are not part of this cache. Nothing expires by time.
+- A window that stays hidden for 5 minutes in a row (minimized, behind other windows, or
+  on another desktop, as the webview reports it) gives back memory it can rebuild. It
+  closes the editors of open files that are not shown, as long as the file has no unsaved
+  changes and no undo or redo history; the tab, cursor and selection stay and the file
+  reloads into an editor when the tab is shown. It clears the loaded Git history commits
+  when neither the Git view in the sidebar nor the history tab is open, and the history
+  loads again when one is opened. It empties the native Git cache of the project's
+  repository (all windows on that repository share it, so they read Git again). It never
+  releases unsaved text, undo history, terminals and their scrollback, the Git
+  operation log, or the Git view or history tab that is open. Returning to the window
+  within 5 minutes cancels the release, and after it everything looks unchanged. With
+  `PUDE_PERF_LOG=1` the release writes one `idle release:` line to the log with the
+  counts of closed editors and cleared commits and the bytes of Git cache freed.
+- Nothing appears above the Git action buttons while an operation runs or after it
+  finishes, so the buttons never move. A running action shows a spinner on the button
+  that started it (Stage all, Unstage all, staging or unstaging one file) or in the
+  confirmation or input dialog that started it. A failed operation opens an error
+  dialog with the Git message; for Push and Pull it also offers **Retry** next to
+  **Close**.
+- A successful operation shows a one-line summary in a notification. Pull shows
+  `Already up to date.` or the files changed with insertions and deletions, such as
+  `5 files changed, +20 −3` (`5 個檔案變更，+20 −3` in Traditional Chinese); Commit shows
+  `[branch hash] subject`; Push shows the updated ref, such as `1a2b3c4..5d6e7f8 main -> main`
+  or `* [new branch] main -> main`, or `Everything up to date`, because Git writes a push
+  only to standard error; any other operation shows the first line of Git's output,
+  shortened to 100 characters, or `Git operation completed.` when Git printed nothing
+  usable. The summaries pude writes are translated; Git's own text stays in English. When
+  the response says more than the summary, the notification also has **View full
+  response**, which opens the **LOG** tab with that entry expanded.
+- The **LOG** tab (**操作紀錄** in Traditional Chinese) is the last of the Git view
+  tabs **STATUS / HISTORY / STASH / LOG**; the full history tab does not have it. It
+  lists the Git operations run from pude in this window for the current project,
+  newest first. Each entry shows whether it succeeded, its action, time, duration and
+  one-line summary; selecting it shows the command that ran (such as `git pull`) and the
+  complete response, exactly what Git printed (standard output then standard error), or
+  the error message of a failed operation, in a scrollable monospace block with a
+  **Copy** button. When Git printed nothing, the entry says `(no output)`. The log
+  records Stage all, Unstage all, discards, Commit, Stage all and commit, Push, Pull,
+  stash operations, branch switch, create and delete, and worktree creation, whether
+  they succeed or fail. Staging or unstaging a single file, status, history and diff
+  reads are not recorded. The log is kept in memory only: it holds the latest 50
+  entries per project, each response is limited to 64 KiB (longer ones end with a
+  truncation marker), and it is gone when the window closes. Git's own text stays in
+  English.
 - History loads 200 commits at a time. The next page starts loading while 40 loaded
   rows remain below the viewport, so scrolling rarely reaches the end; when the
   branch filter hides a whole page, **Load older commits** continues. Loading a page
@@ -438,6 +295,12 @@ coverage and no published installer yet.
   or telemetry. Startup update checks can be disabled. Download and installation
   require user actions and verify an updater signature. Windows uses the raw NSIS
   executable; macOS uses the signed/notarized app archive and DMG.
+- The app bundle contains `LICENSE`, `THIRD_PARTY_NOTICES.md` and a shorter
+  `THIRD_PARTY_LICENSES.md`. The bundled copy keeps every third-party license and
+  notice text and lists the license of each package; the build generates it from the
+  complete repository file (`scripts/write-bundled-licenses.mjs`) and leaves out the
+  verification inventory (archive URLs, lock digests, source hashes, review notes).
+  The complete file stays in the repository and is attached to every GitHub release.
 - When an update is available, **Update [version]** appears immediately to the right
   of the branch name in the lower-left status bar. Clicking downloads the update;
   **Downloading…** becomes **Restart and update** when ready. Restart follows the

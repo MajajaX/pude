@@ -3,6 +3,7 @@ import ipcFixtures from "../../src-tauri/tests/fixtures/ipc-contracts-v1.json";
 import { contentFingerprint } from "./fingerprint";
 import type {
   GitErrorInfo,
+  GitOperationResult,
   GitStatusResult,
   LineEnding,
   PluginManifest,
@@ -42,6 +43,12 @@ const gitStatusConsumer: GitStatusResult = {
   files: [],
   commits: [],
   error: null,
+};
+
+const gitOperationConsumer: GitOperationResult = {
+  output: "Already up to date.",
+  stderr: "From github.com:example/例子\n * branch            main       -> FETCH_HEAD",
+  command: "git pull",
 };
 
 const gitErrorConsumer: GitErrorInfo = {
@@ -137,6 +144,7 @@ describe("Rust Serde and TypeScript IPC contracts", () => {
     expect(readFileFixture).toEqual(readFileConsumer);
     expect(Object.keys(readFileFixture).sort()).toEqual(Object.keys(readFileConsumer).sort());
     expect(ipcFixtures.gitStatusResponse).toEqual(gitStatusConsumer);
+    expect(ipcFixtures.gitOperationResponse).toEqual(gitOperationConsumer);
     expect(ipcFixtures.gitOperationError).toEqual(gitErrorConsumer);
     expect(ipcFixtures.pluginManifest).toEqual(pluginManifestConsumer);
     expect(ipcFixtures.lspEvent).toEqual(lspEventConsumer);
@@ -206,8 +214,8 @@ describe("Rust Serde and TypeScript IPC contracts", () => {
     expect(jsonWireValue(statBody)).toEqual({ request: { paths: [statMissingEntryConsumer.path] } });
 
     invokeMock.mockReset();
-    invokeMock.mockResolvedValueOnce({ output: "" });
-    await bridge.performGitAction("", { action: "add" });
+    invokeMock.mockResolvedValueOnce(gitOperationConsumer);
+    expect(await bridge.performGitAction("", { action: "add" })).toEqual(gitOperationConsumer);
     const [gitCommand, gitBody] = invokeMock.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(gitCommand).toBe("git_operation");
     expect(jsonWireValue(gitBody)).toEqual(ipcFixtures.gitOperationArgs);
