@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./project-tabs";
+import { isActiveProject, projectAfterClose, projectTabLabel, projectTabTitle, reorderProjects } from "./project-tabs";
 
 describe("project tab navigation", () => {
   it("distinguishes equal project names and preserves Files", () => {
@@ -18,6 +18,14 @@ describe("project tab navigation", () => {
     expect(projectTabLabel(unsaved, [saved, unsaved])).toBe("web +2");
     expect(projectTabTitle(saved)).toBe("/work/team.pdw\n/work/web\n/work/api");
     expect(projectTabTitle({ workspace: "" })).toBe("Files");
+  });
+
+  it("never treats a missing project as the active one, which a window without projects has none of", () => {
+    expect(isActiveProject({ id: "a" }, "a")).toBe(true);
+    expect(isActiveProject({ id: "a" }, "b")).toBe(false);
+    expect(isActiveProject({ id: "a" }, undefined)).toBe(false);
+    expect(isActiveProject(undefined, undefined)).toBe(false);
+    expect(isActiveProject(undefined, "a")).toBe(false);
   });
 
   it("chooses the right neighbor, then the left, and leaves background closures alone", () => {

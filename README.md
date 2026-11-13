@@ -91,6 +91,8 @@ permission).
   loads older commits as you scroll and refreshes after every Git change, a stash list
   with apply, pop, drop and diffs, and full-file diffs, using the Git already
   installed on your system. Upstream ahead/behind counts appear beside sync actions.
+  Each finished operation shows a one-line notification, and the **LOG** tab keeps
+  the command and full response of the latest 50 operations per project in memory.
 - **Terminals** — multiple on-demand terminal sessions per project that keep running
   while you switch projects. Right-click a file or folder in Explorer and choose
   **Open in Integrated Terminal** to start a new tab in that folder or the file's
@@ -104,12 +106,13 @@ permission).
   a cloned repository could put its own executables first on `PATH`: the terminal
   says it found one, and **Terminal: Trust Python Environment** in the command
   palette activates it for that folder from then on.
-- **Plugins** — install local plugins with permission review. See the
+- **Plugins** — install a plugin from a local folder and review its permissions one by
+  one; there is no marketplace yet. See the
   [Plugin API 2 guide](docs/plugin-api-v2.md) and the
   [examples](examples/plugins).
 
-pude deliberately leaves out project-wide indexing, a debugger, AI services, a plugin
-marketplace and silent automatic updates.
+pude deliberately leaves out project-wide indexing, a debugger, AI services and silent
+automatic updates.
 
 ## Install
 
@@ -150,7 +153,7 @@ npm run tauri:dev
 
 | Command | What it does |
 | --- | --- |
-| `npm run tauri:dev` | Run the desktop app in development mode |
+| `npm run tauri:dev` | Run the desktop app in development mode, as pude Dev with its own settings, so an installed pude can stay open |
 | `npm run tauri:build` | Build an installer for the current platform |
 | `npm run dev` | Run the UI in a browser with an in-memory demo workspace |
 | `npm run web:dev` | Run the project website |
@@ -192,4 +195,7 @@ Bug reports, ideas and pull requests are welcome. Read
 
 pude is released under the [MIT License](LICENSE). Third-party licenses are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). The app bundle carries the same
+license texts and the license of each package in a shorter `THIRD_PARTY_LICENSES.md`
+without the verification inventory (archive links and digests); the complete file is
+in this repository and attached to every release.

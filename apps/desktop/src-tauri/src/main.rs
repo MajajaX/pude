@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{sync_channel, TrySendError};
-use std::sync::{Arc, Condvar, Mutex, OnceLock, Weak};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -66,7 +66,6 @@ mod python_environment;
 mod startup_timeline;
 mod terminal;
 mod watcher;
-mod window_visibility;
 mod workspace_file;
 
 use atomic_save::{
@@ -144,6 +143,8 @@ struct GitBranch {
 #[serde(rename_all = "camelCase")]
 struct GitOperationResult {
     output: String,
+    stderr: String,
+    command: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1671,6 +1672,7 @@ fn git_error_info(kind: GitErrorKind, message: impl Into<String>) -> GitErrorInf
         exit_code: None,
         stream: None,
         limit: None,
+        command: None,
     }
 }
 
@@ -1757,39 +1759,6 @@ fn encode_url_query_value(value: &str) -> String {
     encoded
 }
 
-fn window_visibility_registry() -> &'static window_visibility::WindowVisibilityRegistry {
-    static REGISTRY: OnceLock<window_visibility::WindowVisibilityRegistry> = OnceLock::new();
-    REGISTRY.get_or_init(window_visibility::WindowVisibilityRegistry::default)
-}
-
-/// Arm a one-shot timer that force-shows the window after ~3 seconds unless
-/// the frontend revealed it first. Idempotent per window label.
-fn install_show_fallback_timer(app: &AppHandle, label: &str) {
-    let guard = window_visibility_registry().get(label);
-    if !guard.install_timer() {
-        return;
-    }
-    let app = app.clone();
-    let label = label.to_string();
-    thread::spawn(move || {
-        thread::sleep(Duration::from_secs(3));
-        if let Some(window) = app.get_webview_window(&label) {
-            match guard.reveal(|| window.show()) {
-                Ok(true) => {
-                    startup_timeline::record_window_shown();
-                    app_log::log_info(&format!(
-                        "Window {label} was force-shown by the startup fallback timer."
-                    ));
-                }
-                Ok(false) => {}
-                Err(error) => {
-                    app_log::log_error(&format!("Unable to force-show window {label}: {error}"))
-                }
-            }
-        }
-    });
-}
-
 fn create_editor_window(app: &AppHandle, workspace: Option<&str>) -> Result<(), String> {
     let quit_gate = app.state::<QuitGateState>();
     quit_gate.reserve_window_creation()?;
@@ -1798,7 +1767,8 @@ fn create_editor_window(app: &AppHandle, workspace: Option<&str>) -> Result<(), 
         || "index.html?workspace=".to_string(),
         |path| format!("index.html?workspace={}", encode_url_query_value(path)),
     );
-    let window_label = label.clone();
+    // The window shows at once; the dark background and the page's startup skeleton cover the
+    // time until the first render.
     let builder = tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App(url.into()))
         .title("pude — pure code editor")
         .inner_size(1440.0, 900.0)
@@ -1806,7 +1776,6 @@ fn create_editor_window(app: &AppHandle, workspace: Option<&str>) -> Result<(), 
         .resizable(true)
         .decorations(cfg!(target_os = "macos"))
         .shadow(true)
-        .visible(false)
         .background_color(tauri::window::Color(0x10, 0x12, 0x14, 0xff));
     // macOS keeps its native rounded window and traffic lights; the web header extends under the title bar.
     #[cfg(target_os = "macos")]
@@ -1816,9 +1785,7 @@ fn create_editor_window(app: &AppHandle, workspace: Option<&str>) -> Result<(), 
         .traffic_light_position(tauri::LogicalPosition::new(16.0, 27.0));
     let result = builder
         .build()
-        .map(|window| {
-            install_show_fallback_timer(window.app_handle(), &window_label);
-        })
+        .map(|_| ())
         .map_err(|error| format!("Unable to open a new window. {error}"));
     if quit_gate.finish_window_creation_and_start_quit() {
         begin_quit_request(app, &quit_gate);
@@ -2132,6 +2099,25 @@ async fn cancel_workspace(
     Ok(())
 }
 
+/// Called after the window has been hidden for a while. The page releases its
+/// own rebuildable data first and reports the counts for the performance log.
+#[tauri::command]
+async fn release_idle_memory(
+    workspace: String,
+    released_documents: usize,
+    released_history_commits: usize,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let repository = state
+        .git_repository_roots
+        .resource_key(decode_wire_path(&workspace));
+    let released_git_cache_bytes = state.git_runtime.release_cache(repository);
+    app_log::perf_log(&format!(
+        "idle release: {released_documents} editor documents, {released_history_commits} Git history commits, {released_git_cache_bytes} Git cache bytes"
+    ));
+    Ok(())
+}
+
 #[tauri::command]
 async fn git_operation<R: tauri::Runtime>(
     workspace: String,
@@ -2295,12 +2281,10 @@ async fn git_operation<R: tauri::Runtime>(
                 &request,
                 &repository,
             )?;
-            let staged = git_execute(
-                &runtime,
-                &repository_root,
-                vec![OsString::from("add"), OsString::from("--all")],
-                &request,
-            );
+            let stage_arguments = vec![OsString::from("add"), OsString::from("--all")];
+            let stage_command = git_command_display(&stage_arguments);
+            let staged = git_execute(&runtime, &repository_root, stage_arguments, &request)
+                .map_err(|error| error.with_command(stage_command));
             runtime.invalidate(&repository_root, GitDirtyScope::ALL);
             staged?;
         }
@@ -2361,11 +2345,19 @@ async fn git_operation<R: tauri::Runtime>(
             &request,
             &repository,
         )?;
-        let output = git_execute(&runtime, &write_root, arguments, &request);
+        let command = if action == "commit-all" {
+            format!("git add --all && {}", git_command_display(&arguments))
+        } else {
+            git_command_display(&arguments)
+        };
+        let output = git_execute(&runtime, &write_root, arguments, &request)
+            .map_err(|error| error.with_command(command.clone()));
         runtime.invalidate(&repository_root, GitDirtyScope::ALL);
         let output = output?;
         Ok(GitOperationResult {
-            output: git_success_message_runtime(&output),
+            output: output.stdout_lossy().trim().to_string(),
+            stderr: output.stderr_lossy().trim().to_string(),
+            command,
         })
     })
     .await
@@ -3537,13 +3529,22 @@ fn git_runtime_output_error(output: &GitCommandOutput) -> GitErrorInfo {
     git_error_info(GitErrorKind::Failed, message)
 }
 
-fn git_success_message_runtime(output: &GitCommandOutput) -> String {
-    let stdout = output.stdout_lossy().trim().to_string();
-    if stdout.is_empty() {
-        "Git operation completed.".to_string()
-    } else {
-        stdout
+fn git_command_display(arguments: &[OsString]) -> String {
+    let mut command = String::from("git");
+    for argument in arguments {
+        let argument = argument.to_string_lossy();
+        command.push(' ');
+        if argument.is_empty()
+            || argument
+                .chars()
+                .any(|character| character.is_whitespace() || "\"'()".contains(character))
+        {
+            command.push_str(&format!("{argument:?}"));
+        } else {
+            command.push_str(&argument);
+        }
     }
+    command
 }
 
 fn timestamp(time: SystemTime) -> Option<u128> {
@@ -3947,18 +3948,6 @@ async fn startup_folder(window: tauri::WebviewWindow) -> Option<String> {
 }
 
 #[tauri::command(async)]
-fn mark_window_shown(window: tauri::WebviewWindow) -> Result<(), String> {
-    let guard = window_visibility_registry().get(window.label());
-    if guard
-        .reveal(|| window.show())
-        .map_err(|error| error.to_string())?
-    {
-        startup_timeline::record_window_shown();
-    }
-    Ok(())
-}
-
-#[tauri::command(async)]
 fn log_frontend_error(message: String) {
     app_log::log_frontend_diagnostic(&message);
 }
@@ -3976,6 +3965,7 @@ fn report_startup_event(name: String, at_ms: f64) {
     if !app_log::perf_log_enabled() {
         return;
     }
+    startup_timeline::write_perf_log_once();
     let name = name.chars().take(128).collect::<String>();
     app_log::perf_log(&format!("startup frontend {name} @ {at_ms:.1} ms"));
 }
@@ -4258,6 +4248,7 @@ fn main() {
                     git_branches,
                     git_commits,
                     cancel_workspace,
+                    release_idle_memory,
                     git_operation,
                     create_git_worktree,
                     git_diff,
@@ -4308,7 +4299,6 @@ fn main() {
                     lsp_stop_server_async,
                     lsp_stop_plugin_async,
                     lsp_stop_workspace_async,
-                    mark_window_shown,
                     log_frontend_error,
                     get_startup_timing,
                     report_startup_event,
@@ -4336,11 +4326,9 @@ fn main() {
         }
     };
     app.run(|app, event| match event {
-        tauri::RunEvent::Ready => {
-            for label in app.webview_windows().keys() {
-                install_show_fallback_timer(app, label);
-            }
-        }
+        // The windows from tauri.conf.json are visible from creation, so the event loop starting is
+        // the first moment one can be on screen.
+        tauri::RunEvent::Ready => startup_timeline::record_window_shown(),
         tauri::RunEvent::Exit => {
             join_window_cleanups(&app.state::<WindowCleanupRegistry>());
             app_update::install_on_exit(app);
@@ -4358,7 +4346,6 @@ fn main() {
             event: tauri::WindowEvent::Destroyed,
             ..
         } => {
-            window_visibility_registry().remove(&label);
             app.state::<AppState>()
                 .startup_folder_consumed
                 .lock()
@@ -5078,6 +5065,27 @@ mod git_worktree_start_point_tests {
         )
         .unwrap()
         .is_empty());
+    }
+
+    #[test]
+    fn idle_release_frees_the_cached_status_of_the_workspace_repository() {
+        let repository = TempRepo::new();
+        let runtime = GitCoordinator::new();
+        let roots = Arc::new(RepositoryRootCache::default());
+        let workspace = wire_path(repository.path());
+        let request = runtime.begin_request(repository.path(), None);
+        git_status_sync(
+            workspace.clone(),
+            Arc::clone(&roots),
+            runtime.clone(),
+            request,
+        )
+        .expect("status should be read");
+
+        let released = runtime.release_cache(roots.resource_key(decode_wire_path(&workspace)));
+
+        assert!(released > 0, "the status output should have been cached");
+        assert_eq!(runtime.release_cache(repository.path()), 0);
     }
 
     #[test]

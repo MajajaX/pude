@@ -114,6 +114,17 @@ version. `THIRD_PARTY_NOTICES.md` and `THIRD_PARTY_LICENSES.md` must each contai
 exactly one `<!-- release-readiness: approved -->` line; review both after any
 dependency or asset change.
 
+The installers do not bundle `THIRD_PARTY_LICENSES.md` as it is. The build writes a
+shorter copy to `apps/desktop/src-tauri/gen/` with `scripts/write-bundled-licenses.mjs`
+and bundles that: every license and notice text and the license of each package, but
+not the verification inventory (archive URLs, lock digests, source hashes, dated review
+notes). The build fails if the full file's structure cannot be carried over, for
+example when an inventory row links to a missing text block. The release assets
+keep the complete `THIRD_PARTY_LICENSES.md`, listed in `SHA256SUMS.txt`. After the macOS
+build, `scripts/verify-release-artifact.mjs` compares the app's `LICENSE` and
+`THIRD_PARTY_NOTICES.md` byte for byte with the repository files, and its
+`THIRD_PARTY_LICENSES.md` with what the script generates from the repository file.
+
 ## 2. Tag
 
 Commit the release changes, then create a tag that matches the workspace version and

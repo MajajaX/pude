@@ -104,6 +104,11 @@
     "message": null,
     "startPoint": null
   },
+  "gitOperationResponse": {
+    "output": "Already up to date.",
+    "stderr": "From github.com:example/例子\n * branch            main       -> FETCH_HEAD",
+    "command": "git pull"
+  },
   "gitOperationError": {
     "kind": "failed",
     "message": "Open a folder before running Git operations.",

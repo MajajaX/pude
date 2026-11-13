@@ -1,14 +1,15 @@
+// Keep first: imports run in order, and this one starts the downloads the first frame waits for.
+import { firstFrameResources } from "./lib/first-frame-resources";
 import { ErrorBoundary } from "solid-js";
 import { render } from "solid-js/web";
 import { invoke } from "@tauri-apps/api/core";
 import App from "./App";
 import { emitDiagnostic } from "./lib/diagnostics";
-import "@fontsource-variable/inter";
+import "./styles/inter-fonts.css";
 import "@fontsource-variable/jetbrains-mono";
 import "./styles.css";
-import { markFirstFrameShown, markStartupEvent } from "./lib/startup-timeline";
-import { applyLanguage, t } from "./lib/i18n";
-import { defaultSettings, SETTINGS_STORAGE_KEY, validateSettings } from "./lib/settings";
+import { markFirstFrame, markStartupEvent } from "./lib/startup-timeline";
+import { t } from "./lib/i18n";
 
 const isTauriRuntime = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -31,15 +32,7 @@ if (isTauriRuntime) {
   });
 }
 
-// Load the interface language before the first frame so text does not switch after it appears.
-const storedLanguage = (() => {
-  try {
-    return validateSettings(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? "null"), defaultSettings).language;
-  } catch {
-    return defaultSettings.language;
-  }
-})();
-await applyLanguage(storedLanguage);
+await firstFrameResources;
 
 /** Shown instead of a broken window when rendering fails. Recovery data stays in local storage. */
 function AppCrashed() {
@@ -54,6 +47,8 @@ function AppCrashed() {
   );
 }
 
+const root = document.getElementById("root")!;
+root.replaceChildren(); // the startup skeleton from index.html
 render(
   () => (
     <ErrorBoundary
@@ -65,18 +60,7 @@ render(
       <App />
     </ErrorBoundary>
   ),
-  document.getElementById("root")!,
+  root,
 );
 markStartupEvent("render-done");
-
-markStartupEvent("render-ready");
-if (isTauriRuntime) {
-  void invoke("mark_window_shown")
-    .then(() => {
-      markStartupEvent("show-success");
-      requestAnimationFrame(markFirstFrameShown);
-    })
-    .catch(() => {});
-} else {
-  requestAnimationFrame(markFirstFrameShown);
-}
+requestAnimationFrame(markFirstFrame);

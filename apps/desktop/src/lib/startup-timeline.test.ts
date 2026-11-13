@@ -20,10 +20,10 @@ describe("startup timeline", () => {
     expect(marks()[0].startTime).toBeLessThanOrEqual(marks()[1].startTime);
   });
 
-  it("records the animation-frame observation separately from show success", async () => {
-    const { markFirstFrameShown } = await timeline();
-    markFirstFrameShown();
-    expect(marks().map((entry) => entry.name)).toEqual(["frame-after-show"]);
+  it("records the animation-frame observation after the first render", async () => {
+    const { markFirstFrame } = await timeline();
+    markFirstFrame();
+    expect(marks().map((entry) => entry.name)).toEqual(["frame-after-render"]);
   });
 
   it("caps the number of recorded events", async () => {

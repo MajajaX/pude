@@ -4,7 +4,7 @@
   "version": "0.1.9",
   "identifier": "com.pude.editor",
   "build": {
-    "beforeDevCommand": "node scripts/ensure-dev-server.mjs",
+    "beforeDevCommand": "node ../../scripts/write-bundled-licenses.mjs && node scripts/ensure-dev-server.mjs",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
@@ -21,7 +21,7 @@
         "resizable": true,
         "decorations": false,
         "shadow": true,
-        "visible": false,
+        "visible": true,
         "backgroundColor": "#101214"
       }
     ],
@@ -61,7 +61,7 @@
     "resources": {
       "../../../LICENSE": "LICENSE",
       "../../../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
-      "../../../THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md"
+      "gen/THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md"
     },
     "macOS": {
       "minimumSystemVersion": "14.0",

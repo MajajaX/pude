@@ -7,10 +7,22 @@
     <meta name="description" content="pude — pure code editor" />
     <link rel="icon" type="image/png" href="/pude-favicon.png" />
     <link rel="stylesheet" href="/startup.css" />
+    <script src="/startup.js"></script>
     <title>pude — pure code editor</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="startup-skeleton" aria-hidden="true">
+        <div class="startup-topbar"></div>
+        <div class="startup-main">
+          <div class="startup-activity-bar"></div>
+          <div class="startup-sidebar"></div>
+          <div class="startup-sidebar-resizer"></div>
+          <div class="startup-editor"></div>
+        </div>
+        <div class="startup-statusbar"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

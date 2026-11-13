@@ -1128,18 +1128,6 @@ body.terminal-resizing {
   border: 1px solid var(--border);
   border-radius: 5px;
 }
-.git-action-feedback {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 2px 2px;
-  padding: 7px 9px;
-  color: var(--green);
-  font: 12px var(--font-mono);
-  background: color-mix(in srgb, var(--green) 9%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--border));
-  border-radius: 5px;
-}
 .git-quick-commit {
   display: grid;
   gap: 5px;
@@ -2197,6 +2185,19 @@ body.terminal-resizing {
 }
 .toast-error .pude-icon {
   color: var(--red);
+}
+.toast button {
+  flex: none;
+  padding: 3px 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.toast button:hover,
+.toast button:focus-visible {
+  border-color: var(--accent);
 }
 .modal-backdrop {
   position: fixed;

@@ -83,16 +83,16 @@ Run these from the repository root:
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the desktop frontend browser shell on port 5173. |
-| `npm run tauri:dev` | Run the native Tauri desktop application. |
+| `npm run tauri:dev` | Run the native Tauri desktop application as **pude Dev**, with its own identifier (see below). |
 | `npm run web:dev` | Start the public website on port 5174. |
 | `npm test` | Run every unit test: the desktop Vitest suite, the website tests and the release script tests. |
 | `npm run lint` | Check formatting and lint rules with Biome, as CI does. |
 | `npm run format` | Format TypeScript, JavaScript and CSS with Biome. |
 | `npm run check` | Run Biome, the version and third-party notice checks, every unit test, the bundle budget check, type checks, and both production builds. |
 | `npm run notices:sync` | Update the versions listed in `THIRD_PARTY_NOTICES.md` to the ones the lockfiles resolve. |
-| `npm run build` | Build the desktop frontend. |
+| `npm run build` | Build the desktop frontend. It also writes `apps/desktop/src-tauri/gen/THIRD_PARTY_LICENSES.md`, the shorter license file the app bundles (every license text without the verification inventory), from the complete `THIRD_PARTY_LICENSES.md` with `scripts/write-bundled-licenses.mjs`. Cargo needs both the build output and that file, so run it once before the Rust commands below. |
 | `npm run web:build` | Build the website. |
-| `npm run tauri:build` | Build native Tauri bundles for the current platform. |
+| `npm run tauri:build` | Build native Tauri bundles for the current platform. Add `-- --config src-tauri/tauri.dev.conf.json` to build under the development identifier. |
 | `node scripts/run-rust-tests.mjs` | Run the Rust test suite exactly as CI does: each test in its own process, with `Cargo.lock` unchanged. Plain `cargo test` shares one process and can disagree on process-group tests. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |
 | `cargo clippy --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings` | Run the Rust lints CI enforces. |
@@ -114,6 +114,37 @@ documentation skip the CI web and tooling job, and pull requests that change onl
 website skip the desktop end-to-end job. Keep reusable test fixtures in Git.
 Generated schemas, permissions, logs, raw measurement reports, and QA bundles are
 local outputs and are ignored.
+
+### Development identifier
+
+`npm run tauri:dev` merges `apps/desktop/src-tauri/tauri.dev.conf.json` over the normal
+configuration. It renames the app to **pude Dev** and gives it the identifier
+`com.pude.editor.dev` instead of `com.pude.editor`. Everything the operating system keys
+on the identifier is therefore separate from an installed pude: the WebView storage
+(settings, session and recovery data), the application data and plugin folders, the log
+folder (`~/Library/Logs/com.pude.editor.dev` on macOS) and the single-instance lock, so a
+development build and the installed app run side by side and neither hands its launch
+over to the other. Settings made in one are not visible in the other. A release build
+under the development identifier still checks for updates like any release build, so it
+may offer the published version; turn **Check for updates on startup** off in its
+settings to avoid that.
+
+To measure startup, build a release app under the development identifier and launch it
+with the performance log on. Start it so it does not take focus from the installed app,
+for example `open -g -n --env PUDE_PERF_LOG=1 "<path>/pude Dev.app"`:
+
+```bash
+npm run tauri:build -- --config src-tauri/tauri.dev.conf.json --bundles app
+# apps/desktop/src-tauri/target/release/bundle/macos/pude Dev.app
+```
+
+The startup milestones are appended to the log folder above (`pude.log`): `main-start`,
+`setup-done`, `first-command` and `first-window-shown` from the native side, then
+`entry-start`, `render-done`, `session-read` and `hydrated` from the page, with times in
+milliseconds. `first-window-shown` is the moment the event loop starts with the window
+already visible; the page marks count from the start of the page load.
+`node scripts/benchmark/compare-vscode.mjs --pude "<path>/pude Dev.app"` measures the same
+build against VS Code.
 
 The first Rust build may download crates. `--locked` asks Cargo to use the committed
 lockfile and fail if dependency resolution would change it.
