@@ -139,15 +139,19 @@ jobs:
       - run: npm ci
       # Playwright serves this production build in CI.
       - run: npm run desktop:build
-      - name: Read Playwright version
+      # The browsers are built for one Ubuntu release, so the cache key names it too:
+      # browsers cached on an older runner image fail to load their system libraries.
+      - name: Read Playwright version and Ubuntu release
         id: playwright
-        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+          echo "os=$(. /etc/os-release && echo "$ID-$VERSION_ID")" >> "$GITHUB_OUTPUT"
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+          key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}
       - name: Make apt downloads fail fast and retry
         run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
       - name: Install Playwright browsers
