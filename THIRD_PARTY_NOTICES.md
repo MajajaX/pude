@@ -101,7 +101,7 @@ The license identifiers below come from the published `Cargo.toml` metadata of t
 | `notify` | 8.2.2 | CC0-1.0 | [crates.io](https://crates.io/crates/notify/8.2.2) · [repository](https://github.com/notify-rs/notify) | runtime |
 | `portable-pty` | 0.9.0 | MIT | [crates.io](https://crates.io/crates/portable-pty/0.9.0) · [repository](https://github.com/wezterm/wezterm) | runtime |
 | `reqwest` | 0.13.5 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/reqwest/0.13.5) · [repository](https://github.com/seanmonstar/reqwest) | runtime |
-| `rfd` | 0.17.2 | MIT | [crates.io](https://crates.io/crates/rfd/0.17.2) · [repository](https://github.com/PolyMeilex/rfd) | runtime |
+| `rfd` | 0.18.0 | MIT | [crates.io](https://crates.io/crates/rfd/0.18.0) · [repository](https://github.com/PolyMeilex/rfd) | runtime |
 | `rustls` | 0.23.46 | Apache-2.0 OR ISC OR MIT | [crates.io](https://crates.io/crates/rustls/0.23.46) · [repository](https://github.com/rustls/rustls) | runtime |
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde/1.0.229) · [repository](https://github.com/serde-rs/serde) | runtime |
 | `serde_json` | 1.0.154 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.154) · [repository](https://github.com/serde-rs/json) | runtime |
