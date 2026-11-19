@@ -32,8 +32,8 @@ const FLIGHT_WAIT_INTERVAL: Duration = Duration::from_millis(20);
 const SPOOL_CREATE_ATTEMPTS: usize = 32;
 const MAX_CACHE_ENTRIES_PER_REPOSITORY: usize = 16;
 const MAX_REPOSITORY_STATES: usize = 64;
-const MAX_CACHE_BYTES_PER_REPOSITORY: usize = 32 * 1024 * 1024;
-const MAX_CACHE_BYTES_GLOBAL: usize = 128 * 1024 * 1024;
+const MAX_CACHE_BYTES_PER_REPOSITORY: usize = 8 * 1024 * 1024;
+const MAX_CACHE_BYTES_GLOBAL: usize = 32 * 1024 * 1024;
 const PROCESS_TERMINATION_DEADLINE: Duration = Duration::from_secs(2);
 const PROCESS_FORCE_REAP_GRACE: Duration = Duration::from_millis(250);
 const FLIGHT_CLEANUP_DEADLINE: Duration = Duration::from_millis(2_270);
@@ -67,6 +67,15 @@ pub struct GitErrorInfo {
     pub exit_code: Option<i32>,
     pub stream: Option<String>,
     pub limit: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+}
+
+impl GitErrorInfo {
+    pub fn with_command(mut self, command: String) -> Self {
+        self.command = Some(command);
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,6 +108,7 @@ impl GitRuntimeError {
                 exit_code: None,
                 stream: None,
                 limit: None,
+                command: None,
             },
         }
     }
@@ -127,6 +137,7 @@ impl GitRuntimeError {
                 exit_code: output.exit_code,
                 stream: None,
                 limit: None,
+                command: None,
             },
         }
     }
@@ -139,6 +150,7 @@ impl GitRuntimeError {
                 exit_code: None,
                 stream: Some(stream.to_string()),
                 limit: Some(limit),
+                command: None,
             },
         }
     }
@@ -663,6 +675,24 @@ impl GitCoordinator {
                 .fetch_sub(released_bytes, Ordering::AcqRel);
         }
         state.revisions
+    }
+
+    /// Drop every cached output of one repository and return the bytes freed.
+    /// Revisions stay as they are: the next read simply runs Git again.
+    pub fn release_cache(&self, repository: impl AsRef<Path>) -> usize {
+        let key = canonical_key(repository.as_ref());
+        let Some(repository) = lock_unpoison(&self.inner.repositories).get(&key).cloned() else {
+            return 0;
+        };
+        let mut state = lock_unpoison(&repository.state);
+        let released = state.cache_bytes;
+        state.cache.clear();
+        state.cache_bytes = 0;
+        drop(state);
+        if released > 0 {
+            self.inner.cache_bytes.fetch_sub(released, Ordering::AcqRel);
+        }
+        released
     }
 
     #[cfg(test)]
@@ -4456,6 +4486,139 @@ mod tests {
         );
         clear_fixture_env();
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn repository_byte_limit_evicts_the_coldest_entries() {
+        let _fixture_guard = FIXTURE_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let root = test_root();
+        let counter = root.join("counter");
+        let payload = MAX_CACHE_BYTES_PER_REPOSITORY / 3 + 1;
+        env::set_var("PUDE_GIT_RUNTIME_PAYLOAD_BYTES", payload.to_string());
+        let query_dirs: Vec<_> = (0..4)
+            .map(|index| {
+                let query_dir = root.join(format!("query-{index}"));
+                fs::create_dir(&query_dir).expect("query cwd");
+                query_dir
+            })
+            .collect();
+        let coordinator = GitCoordinator::new();
+        let mut bytes_per_entry = 0;
+        for query_dir in &query_dirs[..3] {
+            let spec = fixture_spec_with_counter(query_dir, "cache-payload", &counter);
+            let request = coordinator.begin_request(&root, Some("window-a"));
+            let output = coordinator
+                .read_shared_for(
+                    GitReadRequest::new(&root, GitReadKind::Status, spec),
+                    &request,
+                )
+                .expect("payload query");
+            bytes_per_entry = output.stdout.len() + output.stderr.len();
+        }
+
+        let repository = coordinator
+            .repository_state(&root)
+            .expect("repository state");
+        {
+            let state = lock_unpoison(&repository.state);
+            assert_eq!(state.cache.len(), 2, "the oldest entry should be evicted");
+            assert!(state.cache_bytes <= MAX_CACHE_BYTES_PER_REPOSITORY);
+            assert!(!state
+                .cache
+                .keys()
+                .any(|key| key.cwd == canonical_key(&query_dirs[0])));
+        }
+        assert_eq!(
+            coordinator.inner.cache_bytes.load(Ordering::Acquire),
+            2 * bytes_per_entry
+        );
+        clear_fixture_env();
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn entry_larger_than_the_repository_limit_is_recomputed_not_cached() {
+        let _fixture_guard = FIXTURE_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let root = test_root();
+        let counter = root.join("counter");
+        let payload = MAX_CACHE_BYTES_PER_REPOSITORY + 1;
+        env::set_var("PUDE_GIT_RUNTIME_PAYLOAD_BYTES", payload.to_string());
+        let coordinator = GitCoordinator::new();
+        for _ in 0..2 {
+            let spec = fixture_spec_with_counter(&root, "cache-payload", &counter);
+            let request = coordinator.begin_request(&root, Some("window-a"));
+            let output = coordinator
+                .read_shared_for(
+                    GitReadRequest::new(&root, GitReadKind::Status, spec),
+                    &request,
+                )
+                .expect("oversized query");
+            assert!(output.stdout.len() >= payload);
+        }
+
+        assert_eq!(coordinator.inner.cache_bytes.load(Ordering::Acquire), 0);
+        assert_eq!(
+            fs::read_to_string(&counter)
+                .expect("fixture counter")
+                .lines()
+                .count(),
+            2,
+            "an entry above the limit should run Git again"
+        );
+        clear_fixture_env();
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn release_cache_drops_one_repository_and_keeps_the_others() {
+        let _fixture_guard = FIXTURE_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let roots = [test_root(), test_root()];
+        let counter = roots[0].join("counter");
+        env::set_var("PUDE_GIT_RUNTIME_PAYLOAD_BYTES", "4096");
+        let coordinator = GitCoordinator::new();
+        let query = |index: usize| {
+            let spec = fixture_spec_with_counter(&roots[index], "cache-payload", &counter);
+            let request = coordinator.begin_request(&roots[index], Some("window-a"));
+            coordinator
+                .read_shared_for(
+                    GitReadRequest::new(&roots[index], GitReadKind::Status, spec),
+                    &request,
+                )
+                .expect("release fixture query")
+        };
+        let first = query(0);
+        let bytes_per_entry = first.stdout.len() + first.stderr.len();
+        query(1);
+        let revisions = coordinator.revisions(&roots[0]);
+
+        assert_eq!(coordinator.release_cache(&roots[0]), bytes_per_entry);
+        assert_eq!(
+            coordinator.inner.cache_bytes.load(Ordering::Acquire),
+            bytes_per_entry
+        );
+        assert_eq!(coordinator.release_cache(&roots[0]), 0);
+        assert_eq!(coordinator.revisions(&roots[0]), revisions);
+
+        query(0);
+        query(1);
+        assert_eq!(
+            fs::read_to_string(&counter)
+                .expect("fixture counter")
+                .lines()
+                .count(),
+            3,
+            "only the released repository should run Git again"
+        );
+        clear_fixture_env();
+        for root in roots {
+            let _ = fs::remove_dir_all(root);
+        }
     }
 
     #[test]

@@ -1128,18 +1128,6 @@ body.terminal-resizing {
   border: 1px solid var(--border);
   border-radius: 5px;
 }
-.git-action-feedback {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 8px 2px 2px;
-  padding: 7px 9px;
-  color: var(--green);
-  font: 12px var(--font-mono);
-  background: color-mix(in srgb, var(--green) 9%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--green) 30%, var(--border));
-  border-radius: 5px;
-}
 .git-quick-commit {
   display: grid;
   gap: 5px;
@@ -1848,6 +1836,48 @@ body.terminal-resizing {
 .diff-meta {
   color: var(--faint);
 }
+.image-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100%;
+}
+.image-diff-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.image-diff-side + .image-diff-side {
+  border-left: 1px solid var(--border);
+}
+.image-diff-heading {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  background: var(--editor);
+  border-bottom: 1px solid var(--border-soft);
+}
+.image-diff-details {
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.image-diff-canvas {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 24px;
+}
+.image-diff-canvas img {
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+  background: repeating-conic-gradient(var(--border-soft) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
 .empty-diff {
   padding: 20px 14px;
   color: var(--muted);
@@ -2197,6 +2227,19 @@ body.terminal-resizing {
 }
 .toast-error .pude-icon {
   color: var(--red);
+}
+.toast button {
+  flex: none;
+  padding: 3px 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.toast button:hover,
+.toast button:focus-visible {
+  border-color: var(--accent);
 }
 .modal-backdrop {
   position: fixed;

@@ -75,7 +75,7 @@ import { currentEditorSelectionFallback } from "../lib/editor-selection-fallback
 import { runEditorCommand, saveFormattingChanges, type EditorCommandRequest } from "../lib/editor-text-commands";
 import { countSearchMatches, type SearchMatchCount } from "../lib/search-match-count";
 import { clampSetting } from "../lib/settings";
-import type { StateField } from "@codemirror/state";
+import type { StateEffect, StateField } from "@codemirror/state";
 import type { AppSettings, EditorEncoding, EditorTab, LineEnding } from "../types";
 import { t } from "../lib/i18n";
 
@@ -280,6 +280,8 @@ type CachedDocument = {
   lastUsed: number;
   historyBytesEstimate: number;
   selectionBytesEstimate: number;
+  /** Where the document was scrolled when another tab took the editor. */
+  scrollPosition?: StateEffect<unknown>;
 };
 
 // MS-01: mark the first CodeMirror view creation once per window.
@@ -1030,6 +1032,7 @@ export function EditorPane(props: EditorPaneProps) {
       previous.state = view.state;
       previous.text = view.state.doc;
       previous.selectionJSON = view.state.selection.toJSON();
+      previous.scrollPosition = view.scrollSnapshot();
       touchDocument(previous);
     }
 
@@ -1147,7 +1150,12 @@ export function EditorPane(props: EditorPaneProps) {
     if (activeDocumentId === tab.id && view.state === activeState) return;
     view.setState(activeState);
     activeDocumentId = tab.id;
-    view.dispatch({ effects: languageCompartment.reconfigure([]) });
+    // All tabs share one view: return to where this document was scrolled, or
+    // start at the top the first time it is shown.
+    if (!document.scrollPosition) view.scrollDOM.scrollTop = 0;
+    view.dispatch({
+      effects: [languageCompartment.reconfigure([]), ...(document.scrollPosition ? [document.scrollPosition] : [])],
+    });
     void loadLanguage(tab.path, tab.id, view);
     pruneEditorStates();
     if (!firstEditableDocumentMarked) {

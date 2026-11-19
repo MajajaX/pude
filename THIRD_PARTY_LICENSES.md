@@ -17555,6 +17555,26 @@ and that may have implications for licensing, see below for details.
 [Apache-2.0]: https://www.apache.org/licenses/LICENSE-2.0
 
 
+## Apple SDKs
+
+These crates are derived from Apple SDKs shipped with Xcode. You can obtain a
+copy of the Xcode license at:
+
+https://www.apple.com/legal/sla/docs/xcode.pdf
+
+Or by typing `xcodebuild -license` in your terminal.
+
+From reading the license, it is unclear whether distributing derived works
+such as these crates are allowed?
+
+But in any case, to practically use these crates, you will have to link, and
+that only works when you have the correct Xcode SDK available to provide the
+required `.tbd` files, which is why we choose to still use the normal SPDX
+identifiers in the crates (Xcode is required to use the crates, and when using
+Xcode you have already agreed to the Xcode license).
+~~~~
+
+<a id="000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824"></a>
 ### 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824 — source-byte SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824; LF-normalized fenced-body SHA-256 000cbb5bea6f21829c8f0d9e1fe87410bd5ef0453412ffc017845982a3e19824
 
 ```text
@@ -17585,6 +17605,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+<a id="04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6"></a>
 ### 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6 — source-byte SHA-256 04dc52136d82400b11df5f474949863a70a5d05d2278dec45b99c479494450a6; LF-normalized fenced-body SHA-256 13f16f8435b4242f494f038d761bd99c5af70395aa39274bd287d22c4d35c3b7
 
 ```text
@@ -17614,6 +17635,7 @@ Some files in the "tests/data" subdirectory of this repository are under other
 licences; see files named LICENSE.*.txt for details.
 ```
 
+<a id="42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9"></a>
 ### 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9 — source-byte SHA-256 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9; LF-normalized fenced-body SHA-256 42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9
 
 ```text
@@ -17678,6 +17700,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+<a id="5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008"></a>
 ### 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008 — source-byte SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008; LF-normalized fenced-body SHA-256 5e834fe9788c524210deda859c46a550ffa5aa0cba9ea0572f0d81120e97c008
 
 ```text
@@ -17703,6 +17726,7 @@ PackageDownloadLocation: git+ssh://github.com/tauri-apps/tauri.git
 Creator: Person: Daniel Thompson-Yvetot
 ```
 
+<a id="5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471"></a>
 ### 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471 — source-byte SHA-256 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471; LF-normalized fenced-body SHA-256 5fb3573f6e7198ff6c203dbbd58d1da4bec9e8c5a828edefd9e98587d0443471
 
 ```text
@@ -17733,6 +17757,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+<a id="89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607"></a>
 ### 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607 — source-byte SHA-256 89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607; LF-normalized fenced-body SHA-256 9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d
 
 ```text
@@ -17759,6 +17784,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+<a id="8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36"></a>
 ### 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36 — source-byte SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36; LF-normalized fenced-body SHA-256 8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36
 
 ```text
@@ -17789,6 +17815,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+<a id="8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077"></a>
 ### 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077 — source-byte SHA-256 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077; LF-normalized fenced-body SHA-256 8ca6b96cea9e67c6c5c63f452c31bd396db8bd2406231fdea5d48ef462b48077
 
 ```text
@@ -17818,25 +17845,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
-
-## Apple SDKs
-
-These crates are derived from Apple SDKs shipped with Xcode. You can obtain a
-copy of the Xcode license at:
-
-https://www.apple.com/legal/sla/docs/xcode.pdf
-
-Or by typing `xcodebuild -license` in your terminal.
-
-From reading the license, it is unclear whether distributing derived works
-such as these crates are allowed?
-
-But in any case, to practically use these crates, you will have to link, and
-that only works when you have the correct Xcode SDK available to provide the
-required `.tbd` files, which is why we choose to still use the normal SPDX
-identifiers in the crates (Xcode is required to use the crates, and when using
-Xcode you have already agreed to the Xcode license).
-~~~~
 
 <a id="b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"></a>
 ### b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5 — source-byte SHA-256 b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5; LF-normalized fenced-body SHA-256 b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5
