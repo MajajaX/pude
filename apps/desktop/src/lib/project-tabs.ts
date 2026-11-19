@@ -23,6 +23,11 @@ export function projectTabTitle(project: ProjectLabelSource): string {
   return [project.workspaceFile, project.workspace, ...(project.additionalFolders ?? [])].filter(Boolean).join("\n");
 }
 
+/** A window that has not opened a project has no active project, so a missing project is never the active one. */
+export function isActiveProject(project: { id: string } | undefined, activeId: string | undefined): boolean {
+  return project !== undefined && project.id === activeId;
+}
+
 export function projectAfterClose(
   ids: readonly string[],
   activeId: string | undefined,

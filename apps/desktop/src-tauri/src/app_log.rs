@@ -75,10 +75,6 @@ fn default_log_dir() -> Option<PathBuf> {
     }
 }
 
-pub fn log_info(message: &str) {
-    write_line("INFO", message);
-}
-
 pub fn log_error(message: &str) {
     write_line("ERROR", message);
 }

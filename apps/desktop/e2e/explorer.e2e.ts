@@ -152,6 +152,34 @@ test("project text matches are centered in long files and navigation is consumed
   await expect.poll(matchOffsetFromCenter).toBeLessThan(30);
 });
 
+test("a newly opened file starts at the top and each tab keeps its own scroll position", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await openProject(page);
+  const openFile = (name: string) =>
+    page.getByRole("treeitem", { name, exact: true }).getByRole("button", { name, exact: true }).click();
+  const scroller = page.locator(".cm-scroller");
+  const scrollTop = () => scroller.evaluate((element) => element.scrollTop);
+
+  await openFile("main.ts");
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.insertText(
+    Array.from({ length: 200 }, (_, index) => `const value${index} = ${index};`).join("\n"),
+  );
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.locator(".status-unsaved")).toHaveCount(0);
+  await scroller.evaluate((element) => {
+    element.scrollTop = 1500;
+  });
+  await expect.poll(scrollTop).toBeGreaterThan(1000);
+  const mainScrollTop = await scrollTop();
+
+  await openFile("editor.ts");
+  await expect.poll(scrollTop).toBe(0);
+  await page.getByRole("tab", { name: "main.ts", exact: true }).click();
+  await expect.poll(scrollTop).toBe(mainScrollTop);
+});
+
 test("dotenv files highlight assignments, values and comments in both themes", async ({ page }) => {
   await openProject(page);
   await page.getByRole("button", { name: "New file", exact: true }).click();

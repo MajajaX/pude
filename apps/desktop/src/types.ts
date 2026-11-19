@@ -182,6 +182,8 @@ export type GitActionRequest = {
 
 export type GitOperationResult = {
   output: string;
+  stderr: string;
+  command: string;
 };
 
 export type GitWorktreeResult = {
@@ -208,7 +210,14 @@ export type GitErrorInfo = {
   exitCode: number | null;
   stream: string | null;
   limit: number | null;
+  command?: string;
 };
+
+/** One side of an image diff: a version stored in Git (`revision` "" is the staged copy) or the file on disk. */
+export type ImageVersion = { kind: "git"; revision: string; path: string } | { kind: "worktree"; path: string };
+
+/** A missing side means the image does not exist there, for example before it was added. */
+export type ImageDiffVersions = { before?: ImageVersion; after?: ImageVersion };
 
 export type DiffResult = {
   path: string;
@@ -222,6 +231,8 @@ export type DiffResult = {
   commit?: string;
   untrackedHint?: boolean;
   stash?: { hash: string; untracked: boolean };
+  /** Set for an image, which the diff view shows as before and after pictures. */
+  image?: ImageDiffVersions;
 };
 
 export type SaveFileResult = {

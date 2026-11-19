@@ -3,6 +3,8 @@ import { parseDiff, toStackedDiffLines } from "../lib/diff";
 import { virtualTreeWindow } from "../lib/tree-virtualization";
 import { Icon } from "./Icons";
 import { t } from "../lib/i18n";
+import type { ImageDiffVersions } from "../types";
+import { ImageDiff, type ImageLoader } from "./ImageDiff";
 
 // Both diff layouts use `white-space: pre` with clipped overflow, so rows
 // never wrap and a fixed row height is exact — no estimated heights that
@@ -20,6 +22,8 @@ export function DiffPane(props: {
   nextContextLines?: number;
   loading?: boolean;
   onExpandContext?: () => void;
+  image?: ImageDiffVersions;
+  loadImage?: ImageLoader;
   onBack: () => void;
 }) {
   const parsed = createMemo(() => parseDiff(props.diff));
@@ -83,28 +87,31 @@ export function DiffPane(props: {
           <span class="diff-file-name">{props.path}</span>
         </div>
         <div class="diff-toolbar-actions">
-          <div class="diff-layout-toggle" role="group" aria-label={t("Diff layout")}>
-            <button
-              type="button"
-              class="diff-layout-button"
-              classList={{ "diff-layout-button-active": layout() === "side-by-side" }}
-              aria-pressed={layout() === "side-by-side"}
-              onClick={() => setLayout("side-by-side")}
-            >
-              {t("Side by side")}
-            </button>
-            <button
-              type="button"
-              class="diff-layout-button"
-              classList={{ "diff-layout-button-active": layout() === "stacked" }}
-              aria-pressed={layout() === "stacked"}
-              onClick={() => setLayout("stacked")}
-            >
-              {t("Stacked")}
-            </button>
-          </div>
+          <Show when={!props.image}>
+            <div class="diff-layout-toggle" role="group" aria-label={t("Diff layout")}>
+              <button
+                type="button"
+                class="diff-layout-button"
+                classList={{ "diff-layout-button-active": layout() === "side-by-side" }}
+                aria-pressed={layout() === "side-by-side"}
+                onClick={() => setLayout("side-by-side")}
+              >
+                {t("Side by side")}
+              </button>
+              <button
+                type="button"
+                class="diff-layout-button"
+                classList={{ "diff-layout-button-active": layout() === "stacked" }}
+                aria-pressed={layout() === "stacked"}
+                onClick={() => setLayout("stacked")}
+              >
+                {t("Stacked")}
+              </button>
+            </div>
+          </Show>
           <Show
             when={
+              !props.image &&
               props.onExpandContext &&
               props.nextContextLines !== undefined &&
               (props.contextLines === undefined || props.nextContextLines > props.contextLines)
@@ -148,9 +155,16 @@ export function DiffPane(props: {
         role="document"
         aria-label={t("Diff for {path}", { path: props.path })}
       >
+        <Show when={props.image && props.loadImage}>
+          <ImageDiff path={props.path} versions={props.image!} loadImage={props.loadImage!} />
+        </Show>
         <Show
-          when={parsed().rows.length}
-          fallback={<div class="empty-diff">{t("No textual changes to display.")}</div>}
+          when={!props.image && parsed().rows.length}
+          fallback={
+            <Show when={!props.image}>
+              <div class="empty-diff">{t("No textual changes to display.")}</div>
+            </Show>
+          }
         >
           <Show
             when={layout() === "side-by-side"}
@@ -214,7 +228,7 @@ export function DiffPane(props: {
             </div>
           </Show>
         </Show>
-        <Show when={parsed().truncated}>
+        <Show when={!props.image && parsed().truncated}>
           <div class="diff-full-row diff-meta" role="status">
             {t("Diff preview shortened for performance. Open the file or use Git to inspect the complete change.")}
           </div>

@@ -4,10 +4,11 @@
 //! the first window reveal are stamped with `Instant`s here. `collect`
 //! renders them relative to process start for `get_startup_timing`, and
 //! `write_perf_log` emits them to the app log — but only when the native
-//! process runs with `PUDE_PERF_LOG=1`.
+//! process runs with `PUDE_PERF_LOG=1`. The window is visible from the moment
+//! it is created, so the reveal is stamped when the event loop starts.
 
 use serde::Serialize;
-use std::sync::OnceLock;
+use std::sync::{Once, OnceLock};
 use std::time::Instant;
 
 static PROCESS_START: OnceLock<Instant> = OnceLock::new();
@@ -82,6 +83,13 @@ pub fn write_perf_log() {
     }
 }
 
+/// `write_perf_log` once, when the first frontend milestone arrives, so a launch
+/// with `PUDE_PERF_LOG=1` logs the native milestones next to the frontend ones.
+pub fn write_perf_log_once() {
+    static WRITTEN: Once = Once::new();
+    WRITTEN.call_once(write_perf_log);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -125,5 +133,6 @@ mod tests {
         init();
         mark_setup_done();
         write_perf_log();
+        write_perf_log_once();
     }
 }

@@ -11,7 +11,7 @@
         "resizable": true,
         "decorations": true,
         "shadow": true,
-        "visible": false,
+        "visible": true,
         "backgroundColor": "#101214",
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,

@@ -32,7 +32,7 @@ use crate::{
 #[cfg(test)]
 use uuid::Uuid;
 
-const MAX_IMAGE_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
+pub(crate) const MAX_IMAGE_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_IMAGE_PREVIEW_DIMENSION: u32 = 16_384;
 const MAX_IMAGE_PREVIEW_PIXELS: u64 = 16_777_216;
 const MAX_DIRECTORY_LISTING_ENTRIES: usize = 10_000;
@@ -581,7 +581,16 @@ fn read_workspace_image_sync(path: String, workspace: String) -> Result<Vec<u8>,
 
     let (bytes, _, _) = read_file_with_metadata(&image_path, MAX_IMAGE_PREVIEW_BYTES)
         .map_err(|error| format_limited_read_error("preview image", error))?;
-    let mime_type = image_mime_type(&bytes).ok_or_else(|| {
+    validate_preview_image(&requested_path, &bytes)?;
+    // Return the raw bytes as a binary IPC response (ArrayBuffer on the
+    // frontend) instead of base64 inside a JSON payload.
+    Ok(bytes)
+}
+
+/// Checks that `bytes` is a PNG, JPEG, GIF, WebP or BMP image matching the
+/// extension of `requested_path` and small enough to decode for a preview.
+pub(crate) fn validate_preview_image(requested_path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let mime_type = image_mime_type(bytes).ok_or_else(|| {
         "Only PNG, JPEG, GIF, WebP, and BMP images can be previewed. Animated images, ICO, and AVIF are not supported.".to_string()
     })?;
     let expected_mime_type = requested_path
@@ -602,10 +611,7 @@ fn read_workspace_image_sync(path: String, workspace: String) -> Result<Vec<u8>,
     if expected_mime_type != mime_type {
         return Err("The image contents do not match the file extension.".to_string());
     }
-    validate_image_dimensions(bytes.as_slice(), mime_type)?;
-    // Return the raw bytes as a binary IPC response (ArrayBuffer on the
-    // frontend) instead of base64 inside a JSON payload.
-    Ok(bytes)
+    validate_image_dimensions(bytes, mime_type)
 }
 
 fn image_mime_type(bytes: &[u8]) -> Option<&'static str> {

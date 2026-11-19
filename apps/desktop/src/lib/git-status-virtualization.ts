@@ -10,8 +10,13 @@ export type GitStatusRow =
 export const GIT_STATUS_HEADER_HEIGHT = 32;
 export const GIT_STATUS_FILE_ROW_HEIGHT = 30;
 
+/** Whether the file has changes in the index, shown under Staged Changes. */
+export function isStagedFile(file: GitFileStatus): boolean {
+  return !file.conflict && Boolean(file.indexStatus) && file.indexStatus !== ".";
+}
+
 export function buildGitStatusRows(files: readonly GitFileStatus[]): GitStatusRow[] {
-  const staged = files.filter((file) => !file.conflict && file.indexStatus && file.indexStatus !== ".");
+  const staged = files.filter(isStagedFile);
   const changes = files.filter((file) => file.conflict || !file.indexStatus || file.worktreeStatus);
   const rows: GitStatusRow[] = [];
   if (staged.length) {

@@ -1,4 +1,91 @@
+/* Shapes of the app chrome, shown from the first paint until the real interface replaces them. */
 html,
 body {
+  margin: 0;
   background: #101214;
+}
+:root[data-theme="light"],
+:root[data-theme="light"] body {
+  background: #f2f3f4;
+}
+
+.startup-skeleton {
+  --bg: #101214;
+  --panel: #15181b;
+  --editor: #0f1113;
+  --border: #2c3238;
+  --border-soft: #22272b;
+  --placeholder: #22272b;
+  display: grid;
+  grid-template-rows: 48px minmax(0, 1fr) 25px;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+:root[data-theme="light"] .startup-skeleton {
+  --bg: #f2f3f4;
+  --panel: #e9ebed;
+  --editor: #f8f9fa;
+  --border: #cdd3d9;
+  --border-soft: #dde1e5;
+  --placeholder: #dde1e5;
+}
+
+.startup-topbar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.startup-main {
+  display: grid;
+  grid-template-columns: 44px 276px 5px minmax(0, 1fr);
+  min-height: 0;
+}
+.startup-activity-bar {
+  border-right: 1px solid var(--border-soft);
+}
+.startup-sidebar::before {
+  display: block;
+  height: 34px;
+  content: "";
+  border-bottom: 1px solid var(--border-soft);
+}
+.startup-sidebar-resizer {
+  background: var(--border-soft);
+}
+.startup-editor {
+  display: flex;
+  flex-direction: column;
+  background: var(--editor);
+}
+.startup-editor::before {
+  flex: 0 0 38px;
+  content: "";
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.startup-statusbar {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+/* Icons of the activity bar and rows of the Explorer. */
+.startup-activity-bar,
+.startup-sidebar {
+  --row: linear-gradient(var(--placeholder), var(--placeholder));
+}
+.startup-activity-bar {
+  background:
+    var(--row) 12px 14px / 20px 20px no-repeat,
+    var(--row) 12px 58px / 20px 20px no-repeat,
+    var(--row) 12px 102px / 20px 20px no-repeat,
+    var(--bg);
+}
+.startup-sidebar {
+  background:
+    var(--row) 14px 50px / 120px 10px no-repeat,
+    var(--row) 28px 78px / 150px 10px no-repeat,
+    var(--row) 28px 106px / 110px 10px no-repeat,
+    var(--row) 14px 134px / 130px 10px no-repeat,
+    var(--panel);
 }
