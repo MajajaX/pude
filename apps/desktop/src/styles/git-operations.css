@@ -33,9 +33,127 @@
     animation-duration: 2s;
   }
 }
-.git-operation-error {
-  color: var(--danger, #d85656);
+.git-group-label .git-operation-spinner {
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
 }
-.git-operation-error button {
-  margin-left: 8px;
+.git-row-actions .git-operation-spinner {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+.git-log-list {
+  display: grid;
+  gap: 4px;
+}
+.git-log-entry {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+}
+.git-log-toggle {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
+  width: 100%;
+  padding: 6px;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+}
+.git-log-toggle > .pude-icon {
+  grid-row: 1 / span 2;
+  color: var(--muted);
+}
+.git-log-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.git-log-succeeded,
+.git-log-failed {
+  display: inline-flex;
+  flex: none;
+}
+.git-log-succeeded {
+  color: var(--green);
+}
+.git-log-failed {
+  color: var(--red);
+}
+.git-log-action {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.git-log-meta {
+  flex: none;
+  margin-left: auto;
+  color: var(--faint);
+  font: 11px var(--font-mono);
+}
+.git-log-summary {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.git-log-details {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 0 6px 8px 24px;
+}
+.git-log-command {
+  display: grid;
+  gap: 2px;
+  color: var(--faint);
+  font: 11px var(--font-mono);
+}
+.git-log-command code {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.git-log-response-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--faint);
+  font: 11px var(--font-mono);
+}
+.git-log-response-heading button {
+  height: 22px;
+  padding: 0 8px;
+  color: var(--muted);
+  font: 11px var(--font-mono);
+  background: var(--panel-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.git-log-response-heading button:hover,
+.git-log-response-heading button:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.git-log-response {
+  max-height: 240px;
+  margin: 0;
+  padding: 7px 8px;
+  overflow: auto;
+  color: var(--text);
+  font: 11px / 1.45 var(--font-mono);
+  white-space: pre;
+  background: var(--panel-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+}
+.git-log-response-prose {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

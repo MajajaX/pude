@@ -3,6 +3,7 @@ import { mkdtemp, readdir, readFile, rmdir } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { bundledLicenses } from "./write-bundled-licenses.mjs";
 
 // The Windows installer is not Authenticode-signed, so only the macOS DMG has a
 // platform signature to verify; both update packages are checked by verify-update-signatures.mjs.
@@ -60,7 +61,7 @@ try {
   if (appNames.length !== 1) throw new Error(`expected one app bundle in the DMG, found ${appNames.length}`);
   const app = join(mountPoint, appNames[0]);
   const appResources = join(app, "Contents/Resources");
-  for (const legalFile of ["LICENSE", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_LICENSES.md"]) {
+  for (const legalFile of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) {
     run(
       "/usr/bin/cmp",
       ["-s", join(appResources, legalFile), fileURLToPath(new URL(`../${legalFile}`, import.meta.url))],
@@ -68,6 +69,14 @@ try {
         label: `verify bundled ${legalFile}`,
       },
     );
+  }
+  // The app ships the license texts without the verification inventory, generated from the repository file.
+  const shippedLicenses = await readFile(join(appResources, "THIRD_PARTY_LICENSES.md"), "utf8");
+  const expectedLicenses = bundledLicenses(
+    await readFile(fileURLToPath(new URL("../THIRD_PARTY_LICENSES.md", import.meta.url)), "utf8"),
+  );
+  if (shippedLicenses !== expectedLicenses) {
+    throw new Error("the bundled THIRD_PARTY_LICENSES.md does not match the repository file's license texts");
   }
   const infoPlist = join(app, "Contents/Info.plist");
   const bundleVersion = run("/usr/libexec/PlistBuddy", ["-c", "Print :CFBundleShortVersionString", infoPlist], {

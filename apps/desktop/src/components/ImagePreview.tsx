@@ -2,25 +2,7 @@ import { Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { readWorkspaceImage } from "../lib/bridge";
 import { t } from "../lib/i18n";
 import { errorMessage } from "../lib/core";
-
-function imageMimeType(path: string): string | undefined {
-  const extension = path.split(/[\\/]/).at(-1)?.split(".").at(-1)?.toLowerCase();
-  switch (extension) {
-    case "png":
-      return "image/png";
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "bmp":
-      return "image/bmp";
-    default:
-      return undefined;
-  }
-}
+import { imageMimeType } from "../lib/file-metadata";
 
 export function ImagePreview(props: { path: string; workspace: string }) {
   const [imageUrl, setImageUrl] = createSignal<string>();

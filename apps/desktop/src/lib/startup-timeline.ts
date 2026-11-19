@@ -36,7 +36,7 @@ export function markStartupEvent(name: string): void {
   reportEntry(entry);
 }
 
-export function markFirstFrameShown(): void {
+export function markFirstFrame(): void {
   // A WebView animation callback is an observation, not display-present proof.
-  markStartupEvent("frame-after-show");
+  markStartupEvent("frame-after-render");
 }
