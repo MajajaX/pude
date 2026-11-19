@@ -127,7 +127,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,16 +152,18 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ steps.playwright.outputs.os }}-${{ steps.playwright.outputs.version }}
+      # A timed-out attempt cannot stop the apt-get that sudo started, so the next attempt
+      # waits for its dpkg lock instead of failing at once.
       - name: Make apt downloads fail fast and retry
-        run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
+        run: printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\nDPkg::Lock::Timeout "300";\n' | sudo tee /etc/apt/apt.conf.d/80-ci-network >/dev/null
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 15
-        run: bash scripts/ci-retry.sh 3 240 npx playwright install --with-deps --only-shell chromium webkit
+        timeout-minutes: 25
+        run: bash scripts/ci-retry.sh 3 420 npx playwright install --with-deps --only-shell chromium webkit
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        timeout-minutes: 15
-        run: bash scripts/ci-retry.sh 3 240 npx playwright install-deps chromium webkit
+        timeout-minutes: 25
+        run: bash scripts/ci-retry.sh 3 420 npx playwright install-deps chromium webkit
       - run: npm run test:e2e --workspace @pude/desktop
       # Also uploaded when a retry passed, so the trace of the flaky attempt can be inspected.
       - if: ${{ !cancelled() }}
