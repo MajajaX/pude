@@ -6,6 +6,11 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- CI: installing the browsers' system packages allows 7 minutes per attempt, and a retry
+  waits for an earlier attempt's package install to finish instead of failing at once.
+
 ## [0.1.10] - 2026-11-20
 
 ### Added
