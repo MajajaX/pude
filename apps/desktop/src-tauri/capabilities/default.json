@@ -52,6 +52,7 @@
     "allow-git-stashes",
     "allow-git-stash-files",
     "allow-git-stash-diff",
+    "allow-git-image",
     "allow-watch-workspace",
     "allow-stop-watcher",
     "allow-terminal-shell",

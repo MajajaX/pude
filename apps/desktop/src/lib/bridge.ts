@@ -558,6 +558,17 @@ export async function getGitStashFiles(workspace: string, stash: string): Promis
   return isTauri ? invoke<GitStashFile[]>("git_stash_files", { workspace, stash }) : [];
 }
 
+/**
+ * One version of an image for the image diff: the staged copy (`revision` ""),
+ * `HEAD`, a commit, or a commit's parent. `null` when the image does not exist
+ * in that version.
+ */
+export async function readGitImage(workspace: string, revision: string, path: string): Promise<ArrayBuffer | null> {
+  if (!isTauri) throw new Error("Image diffs are available in the desktop build.");
+  const bytes = await invoke<ArrayBuffer>("git_image", { workspace, revision, path });
+  return bytes.byteLength ? bytes : null;
+}
+
 export async function getGitStashDiff(
   workspace: string,
   stash: string,

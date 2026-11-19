@@ -20,9 +20,17 @@ All notable changes to `pude` are recorded here. The format follows
   closes.
 - **View full response** on a Git operation's notification opens the **LOG** tab with
   that entry expanded.
+- Image diffs: selecting a changed PNG, JPEG, GIF, WebP or BMP image in the Git status
+  list, a commit or a stash shows the image before and after the change side by side,
+  with each one's pixel size and file size, instead of "No textual changes to display."
+  An added or deleted image shows which side it is missing from. Each image is limited
+  to 8 MiB.
 
 ### Changed
 
+- **Commit** beside the commit message box commits only the staged files when there are
+  any, without asking, like the Commit dialog. When nothing is staged it still asks and
+  then stages every change before committing.
 - Git operations no longer show a message above the action buttons, so the buttons stay
   where they are. A running action shows its spinner on the button or dialog that
   started it, including **Stage all**, **Unstage all** and staging a single file. A
@@ -80,6 +88,9 @@ All notable changes to `pude` are recorded here. The format follows
 
 ### Fixed
 
+- Opening another file in the editor kept the previous file's scroll position, so a
+  short file could open scrolled past its end with no text in view. A newly opened file
+  now starts at the top, and switching tabs returns each file to where it was scrolled.
 - Opening a `.pdw` workspace file in a window that has no project yet did nothing: the
   command line (`pude team.pdw`), **File > Open workspace…** and an entry under Recent
   workspaces reported "Opened workspace" and added it to Recent workspaces, but no project

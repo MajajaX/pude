@@ -73,6 +73,8 @@ import {
   getGitCommits,
   getGitDiff,
   getGitStashDiff,
+  readGitImage,
+  readWorkspaceImage,
   getGitStashes,
   getGitStashFiles,
   getGitStatus,
@@ -150,6 +152,7 @@ import { pickEditorSettings, sameEditorSettings } from "./lib/editor-settings";
 import { advanceOpenFolderChord, type OpenFolderChordState } from "./lib/explorer-actions";
 import { editorShortcut, globalShortcut, type EditorShortcut } from "./lib/app-shortcuts";
 import { deleteConfirmationMessage, trashLocationLabel } from "./lib/delete-confirmation";
+import { commitImageDiff, stashImageDiff, workingImageDiff } from "./lib/image-diff";
 import {
   fileLanguageForPath,
   isImagePath,
@@ -252,6 +255,7 @@ import type {
   GitStash,
   GitStashFile,
   GitStatusResult,
+  ImageVersion,
   InstalledPlugin,
   ReadFileResult,
   WatchRoot,
@@ -4592,7 +4596,14 @@ export default function App() {
       )
         return;
       setDiffReturnToHistory(false);
-      setDiff({ ...result, untrackedHint, label: staged ? "STAGED CHANGES" : "WORKING TREE" });
+      setDiff({
+        ...result,
+        untrackedHint,
+        label: staged ? "STAGED CHANGES" : "WORKING TREE",
+        image: isImagePath(file.path)
+          ? workingImageDiff(file, staged, untrackedHint ?? file.worktreeStatus === "?")
+          : undefined,
+      });
       setViewMode("diff");
     } catch (error) {
       if (
@@ -4620,7 +4631,12 @@ export default function App() {
       )
         return;
       setDiffReturnToHistory(returnToHistory);
-      setDiff({ ...result, commit: commit.hash, label: t("COMMIT {hash}", { hash: commit.shortHash }) });
+      setDiff({
+        ...result,
+        commit: commit.hash,
+        label: t("COMMIT {hash}", { hash: commit.shortHash }),
+        image: isImagePath(file.path) ? commitImageDiff(commit.hash, file) : undefined,
+      });
       setViewMode("diff");
     } catch (error) {
       if (
@@ -4651,6 +4667,7 @@ export default function App() {
         ...result,
         stash: { hash: stash.hash, untracked: file.untracked },
         label: t("STASH {reference}", { reference: stash.reference }),
+        image: isImagePath(file.path) ? stashImageDiff(stash.hash, file) : undefined,
       });
       setViewMode("diff");
     } catch (error) {
@@ -4692,6 +4709,11 @@ export default function App() {
       setDiffContextLoading(false);
     }
   };
+
+  const loadDiffImage = (version: ImageVersion) =>
+    version.kind === "worktree"
+      ? readWorkspaceImage(joinPath(git().repositoryRoot || workspace(), version.path), workspace())
+      : readGitImage(workspace(), version.revision, version.path);
 
   const openCommitDiffFromHistory = (commit: GitCommit, file: GitCommitFile) => void openCommitDiff(commit, file, true);
 
@@ -7610,6 +7632,8 @@ export default function App() {
                     staged={currentDiff().staged}
                     label={currentDiff().label}
                     backLabel={diffReturnToHistory() ? t("Back to history") : undefined}
+                    image={currentDiff().image}
+                    loadImage={loadDiffImage}
                     onBack={() => void returnToDiffFile()}
                   />
                 )}

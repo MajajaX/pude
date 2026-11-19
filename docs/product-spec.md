@@ -11,6 +11,8 @@ coverage and no published installer yet.
 
 - A window can hold multiple project tabs. Each project retains its open files,
   unsaved edits, undo history, Git view and running terminals while inactive.
+- A file opened in the editor starts at the top. Switching between file tabs returns
+  each file to where it was scrolled.
 - Opening a folder reads its top level. Subfolders load on expansion and long
   trees render visible rows only. File/folder creation, rename, copy name, copy
   paths and native reveal are available from Explorer. Delete uses recoverable system trash.
@@ -236,10 +238,24 @@ coverage and no published installer yet.
   counts of closed editors and cleared commits and the bytes of Git cache freed.
 - Nothing appears above the Git action buttons while an operation runs or after it
   finishes, so the buttons never move. A running action shows a spinner on the button
-  that started it (Stage all, Unstage all, staging or unstaging one file) or in the
+  that started it (Stage all, Unstage all, staging or unstaging one file, **Commit**
+  beside the commit message box) or in the
   confirmation or input dialog that started it. A failed operation opens an error
   dialog with the Git message; for Push and Pull it also offers **Retry** next to
   **Close**.
+- **Commit** beside the commit message box at the top of the Git view commits with that
+  message. When files are staged, it commits only them, like the Commit dialog, without
+  asking, and changes that are not staged stay as they are. When nothing is staged, it
+  asks first and then stages every change (new, modified and deleted files) before
+  committing. Its tooltip says which of the two it will do.
+- Selecting a changed PNG, JPEG, GIF, WebP or BMP image in the status list, a commit or a
+  stash opens an image diff instead of a text diff: the image before and after the change
+  side by side, each with its pixel size and file size, over a checkerboard that shows
+  transparency. A side where the image does not exist says it was added or deleted in
+  the change. An unstaged change compares the staged copy with the file on disk, a
+  staged change compares `HEAD` with the staged copy, a commit is compared with its first
+  parent, and a stash with the commit it was made on. Each image is limited to 8 MiB,
+  and the **Side by side / Stacked** switch and the more-context button are hidden.
 - A successful operation shows a one-line summary in a notification. Pull shows
   `Already up to date.` or the files changed with insertions and deletions, such as
   `5 files changed, +20 −3` (`5 個檔案變更，+20 −3` in Traditional Chinese); Commit shows

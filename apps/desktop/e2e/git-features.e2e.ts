@@ -207,3 +207,60 @@ test("a refresh with an unchanged status keeps a status row and its keyboard foc
     }),
   ).toBe(true);
 });
+
+test("the quick commit commits only the staged files when there are any", async ({ page }) => {
+  await page.goto("/");
+  await openDemoProject(page);
+  await page.getByRole("tab", { name: "Git", exact: true }).click();
+  await expect(page.getByText("STAGED CHANGES 1")).toBeVisible();
+
+  const message = page.getByRole("textbox", { name: "Commit message" });
+  const commit = page.locator(".git-quick-commit").getByRole("button", { name: "Commit" });
+  await expect(commit).toHaveAttribute("title", "Commit staged changes");
+  await message.fill("Add the editor");
+  await commit.click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".toast")).toContainText("commit completed");
+  await expect(message).toHaveValue("");
+  await expect(page.getByText("STAGED CHANGES")).toHaveCount(0);
+  await expect(page.getByText("CHANGES 2")).toBeVisible();
+
+  await expect(commit).toHaveAttribute("title", "Stage all changes and commit");
+  await message.fill("Everything else");
+  await commit.click();
+  await expect(page.getByRole("dialog").getByText("Continue with stage all and commit?")).toBeVisible();
+});
+
+test("an image change shows the image before and after", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Instruments Vite development modules to list an image change.");
+  await page.route("**/src/lib/demo.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      /branch: "main",\s*files: \[/,
+      (files) => `${files} { path: "assets/pude-logo.webp", indexStatus: null, worktreeStatus: "M" },`,
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.route("**/src/lib/bridge.ts*", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(
+      'if (!isTauri) throw new Error("Image diffs are available in the desktop build.");',
+      'if (!isTauri) return (await fetch("/pude-logo.webp")).arrayBuffer();',
+    );
+    await route.fulfill({ response, body });
+  });
+  await page.goto("/");
+  await openDemoProject(page);
+  await page.getByRole("tab", { name: "Git", exact: true }).click();
+  await page
+    .getByRole("button", { name: /pude-logo\.webp/ })
+    .first()
+    .click();
+
+  const diff = page.locator(".image-diff");
+  await expect(diff.getByRole("region", { name: "BEFORE" }).locator("img")).toBeVisible();
+  await expect(diff.getByRole("region", { name: "AFTER" }).locator("img")).toBeVisible();
+  await expect(diff.locator(".image-diff-details").first()).toContainText("×");
+  await expect(page.getByRole("button", { name: "Stacked" })).toHaveCount(0);
+  await expect(page.getByText("No textual changes to display.")).toHaveCount(0);
+});

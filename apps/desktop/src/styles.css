@@ -1836,6 +1836,48 @@ body.terminal-resizing {
 .diff-meta {
   color: var(--faint);
 }
+.image-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100%;
+}
+.image-diff-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.image-diff-side + .image-diff-side {
+  border-left: 1px solid var(--border);
+}
+.image-diff-heading {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  background: var(--editor);
+  border-bottom: 1px solid var(--border-soft);
+}
+.image-diff-details {
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.image-diff-canvas {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 24px;
+}
+.image-diff-canvas img {
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+  background: repeating-conic-gradient(var(--border-soft) 0 25%, transparent 0 50%) 0 0 / 16px 16px;
+}
 .empty-diff {
   padding: 20px 14px;
   color: var(--muted);

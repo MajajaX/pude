@@ -89,7 +89,8 @@ permission).
   detection and crash recovery for unsaved work.
 - **Git** — status, staging, commits, branches, stash, push/pull, a commit graph that
   loads older commits as you scroll and refreshes after every Git change, a stash list
-  with apply, pop, drop and diffs, and full-file diffs, using the Git already
+  with apply, pop, drop and diffs, full-file diffs and before-and-after previews of
+  changed images, using the Git already
   installed on your system. Upstream ahead/behind counts appear beside sync actions.
   Each finished operation shows a one-line notification, and the **LOG** tab keeps
   the command and full response of the latest 50 operations per project in memory.

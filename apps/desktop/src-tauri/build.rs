@@ -44,6 +44,7 @@ fn main() {
         "git_stashes",
         "git_stash_files",
         "git_stash_diff",
+        "git_image",
         "watch_workspace",
         "stop_watcher",
         "terminal_shell",

@@ -39,6 +39,7 @@ mod filesystem;
 mod git_diff;
 mod git_history;
 mod git_ignore_file;
+mod git_image;
 mod git_repository;
 mod git_runtime;
 mod git_stash;
@@ -4257,6 +4258,7 @@ fn main() {
                     git_stash::git_stashes,
                     git_stash::git_stash_files,
                     git_stash::git_stash_diff,
+                    git_image::git_image,
                     watch_workspace,
                     watcher::stop_watcher,
                     terminal::terminal_shell,

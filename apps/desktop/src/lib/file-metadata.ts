@@ -59,6 +59,25 @@ export function isImagePath(path: string): boolean {
   return imageExtensions.has(fileExtension(fileName(path)));
 }
 
+export function imageMimeType(path: string): string | undefined {
+  const extension = path.split(/[\\/]/).at(-1)?.split(".").at(-1)?.toLowerCase();
+  switch (extension) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "gif":
+      return "image/gif";
+    case "webp":
+      return "image/webp";
+    case "bmp":
+      return "image/bmp";
+    default:
+      return undefined;
+  }
+}
+
 const languageByExtension: Record<string, FileLanguageMetadata> = {
   ts: { key: "javascript", label: "TypeScript", icon: "ts", typescript: true },
   tsx: { key: "javascript", label: "TSX", icon: "ts", typescript: true, jsx: true },

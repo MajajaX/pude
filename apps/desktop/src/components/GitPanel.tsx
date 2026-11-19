@@ -16,6 +16,7 @@ import {
   buildGitStatusRows,
   gitStatusRowHeight,
   gitStatusWindow,
+  isStagedFile,
   layoutGitStatusRows,
   resolveGitStatusFocus,
   sameGitStatusFiles,
@@ -149,26 +150,40 @@ export function GitPanel(props: GitPanelProps) {
   const hasRepository = () => repositoryState() !== "unknown";
   const confirmAction = (request: GitActionRequest, message: string) =>
     setDialog({ kind: "confirm", request, message });
-  const confirmQuickCommit = () => {
+  const hasStagedFiles = () => props.status.files.some(isStagedFile);
+  const [quickCommitRunning, setQuickCommitRunning] = createSignal(false);
+  // With staged files the quick commit commits only them, like the Commit dialog;
+  // otherwise it stages everything first, after a confirmation.
+  const submitQuickCommit = async () => {
     const message = quickCommitMessage().trim();
     if (!message || busy() || !hasRepository()) return;
+    if (hasStagedFiles()) {
+      setQuickCommitRunning(true);
+      try {
+        if (await run({ action: "commit", message })) setQuickCommitMessage("");
+      } finally {
+        setQuickCommitRunning(false);
+      }
+      return;
+    }
     confirmAction(
       { action: "commit-all", message },
       t("New, modified, and deleted files will all be staged before the commit."),
     );
   };
-  const run = async (request: GitActionRequest) => {
-    if (busy()) return;
+  const run = async (request: GitActionRequest): Promise<boolean> => {
+    if (busy()) return false;
     const origin = workspaceEpoch;
     setPendingRequest(request);
     try {
       await props.onAction(request);
-      if (workspaceEpoch !== origin) return;
+      if (workspaceEpoch !== origin) return false;
       setDialog(undefined);
       setCommitMessage("");
       if (request.action === "commit-all") setQuickCommitMessage("");
       setBranchName("");
       setSelectedBranch("");
+      return true;
     } catch (error) {
       if (workspaceEpoch === origin)
         setDialog({
@@ -177,6 +192,7 @@ export function GitPanel(props: GitPanelProps) {
           message: errorMessage(error, "Git operation failed."),
           retry: request.action === "push" || request.action === "pull" ? request : undefined,
         });
+      return false;
     } finally {
       setPendingRequest(undefined);
     }
@@ -309,7 +325,7 @@ export function GitPanel(props: GitPanelProps) {
             class="git-quick-commit"
             onSubmit={(event) => {
               event.preventDefault();
-              confirmQuickCommit();
+              void submitQuickCommit();
             }}
           >
             <label for="git-quick-commit-message">{t("Commit message")}</label>
@@ -324,9 +340,12 @@ export function GitPanel(props: GitPanelProps) {
               <button
                 type="submit"
                 disabled={busy() || !hasRepository() || !quickCommitMessage().trim()}
-                title={t("Stage all changes and commit")}
+                title={hasStagedFiles() ? t("Commit staged changes") : t("Stage all changes and commit")}
               >
-                {t("Commit")}
+                <Show when={quickCommitRunning()} fallback={t("Commit")}>
+                  <span class="git-operation-spinner" aria-hidden="true" />
+                  {t("{action} in progress…", { action: t("Commit") })}
+                </Show>
               </button>
             </div>
           </form>

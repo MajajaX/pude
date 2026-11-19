@@ -287,13 +287,13 @@ const en: DocsDict = {
               "Select the Git icon in the activity bar for the branch plus staged, unstaged, untracked, renamed and conflicted files. The current branch sits at the top, and each changed file shows its name first with its folder in a dimmer color.",
               "The commit graph handles detached HEAD, unborn branches and multiple refs. History loads 200 commits at a time, and older commits load automatically before you reach the end. The history refreshes after commits, push, pull, branch and stash operations, including ones run outside pude. Open the full history as an editor tab, filter it by branch, and select a commit to see its subject, author, age and changed files. Rest the pointer on a row for its full metadata.",
               "When the repository has stashes, a `STASH` tab appears beside `STATUS` and `HISTORY`, before `LOG`. Expand a stash to see its changed files and open their diffs. `Apply` keeps the stash, `Pop` applies and removes it, and the trash button drops it; each asks first.",
-              "Open any change as a `Side by side` or `Stacked` diff.",
+              "Open any change as a `Side by side` or `Stacked` diff. A changed PNG, JPEG, GIF, WebP or BMP image opens as the image before and after the change, side by side, with each one's pixel size and file size.",
             ],
           },
           { t: "h3", text: "Actions" },
           {
             t: "p",
-            text: "The action groups `Changes`, `Sync`, `Branches` and `Stash` are always shown in the Git view. Stage and unstage, discard changes, commit (or stage all and commit), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. Nothing appears above the action buttons while a command runs, so they never move: a spinner shows on the button or dialog that started the action. When a command fails, the Git message opens in a dialog instead of a toast that disappears, and a failed push or pull offers `Retry` beside `Close`.",
+            text: "The action groups `Changes`, `Sync`, `Branches` and `Stash` are always shown in the Git view. Stage and unstage, discard changes, commit (the `Commit` button beside the commit message box commits only the staged files, or stages every change first when nothing is staged), push and pull, create, switch or safely delete branches, create a worktree, stash and pop. Risky actions ask for confirmation first. Nothing appears above the action buttons while a command runs, so they never move: a spinner shows on the button or dialog that started the action. When a command fails, the Git message opens in a dialog instead of a toast that disappears, and a failed push or pull offers `Retry` beside `Close`.",
           },
           { t: "h3", text: "Notifications and the operation log" },
           {
@@ -762,13 +762,13 @@ const zhHant: DocsDict = {
               "選取活動列的 Git 圖示，即可看到分支，以及已暫存、未暫存、未追蹤、已重新命名與衝突的檔案。目前分支顯示在最上方，每個變更檔案先顯示檔名，所在資料夾以較淡的顏色列在旁邊。",
               "提交圖譜能處理 detached HEAD、尚無提交的分支與多個 refs。歷史每次載入 200 個提交，並在捲動到底部之前自動載入更早的提交；提交、推送、拉取、分支與 stash 操作後（包括在 pude 以外執行的操作）歷史會自動更新。完整歷史可以開成編輯器分頁、依分支篩選，選取提交即可查看主旨、作者、時間與變更的檔案；游標停在某一列上可查看完整資訊。",
               "儲存庫有 stash 時，`STATUS` 與 `HISTORY` 旁、`LOG` 之前會出現 `STASH` 分頁。展開 stash 可查看變更的檔案並開啟差異。`Apply` 套用並保留 stash，`Pop` 套用後移除，垃圾桶按鈕則直接刪除；每項操作都會先請你確認。",
-              "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。",
+              "任何變更都能以 `Side by side`（並排）或 `Stacked`（堆疊）方式檢視差異。變更過的 PNG、JPEG、GIF、WebP 或 BMP 圖片會並排顯示修改前與修改後的圖片，並標出各自的像素尺寸與檔案大小。",
             ],
           },
           { t: "h3", text: "操作" },
           {
             t: "p",
-            text: "Git 檢視會一直顯示 `Changes`、`Sync`、`Branches` 與 `Stash` 操作群組。暫存與取消暫存、捨棄變更、提交（或全部暫存並提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令執行時，操作按鈕上方不會出現任何訊息，按鈕不會移動：啟動該操作的按鈕或對話框會顯示旋轉圖示。指令失敗時，Git 的訊息會顯示在對話框中，而不是一閃即逝的提示；推送或拉取失敗時，`Close` 旁會有 `Retry`。",
+            text: "Git 檢視會一直顯示 `Changes`、`Sync`、`Branches` 與 `Stash` 操作群組。暫存與取消暫存、捨棄變更、提交（提交訊息欄旁的 `Commit` 只提交已暫存的檔案；沒有暫存任何檔案時，會先暫存所有變更再提交）、推送與拉取、建立／切換／安全刪除分支、建立 worktree、stash 與 pop。有風險的操作會先請你確認。指令執行時，操作按鈕上方不會出現任何訊息，按鈕不會移動：啟動該操作的按鈕或對話框會顯示旋轉圖示。指令失敗時，Git 的訊息會顯示在對話框中，而不是一閃即逝的提示；推送或拉取失敗時，`Close` 旁會有 `Retry`。",
           },
           { t: "h3", text: "通知與操作紀錄" },
           {

@@ -69,6 +69,8 @@ const zhHant: Dictionary = {
     "復原的工作階段檢查點與記錄的範圍或工作區不符，已忽略。",
   "A separate window opens after the worktree is created.": "建立 worktree 後會開啟另一個視窗。",
   AFTER: "修改後",
+  "Added in this change": "這次變更新增了這張圖片",
+  "Deleted in this change": "這次變更刪除了這張圖片",
   "API 1 receives only the selected legacy editor, command, and UI capabilities. This review does not isolate plugin code; install source you trust.":
     "API 1 只會取得所選的舊版編輯器、指令與介面功能。這項審查不會隔離外掛程式碼，請只安裝你信任的來源。",
   "API 2 host calls require the selected permissions and matching grants.":
@@ -358,6 +360,7 @@ const zhHant: Dictionary = {
   "History request reached its work budget.": "歷史要求已達工作量上限。",
   "Image preview": "圖片預覽",
   "Image preview: {value}": "圖片預覽：{value}",
+  "Image diffs are available in the desktop build.": "圖片差異僅在桌面版提供。",
   "Images can only be previewed from the current workspace.": "只能預覽目前工作區中的圖片。",
   "Include Git ignored files": "包含 Git 忽略的檔案",
   "Incomplete install cleanup pending": "待清理未完成的安裝",
