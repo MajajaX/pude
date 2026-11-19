@@ -6,6 +6,8 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-20
+
 ### Added
 
 - A **LOG** tab in the Git view (**操作紀錄** in Traditional Chinese) lists the Git
@@ -51,11 +53,13 @@ All notable changes to `pude` are recorded here. The format follows
 - Memory: the native Git cache holds at most 8 MiB per repository and 32 MiB in total,
   down from 32 MiB and 128 MiB. A single Git output above 8 MiB is read again instead of
   cached.
-- Dependency update: Tauri 2.12.5.
+- Dependency updates: Tauri 2.12.5, rfd 0.18.0, notify 8.2.2 and uuid 1.29.2.
 - CI: the desktop browser tests run in their own job, which website-only pull requests
   skip, and retry a failed test up to twice while reporting it as flaky. The tests wait
   for a project to finish opening before using shortcuts or project tabs, which removes
   the race behind the recent intermittent failures.
+- CI: the cached Playwright browsers are kept per Ubuntu release, so a new runner image
+  no longer reuses WebKit built for an older one.
 - CI: Dependabot pull requests update the versions in `THIRD_PARTY_NOTICES.md`
   themselves, so the notice check no longer fails on them. `npm run notices:sync` does
   the same locally.
