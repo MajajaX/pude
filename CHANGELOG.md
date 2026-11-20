@@ -15,6 +15,15 @@ All notable changes to `pude` are recorded here. The format follows
   Cloudflare for every release. After a release is published, the release workflow
   starts a Cloudflare build through a deploy hook so pude.dev turns on its downloads.
 
+### Fixed
+
+- An open Markdown preview shows the whole file after another tool changes it. Before,
+  the first preview of a file could keep only as much of the new text as the old file
+  had, so text added at the end did not appear until the preview was turned off and on.
+- Markdown preview numbers a list from the number its first item uses, and shows
+  indented list items as a list nested under the item above them. Before, a numbered
+  list whose items had indented bullets restarted at 1 for every item.
+
 ## [0.1.10] - 2026-11-20
 
 ### Added

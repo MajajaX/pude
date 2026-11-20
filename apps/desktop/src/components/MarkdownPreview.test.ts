@@ -149,6 +149,36 @@ describe("Markdown preview", () => {
     expect(parsed.budget.domNodes).toBeLessThanOrEqual(MARKDOWN_PREVIEW_BUDGETS.maxDomNodes);
   });
 
+  it("keeps one numbered list when each item has indented bullets", () => {
+    const parsed = parseMarkdown(
+      ["1. **First**", "   - old", "   - new", "2. **Second**", "   - old", "10. **Tenth**", "    - old"].join("\n"),
+    );
+    expect(parsed.blocks).toHaveLength(1);
+    const list = parsed.blocks[0];
+    if (list?.kind !== "list") throw new Error("Expected a list");
+    expect(list.ordered).toBe(true);
+    expect(list.start).toBe(1);
+    expect(list.items.map((item) => item.text)).toEqual(["**First**", "**Second**", "**Tenth**"]);
+    expect(list.items.map((item) => item.sublists.map((sublist) => sublist.items.map((child) => child.text)))).toEqual([
+      [["old", "new"]],
+      [["old"]],
+      [["old"]],
+    ]);
+    expect(list.items[0].sublists[0].ordered).toBe(false);
+  });
+
+  it("starts a numbered list at its first number", () => {
+    const parsed = parseMarkdown("1. one\n\n2. two\n\n7) seven");
+    expect(parsed.blocks.map((block) => (block.kind === "list" ? block.start : undefined))).toEqual([1, 2, 7]);
+  });
+
+  it("splits a nested list that switches between bullets and numbers", () => {
+    const list = parseMarkdown("- parent\n  - bullet\n  1. number\n- next").blocks[0];
+    if (list?.kind !== "list") throw new Error("Expected a list");
+    expect(list.items).toHaveLength(2);
+    expect(list.items[0].sublists.map((sublist) => sublist.ordered)).toEqual([false, true]);
+  });
+
   it("reuses unaffected blocks before and after an edited block", () => {
     const previous = parseMarkdown("first\n\nold middle\n\nlast").blocks;
     const next = parseMarkdown("first\n\nnew middle\n\nlast").blocks;
