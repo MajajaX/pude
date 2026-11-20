@@ -2136,6 +2136,10 @@ body.terminal-resizing {
 .markdown-preview li + li {
   margin-top: 4px;
 }
+.markdown-preview li > ul,
+.markdown-preview li > ol {
+  margin: 4px 0 0;
+}
 .markdown-preview blockquote {
   margin: 0 auto 18px;
   padding: 3px 0 3px 14px;
