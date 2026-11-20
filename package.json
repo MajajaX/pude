@@ -39,6 +39,7 @@
     "release:tooling:self-test": "node scripts/self-test-release-tooling.mjs",
     "web:dev": "npm run dev --workspace @pude/web --",
     "web:build": "npm run build --workspace @pude/web --",
+    "web:build:deploy": "node apps/web/scripts/build-for-deploy.mjs",
     "web:preview": "npm run preview --workspace @pude/web --",
     "release:version:check": "node scripts/release-version.mjs check",
     "release:version:sync": "node scripts/release-version.mjs sync",
