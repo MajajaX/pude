@@ -10,6 +10,10 @@ All notable changes to `pude` are recorded here. The format follows
 
 - CI: installing the browsers' system packages allows 7 minutes per attempt, and a retry
   waits for an earlier attempt's package install to finish instead of failing at once.
+- Website: `npm run web:build:deploy` asks GitHub whether the version is published and
+  builds with that release's URL, so the release URL no longer has to be set in
+  Cloudflare for every release. After a release is published, the release workflow
+  starts a Cloudflare build through a deploy hook so pude.dev turns on its downloads.
 
 ## [0.1.10] - 2026-11-20
 

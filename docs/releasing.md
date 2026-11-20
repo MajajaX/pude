@@ -48,8 +48,11 @@ then runs the publish job:
 5. It publishes the draft (`gh release edit --draft=false --latest`) and verifies
    the public release again. If that last check fails, the release is turned back
    into a draft so `latest.json` stops being served.
+6. The `rebuild-website` job then starts a Cloudflare build of the website through the
+   deploy hook, so pude.dev enables this release's downloads. Its failure leaves the
+   release as it is.
 
-Continue with step 5 (website downloads) when it finishes. If the job fails before
+Check the website (step 5) when it finishes. If the job fails before
 publication, a draft release may remain; delete it from the Releases page before
 re-running the workflow.
 
@@ -216,12 +219,43 @@ out. A build without the variable shows the version as a release candidate with
 downloads disabled, and `npm run web:build` fails when `VITE_RELEASE_URL` is set to
 anything other than the tagged URL of the current version.
 
-The recommended way to deploy is the `deploy-website` job in
-[ci.yml](../.github/workflows/ci.yml), so the website goes live only after the same
-commit's web checks pass. The job looks up the GitHub Release of the version in
-`package.json` itself: once that release is published it builds with its tagged URL,
-and before that it deploys the version as a release candidate. No release URL needs to
-be set by hand. To turn it on:
+Build for deployment with `npm run web:build:deploy`. It asks GitHub whether the
+version in `package.json` is published: once that release is published it builds with
+its tagged URL, and before that it builds the version as a release candidate. It
+ignores `VITE_RELEASE_URL`, so no release URL is set by hand. When GitHub answers with
+anything other than the release or "not found" (a rate limit, for example), the build
+fails and the site stays as it was; run the build again. It sends `GH_TOKEN` or
+`GITHUB_TOKEN` when one is set.
+
+### Cloudflare builds (current setup)
+
+The `pude-web` Worker is connected to this repository (Cloudflare dashboard → the
+Worker → Settings → Builds) and builds every push to `main` with:
+
+- Build command: `npm run web:build:deploy`
+- Deploy command: `npx wrangler deploy`
+- Build variables: `NODE_VERSION=24`, and no `VITE_RELEASE_URL`
+
+Publishing a release pushes nothing, so the release workflow's `rebuild-website` job
+calls a Cloudflare deploy hook after the release is published, and that build finds
+the release and enables the downloads. To set it up, create a deploy hook for the
+`main` branch under Settings → Builds → Deploy hooks and save its URL as the
+repository secret `CLOUDFLARE_DEPLOY_HOOK_URL`:
+
+```bash
+gh secret set CLOUDFLARE_DEPLOY_HOOK_URL
+```
+
+Anyone with the URL can start a build, so keep it secret; if it leaks, delete the
+hook, create a new one and update the secret. Without the secret the job only warns:
+then open the Worker's **Deployments** in the dashboard and retry the latest build.
+
+### GitHub Actions instead
+
+The `deploy-website` job in [ci.yml](../.github/workflows/ci.yml) deploys only after
+the same commit's web checks pass. It runs on pushes to `main` that change the
+website, `wrangler.jsonc`, `shared/` or `package-lock.json`, and only after the
+Node 22, 24 and 26 web checks succeed. To switch to it:
 
 1. Create the `website` environment (Settings → Environments) with the secrets
    `CLOUDFLARE_API_TOKEN` (a token that can edit Workers) and `CLOUDFLARE_ACCOUNT_ID`.
@@ -229,24 +263,16 @@ be set by hand. To turn it on:
 3. Disconnect the Git repository from the `pude-web` Worker in the Cloudflare
    dashboard (Settings → Builds), so Cloudflare no longer builds every push on its own.
 
-The job runs on pushes to `main` that change the website, `wrangler.jsonc`, `shared/`
-or `package-lock.json`, and only after the Node 22, 24 and 26 web checks succeed. After
-a release is published, re-run the latest `CI` run on `main` from the Actions tab so
-the website enables its downloads.
+After a release is published, re-run the latest `CI` run on `main` from the Actions
+tab so the website enables its downloads.
 
-If you deploy from the Cloudflare dashboard instead, set this build variable on the
-`pude-web` Worker after each release is published (changing the version every time)
-and redeploy:
+### From a local checkout
 
-```text
-VITE_RELEASE_URL=https://github.com/MajajaX/pude/releases/tag/v0.1.0
-```
-
-To build and deploy from a local checkout instead (`npx` runs the exact `wrangler`
-version pinned in the root `package.json` after `npm ci`):
+`npx` runs the exact `wrangler` version pinned in the root `package.json` after
+`npm ci`:
 
 ```bash
-VITE_RELEASE_URL='https://github.com/MajajaX/pude/releases/tag/v0.1.0' npm run web:build
+npm run web:build:deploy
 npx wrangler deploy
 ```
 

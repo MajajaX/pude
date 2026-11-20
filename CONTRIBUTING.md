@@ -92,6 +92,7 @@ Run these from the repository root:
 | `npm run notices:sync` | Update the versions listed in `THIRD_PARTY_NOTICES.md` to the ones the lockfiles resolve. |
 | `npm run build` | Build the desktop frontend. It also writes `apps/desktop/src-tauri/gen/THIRD_PARTY_LICENSES.md`, the shorter license file the app bundles (every license text without the verification inventory), from the complete `THIRD_PARTY_LICENSES.md` with `scripts/write-bundled-licenses.mjs`. Cargo needs both the build output and that file, so run it once before the Rust commands below. |
 | `npm run web:build` | Build the website. |
+| `npm run web:build:deploy` | Build the website for deployment, with downloads on once this version is published on GitHub. |
 | `npm run tauri:build` | Build native Tauri bundles for the current platform. Add `-- --config src-tauri/tauri.dev.conf.json` to build under the development identifier. |
 | `node scripts/run-rust-tests.mjs` | Run the Rust test suite exactly as CI does: each test in its own process, with `Cargo.lock` unchanged. Plain `cargo test` shares one process and can disagree on process-group tests. |
 | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all` | Format Rust sources after Rust changes. |

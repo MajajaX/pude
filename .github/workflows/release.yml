@@ -254,3 +254,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --draft=true
+
+  # Cloudflare builds pude.dev from main, but nothing is pushed when a release is
+  # published, so the site would keep its downloads off. The deploy hook starts a
+  # build that finds this release published. A failure here leaves the release as it is.
+  rebuild-website:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Start a website build
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "::warning::CLOUDFLARE_DEPLOY_HOOK_URL is not set; rebuild the website by hand (docs/releasing.md)."
+            exit 0
+          fi
+          curl --fail --silent --show-error --retry 3 --request POST "$DEPLOY_HOOK_URL" > /dev/null
