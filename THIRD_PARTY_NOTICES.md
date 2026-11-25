@@ -56,7 +56,7 @@ The versions and license identifiers below come from the matching `packages["nod
 | `@codemirror/view` | 6.43.15 | MIT | [repository](https://code.haverbeke.berlin/codemirror/view) | desktop runtime |
 | `@fontsource-variable/inter` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled UI font) |
 | `@fontsource-variable/jetbrains-mono` | 5.3.0 | OFL-1.1 | [repository](https://github.com/fontsource/font-files) | desktop runtime (bundled code font) |
-| `@tauri-apps/api` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
+| `@tauri-apps/api` | 2.12.5 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop runtime |
 | `@xterm/addon-fit` | 0.11.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit) | desktop runtime |
 | `@xterm/addon-search` | 0.16.0 | MIT | [repository](https://github.com/xtermjs/xterm.js/tree/master/addons/addon-search) | desktop runtime |
 | `@xterm/xterm` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop runtime |
@@ -69,7 +69,7 @@ Not all of these packages reach the runtime bundle, but they take part in buildi
 
 | Package | Locked version | License identifier | Upstream source | Used by |
 | --- | ---: | --- | --- | --- |
-| `@tauri-apps/cli` | 2.12.4 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
+| `@tauri-apps/cli` | 2.12.5 | Apache-2.0 OR MIT | [repository](https://github.com/tauri-apps/tauri) | desktop build |
 | `@xterm/headless` | 6.0.0 | MIT | [repository](https://github.com/xtermjs/xterm.js) | desktop test |
 | `fake-indexeddb` | 6.2.8 | Apache-2.0 | [repository](https://github.com/dumbmatter/fakeIndexedDB) | desktop test |
 | `@types/node` | 26.6.6 | MIT | [repository](https://github.com/DefinitelyTyped/DefinitelyTyped) | desktop and web typecheck |
@@ -77,9 +77,9 @@ Not all of these packages reach the runtime bundle, but they take part in buildi
 | `vite` | 8.3.8 | MIT | [repository](https://github.com/vitejs/vite) | desktop and web build |
 | `vite-plugin-solid` | 2.11.16 | MIT | [repository](https://github.com/solidjs/vite-plugin-solid) | desktop and web build |
 | `vitest` | 5.1.0 | MIT | [repository](https://github.com/vitest-dev/vitest) | desktop test |
-| `@playwright/test` | 1.65.0 | Apache-2.0 | [repository](https://github.com/microsoft/playwright) | desktop end-to-end test |
-| `@biomejs/biome` | 2.6.6 | MIT OR Apache-2.0 | [repository](https://github.com/biomejs/biome) | lint and format |
-| `wrangler` | 4.160.0 | MIT OR Apache-2.0 | [repository](https://github.com/cloudflare/workers-sdk) | website deploy |
+| `@playwright/test` | 1.65.1 | Apache-2.0 | [repository](https://github.com/microsoft/playwright) | desktop end-to-end test |
+| `@biomejs/biome` | 2.6.8 | MIT OR Apache-2.0 | [repository](https://github.com/biomejs/biome) | lint and format |
+| `wrangler` | 4.164.0 | MIT OR Apache-2.0 | [repository](https://github.com/cloudflare/workers-sdk) | website deploy |
 
 ### npm review limits
 
