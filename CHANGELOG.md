@@ -6,6 +6,12 @@ All notable changes to `pude` are recorded here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- Updated the locked `url` dependency to 2.5.9 for
+  [RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html) and `cookie`
+  to 0.18.3 for [RUSTSEC-2026-0594](https://rustsec.org/advisories/RUSTSEC-2026-0594.html).
+
 ### Changed
 
 - CI: installing the browsers' system packages allows 7 minutes per attempt, and a retry
