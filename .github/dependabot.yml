@@ -8,6 +8,11 @@ updates:
     cooldown:
       default-days: 7
     labels: [dependencies]
+    ignore:
+      # solid-js 2 is a breaking rewrite that vite-plugin-solid does not support yet;
+      # it is migrated as its own change rather than through a Dependabot bump.
+      - dependency-name: solid-js
+        update-types: ["version-update:semver-major"]
     groups:
       tauri:
         patterns: ["@tauri-apps/*"]

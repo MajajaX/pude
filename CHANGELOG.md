@@ -14,6 +14,8 @@ All notable changes to `pude` are recorded here. The format follows
 
 ### Changed
 
+- CI: Dependabot no longer opens major `solid-js` updates; moving to solid-js 2 needs
+  a planned migration because `vite-plugin-solid` does not support it yet.
 - CI: installing the browsers' system packages allows 7 minutes per attempt, and a retry
   waits for an earlier attempt's package install to finish instead of failing at once.
 - Website: `npm run web:build:deploy` asks GitHub whether the version is published and
