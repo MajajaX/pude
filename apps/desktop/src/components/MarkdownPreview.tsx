@@ -11,11 +11,14 @@ type InlineToken = {
   href?: string;
 };
 
+type ListBlock = { kind: "list"; ordered: boolean; start: number; items: ListItem[] };
+type ListItem = { text: string; tokens: InlineToken[]; sublists: ListBlock[] };
+
 type MarkdownBlock =
   | { kind: "heading"; level: number; text: string; tokens: InlineToken[] }
   | { kind: "paragraph"; text: string; tokens: InlineToken[] }
   | { kind: "quote"; text: string; tokens: InlineToken[] }
-  | { kind: "list"; ordered: boolean; items: string[]; itemTokens: InlineToken[][] }
+  | ListBlock
   | {
       kind: "table";
       headers: string[];
@@ -89,8 +92,6 @@ export function MarkdownPreview(props: {
   createEffect(() => {
     const documentKey = props.documentKey;
     const revision = props.revision;
-    const length = props.length;
-    const readRange = props.readRange;
     const currentGeneration = ++generation;
     const now = Date.now();
     updateStartedAt ??= now;
@@ -100,7 +101,9 @@ export function MarkdownPreview(props: {
     );
     const timer = setTimeout(() => {
       if (currentGeneration !== generation) return;
-      const next = parseMarkdownPreviewRange(length, readRange);
+      // Read the text when parsing, not when scheduling: an external reload can
+      // reach this effect before the editor has swapped in the new document.
+      const next = parseMarkdownPreviewRange(props.length, props.readRange);
       if (currentGeneration !== generation || props.documentKey !== documentKey || props.revision !== revision) return;
       const previous = parsed();
       setParsed({
@@ -242,29 +245,21 @@ function MarkdownBlockView(props: { block: MarkdownBlock; headingId?: string }):
         </table>
       </div>
     );
-  if (block.ordered)
-    return (
-      <ol>
-        <For each={block.items}>
-          {(_, index) => (
-            <li>
-              <InlineContent tokens={block.itemTokens[index()]} />
-            </li>
-          )}
-        </For>
-      </ol>
-    );
-  return (
-    <ul>
-      <For each={block.items}>
-        {(_, index) => (
-          <li>
-            <InlineContent tokens={block.itemTokens[index()]} />
-          </li>
-        )}
-      </For>
-    </ul>
+  return <ListView list={block} />;
+}
+
+function ListView(props: { list: ListBlock }): JSX.Element {
+  const items = () => (
+    <For each={props.list.items}>
+      {(item) => (
+        <li>
+          <InlineContent tokens={item.tokens} />
+          <For each={item.sublists}>{(sublist) => <ListView list={sublist} />}</For>
+        </li>
+      )}
+    </For>
   );
+  return props.list.ordered ? <ol start={props.list.start}>{items()}</ol> : <ul>{items()}</ul>;
 }
 
 function Heading(props: { level: number; tokens: InlineToken[]; id?: string }): JSX.Element {
@@ -347,10 +342,11 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
   let truncated = inputTruncated || lineTruncated;
   let stopped = false;
   let paragraph: string[] = [];
-  let listItems: string[] = [];
-  let listItemTokens: InlineToken[][] = [];
-  let listOrdered = false;
-  let listDomNodes = 1 + BLOCK_LOOP_NODE_RESERVE;
+  // The open list, outermost first. Each entry is one nesting level and its indent.
+  let listStack: { indent: number; list: ListBlock }[] = [];
+  let listItemCount = 0;
+  let listTokenCount = 0;
+  let listDomNodes = 0;
   let codeLines: string[] | undefined;
   let codeLanguage = "";
 
@@ -396,14 +392,15 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
     return pushInlineBlock({ kind: "paragraph", text, tokens }, tokens, 1 + inlineCost(tokens));
   };
   const flushList = (): boolean => {
-    if (!listItems.length) return true;
-    const block = { kind: "list" as const, ordered: listOrdered, items: listItems, itemTokens: listItemTokens };
+    const root = listStack[0]?.list;
+    if (!root) return true;
     const domNodes = listDomNodes;
-    const tokenCount = listItemTokens.reduce((total, tokens) => total + tokens.length, 0);
-    listItems = [];
-    listItemTokens = [];
-    listDomNodes = 1 + BLOCK_LOOP_NODE_RESERVE;
-    if (pushBlock(block, domNodes)) return true;
+    const tokenCount = listTokenCount;
+    listStack = [];
+    listItemCount = 0;
+    listTokenCount = 0;
+    listDomNodes = 0;
+    if (pushBlock(root, domNodes)) return true;
     budget.inlineTokens -= tokenCount;
     return false;
   };
@@ -477,20 +474,22 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
       continue;
     }
 
-    const unordered = line.match(/^\s*[-+*]\s+(.+)$/);
-    const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
-    if (unordered || ordered) {
+    const listItem = line.match(/^(\s*)(?:[-+*]|(\d{1,9})[.)])\s+(.+)$/);
+    if (listItem) {
       if (!flushParagraph()) break;
-      const nextOrdered = Boolean(ordered);
-      if (listItems.length && listOrdered !== nextOrdered && !flushList()) break;
-      listOrdered = nextOrdered;
-      if (listItems.length >= MARKDOWN_PREVIEW_BUDGETS.maxListItems) {
+      const indent = listItem[1].replace(/\t/g, "    ").length;
+      const ordered = listItem[2] !== undefined;
+      while (listStack.length > 1 && indent < listStack[listStack.length - 1].indent) listStack.pop();
+      const nested = listStack.length > 0 && indent > listStack[listStack.length - 1].indent;
+      const switchesRootKind = listStack.length === 1 && !nested && listStack[0].list.ordered !== ordered;
+      if (switchesRootKind && !flushList()) break;
+      if (listItemCount >= MARKDOWN_PREVIEW_BUDGETS.maxListItems) {
         truncated = true;
         if (!flushList()) break;
         stopped = true;
         break;
       }
-      const text = (unordered ?? ordered)?.[1] ?? "";
+      const text = listItem[3];
       const tokens = parseInline(text);
       if (!tokens) {
         truncated = true;
@@ -498,7 +497,9 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
         stopped = true;
         break;
       }
-      const itemCost = 2 + inlineCost(tokens);
+      const level = listStack[listStack.length - 1];
+      const opensList = !level || nested || level.list.ordered !== ordered;
+      const itemCost = 2 + inlineCost(tokens) + (opensList ? 1 + BLOCK_LOOP_NODE_RESERVE : 0);
       if (budget.domNodes + listDomNodes + itemCost > MARKDOWN_PREVIEW_BUDGETS.maxDomNodes) {
         budget.inlineTokens -= tokens.length;
         truncated = true;
@@ -506,8 +507,23 @@ function parseMarkdownRange(boundedContent: string, inputTruncated: boolean): Ma
         stopped = true;
         break;
       }
-      listItems.push(text);
-      listItemTokens.push(tokens);
+      if (opensList) {
+        const list: ListBlock = { kind: "list", ordered, start: Number(listItem[2] ?? 1), items: [] };
+        if (!level) {
+          listStack = [{ indent, list }];
+        } else if (nested) {
+          level.list.items[level.list.items.length - 1].sublists.push(list);
+          listStack.push({ indent, list });
+        } else {
+          // A nested list that switches between bullets and numbers starts a sibling list.
+          const parent = listStack[listStack.length - 2].list;
+          parent.items[parent.items.length - 1].sublists.push(list);
+          listStack[listStack.length - 1] = { indent, list };
+        }
+      }
+      listStack[listStack.length - 1].list.items.push({ text, tokens, sublists: [] });
+      listItemCount += 1;
+      listTokenCount += tokens.length;
       listDomNodes += itemCost;
       continue;
     }
@@ -804,8 +820,7 @@ function sameBlock(left: MarkdownBlock, right: MarkdownBlock): boolean {
   if (left.kind === "rule" && right.kind === "rule") return true;
   if (left.kind === "code" && right.kind === "code")
     return left.language === right.language && left.text === right.text;
-  if (left.kind === "list" && right.kind === "list")
-    return left.ordered === right.ordered && sameStrings(left.items, right.items);
+  if (left.kind === "list" && right.kind === "list") return sameList(left, right);
   if (left.kind === "table" && right.kind === "table") {
     return (
       sameStrings(left.headers, right.headers) &&
@@ -815,6 +830,22 @@ function sameBlock(left: MarkdownBlock, right: MarkdownBlock): boolean {
     );
   }
   return false;
+}
+
+function sameList(left: ListBlock, right: ListBlock): boolean {
+  return (
+    left.ordered === right.ordered &&
+    left.start === right.start &&
+    left.items.length === right.items.length &&
+    left.items.every((item, index) => {
+      const other = right.items[index];
+      return (
+        item.text === other.text &&
+        item.sublists.length === other.sublists.length &&
+        item.sublists.every((sublist, sublistIndex) => sameList(sublist, other.sublists[sublistIndex]))
+      );
+    })
+  );
 }
 
 function sameStrings(left: string[], right: string[]): boolean {
