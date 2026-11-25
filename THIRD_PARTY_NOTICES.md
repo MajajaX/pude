@@ -94,7 +94,7 @@ The license identifiers below come from the published `Cargo.toml` metadata of t
 | `tauri` | 2.12.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri/2.12.5) · [repository](https://github.com/tauri-apps/tauri) | runtime |
 | `tauri-plugin-single-instance` | 2.5.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-single-instance/2.5.5) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime (ST-07 single instance) |
 | `tauri-plugin-updater` | 2.14.1 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-plugin-updater/2.14.1) · [repository](https://github.com/tauri-apps/plugins-workspace) | runtime |
-| `tauri-build` | 2.7.4 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.4) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
+| `tauri-build` | 2.7.5 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/tauri-build/2.7.5) · [repository](https://github.com/tauri-apps/tauri) | build dependency |
 | `cap-std` | 4.0.3 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/cap-std/4.0.3) · [repository](https://github.com/bytecodealliance/cap-std) | runtime |
 | `libc` | 0.2.191 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/libc/0.2.191) · [repository](https://github.com/rust-lang/libc) | runtime |
 | `memchr` | 2.8.3 | Unlicense OR MIT | [crates.io](https://crates.io/crates/memchr/2.8.3) · [repository](https://github.com/BurntSushi/memchr) | runtime |
@@ -106,7 +106,7 @@ The license identifiers below come from the published `Cargo.toml` metadata of t
 | `serde` | 1.0.229 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde/1.0.229) · [repository](https://github.com/serde-rs/serde) | runtime |
 | `serde_json` | 1.0.154 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/serde_json/1.0.154) · [repository](https://github.com/serde-rs/json) | runtime |
 | `tokio` | 1.54.1 | MIT | [crates.io](https://crates.io/crates/tokio/1.54.1) · [repository](https://github.com/tokio-rs/tokio) | runtime |
-| `uuid` | 1.29.2 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.29.2) · [repository](https://github.com/uuid-rs/uuid) | runtime |
+| `uuid` | 1.29.3 | Apache-2.0 OR MIT | [crates.io](https://crates.io/crates/uuid/1.29.3) · [repository](https://github.com/uuid-rs/uuid) | runtime |
 | `windows` | 0.62.2 | MIT OR Apache-2.0 | [crates.io](https://crates.io/crates/windows/0.62.2) · [repository](https://github.com/microsoft/windows-rs) | Windows runtime (taskbar Jump List) |
 
 ### Cargo review limits and the 2026-09-27 snapshot
