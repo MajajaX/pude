@@ -2816,6 +2816,9 @@ mod terminal_lifecycle_tests {
     use std::thread;
     use std::time::{Duration, Instant};
 
+    // A cold PowerShell start on a hosted Windows runner can take longer than 10 seconds.
+    const POWERSHELL_START_TIMEOUT: Duration = Duration::from_secs(30);
+
     fn powershell(
         args: &[&str],
         on_exit: impl FnOnce(&TerminalSession) + Send + 'static,
@@ -2928,7 +2931,7 @@ mod terminal_lifecycle_tests {
         let (session, reader_done, prompt_seen) =
             powershell(&["-Command", "Read-Host -Prompt 'PUDE_INPUT_WAIT'"], |_| {});
         prompt_seen
-            .recv_timeout(Duration::from_secs(10))
+            .recv_timeout(POWERSHELL_START_TIMEOUT)
             .expect("PowerShell should be waiting for terminal input");
         assert!(
             reader_done.try_recv().is_err(),
@@ -2954,7 +2957,7 @@ mod terminal_lifecycle_tests {
             let _ = exit_sender.send(());
         });
         exit_receiver
-            .recv_timeout(Duration::from_secs(10))
+            .recv_timeout(POWERSHELL_START_TIMEOUT)
             .expect("the process monitor should observe the natural shell exit");
 
         let status = stop_terminal_session(&session).expect("natural exit should clean up");
@@ -2973,7 +2976,7 @@ mod terminal_lifecycle_tests {
         });
 
         let status = cleanup_receiver
-            .recv_timeout(Duration::from_secs(10))
+            .recv_timeout(POWERSHELL_START_TIMEOUT)
             .expect("monitor cleanup should return")
             .expect("monitor cleanup should succeed");
         assert!(status.is_some());
