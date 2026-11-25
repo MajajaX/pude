@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openDemoProject } from "./open-demo-project";
 
 test("an open Markdown preview shows text another tool appended to the file", async ({ page }) => {
+  test.skip(Boolean(process.env.CI), "Imports a Vite development module to change a demo file outside pude.");
   await page.goto("/");
   await openDemoProject(page);
   await page.getByRole("treeitem", { name: "README.md", exact: true }).click();
