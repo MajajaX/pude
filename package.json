@@ -49,8 +49,8 @@
     "check": "npm run lint && npm run release:version:check && node scripts/verify-notice-versions.mjs && npm test && npm run desktop:build && npm run check:bundle --workspace @pude/desktop && npm run typecheck --workspace @pude/web && npm run web:build"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.6",
-    "@playwright/test": "1.65.0",
-    "wrangler": "4.160.0"
+    "@biomejs/biome": "2.6.8",
+    "@playwright/test": "1.65.1",
+    "wrangler": "4.164.0"
   }
 }
